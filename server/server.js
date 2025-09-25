@@ -51,16 +51,40 @@ const limiter = rateLimit({
 app.use(limiter)
 
 // CORS configuration
+// Allow listed dev origins; can be extended via CLIENT_URL or ADDITIONAL_CLIENT_ORIGINS env vars
+const baseAllowedOrigins = [
+  process.env.CLIENT_URL || 'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175'
+]
+
+if (process.env.ADDITIONAL_CLIENT_ORIGINS) {
+  baseAllowedOrigins.push(
+    ...process.env.ADDITIONAL_CLIENT_ORIGINS
+      .split(',')
+      .map(o => o.trim())
+      .filter(Boolean)
+  )
+}
+
+const allowedOrigins = Array.from(new Set(baseAllowedOrigins))
+
 const corsOptions = {
-  origin: [
-    process.env.CLIENT_URL || 'http://localhost:5173',
-    'http://localhost:5174'
-  ],
+  origin(origin, callback) {
+    // Allow non-browser (no origin) or matching allowed origins
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true)
+    }
+    console.warn(`CORS blocked origin: ${origin}`)
+    callback(new Error('Not allowed by CORS'))
+  },
   credentials: true,
   optionsSuccessStatus: 200
 }
 
 app.use(cors(corsOptions))
+// Helpful at startup to verify CORS config
+console.log('CORS allowed origins:', allowedOrigins)
 
 // Compression middleware
 app.use(compression())

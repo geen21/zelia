@@ -1,0 +1,20 @@
+/* Global overrides used by the Vite client build (align with index palette; remove deprecated orange) */
+:root{
+  --orange-color: var(--accent-color);
+  --orange-bg: var(--accent-bg);
+}
+
+.aximo-default-btn{display:inline-flex;align-items:center;justify-content:center;text-align:center}
+.aximo-default-btn .aximo-label-up{position:static;top:auto}
+.aximo-default-btn:hover .aximo-label-up{top:auto}
+.aximo-default-btn .aximo-label-up + .aximo-label-up{display:none!important}
+
+/* Pink background for outline buttons */
+.aximo-default-btn.outline-btn { background: #f68fff; }
+.aximo-default-btn.aximo-header-btn.outline-btn { background: #f68fff; }
+.aximo-default-btn.aximo-default-btn-outline { background: #f68fff; }
+
+#aximo-subscription-btn .aximo-label-up + .aximo-label-up,
+#aximo-subscription-btn2 .aximo-label-up + .aximo-label-up,
+button#aximo-submit-btn2 .aximo-label-up + .aximo-label-up,
+button#aximo-hero-subscription-btn .aximo-label-up + .aximo-label-up{display:none!important}

@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { fetchProgression } from '../lib/progression'
 
 export default function Layout() {
 	const nav = useNavigate()
@@ -7,6 +8,7 @@ export default function Layout() {
 	const [sidebarOpen, setSidebarOpen] = useState(false)
 	const [dropdownOpen, setDropdownOpen] = useState(false)
 	const dropdownRef = useRef(null)
+  const [level, setLevel] = useState(1)
 
 	useEffect(() => {
 		function handleClickOutside(event) {
@@ -16,6 +18,22 @@ export default function Layout() {
 		}
 		document.addEventListener('mousedown', handleClickOutside)
 		return () => document.removeEventListener('mousedown', handleClickOutside)
+	}, [])
+
+	// Load user's progression level ("niveau")
+	useEffect(() => {
+		let mounted = true
+		;(async () => {
+			try {
+				const prog = await fetchProgression()
+				if (mounted && prog && Number.isFinite(Number(prog.level))) {
+					setLevel(Number(prog.level) || 1)
+				}
+			} catch {
+				// Default level stays at 1
+			}
+		})()
+		return () => { mounted = false }
 	}, [])
 
 	const active = (path) => {
@@ -45,6 +63,17 @@ export default function Layout() {
 		nav('/')
 	}
 
+	// Unlock thresholds by section
+	const thresholds = {
+		activites: 1,
+		formations: 6,
+		emplois: 9,
+		lettre: 12,
+		chat: 15,
+	}
+
+	const isUnlocked = (required) => Number(level) >= Number(required)
+
 	return (
 		<div className="min-h-screen bg-white text-text-primary">
 			{/* Sidebar */}
@@ -55,11 +84,60 @@ export default function Layout() {
 					</Link>
 				</div>
 				<nav className="py-4">
-					<SidebarLink to="/app" icon="ph-activity" active={active('/app')} onClick={() => setSidebarOpen(false)}>Activités</SidebarLink>
-					<SidebarLink to="/app/formations" icon="ph-graduation-cap" active={active('/app/formations')} onClick={() => setSidebarOpen(false)}>Formations</SidebarLink>
-					<SidebarLink to="/app/emplois" icon="ph-briefcase" active={active('/app/emplois')} onClick={() => setSidebarOpen(false)}>Emplois</SidebarLink>
-					<SidebarLink to="/app/lettre" icon="ph-file-text" active={active('/app/lettre')} onClick={() => setSidebarOpen(false)}>Lettre de motivation</SidebarLink>
-					<SidebarLink to="/app/chat" icon="ph-chats" active={active('/app/chat')} onClick={() => setSidebarOpen(false)}>Chat</SidebarLink>
+					{/* Activités is always accessible */}
+					<SidebarLink
+						to="/app"
+						icon="ph-activity"
+						active={active('/app')}
+						onClick={() => setSidebarOpen(false)}
+						locked={false}
+					>
+						Activités
+					</SidebarLink>
+					{/* Formations - unlock at level 6 */}
+								<SidebarLink
+						to="/app/formations"
+						icon="ph-graduation-cap"
+						active={active('/app/formations')}
+						onClick={() => setSidebarOpen(false)}
+						locked={!isUnlocked(thresholds.formations)}
+									lockTitle={`Niveau ${thresholds.formations}`}
+					>
+						Formations
+					</SidebarLink>
+					{/* Emplois - unlock at level 9 */}
+								<SidebarLink
+						to="/app/emplois"
+						icon="ph-briefcase"
+						active={active('/app/emplois')}
+						onClick={() => setSidebarOpen(false)}
+						locked={!isUnlocked(thresholds.emplois)}
+									lockTitle={`Niveau ${thresholds.emplois}`}
+					>
+						Emplois
+					</SidebarLink>
+					{/* Lettre de motivation - unlock at level 12 */}
+								<SidebarLink
+						to="/app/lettre"
+						icon="ph-file-text"
+						active={active('/app/lettre')}
+						onClick={() => setSidebarOpen(false)}
+						locked={!isUnlocked(thresholds.lettre)}
+									lockTitle={`Niveau ${thresholds.lettre}`}
+					>
+						Lettre de motivation
+					</SidebarLink>
+					{/* Chat - unlock at level 15 */}
+								<SidebarLink
+						to="/app/chat"
+						icon="ph-chats"
+						active={active('/app/chat')}
+						onClick={() => setSidebarOpen(false)}
+						locked={!isUnlocked(thresholds.chat)}
+									lockTitle={`Niveau ${thresholds.chat}`}
+					>
+						Chat
+					</SidebarLink>
 				</nav>
 			</aside>
 
@@ -118,12 +196,36 @@ export default function Layout() {
 	)
 }
 
-function SidebarLink({ to, icon, active, children, onClick }){
+function SidebarLink({ to, icon, active, children, onClick, locked = false, lockTitle = '' }){
+	const handleClick = (e) => {
+		if (locked) {
+			e.preventDefault()
+			e.stopPropagation()
+		}
+		if (onClick) onClick(e)
+	}
+
 	return (
-		<Link to={to} onClick={onClick} className={`group flex items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-gray-50 relative ${active ? 'bg-gray-50' : ''}`}>
+		<Link
+			to={to}
+			onClick={handleClick}
+			aria-disabled={locked}
+			title={locked ? lockTitle : undefined}
+			className={`group flex items-center gap-3 px-4 py-2.5 text-sm text-text-primary relative ${active ? 'bg-gray-50' : 'hover:bg-gray-50'} ${locked ? 'pointer-events-auto select-none' : ''}`}
+		>
 			<span className={`absolute left-0 top-0 h-full w-1 ${active ? 'bg-black' : 'bg-transparent'} rounded-r`}></span>
-			<i className={`ph ${icon} text-lg ${active ? 'text-black' : 'text-text-secondary'} group-hover:text-black`}></i>
-			<span className={`${active ? 'font-medium' : ''}`}>{children}</span>
+			<div className={`flex items-center gap-3 ${locked ? 'blur-[1px] opacity-60' : ''}`}>
+				<i className={`ph ${icon} text-lg ${active ? 'text-black' : 'text-text-secondary'} group-hover:text-black`}></i>
+				<span className={`${active ? 'font-medium' : ''}`}>{children}</span>
+			</div>
+					{locked && (
+						<div className="absolute inset-0 flex items-center justify-end pr-3">
+							<span className="inline-flex items-center gap-1 text-xs text-text-secondary bg-gray-100 border border-line rounded-full px-2 py-0.5">
+								<span className="inline-block h-2 w-2 rounded-full bg-[#f68fff]"></span>
+								{lockTitle}
+							</span>
+						</div>
+					)}
 		</Link>
 	)
 }

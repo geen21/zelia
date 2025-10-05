@@ -7,24 +7,71 @@ const router = express.Router()
 // Get all formations/courses
 router.get('/', optionalAuth, async (req, res) => {
   try {
-    const { category, level, search, limit = 50, offset = 0 } = req.query
+    const {
+      q,
+      region,
+      department,
+      type,
+      limit = 25,
+      offset = 0
+    } = req.query
+
+    const parsedLimit = Math.min(Number.parseInt(limit, 10) || 25, 100)
+    const parsedOffset = Math.max(Number.parseInt(offset, 10) || 0, 0)
 
     let query = supabase
-      .from('formations')
-      .select('*')
-      .range(offset, offset + limit - 1)
-      .order('created_at', { ascending: false })
+      .from('formation_france')
+      .select(
+        `id,
+         nm,
+         nmc,
+         etab_nom,
+         etab_uai,
+         region,
+         departement,
+         commune,
+         tc,
+         tf,
+         fiche,
+         etab_url,
+         annee,
+         dataviz,
+         gti,
+         gta`,
+        { count: 'exact' }
+      )
+      .range(parsedOffset, parsedOffset + parsedLimit - 1)
+      .order('annee', { ascending: false })
+      .order('id', { ascending: true })
 
-    if (category) {
-      query = query.eq('category', category)
+    if (region) {
+      query = query.ilike('region', `%${region}%`)
     }
 
-    if (level) {
-      query = query.eq('level', level)
+    if (department) {
+      query = query.ilike('departement', `%${department}%`)
     }
 
-    if (search) {
-      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,provider.ilike.%${search}%`)
+    if (type) {
+      query = query.ilike('tc', `%${type}%`)
+    }
+
+    if (q) {
+      const term = q
+        .trim()
+        .replace(/'/g, "''")
+        .replace(/,/g, '\\,')
+
+      const orFilters = [
+        `nmc.ilike.%${term}%`,
+        `etab_nom.ilike.%${term}%`,
+        `commune.ilike.%${term}%`,
+        `departement.ilike.%${term}%`,
+        `region.ilike.%${term}%`,
+        `tc.ilike.%${term}%`
+      ]
+
+      query = query.or(orFilters.join(','))
     }
 
     const { data, error, count } = await query
@@ -34,10 +81,10 @@ router.get('/', optionalAuth, async (req, res) => {
     }
 
     res.json({
-      formations: data,
-      total: count,
-      limit: parseInt(limit),
-      offset: parseInt(offset)
+      formations: data ?? [],
+      total: count ?? 0,
+      limit: parsedLimit,
+      offset: parsedOffset
     })
   } catch (error) {
     console.error('Formations fetch error:', error)
@@ -51,8 +98,25 @@ router.get('/:id', optionalAuth, async (req, res) => {
     const { id } = req.params
 
     const { data, error } = await supabase
-      .from('formations')
-      .select('*')
+      .from('formation_france')
+      .select(
+        `id,
+         nm,
+         nmc,
+         etab_nom,
+         etab_uai,
+         region,
+         departement,
+         commune,
+         tc,
+         tf,
+         fiche,
+         etab_url,
+         annee,
+         dataviz,
+         gti,
+         gta`
+      )
       .eq('id', id)
       .single()
 

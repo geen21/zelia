@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import apiClient, { usersAPI, chatAPI, progressionAPI } from '../../lib/api'
+import apiClient, { usersAPI, chatAPI } from '../../lib/api'
+import { levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 
 // Helper: build avatar URL from profile preferences, preferring explicit avatar_url
@@ -347,14 +348,10 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 		// Auto-hide success after a short celebration, optional
 		setTimeout(() => { /* keep overlay until user navigates */ }, 2000)
 		// Update progression: grant XP and move to level 2 if needed
+		const baseXpReward = 100
 		;(async () => {
 			try {
-				const progRes = await progressionAPI.get().catch(() => ({ data: { level: 1, xp: 0, quests: [], perks: [] } }))
-				const current = progRes?.data || { level: 1, xp: 0, quests: [], perks: [] }
-				const baseXpReward = 100
-				const newXp = (current.xp || 0) + baseXpReward
-				const newLevel = Math.max(2, current.level || 1) // ensure reaching level 2 at least
-				await progressionAPI.update({ level: newLevel, xp: newXp, quests: current.quests || [], perks: current.perks || [] })
+				await levelUp({ minLevel: 2, xpReward: baseXpReward })
 			} catch (e) {
 				console.warn('Progression update failed (non-blocking):', e)
 			}

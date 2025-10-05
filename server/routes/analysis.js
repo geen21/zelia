@@ -1,6 +1,7 @@
 import express from 'express'
 import dotenv from 'dotenv'
 import { supabase, supabaseAdmin } from '../config/supabase.js'
+import { cloudinary, isCloudinaryConfigured } from '../config/cloudinary.js'
 import { authenticateToken } from '../middleware/auth.js'
 
 // Ensure environment variables are loaded (redundant-safe)
@@ -165,7 +166,7 @@ router.post('/generate-analysis', async (req, res) => {
         study_recommendations: sections.studyRecommendations,
         updated_at: new Date().toISOString()
       }, {
-        onConflict: 'user_id',
+        onConflict: 'user_id,questionnaire_type',
         ignoreDuplicates: false
       })
 
@@ -173,6 +174,13 @@ router.post('/generate-analysis', async (req, res) => {
       console.error('Error storing results:', resultError)
       return res.status(500).json({ error: 'Error storing analysis results' })
     }
+
+    const { data: shareRow } = await db
+      .from('user_results')
+      .select('share_image_url')
+      .eq('user_id', userId)
+      .eq('questionnaire_type', 'inscription')
+      .maybeSingle()
 
   res.json({
       message: 'Analysis generated successfully',
@@ -183,7 +191,8 @@ router.post('/generate-analysis', async (req, res) => {
         jobRecommendations: sections.jobRecommendations,
     studyRecommendations: sections.studyRecommendations,
     avatarUrlBase: profile?.avatar_json?.url || profile?.avatar || null,
-    avatarConfig: profile?.avatar_json || null
+    avatarConfig: profile?.avatar_json || null,
+    shareImageUrl: shareRow?.share_image_url || null
       }
     })
 
@@ -319,7 +328,7 @@ router.post('/generate-analysis-by-type', async (req, res) => {
 
     const sections = parseGeminiResponse(generatedText)
 
-    // Upsert into user_results (note: user_id unique; will overwrite previous analysis)
+    // Upsert into user_results per questionnaire_type (composite unique)
     const { error: resultError } = await db
       .from('user_results')
       .upsert({
@@ -331,12 +340,19 @@ router.post('/generate-analysis-by-type', async (req, res) => {
         // Per requirement, do not store study recommendations for MBTI
         study_recommendations: null,
         updated_at: new Date().toISOString()
-      }, { onConflict: 'user_id', ignoreDuplicates: false })
+      }, { onConflict: 'user_id,questionnaire_type', ignoreDuplicates: false })
 
     if (resultError) {
       console.error('Error storing results:', resultError)
       return res.status(500).json({ error: 'Error storing analysis results' })
     }
+
+    const { data: shareRow } = await db
+      .from('user_results')
+      .select('share_image_url')
+      .eq('user_id', userId)
+      .eq('questionnaire_type', qType)
+      .maybeSingle()
 
     res.json({
       message: 'Analysis generated successfully',
@@ -348,7 +364,8 @@ router.post('/generate-analysis-by-type', async (req, res) => {
         // No study recommendations for MBTI output
         studyRecommendations: [],
         avatarUrlBase: profile?.avatar_json?.url || profile?.avatar || null,
-        avatarConfig: profile?.avatar_json || null
+        avatarConfig: profile?.avatar_json || null,
+        shareImageUrl: shareRow?.share_image_url || null
       }
     })
   } catch (error) {
@@ -363,20 +380,21 @@ router.get('/results/:userId', async (req, res) => {
     const { userId } = req.params
 
   const db = supabaseAdmin || supabase
-  const { data: results, error } = await db
-      .from('user_results')
-      .select('*')
-      .eq('user_id', userId)
-      .single()
+  const { data: rows, error } = await db
+    .from('user_results')
+    .select('*')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
 
     if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
       console.error('Error fetching results:', error)
       return res.status(500).json({ error: 'Error fetching results' })
     }
 
-    if (!results) {
+    if (!rows || rows.length === 0) {
       return res.status(404).json({ error: 'No analysis results found' })
     }
+    const results = rows[0]
 
     // Fetch avatar data
     const { data: profile, error: profileErr } = await db
@@ -395,6 +413,7 @@ router.get('/results/:userId', async (req, res) => {
         skillsAssessment: results.skills_assessment,
         jobRecommendations: results.job_recommendations,
         studyRecommendations: results.study_recommendations,
+        shareImageUrl: results.share_image_url || null,
         avatarUrlBase: profile?.avatar_json?.url || profile?.avatar || null,
         avatarConfig: profile?.avatar_json || null,
         createdAt: results.created_at,
@@ -535,13 +554,17 @@ function parseStudyRecommendations(text) {
   return studies
 }
 
-export default router
-
-// New endpoint: get current user's analysis results (authenticated)
-// Mirrors GET /results/:userId but derives the ID from the auth token
-router.get('/my-results', authenticateToken, async (req, res) => {
+// Level 9: evaluate job fit using user_results context and Gemini
+router.post('/level9/evaluate-job', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id
+    const rawJob = req.body?.job
+
+    if (!rawJob || typeof rawJob !== 'string' || rawJob.trim().length < 3) {
+      return res.status(400).json({ error: 'Indique un métier valide (3 caractères minimum).' })
+    }
+
+    const jobTitle = rawJob.trim().slice(0, 120)
     const db = supabaseAdmin || supabase
 
     const { data: results, error } = await db
@@ -551,64 +574,291 @@ router.get('/my-results', authenticateToken, async (req, res) => {
       .single()
 
     if (error && error.code !== 'PGRST116') {
+      console.error('Level9 evaluate-job fetch error:', error)
+      return res.status(500).json({ error: 'Impossible de récupérer tes résultats.' })
+    }
+
+    if (!results) {
+      return res.status(404).json({ error: 'Complète d’abord ton analyse de profil pour que je puisse te répondre précisément.' })
+    }
+
+    const safeString = (value, maxLength = 1200) => {
+      if (!value) return ''
+      if (typeof value === 'string') return value.slice(0, maxLength)
+      try {
+        const text = JSON.stringify(value)
+        return text.slice(0, maxLength)
+      } catch {
+        return ''
+      }
+    }
+
+    const sections = []
+    const personality = safeString(results.personality_analysis, 1200)
+    if (personality) sections.push(`Analyse de personnalité: ${personality}`)
+
+    const skills = safeString(results.skills_assessment, 600)
+    if (skills) sections.push(`Compétences observées: ${skills}`)
+
+    const jobRecommendations = Array.isArray(results.job_recommendations)
+      ? results.job_recommendations
+      : safeString(results.job_recommendations, 600)
+
+    if (Array.isArray(jobRecommendations)) {
+      const formatted = jobRecommendations
+        .slice(0, 5)
+        .map((item) => {
+          if (!item) return null
+          if (typeof item === 'string') return item
+          if (typeof item === 'object' && item.title) {
+            const skillsText = Array.isArray(item.skills) && item.skills.length
+              ? ` (compétences: ${item.skills.slice(0, 3).join(', ')})`
+              : ''
+            return `${item.title}${skillsText}`
+          }
+          return null
+        })
+        .filter(Boolean)
+      if (formatted.length) {
+        sections.push(`Métiers qui te correspondent déjà: ${formatted.join('; ')}`)
+      }
+    } else if (typeof jobRecommendations === 'string' && jobRecommendations.trim()) {
+      sections.push(`Métiers qui te correspondent déjà: ${jobRecommendations}`)
+    }
+
+    if (!sections.length) {
+      const fallback = safeString(results.skills_data, 600)
+      if (fallback) sections.push(`Synthèse de profil: ${fallback}`)
+    }
+
+    if (!sections.length) {
+      return res.status(404).json({ error: "Je n'ai pas assez d'informations sur ton profil. Relance ton analyse avant de revenir ici." })
+    }
+
+    const context = sections.join('\n')
+    const prompt = `Tu es Zélia, conseillère d'orientation bienveillante mais lucide. Tu disposes du profil suivant:\n${context}\n\nAnalyse si la personne est adaptée pour le métier suivant: "${jobTitle}".\nRéponds STRICTEMENT au format: \"Oui — explication\" ou \"Non — explication\".\nL'explication doit faire au maximum 100 mots, directe et précise, sans proposer d'autres métiers.\nTu dois choisir entre Oui ou Non. Si les informations sont insuffisantes, choisis le verdict le plus probable et précise les conditions manquantes en restant sous 100 mots.`
+
+    const geminiApiKey = process.env.GEMINI_API_KEY
+    if (!geminiApiKey) {
+      return res.status(500).json({ error: 'GEMINI_API_KEY manquant' })
+    }
+
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`
+    const resp = await fetch(geminiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    })
+
+    if (!resp.ok) {
+      const txt = await resp.text()
+      console.error('Gemini level9 error:', txt)
+      return res.status(500).json({ error: 'Erreur IA' })
+    }
+
+    const data = await resp.json()
+    const reply = data?.candidates?.[0]?.content?.parts
+      ?.map((part) => part?.text || '')
+      .join('')
+      .trim()
+
+    if (!reply) {
+      return res.status(500).json({ error: 'Réponse IA vide' })
+    }
+
+    const verdictMatch = reply.match(/^\s*(oui|non)[\s\-–:]+(.+)/i)
+    const fallbackVerdict = /oui/i.test(reply) && !/non/i.test(reply) ? 'oui' : /non/i.test(reply) ? 'non' : null
+
+    const verdictValue = verdictMatch ? verdictMatch[1].toLowerCase() : fallbackVerdict
+    let explanation = verdictMatch ? verdictMatch[2].trim() : reply.replace(/^\s*(oui|non)[\s\-–:]+/i, '').trim()
+
+    if (!verdictValue) {
+      console.warn('Gemini level9 unstructured reply:', reply)
+      return res.status(500).json({ error: 'Réponse IA non comprise' })
+    }
+
+    const words = explanation.split(/\s+/).filter(Boolean)
+    if (words.length > 100) {
+      explanation = `${words.slice(0, 100).join(' ')}…`
+    }
+
+    res.json({
+      verdict: verdictValue === 'oui' ? 'Oui' : 'Non',
+      explanation
+    })
+  } catch (error) {
+    console.error('Level9 evaluate-job error:', error)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
+router.post('/share-image', authenticateToken, async (req, res) => {
+  try {
+    if (!isCloudinaryConfigured()) {
+      return res.status(500).json({ error: 'Cloudinary is not configured on the server.' })
+    }
+
+    const userId = req.user?.id
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+
+    const { image, questionnaireType = 'mbti', metadata = {} } = req.body || {}
+    if (!image || typeof image !== 'string') {
+      return res.status(400).json({ error: 'Image data URL is required.' })
+    }
+
+    const trimmed = image.trim()
+    const dataUrlPattern = /^data:image\/(png|jpeg|jpg|webp);base64,/i
+    let uploadPayload = trimmed
+
+    if (!dataUrlPattern.test(trimmed)) {
+      const base64Only = trimmed.replace(/^data:[^;]+;base64,/, '')
+      const base64Regex = /^[A-Za-z0-9+/=\r\n]+$/
+      if (!base64Regex.test(base64Only)) {
+        return res.status(400).json({ error: 'Invalid image payload. Expecting base64-encoded image.' })
+      }
+      uploadPayload = `data:image/png;base64,${base64Only}`
+    }
+
+    const qType = (questionnaireType || 'mbti').toLowerCase()
+    const folder = `zelia/${qType}`
+    const publicId = `${userId}-share`
+
+    const uploadResult = await cloudinary.uploader.upload(uploadPayload, {
+      folder,
+      public_id: publicId,
+      overwrite: true,
+      invalidate: true,
+      resource_type: 'image',
+      format: 'png',
+      context: Object.entries(metadata || {}).map(([key, value]) => `${key}=${value}`).join('|') || undefined
+    })
+
+    const imageUrl = uploadResult?.secure_url
+    if (!imageUrl) {
+      return res.status(500).json({ error: 'Failed to upload image to Cloudinary.' })
+    }
+
+    const db = supabaseAdmin || supabase
+
+    const { data: existingRow, error: fetchError } = await db
+      .from('user_results')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('questionnaire_type', qType)
+      .maybeSingle()
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('share-image fetch error:', fetchError)
+      return res.status(500).json({ error: 'Failed to prepare database update.' })
+    }
+
+    const nowIso = new Date().toISOString()
+
+    if (existingRow?.id) {
+      const { error: updateError } = await db
+        .from('user_results')
+        .update({ share_image_url: imageUrl, updated_at: nowIso })
+        .eq('id', existingRow.id)
+
+      if (updateError) {
+        console.error('share-image update error:', updateError)
+        return res.status(500).json({ error: 'Failed to update share image URL.' })
+      }
+    } else {
+      const { error: insertError } = await db
+        .from('user_results')
+        .insert({
+          user_id: userId,
+          questionnaire_type: qType,
+          share_image_url: imageUrl,
+          created_at: nowIso,
+          updated_at: nowIso
+        })
+
+      if (insertError) {
+        console.error('share-image insert error:', insertError)
+        return res.status(500).json({ error: 'Failed to store share image URL.' })
+      }
+    }
+
+    res.json({ url: imageUrl })
+  } catch (error) {
+    console.error('share-image upload error:', error)
+    res.status(500).json({ error: 'Internal server error while uploading share image.' })
+  }
+})
+
+export default router
+
+// New endpoint: get current user's analysis results (authenticated)
+// Mirrors GET /results/:userId but derives the ID from the auth token
+router.get('/my-results', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id
+    const db = supabaseAdmin || supabase
+
+    const { data: rows, error } = await db
+      .from('user_results')
+      .select('*')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+
+    if (error && error.code !== 'PGRST116') {
       console.error('Error fetching results:', error)
       return res.status(500).json({ error: 'Error fetching results' })
     }
 
-    if (!results) {
+    if (!rows || rows.length === 0) {
       return res.status(404).json({ error: 'No analysis results found' })
     }
+    // Split rows by type and map to UI-friendly structures
+    const findByType = (type) => rows.find(r => (r.questionnaire_type || '').toLowerCase() === type)
+    const mbti = findByType('mbti') || null
+    const inscription = findByType('inscription') || null
 
-  // Prepare fields with graceful fallback from simple skills_data
-    let personalityType = null
-    let personalityAnalysis = results.personality_analysis || null
-    let skillsAssessment = results.skills_assessment || null
-    let jobRecommendations = results.job_recommendations || null
-    let studyRecommendations = results.study_recommendations || null
-  let inscriptionResults = null
+    const mapRow = (row) => {
+      if (!row) return null
+      let personalityType = null
+      let personalityAnalysis = row.personality_analysis || null
+      let skillsAssessment = row.skills_assessment || null
+      let jobRecommendations = row.job_recommendations || null
+      let studyRecommendations = row.study_recommendations || null
 
-    // If detailed fields are missing but we have simple skills_data, map it
-    // If detailed fields are missing, we use skills_data as the primary results
-    if (!personalityAnalysis && !skillsAssessment && !jobRecommendations && !studyRecommendations && results.skills_data) {
-      const sd = results.skills_data
-      personalityType = sd.personality_type || null
-      const strengthsText = Array.isArray(sd.strengths) && sd.strengths.length > 0
-        ? `Forces clés: ${sd.strengths.join(', ')}`
-        : null
-      const recsText = Array.isArray(sd.recommendations) && sd.recommendations.length > 0
-        ? `Recommandations:\n- ${sd.recommendations.join('\n- ')}`
-        : null
-      personalityAnalysis = [strengthsText, recsText].filter(Boolean).join('\n\n') || null
-      skillsAssessment = Array.isArray(sd.strengths) && sd.strengths.length > 0
-        ? `Compétences mises en avant: ${sd.strengths.join(', ')}`
-        : null
-      jobRecommendations = Array.isArray(sd.career_matches)
-        ? sd.career_matches.map(m => ({ title: m.title, skills: [] }))
-        : []
-      studyRecommendations = []
-    }
-
-    // Additionally, if skills_data exists, expose it as separate inscriptionResults
-    if (results.skills_data) {
-      const sd = results.skills_data
-      const strengthsText = Array.isArray(sd.strengths) && sd.strengths.length > 0
-        ? `Forces clés: ${sd.strengths.join(', ')}`
-        : null
-      const recsText = Array.isArray(sd.recommendations) && sd.recommendations.length > 0
-        ? `Recommandations:\n- ${sd.recommendations.join('\n- ')}`
-        : null
-      inscriptionResults = {
-        personalityType: sd.personality_type || null,
-        personalityAnalysis: [strengthsText, recsText].filter(Boolean).join('\n\n') || null,
-        skillsAssessment: Array.isArray(sd.strengths) && sd.strengths.length > 0
+      if (!personalityAnalysis && !skillsAssessment && !jobRecommendations && !studyRecommendations && row.skills_data) {
+        const sd = row.skills_data
+        personalityType = sd.personality_type || null
+        const strengthsText = Array.isArray(sd.strengths) && sd.strengths.length > 0
+          ? `Forces clés: ${sd.strengths.join(', ')}`
+          : null
+        const recsText = Array.isArray(sd.recommendations) && sd.recommendations.length > 0
+          ? `Recommandations:\n- ${sd.recommendations.join('\n- ')}`
+          : null
+        personalityAnalysis = [strengthsText, recsText].filter(Boolean).join('\n\n') || null
+        skillsAssessment = Array.isArray(sd.strengths) && sd.strengths.length > 0
           ? `Compétences mises en avant: ${sd.strengths.join(', ')}`
-          : null,
-        jobRecommendations: Array.isArray(sd.career_matches)
+          : null
+        jobRecommendations = Array.isArray(sd.career_matches)
           ? sd.career_matches.map(m => ({ title: m.title, skills: [] }))
-          : [],
-        studyRecommendations: []
+          : []
+        studyRecommendations = []
+      }
+
+      return {
+        personalityType,
+        personalityAnalysis,
+        skillsAssessment,
+        jobRecommendations,
+        studyRecommendations,
+        shareImageUrl: row.share_image_url || null,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
       }
     }
+
+    const mbtiMapped = mapRow(mbti)
+    const inscriptionMapped = mapRow(inscription)
 
     // Fetch avatar data
     const { data: profile, error: profileErr } = await db
@@ -621,18 +871,20 @@ router.get('/my-results', authenticateToken, async (req, res) => {
       console.warn('Could not fetch profile for avatar:', profileErr)
     }
 
+    const primary = mbtiMapped || inscriptionMapped || {}
     res.json({
       results: {
-        personalityType,
-        personalityAnalysis,
-        skillsAssessment,
-        jobRecommendations,
-        studyRecommendations,
-        inscriptionResults,
+        personalityType: primary.personalityType || null,
+        personalityAnalysis: primary.personalityAnalysis || null,
+        skillsAssessment: primary.skillsAssessment || null,
+        jobRecommendations: primary.jobRecommendations || [],
+        studyRecommendations: primary.studyRecommendations || [],
+        shareImageUrl: primary.shareImageUrl || null,
+        inscriptionResults: inscriptionMapped || null,
         avatarUrlBase: profile?.avatar_json?.url || profile?.avatar || null,
         avatarConfig: profile?.avatar_json || null,
-        createdAt: results.created_at,
-        updatedAt: results.updated_at
+        createdAt: primary.createdAt,
+        updatedAt: primary.updatedAt
       }
     })
   } catch (error) {

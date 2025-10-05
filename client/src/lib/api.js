@@ -107,6 +107,18 @@ export const questionnairesAPI = {
   getAllUserResponses: (params = {}) => apiClient.get('/questionnaires/user/responses', { params }),
 }
 
+// Analysis API
+export const analysisAPI = {
+  getMyResults: () => apiClient.get('/analysis/my-results'),
+  evaluateJob: ({ job }) => apiClient.post('/analysis/level9/evaluate-job', { job }),
+  saveShareImage: ({ dataUrl, questionnaireType = 'mbti', metadata }) =>
+    apiClient.post('/analysis/share-image', {
+      image: dataUrl,
+      questionnaireType,
+      metadata
+    })
+}
+
 export default apiClient
 
 // Chat API
@@ -135,4 +147,14 @@ export const progressionAPI = {
     if (!userId) throw new Error('No user')
     return apiClient.post(`/progression/${userId}`, { level, xp, quests, perks })
   }
+}
+
+export const paymentsAPI = {
+  getConfig: () => apiClient.get('/payments/config'),
+  createCheckout: (payload = {}) => apiClient.post('/payments/checkout', payload),
+  verifySession: (sessionId) => apiClient.post('/payments/verify', { sessionId })
+}
+
+export const shareAPI = {
+  sendResults: (payload = {}) => apiClient.post('/share/results', payload)
 }

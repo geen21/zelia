@@ -75,7 +75,7 @@ router.post('/generate', authenticateToken, async (req, res) => {
         questionnaire_type: 'inscription',
         skills_data: analysis, // store analysis JSON into skills_data for now
         updated_at: new Date().toISOString()
-      })
+      }, { onConflict: 'user_id,questionnaire_type' })
 
     if (resultError) {
       console.error('Results storage error:', resultError)

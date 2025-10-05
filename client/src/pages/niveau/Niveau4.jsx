@@ -1,8 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import { useNavigate } from 'react-router-dom'
-import apiClient, { usersAPI, progressionAPI } from '../../lib/api'
+import apiClient, { analysisAPI, usersAPI } from '../../lib/api'
+import { buildAvatarFromProfile } from '../../lib/avatar'
+import { levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
+import { generateMbtiShareImage } from '../../lib/shareImage'
 
 // Simple typewriter
 function useTypewriter(message, durationMs) {
@@ -28,25 +31,6 @@ function useTypewriter(message, durationMs) {
   return { text, done, skip }
 }
 
-// Avatar helper (reuse minimal)
-function buildAvatarFromProfile(profile, seed = 'zelia') {
-  try {
-    if (profile?.avatar_url && typeof profile.avatar_url === 'string') return profile.avatar_url
-    if (profile?.avatar && typeof profile.avatar === 'string') return profile.avatar
-    if (profile?.avatar_json) {
-      let conf = profile.avatar_json
-      if (typeof conf === 'string') { try { conf = JSON.parse(conf) } catch {} }
-      if (conf && typeof conf === 'object') {
-        if (conf.url && typeof conf.url === 'string') {
-          try { const u = new URL(conf.url); if (!u.searchParams.has('seed')) u.searchParams.set('seed', String(seed)); if (!u.searchParams.has('size')) u.searchParams.set('size','300'); return u.toString() } catch {}
-        }
-        const params = new URLSearchParams(); params.set('seed', String(seed)); Object.entries(conf).forEach(([k,v])=>{ if (v!==undefined && v!==null && v!=='') params.set(k, String(v)) }); if (!params.has('size')) params.set('size','300'); return `https://api.dicebear.com/9.x/lorelei/svg?${params.toString()}`
-      }
-    }
-  } catch {}
-  const p = new URLSearchParams({ seed: String(seed), size: '300', radius: '15' }); return `https://api.dicebear.com/9.x/lorelei/svg?${p.toString()}`
-}
-
 export default function Niveau4() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
@@ -68,51 +52,14 @@ export default function Niveau4() {
   const [shareOpen, setShareOpen] = useState(false)
   const [shareImgUrl, setShareImgUrl] = useState('')
   const [sharing, setSharing] = useState(false)
+  const [shareUploading, setShareUploading] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [previewing, setPreviewing] = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
   // Results gating: first show actions, then confirmation step
   const [resultsStep, setResultsStep] = useState('actions') // 'actions' | 'confirm'
 
-  const ZELIA_COLORS = {
-    bg: '#f7f9fc',
-    accent1: '#c1ff72',
-    accent2: '#f68fff',
-    text: '#000000'
-  }
-  const ZELIA_LOGO_PATH = '/assets/images/logo-dark.png'
   const ZELIA_IG_HANDLE = '@zelia' // change to the official handle when known
-
-  // Fallback jobs by MBTI code (FR). Minimal curated list per type.
-  const MBTI_JOBS_FR = {
-    ISTJ: ['Comptable', 'Contrôleur qualité', 'Analyste financier', 'Gestionnaire logistique', 'Responsable conformité'],
-    ISFJ: ['Assistant social', 'Infirmier', 'Gestionnaire RH', 'Coordinateur pédagogique', 'Orthophoniste'],
-    INFJ: ['Psychologue', 'Coach', 'Rédacteur', 'UX Writer', 'Conseiller d’orientation'],
-    INTJ: ['Data Scientist', 'Architecte logiciel', 'Consultant stratégie', 'Chercheur', 'Chef de produit technique'],
-    ISTP: ['Technicien industriel', 'Développeur embarqué', 'Mécanicien de précision', 'Pilote de ligne', 'Secops Analyst'],
-    ISFP: ['Designer graphique', 'Photographe', 'Styliste', 'Illustrateur', 'Ergonome'],
-    INFP: ['Écrivain', 'Psychologue', 'UX Designer', 'Métiers de l’édition', 'Chargé de communication'],
-    INTP: ['Développeur', 'Chercheur IA', 'Analyste systèmes', 'Ingénieur R&D', 'Architecte données'],
-    ESTP: ['Commercial', 'Entrepreneur', 'Chef de chantier', 'Événementiel', 'Responsable opérations'],
-    ESFP: ['Animateur', 'Community Manager', 'Événementiel', 'Vente retail', 'Chargé de projets culturels'],
-    ENFP: ['Créatif publicitaire', 'Chef de projet innovation', 'Conseiller en insertion', 'Chargé de communication', 'Formateur'],
-    ENTP: ['Growth Hacker', 'Entrepreneur', 'Consultant innovation', 'Chef de produit', 'Stratège digital'],
-    ESTJ: ['Chef de projet', 'Manager logistique', 'Responsable qualité', 'Administrateur systèmes', 'Gestion de production'],
-    ESFJ: ['RH', 'Conseiller clientèle', 'Enseignant', 'Coordinateur événementiel', 'Chargé de mission associative'],
-    ENFJ: ['Coach', 'Formateur', 'Consultant RH', 'Responsable partenariats', 'Chef de projet communautaire'],
-    ENTJ: ['Directeur produit', 'Consultant stratégie', 'Sales Manager', 'Entrepreneur', 'Project Director']
-  }
-
-  function extractMbtiCode(personalityType) {
-    if (!personalityType) return null
-    const m = personalityType.match(/\(([IE][NS][FT][JP])\)/i)
-    return m ? m[1].toUpperCase() : null
-  }
-
-  function truncate(text, max = 34) {
-    if (!text || typeof text !== 'string') return ''
-    return text.length > max ? text.slice(0, max - 1) + '…' : text
-  }
 
   useEffect(() => {
     let mounted = true
@@ -157,6 +104,15 @@ export default function Niveau4() {
     return () => clearInterval(id)
   }, [phase, typedDone])
 
+  useEffect(() => {
+    if (phase !== 'results' || !analysis) return
+    if (analysis.shareImageUrl) {
+      setShareImgUrl(analysis.shareImageUrl)
+      return
+    }
+    ensureShareImage()
+  }, [analysis, ensureShareImage, phase])
+
   function nextIntro() {
     if (!typedDone) { skip(); return }
     if (introIdx + 1 < messages.length) {
@@ -189,7 +145,12 @@ export default function Niveau4() {
       await apiClient.post('/questionnaire/submit?type=mbti', payload)
       const resp = await apiClient.post('/analysis/generate-analysis-by-type', { userId, questionnaireType: 'mbti' })
       const data = resp?.data?.analysis
-      if (data) setAnalysis(data)
+      if (data) {
+        setAnalysis(data)
+        if (data.shareImageUrl) {
+          setShareImgUrl(data.shareImageUrl)
+        }
+      }
       setPhase('results')
     } catch (e) {
       console.error('MBTI submit/analyze error', e)
@@ -201,264 +162,14 @@ export default function Niveau4() {
 
   function finishLevel() {
     setPhase('success')
-    // Update progression: ensure level >= 4
     ;(async () => {
       try {
-        const progRes = await progressionAPI.get().catch(() => ({ data: { level: 1, xp: 0, quests: [], perks: [] } }))
-        const current = progRes?.data || { level: 1, xp: 0, quests: [], perks: [] }
-        const newXp = (current.xp || 0) + 180
-        const newLevel = Math.max(4, current.level || 1)
-        await progressionAPI.update({ level: newLevel, xp: newXp, quests: current.quests || [], perks: current.perks || [] })
+        await levelUp({ minLevel: 4, xpReward: 180 })
       } catch (e) { console.warn('Progression update failed (non-blocking):', e) }
     })()
   }
 
   // Utilities for share image
-  function loadImage(src) {
-    return new Promise((resolve, reject) => {
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      img.onload = () => resolve(img)
-      img.onerror = reject
-      img.src = src
-    })
-  }
-
-  function extractTopQualities(txt, max = 3) {
-    if (!txt || typeof txt !== 'string') return []
-    const lines = txt.split(/\r?\n/)
-      .map(s => s.trim())
-      .filter(Boolean)
-    const bullets = []
-    for (const line of lines) {
-      let cleaned = line.replace(/^[-•–]\s+/, '').replace(/^\d+\.\s*/, '').trim()
-      // If the item looks like "Label: value", keep only the label part for compact pills
-      if (cleaned.includes(':')) cleaned = cleaned.split(':')[0].trim()
-      if (cleaned.length > 60) cleaned = cleaned.slice(0, 57) + '…'
-      if (cleaned) bullets.push(cleaned)
-      if (bullets.length >= max) break
-    }
-    return bullets
-  }
-
-  async function ensureCanvasFontsLoaded() {
-    try {
-      // Load both ClashGroteskSemibold and Bricolage Grotesque
-      const clashFace = new FontFace('ClashGroteskSemibold', 'url(/static/fonts/ClashGroteskSemibold.woff2) format("woff2")')
-      await clashFace.load()
-      document.fonts.add(clashFace)
-      
-      // Try to load Bricolage Grotesque if available
-      try {
-        const bricolageFace = new FontFace('Bricolage Grotesque', 'url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&display=swap")')
-        await bricolageFace.load()
-        document.fonts.add(bricolageFace)
-      } catch (bricolageError) {
-        console.warn('Bricolage Grotesque not available, using ClashGroteskSemibold')
-      }
-      
-      // Warm up with font loads
-      await document.fonts.load('800 88px "Bricolage Grotesque", "ClashGroteskSemibold"')
-      await document.fonts.load('800 64px "Bricolage Grotesque", "ClashGroteskSemibold"')
-      await document.fonts.load('800 48px "Bricolage Grotesque", "ClashGroteskSemibold"')
-    } catch (e) {
-      console.warn('Canvas font load failed, falling back to system fonts', e)
-    }
-  }
-
-  async function generateShareImage(analysisSnapshot) {
-    try {
-      await ensureCanvasFontsLoaded()
-      const width = 1080, height = 1920 // Instagram story
-      const canvas = document.createElement('canvas')
-      canvas.width = width; canvas.height = height
-      const ctx = canvas.getContext('2d')
-
-      // Background gradient
-      const gradient = ctx.createLinearGradient(0, 0, 0, height)
-      gradient.addColorStop(0, ZELIA_COLORS.bg)
-      gradient.addColorStop(1, '#ffffff')
-      ctx.fillStyle = gradient
-      ctx.fillRect(0, 0, width, height)
-
-      // Top accent bar - minimal
-      ctx.fillStyle = ZELIA_COLORS.accent1
-      ctx.fillRect(0, 0, width, 80)
-
-      // Bottom accent bar with logo - green background
-      ctx.fillStyle = '#c1ff72'
-      ctx.fillRect(0, height - 200, width, 200)
-
-      // Logo at bottom-center on green background
-      let logoImg = null
-      try { 
-        logoImg = await loadImage(ZELIA_LOGO_PATH) 
-        const logoScale = 0.6
-        const logoW = 280 * logoScale
-        const logoH = (logoImg.height / logoImg.width) * logoW
-        const logoX = (width - logoW) / 2
-        const logoY = height - 180 + (180 - logoH) / 2  // Center in bottom green bar
-        ctx.drawImage(logoImg, logoX, logoY, logoW, logoH)
-      } catch (logoError) {
-        console.warn('Logo not loaded', logoError)
-      }
-
-      // Main title - centered in middle, larger
-      const title = analysisSnapshot?.personalityType || 'Profil MBTI'
-      ctx.fillStyle = ZELIA_COLORS.text
-      ctx.font = '800 120px "Bricolage Grotesque", "ClashGroteskSemibold", system-ui, -apple-system, sans-serif'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'top'
-      ctx.letterSpacing = '-0.02em'
-      
-      // Word wrap for long titles
-      const maxTitleWidth = width - 80
-      const words = title.split(' ')
-      let line = ''
-      let titleY = 630  // Slightly higher
-      
-      for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' '
-        const metrics = ctx.measureText(testLine)
-        const testWidth = metrics.width
-        
-        if (testWidth > maxTitleWidth && n > 0) {
-          ctx.fillText(line.trim(), width / 2, titleY)
-          line = words[n] + ' '
-          titleY += 130
-        } else {
-          line = testLine
-        }
-      }
-      ctx.fillText(line.trim(), width / 2, titleY)
-
-      // Avatar - centered at top, slightly higher
-      try {
-        const av = await loadImage(avatarUrl)
-        const avSize = 420
-        const avX = (width - avSize) / 2, avY = 180
-        
-        // Add subtle shadow
-        ctx.save()
-        ctx.shadowColor = 'rgba(0,0,0,0.15)'
-        ctx.shadowBlur = 20
-        ctx.shadowOffsetY = 10
-        
-        ctx.beginPath()
-        ctx.arc(avX + avSize/2, avY + avSize/2, avSize/2, 0, Math.PI * 2)
-        ctx.closePath()
-        ctx.clip()
-        ctx.drawImage(av, avX, avY, avSize, avSize)
-        ctx.restore()
-        
-        // Add border ring
-        ctx.beginPath()
-        ctx.arc(avX + avSize/2, avY + avSize/2, avSize/2 + 8, 0, Math.PI * 2)
-        ctx.strokeStyle = ZELIA_COLORS.accent1
-        ctx.lineWidth = 6
-        ctx.stroke()
-      } catch (avError) {
-        console.warn('Avatar not loaded', avError)
-      }
-
-      // Qualities section - centered in middle
-      const qualities = extractTopQualities(analysisSnapshot?.skillsAssessment || '', 3)
-      ctx.font = '800 80px "Bricolage Grotesque", "ClashGroteskSemibold", system-ui, sans-serif'
-      ctx.fillStyle = ZELIA_COLORS.text
-      ctx.textAlign = 'center'
-      ctx.letterSpacing = '-0.02em'
-      const qualitiesY = titleY + 150
-      ctx.fillText('Qualités', width / 2, qualitiesY)
-      
-      // Quality pills - centered
-      ctx.font = '600 40px system-ui, -apple-system, sans-serif'
-      let qy = qualitiesY + 80
-      qualities.forEach((q, i) => {
-        const padX = 30, padY = 20
-        const textWidth = ctx.measureText(q).width
-        const pillW = Math.min(textWidth + padX * 2, width - 80)
-        const pillH = 70
-        const x = (width - pillW) / 2, y = qy
-        
-        // Gradient pill background
-        const pillGradient = ctx.createLinearGradient(x, y, x + pillW, y + pillH)
-        const color1 = i % 2 === 0 ? ZELIA_COLORS.accent1 : ZELIA_COLORS.accent2
-        const color2 = i % 2 === 0 ? '#a8f542' : '#e859d9'
-        pillGradient.addColorStop(0, color1)
-        pillGradient.addColorStop(1, color2)
-        
-        ctx.fillStyle = pillGradient
-        ctx.beginPath()
-        const r = 35
-        ctx.moveTo(x + r, y)
-        ctx.arcTo(x + pillW, y, x + pillW, y + pillH, r)
-        ctx.arcTo(x + pillW, y + pillH, x, y + pillH, r)
-        ctx.arcTo(x, y + pillH, x, y, r)
-        ctx.arcTo(x, y, x + pillW, y, r)
-        ctx.closePath()
-        ctx.fill()
-        
-        // Quality text - centered within the pill, 15px higher total
-        ctx.fillStyle = '#000'
-        ctx.font = '600 40px system-ui, -apple-system, sans-serif'
-        ctx.textAlign = 'center'
-        ctx.fillText(q, x + pillW / 2, y + padY + 10)
-        qy += pillH + 25
-      })
-
-      // Jobs section - centered in middle
-      let jobs = Array.isArray(analysisSnapshot?.jobRecommendations) ? analysisSnapshot.jobRecommendations.slice(0, 3) : []
-      const mbtiCode = extractMbtiCode(analysisSnapshot?.personalityType)
-      if (!jobs.length && mbtiCode && MBTI_JOBS_FR[mbtiCode]) {
-        jobs = MBTI_JOBS_FR[mbtiCode].slice(0, 3).map(t => ({ title: t }))
-      }
-      
-      const jobsY = qy + 20
-      ctx.fillStyle = ZELIA_COLORS.text
-      ctx.font = '800 80px "Bricolage Grotesque", "ClashGroteskSemibold", system-ui, sans-serif'
-      ctx.textAlign = 'center'
-      ctx.letterSpacing = '-0.02em'
-      ctx.fillText('Top métiers', width / 2 + 20, jobsY)
-      
-      // Job list - centered, larger typography
-      ctx.font = '600 50px system-ui, -apple-system, sans-serif'
-      ctx.fillStyle = ZELIA_COLORS.text
-      let jy = jobsY + 80
-      jobs.forEach((j, i) => {
-        const title = typeof j === 'string' ? j : j?.title || ''
-        if (title) {
-          const truncatedTitle = truncate(title, 35)
-          
-          // Number circle - centered
-          ctx.save()
-          ctx.fillStyle = i % 2 === 0 ? ZELIA_COLORS.accent1 : ZELIA_COLORS.accent2
-          const circleX = (width / 2) - 150
-          const circleY = jy + 25
-          ctx.beginPath()
-          ctx.arc(circleX, circleY, 25, 0, Math.PI * 2)
-          ctx.fill()
-          
-          ctx.fillStyle = '#000'
-          ctx.font = '700 28px system-ui, sans-serif'
-          ctx.textAlign = 'center'
-          ctx.fillText((i + 1).toString(), circleX, circleY - 2)
-          ctx.restore()
-          
-          // Job title - centered, shifted 30px right total, raised 30px
-          ctx.fillStyle = ZELIA_COLORS.text
-          ctx.font = '600 50px system-ui, -apple-system, sans-serif'
-          ctx.textAlign = 'center'
-          ctx.fillText(truncatedTitle, width / 2 + 30, jy + 5)
-          jy += 70
-        }
-      })
-
-      return canvas.toDataURL('image/png')
-    } catch (e) {
-      console.error('Share image generation failed', e)
-      return ''
-    }
-  }
 
   // Generate a portrait PDF (A4) with the generated image filling the page
   async function generatePdfFromImage(dataUrl) {
@@ -501,19 +212,9 @@ export default function Niveau4() {
     if (!analysis) return
     setPreviewing(true)
     try {
-      let snapshot = analysis
-      if (!snapshot.jobRecommendations || snapshot.jobRecommendations.length === 0) {
-        try {
-          const res = await apiClient.get('/analysis/my-results')
-          const jr = res?.data?.results?.jobRecommendations
-          if (Array.isArray(jr) && jr.length) {
-            snapshot = { ...(snapshot || {}), jobRecommendations: jr }
-          }
-        } catch {}
-      }
-      const dataUrl = await generateShareImage(snapshot)
-      if (dataUrl) {
-        setShareImgUrl(dataUrl)
+      const url = await ensureShareImage()
+      if (url) {
+        setShareImgUrl(url)
         setShareOpen(true)
       }
     } finally {
@@ -525,42 +226,29 @@ export default function Niveau4() {
     if (!analysis) return
     setSharing(true)
     try {
-      let snapshot = analysis
-      // If jobs are missing, try to fetch from my-results as a fallback
-      if (!snapshot.jobRecommendations || snapshot.jobRecommendations.length === 0) {
-        try {
-          const res = await apiClient.get('/analysis/my-results')
-          const jr = res?.data?.results?.jobRecommendations
-          if (Array.isArray(jr) && jr.length) {
-            snapshot = { ...(snapshot || {}), jobRecommendations: jr }
-          }
-        } catch (e) {
-          console.warn('Fallback fetch for job recommendations failed', e)
-        }
-      }
-      const dataUrl = await generateShareImage(snapshot)
-      if (!dataUrl) throw new Error('no image')
-      // Try Web Share API with files
-      const res = await fetch(dataUrl)
-      const blob = await res.blob()
+      const url = await ensureShareImage()
+      if (!url) throw new Error('no image')
+
+      const response = await fetch(url)
+      const blob = await response.blob()
       const file = new File([blob], 'zelia-mbti-story.png', { type: 'image/png' })
-      // Prefer navigator.canShare for files
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           title: analysis?.personalityType || 'Profil MBTI',
           text: `Mon profil MBTI sur Zélia — ${analysis?.personalityType || ''}`.trim(),
           files: [file]
         })
-        setSharing(false)
         return
       }
-      // Fallback: open modal with preview + download
-      setShareImgUrl(dataUrl)
+
+      setShareImgUrl(url)
       setShareOpen(true)
-    } catch (e) {
-      console.warn('Native share failed, falling back to modal', e)
-      const dataUrl = await generateShareImage(analysis)
-      setShareImgUrl(dataUrl)
+    } catch (error) {
+      console.warn('Native share failed, falling back to modal', error)
+      const fallbackUrl = await ensureShareImage()
+      if (fallbackUrl) {
+        setShareImgUrl(fallbackUrl)
+      }
       setShareOpen(true)
     } finally {
       setSharing(false)
@@ -673,6 +361,83 @@ export default function Niveau4() {
       setGeneratingReport(false)
     }
   }
+
+  const refreshAnalysisSnapshot = useCallback(async () => {
+    if (!analysis) return null
+    try {
+      const resp = await analysisAPI.getMyResults()
+      const results = resp?.data?.results || null
+      if (!results) return analysis
+
+      const merged = {
+        ...analysis,
+        personalityType: analysis?.personalityType || results.personalityType || null,
+        personalityAnalysis: analysis?.personalityAnalysis || results.personalityAnalysis || null,
+        skillsAssessment: analysis?.skillsAssessment || results.skillsAssessment || null,
+        jobRecommendations: (Array.isArray(analysis?.jobRecommendations) && analysis.jobRecommendations.length
+          ? analysis.jobRecommendations
+          : results.jobRecommendations || []),
+        shareImageUrl: results.shareImageUrl || analysis?.shareImageUrl || null
+      }
+
+      setAnalysis(prev => {
+        if (!prev) return merged
+        return { ...prev, ...merged }
+      })
+      return merged
+    } catch (error) {
+      console.warn('Failed to refresh analysis snapshot', error)
+      return analysis
+    }
+  }, [analysis])
+
+  const ensureShareImage = useCallback(async () => {
+    if (!analysis) return ''
+
+    if (analysis.shareImageUrl) {
+      setShareImgUrl(analysis.shareImageUrl)
+      return analysis.shareImageUrl
+    }
+
+    if (shareUploading) {
+      return shareImgUrl || ''
+    }
+
+    const snapshot = await refreshAnalysisSnapshot() || analysis
+    if (!snapshot) return ''
+
+    setShareUploading(true)
+    try {
+      const dataUrl = await generateMbtiShareImage({ analysis: snapshot, avatarUrl })
+      if (!dataUrl) return ''
+      setShareImgUrl(dataUrl)
+
+      let remoteUrl = ''
+      try {
+        const response = await analysisAPI.saveShareImage({
+          dataUrl,
+          questionnaireType: 'mbti',
+          metadata: { source: 'niveau4', userId }
+        })
+        remoteUrl = response?.data?.url || ''
+      } catch (uploadError) {
+        console.warn('Failed to upload share image to Cloudinary, using local copy instead', uploadError)
+      }
+
+      if (remoteUrl) {
+        setAnalysis(prev => (prev ? { ...prev, shareImageUrl: remoteUrl } : prev))
+        setShareImgUrl(remoteUrl)
+        return remoteUrl
+      }
+
+      return dataUrl
+    } catch (generationError) {
+      console.error('Share image generation failed', generationError)
+      return ''
+    } finally {
+      setShareUploading(false)
+    }
+  }, [analysis, avatarUrl, refreshAnalysisSnapshot, shareImgUrl, shareUploading, userId])
 
   if (loading) {
     return (

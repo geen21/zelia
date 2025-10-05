@@ -5,6 +5,7 @@ import morgan from 'morgan'
 import compression from 'compression'
 import rateLimit from 'express-rate-limit'
 import dotenv from 'dotenv'
+import paymentsRoutes, { paymentsWebhookHandler } from './routes/payments.js'
 
 // Import routes
 import authRoutes from './routes/auth.js'
@@ -19,6 +20,7 @@ import catalogRoutes from './routes/catalog.js'
 import progressionRoutes from './routes/progression.js'
 import chatRoutes from './routes/chat.js'
 import letterRoutes from './routes/letter.js'
+import shareRoutes from './routes/share.js'
 
 // Load environment variables
 dotenv.config()
@@ -49,6 +51,9 @@ const limiter = rateLimit({
 })
 
 app.use(limiter)
+
+// Stripe webhook (must be registered before JSON body parsing)
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), paymentsWebhookHandler)
 
 // CORS configuration
 // Allow listed dev origins; can be extended via CLIENT_URL or ADDITIONAL_CLIENT_ORIGINS env vars
@@ -120,6 +125,8 @@ app.use('/api/analysis', analysisRoutes)
 app.use('/api/catalog', catalogRoutes)
 app.use('/api/chat', chatRoutes)
 app.use('/api/letter', letterRoutes)
+app.use('/api/payments', paymentsRoutes)
+app.use('/api/share', shareRoutes)
 
 // Root endpoint
 app.get('/', (req, res) => {

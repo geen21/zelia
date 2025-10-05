@@ -64,7 +64,7 @@ router.get('/formations/search', optionalAuth, async (req, res) => {
 // Supports: q, typecontrat, alternance, page, page_size
 router.get('/metiers/search', optionalAuth, async (req, res) => {
   try {
-    const { q, typecontrat, alternance } = req.query
+    const { q, typecontrat, alternance, location } = req.query
     const { page, pageSize, from, to } = getPagination(req.query)
 
     // Fetch only the columns used by the client and avoid expensive total counts
@@ -106,6 +106,11 @@ router.get('/metiers/search', optionalAuth, async (req, res) => {
       ].join(','))
     }
 
+    if (location) {
+      const like = `%${location}%`
+      query = query.ilike('lieutravail_libelle', like)
+    }
+
   // Avoid expensive full scans: when no filters, constrain to a recent window
   if (!q && !typecontrat && (typeof alternance === 'undefined' || alternance === '')) {
     try {
@@ -118,7 +123,7 @@ router.get('/metiers/search', optionalAuth, async (req, res) => {
   // Avoid expensive ORDER BY on huge tables when no filters are applied.
   // Apply ordering only if a filter/search is present; otherwise just use range for speed.
   const toPlusOne = from + pageSize
-  const hasFilter = !!(q || typecontrat || (typeof alternance !== 'undefined' && alternance !== ''))
+  const hasFilter = !!(q || typecontrat || location || (typeof alternance !== 'undefined' && alternance !== ''))
   if (hasFilter) {
     query = query
       .order('dateactualisation', { ascending: false, nullsFirst: false })

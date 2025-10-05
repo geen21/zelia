@@ -39,6 +39,10 @@ router.put('/profile', authenticateToken, async (req, res) => {
     delete profileData.id
     delete profileData.created_at
     delete profileData.updated_at
+  delete profileData.has_paid
+  delete profileData.stripe_customer_id
+  delete profileData.stripe_last_checkout_id
+  delete profileData.stripe_last_payment_at
     // Use admin client when available; Express auth ensures the user can only modify their own row
     const db = supabaseAdmin || supabase
 

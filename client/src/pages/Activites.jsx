@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import api, { usersAPI } from '../lib/api';
+import { ALL_QUEST_IDS, questLabel } from '../lib/progression';
 
 // Zélia Game Engine - French Career Orientation Game
 class ZeliaGameEngine {
@@ -313,43 +314,6 @@ function buildAvatarFromProfile(profile, fallbackAvatar, seed = 'zelia') {
     return fallbackAvatar || { dicebear: '', emotion: 'calm' };
 }
 
-// Human labels for quest IDs (used in the sidebar)
-function questLabel(id) {
-    const map = {
-        complete_test: "Test d'orientation",
-        explore_interests: "Explorer mes centres d'intérêt",
-        watch_intro: "Vidéo d'introduction",
-        strengths_quiz: "Quiz sur mes forces",
-        personality_test: "Test de personnalité",
-        values_exploration: "Définir mes valeurs",
-        job_research: "Rechercher des métiers",
-        salary_analysis: "Analyser les salaires",
-        job_videos: "Vidéos métiers",
-        schedule_meeting: "Planifier un entretien",
-        prepare_questions: "Préparer des questions",
-        company_visit: "Visite d'entreprise virtuelle",
-        soft_skills_assessment: "Éval. des soft skills",
-        star_method: "Méthode STAR",
-        leadership_test: "Test de leadership",
-        cv_builder: "Générateur de CV",
-        cover_letter: "Lettre de motivation",
-        cv_review: "Révision du CV",
-        projet_motive: "Projet motivé",
-        voeux_strategy: "Stratégie de vœux",
-        calendar_planning: "Planifier le calendrier",
-        pitch_practice: "Pitch 60s",
-        interview_simulation: "Simulation d'entretien",
-        confidence_building: "Confiance en soi",
-        portfolio_review: "Révision du portfolio",
-        coherence_check: "Vérification de cohérence",
-        final_polish: "Finitions",
-        mentor_others: "Mentorat",
-        success_story: "Partager mon histoire",
-        expert_badge: "Badge expert"
-    };
-    return map[id] || id;
-}
-
 // Libellés localisés pour les types d'actions
 const TYPE_LABELS_FR = {
     micro_action: 'micro action',
@@ -362,20 +326,6 @@ const TYPE_LABELS_FR = {
 function typeLabelFR(t) {
     return TYPE_LABELS_FR[t] || String(t || '').replace('_', ' ')
 }
-
-// Liste complète des quêtes à accomplir (ordre logique par arcs)
-const ALL_QUEST_IDS = [
-    'complete_test', 'explore_interests', 'watch_intro',
-    'strengths_quiz', 'personality_test', 'values_exploration',
-    'job_research', 'salary_analysis', 'job_videos',
-    'schedule_meeting', 'prepare_questions', 'company_visit',
-    'soft_skills_assessment', 'star_method', 'leadership_test',
-    'cv_builder', 'cover_letter', 'cv_review',
-    'projet_motive', 'voeux_strategy', 'calendar_planning',
-    'pitch_practice', 'interview_simulation', 'confidence_building',
-    'portfolio_review', 'coherence_check', 'final_polish',
-    'mentor_others', 'success_story', 'expert_badge'
-];
 
 const Activites = () => {
     const [user, setUser] = useState(null);
@@ -430,31 +380,8 @@ const Activites = () => {
                 } catch {}
                 if (isMounted) setInscriptionDone(done);
 
-                let stateAfter = initialState;
-                let finalResponse;
-                if (done && !(initialState.quests || []).includes('complete_test')) {
-                    // Award XP for the previously completed orientation test and mark as completed
-                    const { newState, response } = gameEngine.processEvent(initialState, {
-                        type: 'quiz_completed',
-                        questId: 'complete_test',
-                        actionId: 'complete_test'
-                    });
-                    stateAfter = { ...newState };
-                    // Persist the updated progression with awarded XP and quest flag
-                    try {
-                        await api.post(`/progression/${user.id}`, {
-                            level: stateAfter.progression.level,
-                            xp: stateAfter.progression.xp,
-                            quests: stateAfter.quests,
-                            perks: stateAfter.perks
-                        });
-                    } catch (e) { console.error('Progression save after award failed:', e); }
-
-                    // Use the response from the awarded event
-                    finalResponse = response;
-                } else {
-                    finalResponse = gameEngine.generateResponse(stateAfter, { type: 'init' }, 0, false, []);
-                }
+                const stateAfter = initialState;
+                let finalResponse = gameEngine.generateResponse(stateAfter, { type: 'init' }, 0, false, []);
 
                 // Apply stored avatar and hide the orientation test action if already completed
                 if (prof) {
@@ -489,34 +416,6 @@ const Activites = () => {
         return () => { isMounted = false; };
     }, [navigate, gameEngine]);
 
-    const handleAction = useCallback(async (action) => {
-        if (!gameState) return;
-
-        const event = {
-            type: action.type,
-            questId: action.id,
-            actionId: action.id
-        };
-
-        const { newState, response } = gameEngine.processEvent(gameState, event);
-        
-    setGameState(newState);
-    const patched = profile ? { ...response, avatar: buildAvatarFromProfile(profile, response.avatar, user?.id) } : response;
-    setLastResponse(patched);
-
-        // Save progression to backend
-        try {
-            await api.post(`/progression/${user.id}`, {
-                level: newState.progression.level,
-                xp: newState.progression.xp,
-                quests: newState.quests,
-                perks: newState.perks
-            });
-        } catch (error) {
-            console.error('Error saving progression:', error);
-        }
-    }, [gameState, user, gameEngine, profile]);
-
     // Keep hook order stable across renders: compute progress before any early returns
     const levelForProgress = gameState?.progression?.level ?? 1;
     const xpForProgress = gameState?.progression?.xp ?? 0;
@@ -548,12 +447,12 @@ const Activites = () => {
     }
 
     const { progression } = gameState;
-    // Compute next available level route (cap to existing implemented levels)
-    const maxLevelRoute = 4;
-    const nextLevel = Math.min((progression?.level || 1) + 1, maxLevelRoute);
-    const { ui, suggestedActions, avatar, perks, xpGained } = lastResponse;
-    // Filter out modules we want to hide from the Activities UI
-    const filteredActions = (suggestedActions || []).filter(a => !new Set(['watch_intro', 'cover_letter', 'explore_interests']).has(a.id));
+    // Compute available level route (cap to implemented levels)
+    const maxLevelRoute = 10;
+    const currentLevel = progression?.level || 1;
+    const targetLevel = Math.min(Math.max(1, currentLevel), maxLevelRoute);
+    const hasAccessibleLevel = targetLevel >= 1 && targetLevel <= maxLevelRoute;
+    const { ui, avatar, perks, xpGained } = lastResponse;
 
     
 
@@ -586,12 +485,15 @@ const Activites = () => {
                                         Aventure Zélia - Niveau {progression.level}
                                     </h1>
                                     <button
-                                        onClick={() => navigate(`/app/niveau/${nextLevel}`)}
-                                        className="inline-flex items-center gap-2 bg-[#f68fff] text-white px-3 py-1.5 rounded-lg text-sm border border-transparent hover:opacity-90 transition"
-                                        title={`Aller au Niveau ${nextLevel}`}
+                                        onClick={() => {
+                                            if (hasAccessibleLevel) navigate(`/app/niveau/${targetLevel}`);
+                                        }}
+                                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border transition ${hasAccessibleLevel ? 'bg-[#f68fff] text-white border-transparent hover:opacity-90' : 'bg-gray-200 text-gray-500 border-gray-300 cursor-not-allowed'}`}
+                                        title={hasAccessibleLevel ? `Aller au Niveau ${targetLevel}` : 'Tous les niveaux disponibles sont terminés'}
+                                        disabled={!hasAccessibleLevel}
                                     >
                                         <span role="img" aria-label="jeu">🎮</span>
-                                        <span>Aller au Niveau {nextLevel}</span>
+                                        <span>{hasAccessibleLevel ? `Aller au Niveau ${targetLevel}` : 'Niveaux terminés'}</span>
                                     </button>
                                 </div>
                                 <p className="text-gray-600 text-lg">{ui.speak}</p>
@@ -672,44 +574,6 @@ const Activites = () => {
                         </div>
                     </div>
                 )}
-
-                {/* Game Actions Grid */}
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredActions.map((action, index) => (
-                        <div 
-                            key={action.id}
-                            className="bg-white rounded-xl p-6 border border-gray-200 shadow-card cursor-pointer"
-                            onClick={() => handleAction(action)}
-                        >
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center space-x-2">
-                                    <span className="text-2xl">
-                                        {action.type === 'quiz_completed' && '🧠'}
-                                        {action.type === 'mission_completed' && '🎯'}
-                                        {action.type === 'meeting_completed' && '👥'}
-                                        {action.type === 'video_watched' && '📹'}
-                                        {action.type === 'micro_action' && '⚡'}
-                                        {action.type === 'parcoursup_milestone' && '🏆'}
-                                    </span>
-                                    <span className="bg-[#f68fff] text-white px-2 py-1 rounded-full text-xs font-bold">
-                                        +{action.xp} XP
-                                    </span>
-                                </div>
-                            </div>
-                            
-                            <h3 className="text-lg font-bold text-gray-800 mb-2">
-                                {action.label}
-                            </h3>
-                            
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                <span className="text-sm text-gray-600 capitalize">{typeLabelFR(action.type)}</span>
-                                <button className="bg-[#c1ff72] text-black px-4 py-2 rounded-lg font-semibold border border-gray-200 w-full sm:w-auto text-center">
-                                    C'est parti !
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
 
                 {/* Level Progression Roadmap */}
                 <div className="bg-white rounded-3xl p-8 border border-gray-200 shadow-card">

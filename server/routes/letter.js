@@ -156,7 +156,7 @@ router.post('/generate', authenticateToken, async (req, res) => {
         questionnaire_type: 'inscription',
         extra: { ...(lastResult?.extra || {}), last_letter: { target: targetText, type: targetType, style, at: new Date().toISOString() } },
         updated_at: new Date().toISOString()
-      }, { onConflict: 'user_id' })
+      }, { onConflict: 'user_id,questionnaire_type' })
     } catch (e) {
       // ignore storage errors
     }

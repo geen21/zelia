@@ -79,6 +79,9 @@ npm run dev
 - `GET /:id/responses` - Get user responses for questionnaire (authenticated)
 - `GET /user/responses` - Get all user questionnaire responses (authenticated)
 
+### Partage des résultats (`/api/share`)
+- `POST /results` - Envoie le PDF des résultats d’un élève aux adresses e-mail fournies (authentifié)
+
 ## Database Schema
 
 The server expects the following Supabase tables:
@@ -178,6 +181,11 @@ CREATE TABLE questionnaire_responses (
 - `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (optional)
 - `JWT_SECRET` - JWT secret for token verification
 - `CLIENT_URL` - Frontend client URL for CORS
+- `SMTP_HOST` - SMTP server hostname for outgoing e-mails
+- `SMTP_PORT` - SMTP server port (465 recommandé pour Resend)
+- `SMTP_USER` - SMTP username
+- `SMTP_PASSWORD` - SMTP password
+- `EMAIL_FROM` - Adresse e-mail d’expédition utilisée pour les partages (ex: `Zélia <orientation@zelia.io>`)
 
 ## Security Features
 

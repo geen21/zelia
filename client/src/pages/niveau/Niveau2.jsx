@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { usersAPI, progressionAPI } from '../../lib/api'
+import { usersAPI } from '../../lib/api'
+import { levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 
 // Helper: build avatar URL from profile preferences, preferring explicit avatar_url
@@ -257,15 +258,11 @@ export default function Niveau2() {
 
   function finishLevel() {
     setShowSuccess(true)
-    // Update progression: mark at least level 2 achieved, add XP
+    // Award XP + increment by exactly one level (or enforce minimum level 2 if user somehow below)
     ;(async () => {
       try {
-        const progRes = await progressionAPI.get().catch(() => ({ data: { level: 1, xp: 0, quests: [], perks: [] } }))
-        const current = progRes?.data || { level: 1, xp: 0, quests: [], perks: [] }
         const baseXpReward = 120
-        const newXp = (current.xp || 0) + baseXpReward
-        const newLevel = Math.max(2, current.level || 1) // ensure reaching at least level 2
-        await progressionAPI.update({ level: newLevel, xp: newXp, quests: current.quests || [], perks: current.perks || [] })
+        await levelUp({ minLevel: 2, xpReward: baseXpReward })
       } catch (e) {
         console.warn('Progression update failed (non-blocking):', e)
       }

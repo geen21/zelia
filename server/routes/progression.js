@@ -69,7 +69,7 @@ router.post('/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params
     const requestingUserId = req.user.id
-    const { level, xp, quests, perks } = req.body
+  let { level, xp, quests, perks } = req.body
 
     // Only allow users to update their own progression
     if (userId !== requestingUserId) {
@@ -78,15 +78,39 @@ router.post('/:userId', authenticateToken, async (req, res) => {
 
     const db = supabaseAdmin || supabase
 
-    // Upsert progression record
+    // Fetch current progression to enforce monotonic rules
+    const { data: existing } = await db
+      .from('user_progression')
+      .select('*')
+      .eq('user_id', userId)
+      .single()
+
+    const currentLevel = existing?.level || 1
+    const currentXp = existing?.xp || 0
+
+    // Sanitize inputs
+    const requestedLevel = Number(level) || currentLevel
+    const requestedXp = Number(xp) || currentXp
+
+    // Enforce: level cannot decrease
+    let finalLevel = Math.max(requestedLevel, currentLevel)
+
+    // Optional: prevent skipping multiple levels unless xp increase would naturally justify (simple cap of +1)
+    if (finalLevel > currentLevel + 1) {
+      finalLevel = currentLevel + 1
+    }
+
+    // Ensure xp is not negative and cannot regress
+    const finalXp = Math.max(requestedXp, currentXp, 0)
+
     const { data, error } = await db
       .from('user_progression')
       .upsert({
         user_id: userId,
-        level: level || 1,
-        xp: xp || 0,
-        quests: quests || [],
-        perks: perks || [],
+        level: finalLevel,
+        xp: finalXp,
+        quests: Array.isArray(quests) ? quests : (existing?.quests || []),
+        perks: Array.isArray(perks) ? perks : (existing?.perks || []),
         updated_at: new Date().toISOString()
       })
       .select()

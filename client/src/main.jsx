@@ -19,8 +19,28 @@ import Niveau1 from './pages/niveau/Niveau1.jsx'
 import Niveau2 from './pages/niveau/Niveau2.jsx'
 import Niveau3 from './pages/niveau/Niveau3.jsx'
 import Niveau4 from './pages/niveau/Niveau4.jsx'
+import Niveau5 from './pages/niveau/Niveau5.jsx'
 import EmailConfirmation from './pages/EmailConfirmation.jsx'
 import Chat from './pages/Chat.jsx'
+
+const dynamicNiveauModules = import.meta.glob([
+  './pages/niveau/Niveau[6-9].jsx',
+  './pages/niveau/Niveau[1-4][0-9].jsx',
+  './pages/niveau/Niveau50.jsx'
+])
+
+const dynamicNiveauComponents = Object.entries(dynamicNiveauModules).reduce((acc, [path, loader]) => {
+  const match = path.match(/Niveau(\d+)\.jsx$/)
+  if (!match) return acc
+  const level = Number(match[1])
+  if (Number.isNaN(level) || level <= 5) return acc
+  acc[level] = lazy(() => loader())
+  return acc
+}, /** @type {Record<number, React.LazyExoticComponent<React.ComponentType<any>>>} */ ({}))
+
+const dynamicNiveauLevels = Object.keys(dynamicNiveauComponents)
+  .map((level) => Number(level))
+  .sort((a, b) => a - b)
 
 function App() {
   return (
@@ -53,6 +73,21 @@ function App() {
           <Route path="niveau/2" element={<Niveau2 />} />
           <Route path="niveau/3" element={<Niveau3 />} />
           <Route path="niveau/4" element={<Niveau4 />} />
+          <Route path="niveau/5" element={<Niveau5 />} />
+          {dynamicNiveauLevels.map((level) => {
+            const Component = dynamicNiveauComponents[level]
+            return (
+              <Route
+                key={level}
+                path={`niveau/${level}`}
+                element={
+                  <Suspense fallback={<div className="p-6 text-center">Chargement du niveau…</div>}>
+                    <Component />
+                  </Suspense>
+                }
+              />
+            )
+          })}
         </Route>
   <Route path="*" element={<Navigate to="/" />} />
       </Routes>

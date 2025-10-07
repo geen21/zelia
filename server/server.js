@@ -27,6 +27,7 @@ dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 3001
+const HOST = process.env.HOST || '0.0.0.0'
 
 // Security middleware
 app.use(helmet({
@@ -230,9 +231,10 @@ process.on('SIGINT', () => {
   process.exit(0)
 })
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`)
-  console.log(`📚 API documentation available at http://localhost:${PORT}/api`)
-  console.log(`🏥 Health check available at http://localhost:${PORT}/health`)
+app.listen(PORT, HOST, () => {
+  const displayHost = HOST === '0.0.0.0' ? 'all interfaces (0.0.0.0)' : HOST
+  console.log(`🚀 Server is running on ${displayHost}:${PORT}`)
+  console.log(`📚 API documentation available at http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/api`)
+  console.log(`🏥 Health check available at http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/health`)
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`)
 })

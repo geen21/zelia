@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import './landing.css'
 import './admin.css'
 import Login from './pages/Login.jsx'

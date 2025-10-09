@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import './landing.css'
 import './admin.css'
+import { loadLegacyStyles } from './lib/loadLegacyStyles.js'
 import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import Questionnaire from './pages/Questionnaire.jsx'
@@ -38,6 +39,8 @@ const dynamicNiveauComponents = Object.entries(dynamicNiveauModules).reduce((acc
   acc[level] = lazy(() => loader())
   return acc
 }, /** @type {Record<number, React.LazyExoticComponent<React.ComponentType<any>>>} */ ({}))
+
+loadLegacyStyles()
 
 const dynamicNiveauLevels = Object.keys(dynamicNiveauComponents)
   .map((level) => Number(level))

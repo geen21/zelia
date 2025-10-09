@@ -2,7 +2,24 @@
 import axios from 'axios'
 import { supabase } from './supabase'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+const DEFAULT_API_BASE = typeof window !== 'undefined' && window.location?.origin
+  ? `${window.location.origin.replace(/\/$/, '')}/api`
+  : 'http://localhost:3001/api'
+
+function resolveApiBaseUrl() {
+  const raw = (import.meta.env.VITE_API_URL || '').trim()
+  if (!raw) return DEFAULT_API_BASE
+  try {
+    const parsed = new URL(raw)
+    const normalized = parsed.toString().replace(/\/$/, '')
+    return normalized
+  } catch (error) {
+    console.warn(`[api] Invalid VITE_API_URL "${raw}" – falling back to ${DEFAULT_API_BASE}.`, error)
+    return DEFAULT_API_BASE
+  }
+}
+
+const API_BASE_URL = resolveApiBaseUrl()
 
 // Create axios instance with default configuration
 const apiClient = axios.create({

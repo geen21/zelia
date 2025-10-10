@@ -78,10 +78,13 @@ export default function Layout() {
 		<div className="min-h-screen bg-white text-text-primary">
 			{/* Sidebar */}
 			<aside className={`fixed top-0 left-0 h-full w-64 bg-white border-r border-line z-40 transition-transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-				<div className="h-16 flex items-center justify-center px-6 border-b border-line">
+				<div className="h-16 flex items-center justify-between px-6 border-b border-line">
 					<Link to="/app" className="flex items-center justify-center">
 						<img src="/static/images/logo-dark.png" alt="Logo" className="h-8" />
 					</Link>
+					<button className="md:hidden p-2 rounded-lg hover:bg-gray-50" onClick={() => setSidebarOpen(false)} aria-label="Fermer la sidebar">
+						<i className="ph ph-x text-xl"></i>
+					</button>
 				</div>
 				<nav className="py-4">
 					{/* Activités is always accessible */}

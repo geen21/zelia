@@ -554,8 +554,8 @@ function parseStudyRecommendations(text) {
   return studies
 }
 
-// Level 7: evaluate job fit using user_results context and Gemini
-router.post(['/level7/evaluate-job', '/level9/evaluate-job'], authenticateToken, async (req, res) => {
+// Level 7: evaluate job fit using user_results context and Gemini (legacy level9 alias)
+const evaluateJobHandler = async (req, res) => {
   try {
     const userId = req.user.id
     const rawJob = req.body?.job
@@ -687,10 +687,14 @@ router.post(['/level7/evaluate-job', '/level9/evaluate-job'], authenticateToken,
       explanation
     })
   } catch (error) {
-  console.error('Level7 evaluate-job error:', error)
+    console.error('Level7 evaluate-job error:', error)
     res.status(500).json({ error: 'Erreur serveur' })
   }
-})
+}
+
+router.post('/level7/evaluate-job', authenticateToken, evaluateJobHandler)
+// Legacy path kept for backward compatibility
+router.post('/level9/evaluate-job', authenticateToken, evaluateJobHandler)
 
 router.post('/share-image', authenticateToken, async (req, res) => {
   try {

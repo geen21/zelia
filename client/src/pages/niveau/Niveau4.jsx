@@ -38,6 +38,10 @@ function useTypewriter(message, durationMs) {
   return { text, done, skip }
 }
 
+const START_QUESTION_NUMBER = 3
+const PROGRESS_MIN_PERCENT = 3
+const TARGET_TOTAL_QUESTIONS = 40
+
 export default function Niveau4() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
@@ -95,13 +99,18 @@ export default function Niveau4() {
     return () => { mounted = false }
   }, [navigate])
 
+  const firstName = useMemo(() => {
+    const fromProfile = profile?.first_name ?? profile?.prenom ?? profile?.firstName ?? ''
+    return typeof fromProfile === 'string' ? fromProfile.trim() : ''
+  }, [profile])
+
   const messages = useMemo(() => ([
-    { text: "Yo, niveau 4 ! On passe au MBTI pour mieux cerner ton style.", durationMs: 3500 },
-    { text: "Je te pose quelques questions, tu réponds à l'instinct.", durationMs: 3500 },
-    { text: "Ensuite j'analyse tes réponses et je te sors une analyse MBTI bien complète (≈ 1000 mots).", durationMs: 4500 },
-    { text: "Objectif: que tu comprennes comment tu fonctionnes et quels métiers te collent à la peau.", durationMs: 4500 },
+    { text: firstName ? `Rebonjour ${firstName}, j'espère que ça va toujours` : "Rebonjour, j'espère que ça va toujours", durationMs: 2000 },
+    { text: "Je vais te poser quelques questions sur toi et je vais te donner des résultats concrets sur qui tu es vraiment, je vais essayer d'analyser en profondeur ta personne", durationMs: 4000 },
+    { text: "Je me base sur les travaux de Mayer Briggs, un psychanaliste reconnu pour ses travaux sur l'analyse de personnalité, c'est le test MBTI", durationMs: 3000 },
+    { text: "Cela va t'aider à comprendre comment tu fonctionnes et quels métiers te collent à la peau", durationMs: 2000 },
     { text: "Prêt(e) ? On démarre tranquille.", durationMs: 2500 },
-  ]), [])
+  ]), [firstName])
   const current = messages[introIdx] || { text: '', durationMs: 1500 }
   const { text: typed, done: typedDone, skip } = useTypewriter(current.text, current.durationMs)
 
@@ -133,7 +142,11 @@ export default function Niveau4() {
     return raw
   }, [currentQ])
 
-  const progress = questions.length ? Math.round(((qIdx + 1) / questions.length) * 100) : 0
+  const progress = useMemo(() => {
+    if (!questions.length) return PROGRESS_MIN_PERCENT
+    const percent = Math.round(((qIdx + 1) / questions.length) * 100)
+    return Math.max(PROGRESS_MIN_PERCENT, Math.min(100, percent))
+  }, [qIdx, questions.length])
   const answered = currentQ ? answers[currentQ.id] != null : false
 
   async function submitMbti() {
@@ -546,11 +559,12 @@ export default function Niveau4() {
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-xl font-bold">Test de personnalité MBTI</h2>
                 {(() => {
-                  const startNum = 3
                   const qLen = questions.length || 0
-                  // Aim total to 40 when plausible, else fall back to shifted length
-                  const total = (qLen >= 38 && qLen <= 40) ? 40 : Math.max(startNum - 1 + qLen, startNum)
-                  const current = startNum + qIdx
+                  const computedTotal = (qLen >= TARGET_TOTAL_QUESTIONS - (START_QUESTION_NUMBER - 1) && qLen <= TARGET_TOTAL_QUESTIONS)
+                    ? TARGET_TOTAL_QUESTIONS
+                    : Math.max(START_QUESTION_NUMBER, START_QUESTION_NUMBER - 1 + qLen)
+                  const total = Math.max(START_QUESTION_NUMBER, computedTotal)
+                  const current = Math.min(total, START_QUESTION_NUMBER + qIdx)
                   return (
                     <div className="text-sm text-text-secondary">{current} / {total} • {progress}%</div>
                   )

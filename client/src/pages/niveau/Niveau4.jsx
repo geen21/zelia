@@ -111,15 +111,6 @@ export default function Niveau4() {
     return () => clearInterval(id)
   }, [phase, typedDone])
 
-  useEffect(() => {
-    if (phase !== 'results' || !analysis) return
-    if (analysis.shareImageUrl) {
-      setShareImgUrl(analysis.shareImageUrl)
-      return
-    }
-    ensureShareImage()
-  }, [analysis, ensureShareImage, phase])
-
   function nextIntro() {
     if (!typedDone) { skip(); return }
     if (introIdx + 1 < messages.length) {
@@ -447,6 +438,15 @@ export default function Niveau4() {
       setShareUploading(false)
     }
   }, [analysis, avatarUrl, refreshAnalysisSnapshot, shareImgUrl, shareUploading, userId])
+
+  useEffect(() => {
+    if (phase !== 'results' || !analysis) return
+    if (analysis.shareImageUrl) {
+      setShareImgUrl(analysis.shareImageUrl)
+      return
+    }
+    ensureShareImage()
+  }, [analysis, ensureShareImage, phase])
 
   if (loading) {
     return (

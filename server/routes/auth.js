@@ -40,7 +40,7 @@ router.post('/register', async (req, res) => {
       password,
       options: {
         data: userMetadata,
-        emailRedirectTo: 'http://localhost:5173/' // This will redirect to the home page with hash parameters
+        emailRedirectTo: 'https://zelia.io/' // This will redirect to the home page with hash parameters
       }
     })
 

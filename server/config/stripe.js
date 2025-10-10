@@ -15,7 +15,7 @@ if (STRIPE_API_VERSION) {
 // Initialize Stripe client only when a secret key is set
 export const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY, stripeOptions) : null
 
-const defaultClientUrl = process.env.CLIENT_URL || 'http://localhost:5173'
+const defaultClientUrl = process.env.CLIENT_URL || 'https://zelia.io'
 
 const STRIPE_PRICE_AMOUNT = Number(process.env.STRIPE_PRICE_AMOUNT || 0)
 const STRIPE_PRICE_CURRENCY = (process.env.STRIPE_PRICE_CURRENCY || 'eur').toLowerCase()

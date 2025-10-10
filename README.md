@@ -85,7 +85,7 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 JWT_SECRET=your-jwt-secret
-CLIENT_URL=http://localhost:5173
+CLIENT_URL=https://zelia.io
 ```
 
 ### 4. Install Dependencies
@@ -118,7 +118,7 @@ npm run dev
 - Select "Start Both Client and Server"
 
 ### 6. Access the Application
-- **Frontend**: http://localhost:5173
+- **Frontend**: https://zelia.io
 - **Backend API**: http://localhost:3001
 - **API Documentation**: http://localhost:3001/api
 - **Health Check**: http://localhost:3001/health

@@ -60,8 +60,11 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), pay
 // Allow listed dev origins; can be extended via CLIENT_URL or ADDITIONAL_CLIENT_ORIGINS env vars
 const baseAllowedOrigins = [
   process.env.CLIENT_URL || 'https://zelia.io',
+  'https://www.zelia.io',
   'http://localhost:5174',
-  'http://localhost:5175'
+  'http://localhost:5175',
+  'http://localhost:5173',
+  'https://localhost:5173'
 ]
 
 if (process.env.ADDITIONAL_CLIENT_ORIGINS) {

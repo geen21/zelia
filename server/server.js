@@ -29,6 +29,22 @@ const app = express()
 const PORT = process.env.PORT || 3001
 const HOST = process.env.HOST || '0.0.0.0'
 
+function resolveTrustProxy(value) {
+  if (value === undefined) return 1
+  const lower = String(value).toLowerCase().trim()
+  if (lower === 'false' || lower === '0') return false
+  if (lower === 'true') return true
+  if (/^\d+$/.test(lower)) return Number(lower)
+  if (lower.includes(',')) {
+    return lower.split(',').map((part) => part.trim()).filter(Boolean)
+  }
+  return value
+}
+
+const trustProxy = resolveTrustProxy(process.env.TRUST_PROXY)
+app.set('trust proxy', trustProxy)
+console.log('Express trust proxy:', trustProxy)
+
 // Security middleware
 app.use(helmet({
   crossOriginEmbedderPolicy: false,

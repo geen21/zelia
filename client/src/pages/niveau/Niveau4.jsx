@@ -1,11 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { jsPDF } from 'jspdf'
 import { useNavigate } from 'react-router-dom'
 import apiClient, { analysisAPI, usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 import { generateMbtiShareImage } from '../../lib/shareImage'
+
+let jsPdfFactoryPromise = null
+async function loadJsPdf() {
+  if (!jsPdfFactoryPromise) {
+    jsPdfFactoryPromise = import('jspdf').then((module) => module.jsPDF)
+  }
+  return jsPdfFactoryPromise
+}
 
 // Simple typewriter
 function useTypewriter(message, durationMs) {
@@ -176,7 +183,8 @@ export default function Niveau4() {
     try {
       setGeneratingPdf(true)
       // Create jsPDF in portrait, mm, A4
-      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
+      const JsPDF = await loadJsPdf()
+      const pdf = new JsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
       const pageWidth = pdf.internal.pageSize.getWidth()
       const pageHeight = pdf.internal.pageSize.getHeight()
 
@@ -259,7 +267,8 @@ export default function Niveau4() {
     if (!analysis) return
     try {
       setGeneratingReport(true)
-      const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
+      const JsPDF = await loadJsPdf()
+      const doc = new JsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
       const margin = 15
       const pageWidth = doc.internal.pageSize.getWidth()
       const usable = pageWidth - margin * 2

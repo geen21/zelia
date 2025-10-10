@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { loadStripe } from '@stripe/stripe-js'
-import { jsPDF } from 'jspdf'
 import supabase from '../../lib/supabase'
 import apiClient, { paymentsAPI, shareAPI, usersAPI } from '../../lib/api'
 import { levelUp } from '../../lib/progression'
+
+let jsPdfFactoryPromise = null
+async function loadJsPdf() {
+  if (!jsPdfFactoryPromise) {
+    jsPdfFactoryPromise = import('jspdf').then((module) => module.jsPDF)
+  }
+  return jsPdfFactoryPromise
+}
 
 const XP_REWARD = 220
 
@@ -160,8 +167,9 @@ function buildEmailHtml({ firstName, benefits, price }) {
   </html>`
 }
 
-function generateResultsPdf({ profile, results, benefits, priceLabel }) {
-  const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+async function generateResultsPdf({ profile, results, benefits, priceLabel }) {
+  const JsPDF = await loadJsPdf()
+  const doc = new JsPDF({ unit: 'pt', format: 'a4' })
   const margin = 48
   let y = margin
 
@@ -539,7 +547,7 @@ export default function Niveau10() {
       if (!results) {
         throw new Error("Résultats indisponibles")
       }
-      const pdf = generateResultsPdf({ profile, results, benefits, priceLabel: defaultPriceLabel })
+  const pdf = await generateResultsPdf({ profile, results, benefits, priceLabel: defaultPriceLabel })
       const dataUri = pdf.output('datauristring')
       const base64 = dataUri.split(',')[1]
       const filename = `resultats-orientation-${userFirstName.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.pdf`

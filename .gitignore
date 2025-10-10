@@ -1,2 +1,6 @@
 # Ignore node modules everywhere
 node_modules/
+
+# Ignore build outputs
+dist/
+build/

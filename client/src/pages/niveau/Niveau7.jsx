@@ -381,6 +381,13 @@ export default function Niveau7() {
             </button>
           </div>
 
+          {evaluating && (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+              <span>Chargement… Merci de patienter quelques secondes.</span>
+            </div>
+          )}
+
           {!locked && evaluationError && (
             <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{evaluationError}</div>
           )}
@@ -436,7 +443,7 @@ export default function Niveau7() {
                       disabled={advanceDisabled}
                       className="inline-flex items-center justify-center rounded-xl bg-black px-5 py-3 text-base font-semibold text-white transition hover:bg-black/90 disabled:cursor-not-allowed disabled:bg-gray-300"
                     >
-                      {textDone ? 'Suivant' : 'Afficher toute la phrase'}
+                      Suivant
                     </button>
                   )}
 

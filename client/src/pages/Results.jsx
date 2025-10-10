@@ -182,7 +182,7 @@ export default function Results() {
 				{renderTabs()}
 				<div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">
 					<div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-					<p className="mt-2 text-text-secondary">Chargement...</p>
+					<p className="mt-2 text-text-secondary">Chargement... cela peut prendre jusqu'à 40 secondes…</p>
 				</div>
 			</div>
 		)

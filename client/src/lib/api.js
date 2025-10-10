@@ -127,7 +127,7 @@ export const questionnairesAPI = {
 // Analysis API
 export const analysisAPI = {
   getMyResults: () => apiClient.get('/analysis/my-results'),
-  evaluateJob: ({ job }) => apiClient.post('/analysis/level9/evaluate-job', { job }),
+  evaluateJob: ({ job }) => apiClient.post('/analysis/level7/evaluate-job', { job }),
   saveShareImage: ({ dataUrl, questionnaireType = 'mbti', metadata }) =>
     apiClient.post('/analysis/share-image', {
       image: dataUrl,

@@ -173,7 +173,7 @@ export default function Niveau6() {
   const [introIdx, setIntroIdx] = useState(0)
   const [mouthAlt, setMouthAlt] = useState(false)
 
-  const [form, setForm] = useState({ keyword: '', region: '', department: '', type: '' })
+  const [form, setForm] = useState({ keyword: '', region: '' })
   const [searching, setSearching] = useState(false)
   const [searchExecuted, setSearchExecuted] = useState(false)
   const [searchError, setSearchError] = useState('')
@@ -246,7 +246,7 @@ export default function Niveau6() {
   }, [avatarUrl, shouldAnimateMouth, mouthAlt])
 
   const keywordDone = form.keyword.trim().length >= 2
-  const filtersDone = Boolean(form.region || form.department || form.type)
+  const filtersDone = Boolean(form.region)
   const searchDone = searchExecuted
   const exploreDone = Boolean(selectedFormation)
 
@@ -260,7 +260,7 @@ export default function Niveau6() {
     {
       id: 'filters',
       title: 'Affiner avec un filtre',
-      description: "Sélectionne une région, un département ou un type d'établissement.",
+  description: 'Sélectionne une région pour affiner ta recherche.',
       done: filtersDone
     },
     {
@@ -283,7 +283,7 @@ export default function Niveau6() {
 
   const guideMessage = useMemo(() => {
     if (!keywordDone) return 'Commence par saisir un mot-clé. Pense à ce que tu veux apprendre ou au métier visé.'
-  if (!filtersDone) return "Super. Ajoute un filtre (région, département ou type d'établissement) pour affiner la recherche."
+  if (!filtersDone) return 'Super. Ajoute un filtre (région) pour affiner la recherche.'
     if (!searchDone) return 'Parfait ! Lance la recherche pour voir les formations qui correspondent.'
     if (!exploreDone) return 'Clique sur une formation pour ouvrir la fiche et note ce qui te plaît.'
     return 'Tu maîtrises la recherche de formations. Tu peux valider ce niveau quand tu es prêt·e.'
@@ -315,8 +315,6 @@ export default function Niveau6() {
       const params = {}
       if (form.keyword) params.q = form.keyword
       if (form.region) params.region = form.region
-      if (form.department) params.department = form.department
-      if (form.type) params.type = form.type
       params.limit = 24
 
       const response = await formationsAPI.getAll(params)
@@ -485,44 +483,20 @@ export default function Niveau6() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Région</label>
-                    <select
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
-                      value={form.region}
-                      onChange={(event) => updateForm('region', event.target.value)}
-                    >
-                      <option value="">Aucune préférence</option>
-                      {REGIONS.map((region) => (
-                        <option key={region} value={region}>
-                          {region}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Département</label>
-                    <input
-                      type="text"
-                      value={form.department}
-                      onChange={(event) => updateForm('department', event.target.value)}
-                      placeholder="Ex: Paris, Gironde, Nord..."
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                  </div>
-                </div>
-
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Type d'établissement</label>
-                  <input
-                    type="text"
-                    value={form.type}
-                    onChange={(event) => updateForm('type', event.target.value)}
-                    placeholder="Ex: Publics, Privés sous contrat..."
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Région</label>
+                  <select
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">Les libellés doivent correspondre aux valeurs officielles du jeu de données.</p>
+                    value={form.region}
+                    onChange={(event) => updateForm('region', event.target.value)}
+                  >
+                    <option value="">Aucune préférence</option>
+                    {REGIONS.map((region) => (
+                      <option key={region} value={region}>
+                        {region}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <button

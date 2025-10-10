@@ -554,8 +554,8 @@ function parseStudyRecommendations(text) {
   return studies
 }
 
-// Level 9: evaluate job fit using user_results context and Gemini
-router.post('/level9/evaluate-job', authenticateToken, async (req, res) => {
+// Level 7: evaluate job fit using user_results context and Gemini
+router.post(['/level7/evaluate-job', '/level9/evaluate-job'], authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id
     const rawJob = req.body?.job
@@ -574,7 +574,7 @@ router.post('/level9/evaluate-job', authenticateToken, async (req, res) => {
       .single()
 
     if (error && error.code !== 'PGRST116') {
-      console.error('Level9 evaluate-job fetch error:', error)
+  console.error('Level7 evaluate-job fetch error:', error)
       return res.status(500).json({ error: 'Impossible de récupérer tes résultats.' })
     }
 
@@ -651,8 +651,8 @@ router.post('/level9/evaluate-job', authenticateToken, async (req, res) => {
     })
 
     if (!resp.ok) {
-      const txt = await resp.text()
-      console.error('Gemini level9 error:', txt)
+  const txt = await resp.text()
+  console.error('Gemini level7 error:', txt)
       return res.status(500).json({ error: 'Erreur IA' })
     }
 
@@ -673,7 +673,7 @@ router.post('/level9/evaluate-job', authenticateToken, async (req, res) => {
     let explanation = verdictMatch ? verdictMatch[2].trim() : reply.replace(/^\s*(oui|non)[\s\-–:]+/i, '').trim()
 
     if (!verdictValue) {
-      console.warn('Gemini level9 unstructured reply:', reply)
+  console.warn('Gemini level7 unstructured reply:', reply)
       return res.status(500).json({ error: 'Réponse IA non comprise' })
     }
 
@@ -687,7 +687,7 @@ router.post('/level9/evaluate-job', authenticateToken, async (req, res) => {
       explanation
     })
   } catch (error) {
-    console.error('Level9 evaluate-job error:', error)
+  console.error('Level7 evaluate-job error:', error)
     res.status(500).json({ error: 'Erreur serveur' })
   }
 })

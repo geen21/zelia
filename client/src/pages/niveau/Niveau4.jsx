@@ -491,7 +491,7 @@ export default function Niveau4() {
                   ) : phase === 'quiz' ? (
                     <>Réponds aux questions MBTI, puis termine pour lancer l'analyse.</>
                   ) : phase === 'generating' ? (
-                    <>J'analyse tes réponses…</>
+                    <>J'analyse vos réponses, cela peut prendre jusqu'à 1 minute, ne rechargez pas la page…</>
                   ) : phase === 'results' ? (
                     <>
                       {resultsStep === 'confirm'

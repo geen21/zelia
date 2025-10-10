@@ -74,8 +74,8 @@ export default function AvatarCreate() {
 				</div>
 				<div className="grid grid-cols-1 md:grid-cols-12 gap-4">
 					<div className="md:col-span-5">
-						<div className="bg-surface border border-line rounded-xl shadow-card p-6 grid place-items-center">
-							<img src={url} alt="avatar" className="max-w-full" />
+						<div className="bg-surface border border-line rounded-xl shadow-card p-5 sm:p-6 grid place-items-center">
+							<img src={url} alt="avatar" className="w-full max-w-[200px] sm:max-w-[260px] md:max-w-[320px] lg:max-w-[360px]" />
 						</div>
 					</div>
 					<div className="md:col-span-7">

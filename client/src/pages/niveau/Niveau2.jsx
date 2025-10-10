@@ -197,16 +197,28 @@ export default function Niveau2() {
         const YTGlobal = window.YT
         if (!YTGlobal || !YTGlobal.Player) return
         playerRef.current = new YTGlobal.Player('niv2Player', {
-          height: '315',
-          width: '560',
-          videoId: 'WgUmD_sZRrI',
+          height: '100%',
+          width: '100%',
+          videoId: 'JBEFI62HPsE',
           playerVars: {
             rel: 0,
             modestbranding: 1,
             playsinline: 1,
           },
           events: {
-            onReady: () => { playerReadyRef.current = true },
+            onReady: () => {
+              playerReadyRef.current = true
+              try {
+                const iframe = playerRef.current?.getIframe?.()
+                if (iframe) {
+                  iframe.style.width = '100%'
+                  iframe.style.height = '100%'
+                  iframe.style.position = 'absolute'
+                  iframe.style.top = '0'
+                  iframe.style.left = '0'
+                }
+              } catch {}
+            },
             onStateChange: (event) => {
               // eslint-disable-next-line no-undef
               if (event.data === window.YT.PlayerState.ENDED) {
@@ -327,15 +339,15 @@ export default function Niveau2() {
           ) : (
             <div>
               {/* API-rendered player for end detection */}
-              <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
-                <div id="niv2Player" className="absolute inset-0" />
+              <div className="relative w-full overflow-hidden rounded-xl" style={{ paddingTop: '56.25%' }}>
+                <div id="niv2Player" className="absolute inset-0 w-full h-full" />
               </div>
               {/* Fallback iframe display (no end detection) */}
               <noscript>
                 <iframe
                   width="560"
                   height="315"
-                  src="https://www.youtube.com/embed/WgUmD_sZRrI?si=9_DuCyLC6Gw_mF2Z"
+                  src="https://www.youtube.com/embed/JBEFI62HPsE?si=KuNhAbh9S4bRYbX2"
                   title="YouTube video player"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

@@ -463,13 +463,13 @@ const Activites = () => {
                     <div className="lg:col-span-2 space-y-6">
                 {/* Header Section with Avatar and Progress */}
                 <div className="bg-white rounded-3xl p-8 border border-gray-200 shadow-card">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-6">
+                    <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                        <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:gap-6">
                             <div className="relative">
                                 <img
                                     src={avatar.dicebear}
                                     alt="Avatar Zélia"
-                                    className="w-24 h-24 rounded-full border-4 border-white shadow-lg"
+                                    className="w-28 h-28 md:w-32 md:h-32 rounded-full border-4 border-white shadow-lg"
                                     loading="lazy"
                                     decoding="async"
                                     width="96"
@@ -479,9 +479,9 @@ const Activites = () => {
                                     Niv. {progression.level}
                                 </div>
                             </div>
-                            <div>
-                                <div className="flex items-center gap-3 flex-wrap">
-                                    <h1 className="text-3xl font-bold text-gray-800 mb-2">
+                            <div className="text-center sm:text-left">
+                                <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-3">
+                                    <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">
                                         Aventure Zélia - Niveau {progression.level}
                                     </h1>
                                     <button
@@ -496,13 +496,15 @@ const Activites = () => {
                                         <span>{hasAccessibleLevel ? `Aller au Niveau ${targetLevel}` : 'Niveaux terminés'}</span>
                                     </button>
                                 </div>
-                                <p className="text-gray-600 text-lg">{ui.speak}</p>
+                                <p className="text-gray-600 text-base md:text-lg mt-2">
+                                    {ui.speak}
+                                </p>
                             </div>
                         </div>
                         
                         {/* XP Notification */}
                         {xpGained > 0 && (
-                            <div className="bg-[#c1ff72] text-black px-4 py-2 rounded-lg font-bold border border-gray-200">
+                            <div className="bg-[#c1ff72] text-black px-4 py-2 rounded-lg font-bold border border-gray-200 text-center md:text-right">
                                 +{xpGained} XP !
                             </div>
                         )}

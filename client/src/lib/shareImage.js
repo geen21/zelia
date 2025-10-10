@@ -69,7 +69,7 @@ async function ensureCanvasFontsLoaded() {
   if (typeof document === 'undefined' || !('fonts' in document)) return
 
   try {
-    const clashFace = new FontFace('ClashGroteskSemibold', 'url(/static/fonts/ClashGroteskSemibold.woff2) format("woff2")')
+    const clashFace = new FontFace('ClashGroteskMedium', 'url(/static/fonts/ClashGroteskSemibold.woff2) format("woff2")')
     await clashFace.load()
     document.fonts.add(clashFace)
 
@@ -81,12 +81,12 @@ async function ensureCanvasFontsLoaded() {
       await bricolageFace.load()
       document.fonts.add(bricolageFace)
     } catch (bricolageError) {
-      console.warn('Bricolage Grotesque not available, using ClashGroteskSemibold', bricolageError)
+      console.warn('Bricolage Grotesque not available, using ClashGroteskMedium', bricolageError)
     }
 
-    await document.fonts.load('800 88px "Bricolage Grotesque", "ClashGroteskSemibold"')
-    await document.fonts.load('800 64px "Bricolage Grotesque", "ClashGroteskSemibold"')
-    await document.fonts.load('800 48px "Bricolage Grotesque", "ClashGroteskSemibold"')
+    await document.fonts.load('800 88px "Bricolage Grotesque", "ClashGroteskMedium"')
+    await document.fonts.load('800 64px "Bricolage Grotesque", "ClashGroteskMedium"')
+    await document.fonts.load('800 48px "Bricolage Grotesque", "ClashGroteskMedium"')
   } catch (error) {
     console.warn('Canvas font load failed, falling back to system fonts', error)
   }
@@ -149,7 +149,7 @@ export async function generateMbtiShareImage({
 
     const title = analysis?.personalityType || 'Profil MBTI'
     ctx.fillStyle = colors.text
-    ctx.font = '800 120px "Bricolage Grotesque", "ClashGroteskSemibold", system-ui, -apple-system, sans-serif'
+    ctx.font = '800 120px "Bricolage Grotesque", "ClashGroteskMedium", system-ui, -apple-system, sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'top'
 
@@ -201,7 +201,7 @@ export async function generateMbtiShareImage({
     }
 
     const qualities = extractTopQualities(analysis?.skillsAssessment || '', 3)
-    ctx.font = '800 80px "Bricolage Grotesque", "ClashGroteskSemibold", system-ui, sans-serif'
+    ctx.font = '800 80px "Bricolage Grotesque", "ClashGroteskMedium", system-ui, sans-serif'
     ctx.fillStyle = colors.text
     ctx.textAlign = 'center'
     const qualitiesY = titleY + 150
@@ -246,7 +246,7 @@ export async function generateMbtiShareImage({
     const jobs = pickJobsFromAnalysis(analysis)
     const jobsTitleY = qualityY + 20
     ctx.fillStyle = colors.text
-    ctx.font = '800 80px "Bricolage Grotesque", "ClashGroteskSemibold", system-ui, sans-serif'
+    ctx.font = '800 80px "Bricolage Grotesque", "ClashGroteskMedium", system-ui, sans-serif'
     ctx.fillText('Top métiers', width / 2 + 20, jobsTitleY)
 
     ctx.font = '600 50px system-ui, -apple-system, sans-serif'

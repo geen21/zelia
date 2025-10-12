@@ -571,7 +571,9 @@ const evaluateJobHandler = async (req, res) => {
       .from('user_results')
       .select('*')
       .eq('user_id', userId)
-      .single()
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
     if (error && error.code !== 'PGRST116') {
   console.error('Level7 evaluate-job fetch error:', error)

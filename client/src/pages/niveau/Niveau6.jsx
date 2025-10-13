@@ -2,9 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import supabase from '../../lib/supabase'
 import { formationsAPI, usersAPI } from '../../lib/api'
-import { levelUp } from '../../lib/progression'
-
-const XP_REWARD = 220
+import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 
 const REGIONS = [
   'Île-de-France',
@@ -345,7 +343,7 @@ export default function Niveau6() {
     setCompletionSaving(true)
     setCompletionError('')
     try {
-      await levelUp({ minLevel: 6, xpReward: XP_REWARD })
+  await levelUp({ minLevel: 6, xpReward: XP_PER_LEVEL })
       setCompleted(true)
     } catch (err) {
       console.error('Niveau6 levelUp failed', err)
@@ -380,7 +378,7 @@ export default function Niveau6() {
             <img
               src={displayedAvatarUrl}
               alt="Avatar"
-              className="mx-auto h-40 w-40 rounded-2xl border border-gray-100 bg-white object-contain shadow-sm sm:h-48 sm:w-48 md:mx-0 md:h-64 md:w-64"
+              className="mx-auto h-28 w-28 rounded-2xl border border-gray-100 bg-white object-contain shadow-sm sm:h-36 sm:w-36 md:h-44 md:w-44 md:mx-0 lg:h-52 lg:w-52 xl:h-60 xl:w-60 2xl:h-64 2xl:w-64"
             />
             <div className="w-full flex-1">
               <div className="relative w-full rounded-2xl bg-black p-4 text-white md:p-5">

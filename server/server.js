@@ -21,6 +21,7 @@ import progressionRoutes from './routes/progression.js'
 import chatRoutes from './routes/chat.js'
 import letterRoutes from './routes/letter.js'
 import shareRoutes from './routes/share.js'
+import supportRoutes from './routes/support.js'
 
 // Load environment variables
 dotenv.config()
@@ -147,6 +148,7 @@ app.use('/api/chat', chatRoutes)
 app.use('/api/letter', letterRoutes)
 app.use('/api/payments', paymentsRoutes)
 app.use('/api/share', shareRoutes)
+app.use('/api/support', supportRoutes)
 
 // Root endpoint
 app.get('/', (req, res) => {

@@ -2,19 +2,20 @@ import { progressionAPI } from './api'
 
 export const MAX_LEVEL = 50
 export const PAYWALL_LEVEL = 10
+export const XP_PER_LEVEL = 100
 
 const CORE_QUEST_SEQUENCE = [
   { id: 'complete_test', label: "Test d'orientation" },
   { id: 'explore_interests', label: "Explorer mes centres d'intérêt" },
   { id: 'watch_intro', label: "Vidéo d'introduction" },
-  { id: 'strengths_quiz', label: 'Quiz sur mes forces' },
+  { id: 'strengths_quiz', label: 'Pitch de 60s' },
   { id: 'personality_test', label: 'Test de personnalité' },
-  { id: 'values_exploration', label: 'Définir mes valeurs' },
-  { id: 'job_research', label: 'Rechercher des métiers' },
-  { id: 'salary_analysis', label: 'Analyser les salaires' },
+  { id: 'values_exploration', label: "Test d'anglais" },
+  { id: 'job_research', label: 'Rechercher des formations' },
+  { id: 'salary_analysis', label: 'Le métier qui te convient' },
   { id: 'job_videos', label: 'Vidéos métiers' },
-  { id: 'schedule_meeting', label: 'Planifier un entretien' },
-  { id: 'prepare_questions', label: 'Préparer des questions' },
+  { id: 'schedule_meeting', label: 'Rechercher des entreprises' },
+  { id: 'prepare_questions', label: 'Bilan primaire' },
   { id: 'company_visit', label: "Visite d'entreprise virtuelle" },
   { id: 'soft_skills_assessment', label: 'Éval. des soft skills' },
   { id: 'star_method', label: 'Méthode STAR' },
@@ -25,10 +26,10 @@ const CORE_QUEST_SEQUENCE = [
   { id: 'projet_motive', label: 'Projet motivé' },
   { id: 'voeux_strategy', label: 'Stratégie de vœux' },
   { id: 'calendar_planning', label: 'Planifier le calendrier' },
-  { id: 'pitch_practice', label: 'Pitch 60s' },
+  { id: 'pitch_practice', label: 'Analyse de ton dossier' },
   { id: 'interview_simulation', label: "Simulation d'entretien" },
   { id: 'confidence_building', label: 'Confiance en soi' },
-  { id: 'portfolio_review', label: 'Révision du portfolio' },
+  { id: 'portfolio_review', label: 'Rencontre des experts' },
   { id: 'coherence_check', label: 'Vérification de cohérence' },
   { id: 'final_polish', label: 'Finitions' },
   { id: 'mentor_others', label: 'Mentorat' },
@@ -68,6 +69,20 @@ const DEFAULT_PROGRESSION = {
   perks: []
 }
 
+function normalizeLevelValue(level) {
+  const numericLevel = Number(level)
+  if (!Number.isFinite(numericLevel)) return 1
+  return Math.max(1, Math.min(Math.floor(numericLevel), MAX_LEVEL))
+}
+
+function clampXpForLevel(level, xp) {
+  const baseXp = Math.max(0, (level - 1) * XP_PER_LEVEL)
+  const topXp = Math.min(baseXp + XP_PER_LEVEL, MAX_LEVEL * XP_PER_LEVEL)
+  const numericXp = Number(xp)
+  if (!Number.isFinite(numericXp)) return baseXp
+  return Math.min(Math.max(numericXp, baseXp), topXp)
+}
+
 export function questIdForLevel(level) {
   const numericLevel = Number(level)
   if (!Number.isFinite(numericLevel)) return null
@@ -97,9 +112,15 @@ export function getDefaultProgression() {
 export async function fetchProgression() {
   try {
     const response = await progressionAPI.get()
+    const payload = response?.data || {}
+    const cleanLevel = normalizeLevelValue(payload.level ?? DEFAULT_PROGRESSION.level)
+    const cleanXp = clampXpForLevel(cleanLevel, payload.xp ?? DEFAULT_PROGRESSION.xp)
+
     return {
       ...DEFAULT_PROGRESSION,
-      ...(response?.data || {})
+      ...payload,
+      level: cleanLevel,
+      xp: cleanXp
     }
   } catch (error) {
     console.warn('fetchProgression failed, returning default progression', error)
@@ -116,7 +137,13 @@ export async function levelUp({ minLevel = null, xpReward = 0 } = {}) {
     nextLevel = Math.min(minLevel, MAX_LEVEL)
   }
 
-  const newXpValue = (Number(current.xp) || 0) + (Number(xpReward) || 0)
+  const rewardNumeric = Number(xpReward)
+  const safeReward = Number.isFinite(rewardNumeric) && rewardNumeric > 0
+    ? Math.min(Math.round(rewardNumeric), XP_PER_LEVEL)
+    : XP_PER_LEVEL
+
+  const baseXpForLevel = Math.max(0, (nextLevel - 1) * XP_PER_LEVEL)
+  const newXpValue = Math.min(baseXpForLevel + safeReward, MAX_LEVEL * XP_PER_LEVEL)
 
   const existingQuests = Array.isArray(current.quests) ? current.quests.filter(Boolean) : []
   const newlyCompletedQuests = []

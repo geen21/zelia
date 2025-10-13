@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { fetchProgression } from '../lib/progression'
+import { supportAPI } from '../lib/api'
 
 export default function Layout() {
 	const nav = useNavigate()
@@ -9,6 +10,11 @@ export default function Layout() {
 	const [dropdownOpen, setDropdownOpen] = useState(false)
 	const dropdownRef = useRef(null)
   const [level, setLevel] = useState(1)
+	const [bugOpen, setBugOpen] = useState(false)
+	const [bugTitle, setBugTitle] = useState('')
+	const [bugDesc, setBugDesc] = useState('')
+	const [bugSending, setBugSending] = useState(false)
+	const [bugSent, setBugSent] = useState(false)
 
 	useEffect(() => {
 		function handleClickOutside(event) {
@@ -76,17 +82,48 @@ export default function Layout() {
 
 	return (
 		<div className="min-h-screen bg-white text-text-primary">
+				<BugModal
+					open={bugOpen}
+					onClose={() => { if (!bugSending) setBugOpen(false) }}
+					onSubmit={async ()=>{
+						try {
+							setBugSending(true)
+							const payload = {
+								title: bugTitle,
+								description: bugDesc,
+								location: window.location?.href,
+								userAgent: navigator.userAgent
+							}
+							await supportAPI.reportBug(payload)
+							setBugSent(true)
+							setBugTitle('')
+							setBugDesc('')
+							setTimeout(()=>{ setBugOpen(false); setBugSent(false); }, 1200)
+						} catch (e) {
+							alert("Échec de l'envoi du bug. Réessayez plus tard.")
+						} finally {
+							setBugSending(false)
+						}
+					}}
+					title={bugTitle}
+					setTitle={setBugTitle}
+					desc={bugDesc}
+					setDesc={setBugDesc}
+					sending={bugSending}
+					sent={bugSent}
+				/>
 			{/* Sidebar */}
 			<aside className={`fixed top-0 left-0 h-full w-64 bg-white border-r border-line z-40 transition-transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-				<div className="h-16 flex items-center justify-between px-6 border-b border-line">
-					<Link to="/app" className="flex items-center justify-center">
-						<img src="/static/images/logo-dark.png" alt="Logo" className="h-8" />
-					</Link>
-					<button className="md:hidden p-2 rounded-lg hover:bg-gray-50" onClick={() => setSidebarOpen(false)} aria-label="Fermer la sidebar">
-						<i className="ph ph-x text-xl"></i>
-					</button>
-				</div>
-				<nav className="py-4">
+				<div className="h-full flex flex-col">
+					<div className="h-16 flex items-center justify-between px-6 border-b border-line">
+						<Link to="/app" className="flex items-center justify-center">
+							<img src="/static/images/logo-dark.png" alt="Logo" className="h-8" />
+						</Link>
+						<button className="md:hidden p-2 rounded-lg hover:bg-gray-50" onClick={() => setSidebarOpen(false)} aria-label="Fermer la sidebar">
+							<i className="ph ph-x text-xl"></i>
+						</button>
+					</div>
+					<nav className="py-4 flex-1 overflow-y-auto">
 					{/* Activités is always accessible */}
 					<SidebarLink
 						to="/app"
@@ -141,7 +178,27 @@ export default function Layout() {
 					>
 						Chat
 					</SidebarLink>
-				</nav>
+					</nav>
+					<div className="px-6 pb-3 pt-2 border-t border-line flex flex-col items-center gap-2 text-text-secondary">
+						{/* Alpha badge + Report bug */}
+						<div className="flex items-center gap-2 text-[11px] uppercase tracking-wide">
+							<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-[#f68fff] text-[#f68fff]">
+								<span className="inline-block w-1.5 h-1.5 rounded-full bg-[#f68fff]"></span>
+								Version Alpha
+							</span>
+							<button onClick={() => setBugOpen(true)} className="text-[#f68fff] hover:underline">Signaler un bug</button>
+						</div>
+
+						<div className="flex items-center justify-center gap-3">
+						<Link to="/legal/mentions-legales" className="group inline-flex h-7 w-7 items-center justify-center rounded-full border border-line transition-colors hover:border-black hover:text-black" title="Mentions légales" aria-label="Mentions légales">
+							<i className="ph ph-identification-card text-sm"></i>
+						</Link>
+						<Link to="/legal/conditions" className="group inline-flex h-7 w-7 items-center justify-center rounded-full border border-line transition-colors hover:border-black hover:text-black" title="CGU &amp; politique de confidentialité" aria-label="CGU et politique de confidentialité">
+							<i className="ph ph-shield-check text-sm"></i>
+						</Link>
+						</div>
+					</div>
+				</div>
 			</aside>
 
 			{/* Header */}
@@ -230,5 +287,37 @@ function SidebarLink({ to, icon, active, children, onClick, locked = false, lock
 						</div>
 					)}
 		</Link>
+	)
+}
+
+function BugModal({ open, onClose, onSubmit, title, setTitle, desc, setDesc, sending, sent }){
+	if (!open) return null
+	return (
+		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+			<div className="bg-white w-full max-w-lg rounded-xl border border-line shadow-lg p-5">
+				<div className="flex items-center justify-between mb-3">
+					<h3 className="text-lg font-semibold">Signaler un bug</h3>
+					<button className="p-1 hover:bg-gray-100 rounded" onClick={onClose} aria-label="Fermer">
+						<i className="ph ph-x"></i>
+					</button>
+				</div>
+				<div className="space-y-3">
+					<div>
+						<label className="block text-sm text-text-secondary mb-1">Titre (optionnel)</label>
+						<input className="w-full border border-line rounded-lg px-3 py-2" value={title} onChange={(e)=>setTitle(e.target.value)} placeholder="Ex: Erreur lors de l'enregistrement" />
+					</div>
+					<div>
+						<label className="block text-sm text-text-secondary mb-1">Description</label>
+						<textarea className="w-full border border-line rounded-lg px-3 py-2 min-h-[120px]" value={desc} onChange={(e)=>setDesc(e.target.value)} placeholder="Décrivez brièvement le problème rencontré"></textarea>
+					</div>
+				</div>
+				<div className="flex items-center justify-end gap-2 mt-4">
+					<button className="h-10 px-4 rounded-lg border border-line" onClick={onClose} disabled={sending}>Annuler</button>
+					<button className="h-10 px-4 rounded-lg bg-[#f68fff] text-white disabled:opacity-60" onClick={onSubmit} disabled={sending || !desc.trim()}>
+						{sending ? 'Envoi…' : (sent ? 'Envoyé' : 'Envoyer')}
+					</button>
+				</div>
+			</div>
+		</div>
 	)
 }

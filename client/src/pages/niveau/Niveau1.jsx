@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiClient, { usersAPI, chatAPI } from '../../lib/api'
-import { levelUp } from '../../lib/progression'
+import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 
 // Helper: build avatar URL from profile preferences, preferring explicit avatar_url
@@ -348,7 +348,7 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 		// Auto-hide success after a short celebration, optional
 		setTimeout(() => { /* keep overlay until user navigates */ }, 2000)
 		// Update progression: grant XP and move to level 2 if needed
-		const baseXpReward = 100
+		const baseXpReward = XP_PER_LEVEL
 		;(async () => {
 			try {
 				await levelUp({ minLevel: 2, xpReward: baseXpReward })
@@ -400,7 +400,7 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 				{/* Left: Avatar + Dialogue */}
 				<div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
 					<div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-						<img src={displayedAvatarUrl} alt="Avatar" className="w-40 h-40 sm:w-48 sm:h-48 md:w-64 md:h-64 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto md:mx-0" />
+						<img src={displayedAvatarUrl} alt="Avatar" className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-52 lg:h-52 xl:w-60 xl:h-60 2xl:w-64 2xl:h-64 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto md:mx-0" />
 						<div className="flex-1 w-full">
 							<div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
 								<div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">

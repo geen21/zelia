@@ -202,6 +202,17 @@ export default function Home() {
           </div>
         </nav>
 
+        <div className="landing-legal-links" aria-label="Liens légaux">
+          <Link to="/legal/mentions-legales" className="landing-legal-link" aria-label="Mentions légales">
+            <i className="ph ph-identification-card" aria-hidden="true"></i>
+            <span className="sr-only">Mentions légales</span>
+          </Link>
+          <Link to="/legal/conditions" className="landing-legal-link" aria-label="CGU et politique de confidentialité">
+            <i className="ph ph-shield-check" aria-hidden="true"></i>
+            <span className="sr-only">CGU et politique de confidentialité</span>
+          </Link>
+        </div>
+
         {/* Modern two-column hero layout */}
         <div className="container position-relative hero-center" style={{ zIndex: 2 }}>
           <div className="row align-items-center justify-content-between g-5 hero-two-col">
@@ -360,6 +371,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+
     </div>
   )
 }

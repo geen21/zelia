@@ -15,6 +15,8 @@ import Profile from './pages/Profile.jsx'
 import Layout from './pages/Layout.jsx'
 import Formations from './pages/Formations.jsx'
 import Emplois from './pages/Emplois.jsx'
+import MentionsLegales from './pages/MentionsLegales.jsx'
+import ConditionsConfidentialite from './pages/ConditionsConfidentialite.jsx'
 const Activites = lazy(() => import('./pages/Activites.jsx'))
 import Lettre from './pages/Lettre.jsx'
 import Niveau1 from './pages/niveau/Niveau1.jsx'
@@ -56,6 +58,8 @@ function App() {
         <Route path="/email-confirmation" element={<EmailConfirmation />} />
   <Route path="/avatar" element={<AvatarCreate />} />
   <Route path="/questionnaire" element={<Questionnaire />} />
+        <Route path="/legal/mentions-legales" element={<MentionsLegales />} />
+        <Route path="/legal/conditions" element={<ConditionsConfidentialite />} />
         <Route path="/app" element={<RequireAuth><Layout /></RequireAuth>}>
           <Route index element={
             <Suspense fallback={<div className="p-6 text-center">Chargement des activités…</div>}>

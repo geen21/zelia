@@ -175,3 +175,8 @@ export const paymentsAPI = {
 export const shareAPI = {
   sendResults: (payload = {}) => apiClient.post('/share/results', payload)
 }
+
+export const supportAPI = {
+  reportBug: ({ title, description, location, userAgent, email }) =>
+    apiClient.post('/support/bug', { title, description, location, userAgent, email })
+}

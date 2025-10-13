@@ -458,7 +458,7 @@ export default function Niveau10() {
   }, [userId])
 
   const ensureAnalysisData = useCallback(async () => {
-    if (analysisData) return analysisData
+    if (analysisData?.orientation) return analysisData
     if (analysisLoading) return null
     setAnalysisLoading(true)
     setAnalysisError('')
@@ -473,8 +473,14 @@ export default function Niveau10() {
 
     try {
       const results = await fetchResults()
-      setAnalysisData(results)
-      return results
+      const orientation = results?.inscriptionResults || null
+      if (!orientation) {
+        setAnalysisError('Complète ton questionnaire d’orientation avant de pouvoir partager ton dossier.')
+        return null
+      }
+      const mapped = { orientation, raw: results }
+      setAnalysisData(mapped)
+      return mapped
     } catch (err) {
       if (err.response?.status === 404) {
         const targetUserId = userId || profile?.id
@@ -482,8 +488,14 @@ export default function Niveau10() {
           try {
             await apiClient.post('/analysis/generate-analysis', { userId: targetUserId })
             const refreshed = await fetchResults()
-            setAnalysisData(refreshed)
-            return refreshed
+            const orientation = refreshed?.inscriptionResults || null
+            if (!orientation) {
+              setAnalysisError('Aucun résultat d’orientation disponible. Assure-toi d’avoir terminé le questionnaire inscription.')
+              return null
+            }
+            const mapped = { orientation, raw: refreshed }
+            setAnalysisData(mapped)
+            return mapped
           } catch (genErr) {
             console.error('Generation fallback failed', genErr)
             setAnalysisError('Impossible de récupérer tes résultats pour le moment. Vérifie que tu as complété ton analyse.')
@@ -543,11 +555,12 @@ export default function Niveau10() {
 
     setSendingEmails(true)
     try {
-      const results = await ensureAnalysisData()
-      if (!results) {
-        throw new Error("Résultats indisponibles")
+      const data = await ensureAnalysisData()
+      const orientationResults = data?.orientation
+      if (!orientationResults) {
+        throw new Error('Résultats d’orientation indisponibles')
       }
-  const pdf = await generateResultsPdf({ profile, results, benefits, priceLabel: defaultPriceLabel })
+      const pdf = await generateResultsPdf({ profile, results: orientationResults, benefits, priceLabel: defaultPriceLabel })
       const dataUri = pdf.output('datauristring')
       const base64 = dataUri.split(',')[1]
       const filename = `resultats-orientation-${userFirstName.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.pdf`
@@ -579,6 +592,17 @@ export default function Niveau10() {
     setError('')
     setStatusBanner(null)
     setCheckoutState('processing')
+
+    try {
+      await usersAPI.updateProfile({ accent_color: 'Registered' })
+      setProfile((prev) => (prev ? { ...prev, accent_color: 'Registered' } : prev))
+    } catch (err) {
+      console.error('Waitlist registration failed', err)
+      const message = err.response?.data?.error || "Impossible de t'inscrire sur la liste d'attente. Réessaie dans un instant."
+      setError(message)
+      setCheckoutState('idle')
+      return
+    }
 
     try {
       const { data } = await paymentsAPI.createCheckout()
@@ -651,7 +675,7 @@ export default function Niveau10() {
             <img
               src={displayedAvatarUrl || '/static/images/logo-dark.png'}
               alt="Avatar"
-              className="mx-auto h-48 w-48 rounded-3xl border border-gray-100 bg-white object-contain shadow-sm md:h-64 md:w-64"
+              className="mx-auto h-28 w-28 rounded-3xl border border-gray-100 bg-white object-contain shadow-sm sm:h-36 sm:w-36 md:h-44 md:w-44 lg:h-52 lg:w-52 xl:h-60 xl:w-60 2xl:h-64 2xl:w-64"
             />
             <div className="flex-1">
               <div className="relative w-full rounded-2xl bg-black px-5 py-4 text-white md:px-6 md:py-5">
@@ -693,7 +717,7 @@ export default function Niveau10() {
             <img
               src={displayedAvatarUrl || '/static/images/logo-dark.png'}
               alt="Avatar"
-              className="mx-auto h-48 w-48 rounded-3xl border border-gray-100 bg-white object-contain shadow-sm md:h-64 md:w-64"
+              className="mx-auto h-28 w-28 rounded-3xl border border-gray-100 bg-white object-contain shadow-sm sm:h-36 sm:w-36 md:h-44 md:w-44 lg:h-52 lg:w-52 xl:h-60 xl:w-60 2xl:h-64 2xl:w-64"
             />
             <div className="flex-1">
               <div className="relative w-full rounded-2xl bg-black px-5 py-4 text-white md:px-6 md:py-5">
@@ -847,7 +871,7 @@ export default function Niveau10() {
                     ? 'Redirection en cours…'
                     : checkoutState === 'verifying'
                       ? 'Vérification…'
-                      : `Activer Zélia+ — ${defaultPriceLabel}`}
+                      : "S'inscrire sur la liste d'attente"}
                 </button>
                 <button
                   type="button"

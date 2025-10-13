@@ -16,10 +16,10 @@ function buildLoreleiUrl(cfg, size) {
 	if (cfg.skin) q.set('skinColor', hexNoHash(cfg.skin))
 	if (cfg.hair) q.set('hairColor', hexNoHash(cfg.hair))
 	if (cfg.glasses === true) {
-		q.set('accessories', 'glasses')
-		q.set('accessoriesProbability', '100')
+		q.set('glasses', 'variant01')
+		q.set('glassesProbability', '100')
 	} else {
-		q.set('accessoriesProbability', '0')
+		q.set('glassesProbability', '0')
 	}
 	return `${base}?${q.toString()}`
 }

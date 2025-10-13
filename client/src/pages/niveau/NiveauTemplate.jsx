@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import supabase from '../../lib/supabase'
 import {
   PAYWALL_LEVEL,
+  XP_PER_LEVEL,
   computeNextPlayableLevel,
   fetchProgression,
   isLevelAccessible,
@@ -18,7 +19,7 @@ const STATUS_COLORS = {
 
 export default function NiveauTemplate({
   level,
-  xpReward = 0,
+  xpReward = XP_PER_LEVEL,
   title,
   subtitle,
   description,

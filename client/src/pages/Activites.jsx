@@ -2,12 +2,18 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import api, { usersAPI } from '../lib/api';
-import { ALL_QUEST_IDS, questLabel } from '../lib/progression';
+import { ALL_QUEST_IDS, MAX_LEVEL, XP_PER_LEVEL, questLabel } from '../lib/progression';
 
 // Zélia Game Engine - French Career Orientation Game
 class ZeliaGameEngine {
     constructor(seed = 'zelia') {
-        this.levelThreshold = (level) => Math.round(80 + 28 * Math.pow(level - 1, 1.22));
+        this.levelThreshold = (level) => {
+            const cleanLevel = Math.max(1, Math.floor(level));
+            if (cleanLevel >= MAX_LEVEL + 1) {
+                return MAX_LEVEL * XP_PER_LEVEL;
+            }
+            return Math.max(0, (cleanLevel - 1) * XP_PER_LEVEL);
+        };
         this.seed = String(seed || 'zelia');
     }
 
@@ -51,7 +57,8 @@ class ZeliaGameEngine {
         const newLevel = this.calculateLevel(newState.progression.xp);
         const leveledUp = newLevel > newState.progression.level;
         newState.progression.level = newLevel;
-        newState.progression.toNext = this.levelThreshold(newLevel + 1) - newState.progression.xp;
+    const rawToNext = this.levelThreshold(newLevel + 1) - newState.progression.xp;
+    newState.progression.toNext = newLevel >= MAX_LEVEL ? 0 : rawToNext > 0 ? rawToNext : XP_PER_LEVEL;
 
         // Merge quests just completed
         const existingQuests = Array.isArray(newState.quests) ? newState.quests : [];
@@ -71,7 +78,7 @@ class ZeliaGameEngine {
 
     calculateLevel(xp) {
         let level = 1;
-        while (xp >= this.levelThreshold(level + 1) && level < 50) {
+        while (xp >= this.levelThreshold(level + 1) && level < MAX_LEVEL) {
             level++;
         }
         return level;
@@ -356,11 +363,20 @@ const Activites = () => {
                 if (isMounted) setProfile(prof);
 
                 const pdata = progRes?.data || {};
+                const cleanLevel = Math.max(1, Math.min(Math.floor(pdata?.level) || 1, MAX_LEVEL));
+                const baseXpForLevel = Math.max(0, (cleanLevel - 1) * XP_PER_LEVEL);
+                const rawXp = Number(pdata?.xp);
+                const cleanXp = Number.isFinite(rawXp)
+                    ? Math.min(Math.max(rawXp, baseXpForLevel), Math.min(baseXpForLevel + XP_PER_LEVEL, MAX_LEVEL * XP_PER_LEVEL))
+                    : baseXpForLevel;
+                const rawToNext = gameEngine.levelThreshold(cleanLevel + 1) - cleanXp;
+                const normalizedToNext = cleanLevel >= MAX_LEVEL ? 0 : rawToNext > 0 ? rawToNext : XP_PER_LEVEL;
+
                 const initialState = {
                     progression: {
-                        level: pdata?.level || 1,
-                        xp: pdata?.xp || 0,
-                        toNext: gameEngine.levelThreshold((pdata?.level || 1) + 1) - (pdata?.xp || 0)
+                        level: cleanLevel,
+                        xp: cleanXp,
+                        toNext: normalizedToNext
                     },
                     quests: pdata?.quests || [],
                     perks: pdata?.perks || []
@@ -420,11 +436,13 @@ const Activites = () => {
     const levelForProgress = gameState?.progression?.level ?? 1;
     const xpForProgress = gameState?.progression?.xp ?? 0;
     const progressPercent = useMemo(() => {
-        const next = gameEngine.levelThreshold(levelForProgress + 1);
+        const next = levelForProgress >= MAX_LEVEL
+            ? MAX_LEVEL * XP_PER_LEVEL
+            : gameEngine.levelThreshold(levelForProgress + 1);
         const prev = levelForProgress <= 1 ? 0 : gameEngine.levelThreshold(levelForProgress);
-        const denom = Math.max(1, next - prev);
-        const num = Math.max(0, Math.min(next - prev, xpForProgress - prev));
-        return Math.max(0, Math.min(100, (num / denom) * 100));
+        const range = Math.max(1, next - prev);
+        const clampedXp = Math.min(Math.max(xpForProgress, prev), next);
+        return Math.max(0, Math.min(100, ((clampedXp - prev) / range) * 100));
     }, [levelForProgress, xpForProgress, gameEngine]);
 
     if (!gameState || !lastResponse) {
@@ -517,7 +535,7 @@ const Activites = () => {
                                 {progression.xp} XP
                             </span>
                             <span className="text-sm font-medium text-gray-700">
-                                {progression.toNext} XP jusqu'au niveau {progression.level + 1}
+                                {progression.level >= MAX_LEVEL ? 'Niveau max atteint' : `${progression.toNext} XP jusqu'au niveau ${progression.level + 1}`}
                             </span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-4">

@@ -164,8 +164,8 @@ export default function Niveau1() {
 	// Intro dialogue (no auto-advance; use Next button like Niveau2)
 	const introMessages = useMemo(() => ([
 		{ text: 'Bienvenue sur Zélia', durationMs: 1500 },
-		{ text: 'Nous allons t\'expliquer comment nous allons t\'aider à trouver le métier de tes rêves', durationMs: 5000 },
-		{ text: 'Nous allons faire en sorte d\'y arriver ensemble, et allons te donner des tips tout au long de ton parcours', durationMs: 6000 },
+		{ text: 'On va t\'expliquer comment on peut t\'aider à mieux te connaitre et trouver ta voie professionnelle', durationMs: 5000 },
+		{ text: 'On va faire tout ça ensemble, en te donnant des conseils et des idées tout au long du parcours', durationMs: 6000 },
 		{ text: 'Commençons', durationMs: 1000 },
 	]), [])
 	const [introIdx, setIntroIdx] = useState(0)
@@ -217,8 +217,8 @@ export default function Niveau1() {
 
 	const postQuestions = [
 		{ id: 'salary_expectation', type: 'buttons', text: "Est-ce que tu t'attendais à ce salaire là ?", options: ['Oui', 'Non', 'Je ne sais pas'] },
-		{ id: 'good_salary', type: 'input', text: "Pour toi c'est quoi un bon salaire?", placeholder: 'Ex: 2500€ net/mois' },
-		{ id: 'motivation_salary', type: 'buttons', text: 'Est-ce que tu fais ce métier pour le salaire ?', options: ['Oui', 'Non', 'Partiellement'] },
+		{ id: 'good_salary', type: 'input', text: "C’est quoi pour toi un bon salaire, en euros par mois ?", placeholder: 'Ex: 2500€ net/mois' },
+		{ id: 'motivation_salary', type: 'buttons', text: 'Est-ce que tu cherches un métier pour le salaire ?', options: ['Oui', 'Non', 'Partiellement'] },
 	]
 
 	const convSteps = useMemo(() => ([
@@ -235,14 +235,14 @@ export default function Niveau1() {
 		{ id: 'motivated', type: 'buttons', text: 'Est-ce que tu es motivé pour cela ?', options: ['Oui', 'Mitigé', 'Non'] },
 		{ id: 'explore_another', type: 'buttons', text: 'Veux-tu explorer une autre fiche métier ?', options: ['Oui', 'Non'] },
 		// 10 autres mini-dialogues pour converser
-		{ id: 'why_attraction', type: 'buttons', text: "Qu'est-ce qui t'attire le plus dans ce métier ?", options: ['Le sens', 'Le salaire', 'Les études', 'Le quotidien'] },
+		{ id: 'why_attraction', type: 'buttons', text: "Qu’est ce qui t’attire le + dans un métier ?", options: ['Le sens', 'Le salaire', 'Les études', 'Le quotidien'] },
 		{ id: 'study_length', type: 'buttons', text: 'Tu te vois plutôt études longues ou entrer vite dans le concret ?', options: ['Études longues', 'Rapide et pro', 'Je ne sais pas'] },
 		{ id: 'team_or_solo', type: 'buttons', text: 'Tu préfères travailler en équipe ou plutôt en solo ?', options: ['Équipe', 'Solo', 'Peu importe'] },
 		{ id: 'five_years', type: 'input', text: 'Tu te vois où dans 5 ans ?', placeholder: 'Décris en une phrase' },
-		{ id: 'favorite_subjects', type: 'buttons', text: 'Quelles matières te plaisent le plus ?', options: ['Sciences', 'Langues', 'Littérature', 'Éco/Gestion', 'Art/Design'] },
+		{ id: 'favorite_subjects', type: 'buttons', text: "Quelle matière t’attire le +?", options: ['Sciences', 'Langues', 'Littérature', 'Éco/Gestion', 'Art/Design'] },
 		{ id: 'learn_style', type: 'buttons', text: 'Tu apprends mieux en faisant ou en lisant ?', options: ['En faisant', 'En lisant', 'Mix des deux'] },
 		{ id: 'english_level', type: 'buttons', text: 'Ton niveau d’anglais approximatif ?', options: ['Débutant', 'Intermédiaire', 'Avancé'] },
-		{ id: 'proud_project', type: 'input', text: 'Tu as un projet perso dont tu es fier ?', placeholder: 'Dis-m’en un mot' },
+		{ id: 'proud_project', type: 'input', text: "Tu peux me parler d’un projet perso que tu as réalisé (sport, activité, job, etc) ?", placeholder: 'Dis-m’en un mot' },
 		{ id: 'geo_constraints', type: 'buttons', text: 'Tu as des contraintes géographiques ?', options: ['Oui', 'Non'] },
 		{ id: 'action_plan', type: 'buttons', text: 'Tu veux qu’on bâtisse un plan d’action ensemble ?', options: ['Oui', 'Plus tard'] },
 	]), [])
@@ -407,7 +407,7 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 									{phase === 'intro' ? (
 										<>{introTyped}</>
 									) : askFit ? (
-										'Est-ce que ces métiers recommandés te conviennent ?'
+										'Est-ce que ces métiers te semblent intéressants et pertinents ?'
 									) : awaitingInput ? (
 										'Peux-tu nous dire le métier de tes rêves ?'
 									) : phase === 'generating' ? (
@@ -599,7 +599,7 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 					<div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
 						<div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
 						<h3 className="text-2xl font-extrabold mb-2">Niveau 1 réussi !</h3>
-						<p className="text-text-secondary mb-4">Bravo, tu as terminé l\'introduction et exploré tes premières pistes.</p>
+						<p className="text-text-secondary mb-4">Bravo, tu as terminé l'introduction et exploré tes premières pistes.</p>
 						<div className="flex flex-col sm:flex-row gap-3 justify-center">
 							<button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Retour aux activités</button>
 						</div>

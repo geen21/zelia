@@ -145,12 +145,16 @@ export default function Niveau3() {
     return () => { mounted = false }
   }, [navigate])
 
-  const messages = useMemo(() => ([
-    { text: "Re, on passe au niveau 3, on va rentrer dans le vif du sujet, sur ce module on va apprendre comment se vendre auprès des autres", durationMs: 5000 },
-    { text: "On va bosser ensemble sur un pitch de 60s, tant que tu es pas satisfait de toi même, on continue", durationMs: 3000 },
-    { text: "Alors je sais que ça peut paraître un peu complexe ou ça peut te mettre mal à l'aise, isole toi si c'est le cas", durationMs: 4000 },
-    { text: "Essaye de répéter ce texte, de manière détendue, personne ne te juge à part moi, mais je suis qu'un assistant", durationMs: 4000 },
-  ]), [])
+  const messages = useMemo(() => {
+    const prenom = (profile?.first_name || '').trim()
+    const intro = `Re ! En avant pour le niveau 3${prenom ? ` ${prenom}` : ''}. On va entrer dans le vif du sujet, avec un module pour apprendre à se présenter à l’oral.`
+    return ([
+      { text: intro, durationMs: 3200 },
+      { text: "L’idée c’est de pouvoir te présenter en 1 minute, ce qu’on appelle un “pitch”. Prends le micro et enregistre-toi jusqu’à ce que tu aies une présentation dont tu es fier/fière.", durationMs: 4200 },
+      { text: "Je sais que ça peut paraître un peu complexe ou te mettre mal à l'aise. Isole-toi si c'est le cas.", durationMs: 3000 },
+      { text: "Je te donne un texte d’exemple. Tu peux le répéter tel quel ou l’adapter. Tant que tu ne te donnes pas au moins 8/10, tu peux recommencer ;)", durationMs: 4000 },
+    ])
+  }, [profile])
 
   const current = messages[idx] || { text: '', durationMs: 1500 }
   const { text: typed, done: typedDone, skip } = useTypewriter(current.text, current.durationMs)
@@ -316,12 +320,12 @@ export default function Niveau3() {
                   {phase === 'intro' ? (
                     <>{typed}</>
                   ) : phase === 'practice' ? (
-                    <>Tu peux lire le texte à droite et t'enregistrer quand tu veux.</>
+                    <>Tu peux maintenant lire le texte d’exemple et t'enregistrer quand tu veux.</>
                   ) : phase === 'rate' ? (
                     <>
                       <div className="mb-3">Alors combien tu te noterais sur 10 ?</div>
                       <div className="flex items-center gap-3">
-                        <input type="range" min="0" max="10" value={rating} onChange={(e) => setRating(Number(e.target.value))} className="w-full" />
+                        <input type="range" min="0" max="10" step="1" value={rating} onChange={(e) => setRating(Number(e.target.value))} className="flex-1 min-w-0" />
                         <div className="w-10 text-center font-bold">{rating}</div>
                       </div>
                       <button onClick={submitRating} className="mt-3 px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">Valider</button>
@@ -356,7 +360,11 @@ export default function Niveau3() {
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">🎤</div>
             <h2 className="text-xl font-bold">Pitch 60s</h2>
           </div>
-          <div className="text-text-primary whitespace-pre-wrap mb-4">{pitchText}</div>
+          {phase !== 'intro' ? (
+            <div className="text-text-primary whitespace-pre-wrap mb-4">{pitchText}</div>
+          ) : (
+            <div className="text-text-secondary text-sm mb-4">Le texte d’exemple s’affichera après avoir cliqué sur « Afficher le texte ».</div>
+          )}
 
           <div className="flex flex-wrap items-center gap-3">
             {!recording && (

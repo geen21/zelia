@@ -436,14 +436,11 @@ const Activites = () => {
     const levelForProgress = gameState?.progression?.level ?? 1;
     const xpForProgress = gameState?.progression?.xp ?? 0;
     const progressPercent = useMemo(() => {
-        const next = levelForProgress >= MAX_LEVEL
-            ? MAX_LEVEL * XP_PER_LEVEL
-            : gameEngine.levelThreshold(levelForProgress + 1);
-        const prev = levelForProgress <= 1 ? 0 : gameEngine.levelThreshold(levelForProgress);
-        const range = Math.max(1, next - prev);
-        const clampedXp = Math.min(Math.max(xpForProgress, prev), next);
-        return Math.max(0, Math.min(100, ((clampedXp - prev) / range) * 100));
-    }, [levelForProgress, xpForProgress, gameEngine]);
+        // Global progress over 50 levels (5000 XP total)
+        const totalXp = MAX_LEVEL * XP_PER_LEVEL;
+        const clamped = Math.max(0, Math.min(totalXp, xpForProgress));
+        return Math.round((clamped / totalXp) * 100);
+    }, [xpForProgress]);
 
     if (!gameState || !lastResponse) {
         return (
@@ -532,7 +529,7 @@ const Activites = () => {
                     <div className="mt-6">
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-sm font-medium text-gray-700">
-                                {progression.xp} XP
+                                {progression.xp} / {MAX_LEVEL * XP_PER_LEVEL} XP
                             </span>
                             <span className="text-sm font-medium text-gray-700">
                                 {progression.level >= MAX_LEVEL ? 'Niveau max atteint' : `${progression.toNext} XP jusqu'au niveau ${progression.level + 1}`}
@@ -598,7 +595,7 @@ const Activites = () => {
                 {/* Level Progression Roadmap */}
                 <div className="bg-white rounded-3xl p-8 border border-gray-200 shadow-card">
                     <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-                        Roadmap vers Parcoursup Excellence
+                        Ton parcours vers le métier idéal
                     </h2>
                     
                     <div className="grid md:grid-cols-5 gap-4">

@@ -123,9 +123,9 @@ export default function Niveau2() {
   const messages = useMemo(() => ([
     { text: "Bon t'es passé au niveau 2, c'était assez simple mais ça se corsera plus tard, pour l'instant on a besoin de comprendre à qui on a affaire et t'expliquer tous les futurs niveaux", durationMs: 8000 },
     { text: "On va te faire rencontrer une personne qui était plus ou moins dans ton cas", durationMs: 3000 },
-    { text: "C'est nicolas, le fondateur de la plateforme Zélia qui a fait une vidéo pour toi", durationMs: 3000 },
-    { text: "Le but c'est de t'expliquer les bases de l'orientation, de pourquoi c'est important, même si tu le sais probablement déjà", durationMs: 7500 },
-    { text: "Je te laisse voir cette vidéo, tu pourras avoir son retour d'expérience avec l'orientation et comment il s'en est sorti", durationMs: 4000 },
+    { text: "C'est Nicolas, le fondateur de la plateforme Zélia qui a fait une vidéo pour toi", durationMs: 3000 },
+    { text: "Le but c'est de t'expliquer les bases de l'orientation, de pourquoi c'est important, même si tu le sais probablement déjà", durationMs: 6500 },
+    { text: "Il va te parler de l’importance de l’orientation pro et de tes choix de carrière, même si tu es encore jeune et que ce n’est pas simple", durationMs: 4000 },
     { text: "Bon faut vraiment que j'arrête de parler moi", durationMs: 1500 },
   ]), [])
 

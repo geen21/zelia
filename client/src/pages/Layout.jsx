@@ -85,7 +85,7 @@ export default function Layout() {
 				<BugModal
 					open={bugOpen}
 					onClose={() => { if (!bugSending) setBugOpen(false) }}
-					onSubmit={async ()=>{
+							onSubmit={async ()=>{
 						try {
 							setBugSending(true)
 							const payload = {
@@ -94,13 +94,16 @@ export default function Layout() {
 								location: window.location?.href,
 								userAgent: navigator.userAgent
 							}
-							await supportAPI.reportBug(payload)
+									await supportAPI.reportBug(payload)
 							setBugSent(true)
 							setBugTitle('')
 							setBugDesc('')
 							setTimeout(()=>{ setBugOpen(false); setBugSent(false); }, 1200)
 						} catch (e) {
-							alert("Échec de l'envoi du bug. Réessayez plus tard.")
+									// fallback to mailto if backend not reachable (e.g., 404 on prod host)
+									const subject = encodeURIComponent(bugTitle || 'Bug report (Version Alpha)')
+									const body = encodeURIComponent(`${bugDesc}\n\nURL: ${window.location?.href}\nUA: ${navigator.userAgent}`)
+									window.location.href = `mailto:nicolas.wiegele@zelia.io?subject=${subject}&body=${body}`
 						} finally {
 							setBugSending(false)
 						}

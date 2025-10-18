@@ -13,9 +13,68 @@ export default function Formations(){
 	const [loading, setLoading] = useState(false)
 	const [recommendedOnly, setRecommendedOnly] = useState(false)
 	// page size derived from toggle; no separate state needed
-	const [studyRecs, setStudyRecs] = useState(null) // [{type, degree}]
+	const [studyRecs, setStudyRecs] = useState() // [{type, degree}]
 	const [recoLoading, setRecoLoading] = useState(false)
 	const authToken = localStorage.getItem('token') || localStorage.getItem('supabase_auth_token')
+
+	const normalizeStudyRecs = React.useCallback((raw) => {
+		if (!raw) return []
+		let parsed = raw
+		if (typeof raw === 'string') {
+			const trimmed = raw.trim()
+			if (!trimmed) return []
+			try {
+				parsed = JSON.parse(trimmed)
+			} catch {
+				const manual = []
+				const blocks = trimmed
+					.split(/\n(?=\s*\d+\.)/)
+					.map(part => part.trim())
+					.filter(Boolean)
+				if (blocks.length) {
+					for (const block of blocks) {
+						const lines = block.split(/\n/).map(l => l.trim()).filter(Boolean)
+						if (!lines.length) continue
+						const first = lines[0].replace(/^\d+\.\s*/, '')
+						const second = lines[1] ? lines[1].replace(/^\d+\.\s*/, '') : ''
+						const t = second || first
+						const d = first || second
+						if (t || d) manual.push({ type: t, degree: d })
+					}
+					if (manual.length) {
+						parsed = manual
+					} else {
+						const single = trimmed.split(/[;\n]/).map(x => x.trim()).filter(Boolean)
+						parsed = single.length ? single.map(entry => ({ type: entry, degree: entry })) : []
+					}
+				} else {
+					parsed = []
+				}
+			}
+		}
+		if (!Array.isArray(parsed)) return []
+		const seen = new Set()
+		return parsed
+			.map(entry => {
+				if (!entry) return null
+				if (typeof entry === 'string') {
+					const trimmed = entry.trim()
+					if (!trimmed) return null
+					return { type: trimmed, degree: trimmed }
+				}
+				const type = entry.type || entry.study_type || entry.label || ''
+				const degree = entry.degree || entry.diploma || entry.title || ''
+				if (!type && !degree) return null
+				return { type: type || degree, degree: degree || type }
+			})
+			.filter(Boolean)
+			.filter(entry => {
+				const key = `${entry.type}__${entry.degree}`
+				if (seen.has(key)) return false
+				seen.add(key)
+				return true
+			})
+	}, [])
 
 	const sanitizeValue = (v) => {
 		if (v === null || v === undefined) return undefined
@@ -25,6 +84,24 @@ export default function Formations(){
 		if (lower === 'nan' || lower === 'null' || lower === 'undefined') return undefined
 		return s
 	}
+
+	const STOPWORDS = React.useMemo(() => new Set([
+		'and', 'des', 'les', 'aux', 'une', 'pour', 'avec', 'dans', 'sur', 'par', 'donc', 'mais', 'ors', 'ni', 'car',
+		'le', 'la', 'de', 'du', 'au', 'en', 'd', 'l', 'un', 'une', 'et', 'ou', 'à', 'a', 'the', 'an', 'of', 'to',
+		'bts', 'but', 'bachelor', 'licence', 'master', 'diplome', 'titre', 'niveau', 'formation', 'professionnel'
+	]), [])
+
+	const tokenize = React.useCallback((value) => {
+		if (!value) return []
+		return String(value)
+			.toLowerCase()
+			.normalize('NFD')
+			.replace(/\p{Diacritic}+/gu,'')
+			.replace(/[^a-z0-9\s]/g,' ')
+			.split(/\s+/)
+			.filter(Boolean)
+			.filter(token => token.length >= 3 && !STOPWORDS.has(token))
+	}, [STOPWORDS])
 
 	async function load(p = page){
 		setLoading(true)
@@ -65,50 +142,80 @@ useEffect(() => {
 
 	// Fetch current user's study recommendations
 	async function ensureStudyRecommendations(){
-		if (studyRecs || !authToken) return
+		if (studyRecs !== undefined || !authToken) return
 		setRecoLoading(true)
 		try{
 			const { data } = await axios.get('/api/analysis/my-results', {
 				headers: { Authorization: `Bearer ${authToken}` }
 			})
-			const recs = data?.results?.studyRecommendations
-			if (Array.isArray(recs)) setStudyRecs(recs)
+			const candidates = [
+				data?.results?.studyRecommendations,
+				data?.results?.study_recommendations,
+				data?.results?.study_recommandations,
+				data?.results?.study_recommandation,
+				data?.results?.studyRecommandations,
+				data?.results?.studyRecommandation,
+				data?.results?.inscriptionResults?.studyRecommendations,
+				data?.results?.inscriptionResults?.study_recommendations,
+				data?.results?.inscriptionResults?.study_recommandations,
+				data?.results?.inscriptionResults?.study_recommandation,
+				data?.results?.inscriptionResults?.studyRecommandations,
+				data?.results?.inscriptionResults?.studyRecommandation
+			]
+			for (const cand of candidates){
+				const normalized = normalizeStudyRecs(cand)
+				if (normalized.length){
+					setStudyRecs(normalized)
+					return
+				}
+			}
+			setStudyRecs([])
 		} catch(err) {
-			// ignore
+			setStudyRecs([])
 		} finally {
 			setRecoLoading(false)
 		}
 	}
 
-	const normalize = (s) => {
-		if (!s) return ''
-		return String(s)
-			.toLowerCase()
-			.normalize('NFD')
-			.replace(/\p{Diacritic}+/gu,'')
-			.replace(/[^a-z0-9\s]/g,' ')
-			.replace(/\s+/g,' ')
-			.trim()
-	}
-
 	const jaccard = (aStr, bStr) => {
-		const a = new Set(normalize(aStr).split(' ').filter(Boolean))
-		const b = new Set(normalize(bStr).split(' ').filter(Boolean))
-		if (a.size===0 || b.size===0) return 0
+		const aTokens = tokenize(aStr)
+		const bTokens = tokenize(bStr)
+		if (!aTokens.length || !bTokens.length) return 0
+		const a = new Set(aTokens)
+		const b = new Set(bTokens)
+		if (!a.size || !b.size) return 0
 		let inter = 0
-		a.forEach(t=>{ if (b.has(t)) inter++ })
-		return inter / (a.size + b.size - inter)
+		a.forEach(token => { if (b.has(token)) inter++ })
+		const denom = a.size + b.size - inter
+		return denom > 0 ? inter / denom : 0
 	}
 
 	const scoreFormation = (it) => {
 		if (!Array.isArray(studyRecs) || studyRecs.length===0) return 0
 		const nmArr = Array.isArray(it.nm) ? it.nm : []
 		const nmText = nmArr.find(x=>x) || ''
+		const extraText = [
+			sanitizeValue(it.nmc),
+			sanitizeValue(it.tc),
+			sanitizeValue(it.typeformation),
+			sanitizeValue(it.type_formation),
+			Array.isArray(it.tf) ? it.tf.join(' ') : ''
+		].filter(Boolean).join(' ')
+		const formationTokens = new Set([...tokenize(nmText), ...tokenize(extraText)])
+		if (!formationTokens.size) return 0
 		let best = 0
 		for (const rec of studyRecs){
+			const typeTokens = tokenize(rec.type)
+			const degreeTokens = tokenize(rec.degree)
+			const combinedTokens = new Set([...typeTokens, ...degreeTokens])
+			let overlap = 0
+			combinedTokens.forEach(token => { if (formationTokens.has(token)) overlap++ })
+			const overlapScore = combinedTokens.size ? overlap / combinedTokens.size : 0
 			const s1 = jaccard(nmText, rec.type)
-			const s2 = jaccard(nmText, rec.degree)
-			const score = Math.max(s1, s2)
+			const s2 = jaccard(extraText, rec.type)
+			const s3 = jaccard(extraText, rec.degree)
+			const s4 = jaccard(nmText, rec.degree)
+			const score = Math.max(overlapScore, s1, s2, s3, s4)
 			if (score>best) best = score
 		}
 		return best
@@ -117,12 +224,19 @@ useEffect(() => {
 	// Client-side sort and optional recommendations filter
 	const sortedItems = React.useMemo(()=>{
 		let base = [...items]
-		if (recommendedOnly && !recoLoading && Array.isArray(studyRecs) && studyRecs.length>0){
+		if (recommendedOnly && !recoLoading) {
+			if (Array.isArray(studyRecs) && studyRecs.length===0) {
+				return []
+			}
+			if (Array.isArray(studyRecs) && studyRecs.length>0){
 			base = base
 				.map(it=>({it, score: scoreFormation(it)}))
-				.filter(x=>x.score>=0.2)
+				.filter(x=>x.score>=0.15)
 				.sort((a,b)=>b.score-a.score)
 				.map(x=>x.it)
+			} else {
+				return []
+			}
 		}
 		return base.sort((a,b)=>{
 			const aNm = Array.isArray(a.nm) ? a.nm.find(x=>x) : undefined
@@ -287,9 +401,9 @@ useEffect(() => {
 								</tr>
 								)
 							})}
-							{items.length===0 && (
+							{!loading && sortedItems.length===0 && (
 								<tr>
-									<td className="px-4 py-8 text-center text-text-secondary" colSpan={7}>Aucun résultat</td>
+									<td className="px-4 py-8 text-center text-text-secondary" colSpan={7}>{recommendedOnly ? 'Aucune formation ne correspond à tes recommandations pour le moment.' : 'Aucun résultat'}</td>
 								</tr>
 							)}
 						</tbody>

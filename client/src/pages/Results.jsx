@@ -86,7 +86,7 @@ export default function Results() {
 				headers: { 'Cache-Control': 'no-cache' },
 				params: { _: Date.now() }
 			})
-			setAnalysisData(response.data.results)
+			setAnalysisData(sanitizeResultsForDisplay(response.data.results))
 		} catch (err) {
 			if (err.response?.status === 404) {
 				// No stored analysis yet: try to generate, then refetch
@@ -99,7 +99,7 @@ export default function Results() {
 							headers: { 'Cache-Control': 'no-cache' },
 							params: { _: Date.now() }
 						})
-						setAnalysisData(refreshed.data.results)
+						setAnalysisData(sanitizeResultsForDisplay(refreshed.data.results))
 						return
 					} catch (genErr) {
 						// If the AI analysis generation fails (e.g., missing API key),
@@ -117,7 +117,7 @@ export default function Results() {
 								(refreshed.data.results.jobRecommendations ?? []).length > 0 ||
 								(refreshed.data.results.studyRecommendations ?? []).length > 0
 							)) {
-								setAnalysisData(refreshed.data.results)
+								setAnalysisData(sanitizeResultsForDisplay(refreshed.data.results))
 								return
 							}
 
@@ -129,7 +129,7 @@ export default function Results() {
 							const simple = latestSimple?.data?.results?.analysis
 							if (simple) {
 								const mapped = mapSimpleAnalysisToUI(simple)
-								setAnalysisData(mapped)
+								setAnalysisData(sanitizeResultsForDisplay(mapped))
 								return
 							}
 						} catch (fallbackErr) {
@@ -170,6 +170,81 @@ export default function Results() {
 			createdAt: simple.completion_date,
 			updatedAt: simple.completion_date
 		}
+	}
+
+	const sanitizeResultsForDisplay = (results) => {
+		if (!results || typeof results !== 'object') return results
+		const clone = { ...results }
+		const isMbti = Boolean(clone.inscriptionResults) || (clone.personalityType && /\(([IE][NS][FT][JP])\)/i.test(clone.personalityType))
+		if (Array.isArray(clone.jobRecommendations)) {
+			clone.jobRecommendations = clone.jobRecommendations.slice(0, 6)
+		} else {
+			clone.jobRecommendations = []
+		}
+		if (isMbti) {
+			clone.skillsAssessment = null
+			if (clone.personalityAnalysis) {
+				clone.personalityAnalysis = ensureJobMentions(clone.personalityAnalysis, clone.jobRecommendations)
+			}
+		}
+		if (clone.inscriptionResults && typeof clone.inscriptionResults === 'object') {
+			const inscriptionJobs = Array.isArray(clone.inscriptionResults.jobRecommendations)
+				? clone.inscriptionResults.jobRecommendations.slice(0, 6)
+				: clone.inscriptionResults.jobRecommendations
+			clone.inscriptionResults = {
+				...clone.inscriptionResults,
+				jobRecommendations: inscriptionJobs
+			}
+			if (Array.isArray(inscriptionJobs) && clone.inscriptionResults.personalityAnalysis) {
+				clone.inscriptionResults.personalityAnalysis = ensureJobMentions(clone.inscriptionResults.personalityAnalysis, inscriptionJobs)
+			}
+		}
+		return clone
+	}
+
+	const splitIntoParagraphs = (text) => {
+		if (!text || typeof text !== 'string') return []
+		const trimmed = text.trim()
+		if (!trimmed) return []
+		let blocks = trimmed.split(/\n{2,}/).map((part) => part.trim()).filter(Boolean)
+		if (blocks.length > 1) return blocks
+		const sentences = trimmed.split(/(?<=[.!?])\s+/).map((sentence) => sentence.trim()).filter(Boolean)
+		if (sentences.length <= 2) return [trimmed]
+		const grouped = []
+		for (let i = 0; i < sentences.length; i += 2) {
+			grouped.push(sentences.slice(i, i + 2).join(' '))
+		}
+		return grouped
+	}
+
+	const renderParagraphs = (text) => {
+		const paragraphs = splitIntoParagraphs(text)
+		return paragraphs.map((paragraph, index) => (
+			<p key={index} className="whitespace-pre-wrap text-text-primary leading-relaxed">{paragraph}</p>
+		))
+	}
+
+	function ensureJobMentions(text, jobs) {
+		if (!text || typeof text !== 'string' || !Array.isArray(jobs) || !jobs.length) return text || ''
+		const titles = jobs
+			.map((job) => (typeof job === 'string' ? job : job?.title || ''))
+			.map((title) => title.trim())
+			.filter(Boolean)
+		if (!titles.length) return text
+		const lower = text.toLowerCase()
+		const missing = titles.filter((title) => !lower.includes(title.toLowerCase()))
+		if (!missing.length) return text
+		const list = formatJobList(missing.slice(0, 3))
+		if (!list) return text
+		return `${text.trim()}\n\nCes points se retrouvent dans des métiers comme ${list}.`
+	}
+
+	function formatJobList(titles) {
+		const items = (titles || []).map((title) => title.trim()).filter(Boolean)
+		if (!items.length) return ''
+		if (items.length === 1) return items[0]
+		if (items.length === 2) return `${items[0]} et ${items[1]}`
+		return `${items.slice(0, -1).join(', ')} et ${items[items.length - 1]}`
 	}
 
 	if (loading) {
@@ -260,8 +335,8 @@ export default function Results() {
 							</div>
 							<h2 className="text-xl font-bold">Analyse d'orientation</h2>
 						</div>
-						<div className="prose max-w-none">
-							<p className="whitespace-pre-wrap text-text-primary leading-relaxed">{data.personalityAnalysis}</p>
+						<div className="space-y-4">
+							{renderParagraphs(data.personalityAnalysis)}
 						</div>
 					</div>
 				)}
@@ -275,8 +350,8 @@ export default function Results() {
 							</div>
 							<h2 className="text-xl font-bold">Compétences clés</h2>
 						</div>
-						<div className="prose max-w-none">
-							<div className="whitespace-pre-wrap text-text-primary leading-relaxed">{data.skillsAssessment}</div>
+						<div className="space-y-3">
+							{renderParagraphs(data.skillsAssessment)}
 						</div>
 					</div>
 				)}
@@ -373,26 +448,8 @@ export default function Results() {
 							</div>
 							<h2 className="text-xl font-bold">Analyse de personnalité</h2>
 						</div>
-						<div className="prose max-w-none">
-							<p className="whitespace-pre-wrap text-text-primary leading-relaxed">{analysisData.personalityAnalysis}</p>
-						</div>
-					</div>
-				)}
-				{analysisData.skillsAssessment && (
-					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
-						{avatarUrls.skills && (
-							<img src={avatarUrls.skills} alt="Avatar" className="absolute right-4 top-4 w-14 h-14 rounded-full border border-white shadow-sm bg-white object-contain" />
-						)}
-						<div className="flex items-center gap-3 mb-4">
-							<div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center">
-								<svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-								</svg>
-							</div>
-							<h2 className="text-xl font-bold">Évaluation des compétences</h2>
-						</div>
-						<div className="prose max-w-none">
-							<div className="whitespace-pre-wrap text-text-primary leading-relaxed">{analysisData.skillsAssessment}</div>
+						<div className="space-y-4">
+							{renderParagraphs(analysisData.personalityAnalysis)}
 						</div>
 					</div>
 				)}

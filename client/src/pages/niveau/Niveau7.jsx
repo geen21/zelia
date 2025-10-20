@@ -12,8 +12,8 @@ const DIALOGUE_STEPS = [
   },
   {
     id: 'intro-2',
-    text: "Je t'ai bien cerné désormais, j'ai envie d'être honnête avec toi, pour qu'on puisse avancer dans la bonne direction",
-    durationMs: 3600
+    text: "Je commence à bien te connaitre, merci pour toutes ces infos !\n\nIci le but est de rentrer dans une relation honnête pour avancer ensemble dans la bonne direction.\n\nJe ne connais pas encore tes notes mais je peux déjà te dire si un métier te correspond ou pas sur la base de ces infos",
+    durationMs: 5200
   },
   {
     id: 'job-prompt',
@@ -390,11 +390,6 @@ export default function Niveau7() {
             <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{evaluationError}</div>
           )}
 
-          {locked && (
-            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-              Termine d'abord le dialogue à gauche avec Zélia pour débloquer cette étape.
-            </div>
-          )}
         </form>
 
   <div className="mt-6 rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
@@ -456,7 +451,6 @@ export default function Niveau7() {
                     </button>
                   )}
 
-                  <div className="text-sm text-gray-400 sm:ml-auto">{XP_PER_LEVEL} XP</div>
                 </div>
               </div>
             </div>

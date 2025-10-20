@@ -20,8 +20,8 @@ router.post('/generate-analysis', async (req, res) => {
 
     console.log('Generating analysis for user ID:', userId)
 
-  // Use service role if available to bypass RLS for server-side processing
-  const db = supabaseAdmin || supabase
+    // Use service role if available to bypass RLS for server-side processing
+    const db = supabaseAdmin || supabase
 
     // Get user profile information
     const { data: profile, error: profileError } = await db
@@ -39,7 +39,7 @@ router.post('/generate-analysis', async (req, res) => {
     }
 
     // Get user responses with questions and interpretations
-  const { data: responsesData, error: responsesError } = await db
+    const { data: responsesData, error: responsesError } = await db
       .from('user_responses')
       .select(`
         response,
@@ -68,10 +68,10 @@ router.post('/generate-analysis', async (req, res) => {
       gender: profile?.gender || 'N/A',
     }
 
-  let formattedData = `---\nUser information :\n`
+    let formattedData = `---\nUser information :\n`
     formattedData += `- ${safeProfile.first_name}\n`
     formattedData += `- ${safeProfile.last_name}\n`
-  formattedData += `- ${safeProfile.gender}\n\n`
+    formattedData += `- ${safeProfile.gender}\n\n`
 
     responsesData.forEach((item, index) => {
       const questionNumber = index + 1
@@ -93,7 +93,7 @@ router.post('/generate-analysis', async (req, res) => {
       formattedData += `interpretation ${questionNumber}) : ${interpretation}\n\n`
     })
 
-  // Prepare the prompt for Gemini
+    // Prepare the prompt for Gemini
     const prompt = `Vous êtes un conseiller d'orientation professionnel expert qui fournit des analyses détaillées en français, vous ne paraphrasez pas les réponses et questions de l'utilisateur, comme par exemple : (Q18 : "Pas trop"). `
       + `Votre tâche est de générer une réponse structurée qui DOIT IMPÉRATIVEMENT contenir EXACTEMENT les sections suivantes:\n\n`
       + `###Type de personalité###\n`
@@ -114,7 +114,7 @@ router.post('/generate-analysis', async (req, res) => {
       + `2. Chaque section est OBLIGATOIRE et doit apparaître dans l'ordre indiqué.\n`
       + `3. Si vous ne pouvez pas respecter ce format ou si l'une des sections manque.\n`
       + `Répondez uniquement en français.\n\n`
-  + `Voici les données à analyser :\n\n${formattedData}---\n`
+      + `Voici les données à analyser :\n\n${formattedData}---\n`
 
     // Call Gemini API (2.5 Flash)
     const geminiApiKey = process.env.GEMINI_API_KEY
@@ -155,7 +155,7 @@ router.post('/generate-analysis', async (req, res) => {
     const sections = parseGeminiResponse(generatedText)
 
     // Store the results in user_results table
-  const { data: resultData, error: resultError } = await db
+    const { data: resultData, error: resultError } = await db
       .from('user_results')
       .upsert({
         user_id: userId,
@@ -182,17 +182,17 @@ router.post('/generate-analysis', async (req, res) => {
       .eq('questionnaire_type', 'inscription')
       .maybeSingle()
 
-  res.json({
+    res.json({
       message: 'Analysis generated successfully',
       analysis: {
         personalityType: sections.personalityType,
         personalityAnalysis: sections.personalityAnalysis,
         skillsAssessment: sections.skillsAssessment,
         jobRecommendations: sections.jobRecommendations,
-    studyRecommendations: sections.studyRecommendations,
-    avatarUrlBase: profile?.avatar_json?.url || profile?.avatar || null,
-    avatarConfig: profile?.avatar_json || null,
-    shareImageUrl: shareRow?.share_image_url || null
+        studyRecommendations: sections.studyRecommendations,
+        avatarUrlBase: profile?.avatar_json?.url || profile?.avatar || null,
+        avatarConfig: profile?.avatar_json || null,
+        shareImageUrl: shareRow?.share_image_url || null
       }
     })
 
@@ -201,6 +201,15 @@ router.post('/generate-analysis', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' })
   }
 })
+
+function limitWords(text, maxWords) {
+  if (!text || typeof text !== 'string' || !maxWords) return text || ''
+  const words = text.trim().split(/\s+/)
+  if (words.length <= maxWords) {
+    return text.trim()
+  }
+  return `${words.slice(0, maxWords).join(' ')}…`
+}
 
 // Generate analysis for a specific questionnaire type (e.g., mbti), with extended MBTI-style analysis
 router.post('/generate-analysis-by-type', async (req, res) => {
@@ -277,29 +286,51 @@ router.post('/generate-analysis-by-type', async (req, res) => {
       formattedData += `interpretation ${questionNumber}) : ${interpretation}\n\n`
     })
 
-    // Tailored prompt for MBTI style analysis with at least 1000 words in personality analysis
+    // Tailored prompt for MBTI style analysis with compact synthesis anchored to future jobs
     const isMbti = qType.toLowerCase() === 'mbti'
-  const analysisLengthHint = isMbti ? 'environ 1000 mots' : 'environ 500 mots'
     const opening = isMbti
-      ? `Tu es un psychologue du travail expert en MBTI (Myers-Briggs Type Indicator). Réponds en français, de manière professionnelle et nuancée, comme le ferait le test officiel. Ne copie pas les questions/réponses textuellement.`
+      ? `Tu es un psychologue du travail expert en MBTI (Myers-Briggs Type Indicator). Réponds en français, de manière professionnelle et nuancée, comme le ferait le test officiel. Ne copie jamais les questions ni les réponses textuellement.`
       : `Vous êtes un conseiller d'orientation professionnel expert qui fournit des analyses détaillées en français.`
 
-    const prompt = `${opening} Ta réponse doit IMPÉRATIVEMENT suivre EXACTEMENT ces sections et titres :\n\n` +
-      `###Type de personalité###\n` +
-      `[Nom complet du type (ex: Architecte), avec éventuellement les 4 lettres entre parenthèses si pertinent]` + `\n\n` +
-      `###Analyse de personnalité###\n` +
-  `[Analyse approfondie ${analysisLengthHint} basée sur les axes MBTI (énergie, perception, décision, style de vie). Pas de liste brute : un texte riche, structuré en 3-5 paragraphes, sans paraphraser les questions ou les réponses.]\n\n` +
-      `###Évaluation des compétences###\n` +
-      `[Liste à puces de compétences clés observables (6 à 10 points).]\n\n` +
-  `###Recommandations d'emploi###\n` +
-  `Fournissez exactement 6 recommandations d'emploi clairement LIÉS au profil décrit (forces, préférences, style cognitif). Choisissez UNIQUEMENT des métiers adaptés aux traits identifiés. Pour chaque recommandation, suivez le format suivant :\n` +
-      `1. [Titre du poste]\n` +
-      `   - Compétences requises: [3-4 compétences principales sous forme liste, par mots clés]\n\n` +
-      `1. Utilisez EXACTEMENT les titres de section indiqués ci-dessus avec trois dièses (###).\n` +
-      `2. Chaque section est OBLIGATOIRE et doit apparaître dans l'ordre indiqué.\n` +
-      `3. Ne fournissez AUCUNE recommandation d'études, de diplômes ou de formations.\n` +
-      `4. Répondez uniquement en français.\n\n` +
-      `Voici les données à analyser :\n\n${formattedData}---\n`
+    let prompt
+    if (isMbti) {
+      prompt = `${opening} Ta réponse doit IMPÉRATIVEMENT suivre EXACTEMENT ces sections et titres :\n\n` +
+        `###Type de personalité###\n` +
+        `[Nom complet du type (ex: Architecte), avec éventuellement les 4 lettres entre parenthèses si pertinent]\n\n` +
+    `###Analyse de personnalité###\n` +
+    `[Analyse approfondie structurée en 3 à 4 paragraphes, au maximum 300 mots. Fais explicitement le lien entre le fonctionnement MBTI observé et les environnements de travail/métiers d'avenir qui conviendront le mieux. Mentionne explicitement au moins deux intitulés de métiers précis (les mêmes ou très proches de ceux que tu recommanderas ensuite) et explique pourquoi ils correspondent aux forces décrites.]\n\n` +
+        `###Recommandations d'emploi###\n` +
+        `Fournis exactement 6 recommandations d'emploi cohérentes avec le profil et tournées vers l'avenir. Pour chaque recommandation, suis le format suivant :\n` +
+        `1. [Titre du poste]\n` +
+        `   - Compétences requises: [3-4 compétences principales sous forme liste, par mots clés]\n\n` +
+        `1. Utilisez EXACTEMENT les titres de section indiqués ci-dessus avec trois dièses (###).\n` +
+        `2. Chaque section est OBLIGATOIRE et doit apparaître dans l'ordre indiqué.\n` +
+        `3. Ne fournis AUCUNE autre section ni recommandations d'études.\n` +
+        `4. Réponds uniquement en français.\n\n` +
+        `Voici les données à analyser :\n\n${formattedData}---\n`
+    } else {
+      const analysisLengthHint = 'environ 500 mots'
+      prompt = `${opening} Ta réponse doit IMPÉRATIVEMENT suivre EXACTEMENT ces sections et titres :\n\n` +
+        `###Type de personalité###\n` +
+        `[Nom de la personalité]\n\n` +
+        `###Analyse de personnalité###\n` +
+        `[Analyse approfondie ${analysisLengthHint} basée sur les éléments donnés. Pas de liste brute : un texte riche, structuré en 3-5 paragraphes, sans paraphraser les questions ou les réponses.]\n\n` +
+        `###Évaluation des compétences###\n` +
+        `[Évaluation concise des compétences en points clés, maximum 300 mots. Présentez sous forme de liste.]\n\n` +
+        `###Recommandations d'emploi###\n` +
+        `Fournissez exactement 6 recommandations d'emploi. Pour chaque recommandation, suivez le format suivant :\n` +
+        `1. [Titre du poste]\n` +
+        `   - Compétences requises: [3-4 compétences principales sous forme liste, par mots clés]\n\n` +
+        `###Recommandations d'études###\n` +
+        `Fournissez exactement 6 recommandations d'études. Pour chaque recommandation, suivez le format suivant :\n` +
+        `1. [Nom du diplôme]\n` +
+        `2. [Nom du type d'étude]\n\n` +
+        `1. Utilisez EXACTEMENT les titres de section indiqués ci-dessus avec trois dièses (###).\n` +
+        `2. Chaque section est OBLIGATOIRE et doit apparaître dans l'ordre indiqué.\n` +
+        `3. Si vous ne pouvez pas respecter ce format ou si l'une des sections manque.\n` +
+        `Répondez uniquement en français.\n\n` +
+        `Voici les données à analyser :\n\n${formattedData}---\n`
+    }
 
     const geminiApiKey = process.env.GEMINI_API_KEY
     if (!geminiApiKey) {
@@ -327,6 +358,16 @@ router.post('/generate-analysis-by-type', async (req, res) => {
     }
 
     const sections = parseGeminiResponse(generatedText)
+    if (isMbti) {
+      sections.skillsAssessment = ''
+    }
+
+    const personalityAnalysis = isMbti
+      ? limitWords(sections.personalityAnalysis, 300)
+      : sections.personalityAnalysis
+    const jobRecommendations = Array.isArray(sections.jobRecommendations)
+      ? sections.jobRecommendations.slice(0, 6)
+      : []
 
     // Upsert into user_results per questionnaire_type (composite unique)
     const { error: resultError } = await db
@@ -334,11 +375,11 @@ router.post('/generate-analysis-by-type', async (req, res) => {
       .upsert({
         user_id: userId,
         questionnaire_type: qType,
-        personality_analysis: sections.personalityAnalysis,
-        skills_assessment: sections.skillsAssessment,
-        job_recommendations: sections.jobRecommendations,
+        personality_analysis: personalityAnalysis,
+        skills_assessment: isMbti ? null : sections.skillsAssessment,
+        job_recommendations: jobRecommendations,
         // Per requirement, do not store study recommendations for MBTI
-        study_recommendations: null,
+        study_recommendations: isMbti ? null : sections.studyRecommendations,
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id,questionnaire_type', ignoreDuplicates: false })
 
@@ -358,11 +399,11 @@ router.post('/generate-analysis-by-type', async (req, res) => {
       message: 'Analysis generated successfully',
       analysis: {
         personalityType: sections.personalityType,
-        personalityAnalysis: sections.personalityAnalysis,
-        skillsAssessment: sections.skillsAssessment,
-        jobRecommendations: sections.jobRecommendations,
+        personalityAnalysis,
+        skillsAssessment: isMbti ? null : sections.skillsAssessment,
+        jobRecommendations,
         // No study recommendations for MBTI output
-        studyRecommendations: [],
+        studyRecommendations: isMbti ? [] : (sections.studyRecommendations || []),
         avatarUrlBase: profile?.avatar_json?.url || profile?.avatar || null,
         avatarConfig: profile?.avatar_json || null,
         shareImageUrl: shareRow?.share_image_url || null
@@ -379,12 +420,12 @@ router.get('/results/:userId', async (req, res) => {
   try {
     const { userId } = req.params
 
-  const db = supabaseAdmin || supabase
-  const { data: rows, error } = await db
-    .from('user_results')
-    .select('*')
-    .eq('user_id', userId)
-    .order('updated_at', { ascending: false })
+    const db = supabaseAdmin || supabase
+    const { data: rows, error } = await db
+      .from('user_results')
+      .select('*')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
 
     if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
       console.error('Error fetching results:', error)
@@ -819,6 +860,7 @@ router.get('/my-results', authenticateToken, async (req, res) => {
     if (!rows || rows.length === 0) {
       return res.status(404).json({ error: 'No analysis results found' })
     }
+
     // Split rows by type and map to UI-friendly structures
     const findByType = (type) => rows.find(r => (r.questionnaire_type || '').toLowerCase() === type)
     const mbti = findByType('mbti') || null

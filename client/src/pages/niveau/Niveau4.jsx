@@ -14,6 +14,72 @@ async function loadJsPdf() {
   return jsPdfFactoryPromise
 }
 
+function limitWords(text, maxWords) {
+  if (!text || typeof text !== 'string' || !maxWords) return text || ''
+  const words = text.trim().split(/\s+/)
+  if (words.length <= maxWords) {
+    return text.trim()
+  }
+  return `${words.slice(0, maxWords).join(' ')}…`
+}
+
+function sanitizeAnalysisPayload(raw) {
+  if (!raw || typeof raw !== 'object') return raw
+  const sanitized = { ...raw }
+  const jobsArray = Array.isArray(sanitized.jobRecommendations)
+    ? sanitized.jobRecommendations.slice(0, 6)
+    : []
+  sanitized.jobRecommendations = jobsArray
+
+  if (sanitized.personalityAnalysis) {
+    sanitized.personalityAnalysis = ensureJobMentions(sanitized.personalityAnalysis, jobsArray)
+    sanitized.personalityAnalysis = limitWords(sanitized.personalityAnalysis, 300)
+  }
+  sanitized.skillsAssessment = null
+  return sanitized
+}
+
+function splitIntoParagraphs(text) {
+  if (!text || typeof text !== 'string') return []
+  const trimmed = text.trim()
+  if (!trimmed) return []
+  let blocks = trimmed.split(/\n{2,}/).map((part) => part.trim()).filter(Boolean)
+  if (blocks.length > 1) return blocks
+  const sentences = trimmed.split(/(?<=[.!?])\s+/).map((sentence) => sentence.trim()).filter(Boolean)
+  if (sentences.length <= 2) return [trimmed]
+  const grouped = []
+  for (let i = 0; i < sentences.length; i += 2) {
+    grouped.push(sentences.slice(i, i + 2).join(' '))
+  }
+  return grouped
+}
+
+function formatJobList(titles) {
+  const items = (titles || []).map((title) => title.trim()).filter(Boolean)
+  if (!items.length) return ''
+  if (items.length === 1) return items[0]
+  if (items.length === 2) return `${items[0]} et ${items[1]}`
+  return `${items.slice(0, -1).join(', ')} et ${items[items.length - 1]}`
+}
+
+function ensureJobMentions(text, jobs) {
+  if (!text || typeof text !== 'string' || !Array.isArray(jobs) || !jobs.length) return text || ''
+  const titles = jobs
+    .map((job) => (typeof job === 'string' ? job : job?.title || ''))
+    .map((title) => title.trim())
+    .filter(Boolean)
+  if (!titles.length) return text
+
+  const lower = text.toLowerCase()
+  const missing = titles.filter((title) => !lower.includes(title.toLowerCase()))
+  if (!missing.length) return text
+
+  const additionList = formatJobList(missing.slice(0, 3))
+  if (!additionList) return text
+
+  return `${text.trim()}\n\nCes points se retrouvent dans des métiers comme ${additionList}.`
+}
+
 // Simple typewriter
 function useTypewriter(message, durationMs) {
   const [text, setText] = useState('')
@@ -68,6 +134,16 @@ export default function Niveau4() {
 
   const ZELIA_IG_HANDLE = '@zelia' // change to the official handle when known
 
+  const renderParagraphs = (text, emptyLabel = '—') => {
+    const paragraphs = splitIntoParagraphs(text)
+    if (!paragraphs.length) {
+      return [<p key="empty" className="whitespace-pre-wrap text-gray-800 leading-relaxed">{emptyLabel}</p>]
+    }
+    return paragraphs.map((paragraph, index) => (
+      <p key={index} className="whitespace-pre-wrap text-gray-800 leading-relaxed">{paragraph}</p>
+    ))
+  }
+
   useEffect(() => {
     let mounted = true
     ;(async () => {
@@ -106,12 +182,15 @@ export default function Niveau4() {
     const greeting = firstName
       ? `Rebonjour ${firstName}, j'espère que ça va toujours`
       : "Rebonjour, j'espère que ça va toujours"
+    const launchLine = firstName
+      ? `On y va ${firstName} !`
+  : "On y va, c'est parti !"
     return ([
       { text: greeting, durationMs: 2000 },
       { text: "Je vais te poser quelques questions sur toi et je vais te donner des résultats concrets sur qui tu es vraiment, je vais essayer d'analyser en profondeur ta personne", durationMs: 4000 },
       { text: "Je me base sur les travaux de Mayer Briggs, un psychanaliste reconnu pour ses travaux sur l'analyse de personnalité, c'est le test MBTI", durationMs: 3000 },
       { text: "Cela va t'aider à comprendre comment tu fonctionnes et quels métiers te collent à la peau", durationMs: 2000 },
-      { text: "Prêt(e) ? On démarre tranquille.", durationMs: 2500 },
+      { text: launchLine, durationMs: 2000 },
     ])
   }, [firstName])
   const current = messages[introIdx] || { text: '', durationMs: 1500 }
@@ -156,9 +235,10 @@ export default function Niveau4() {
       const resp = await apiClient.post('/analysis/generate-analysis-by-type', { userId, questionnaireType: 'mbti' })
       const data = resp?.data?.analysis
       if (data) {
-        setAnalysis(data)
-        if (data.shareImageUrl) {
-          setShareImgUrl(data.shareImageUrl)
+        const normalized = sanitizeAnalysisPayload(data)
+        setAnalysis(normalized)
+        if (normalized.shareImageUrl) {
+          setShareImgUrl(normalized.shareImageUrl)
         }
       }
       setPhase('results')
@@ -305,24 +385,6 @@ export default function Niveau4() {
         y += 2
       }
 
-      // Section: Points forts (skillsAssessment)
-      if (analysis?.skillsAssessment) {
-        if (y > 270) { doc.addPage(); y = margin }
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(14)
-        doc.text('Points forts', margin, y)
-        y += 6
-        doc.setFont('helvetica', 'normal')
-        doc.setFontSize(11)
-        const lines = doc.splitTextToSize(analysis.skillsAssessment, usable)
-        for (const line of lines) {
-          if (y > 280) { doc.addPage(); y = margin }
-          doc.text(line, margin, y)
-          y += 6
-        }
-        y += 2
-      }
-
       // Section: Recommandations d'emploi
       if (Array.isArray(analysis?.jobRecommendations) && analysis.jobRecommendations.length) {
         if (y > 270) { doc.addPage(); y = margin }
@@ -385,18 +447,19 @@ export default function Niveau4() {
         ...analysis,
         personalityType: analysis?.personalityType || results.personalityType || null,
         personalityAnalysis: analysis?.personalityAnalysis || results.personalityAnalysis || null,
-        skillsAssessment: analysis?.skillsAssessment || results.skillsAssessment || null,
         jobRecommendations: (Array.isArray(analysis?.jobRecommendations) && analysis.jobRecommendations.length
           ? analysis.jobRecommendations
           : results.jobRecommendations || []),
         shareImageUrl: results.shareImageUrl || analysis?.shareImageUrl || null
       }
 
+      const sanitized = sanitizeAnalysisPayload(merged)
+
       setAnalysis(prev => {
-        if (!prev) return merged
-        return { ...prev, ...merged }
+        if (!prev) return sanitized
+        return { ...prev, ...sanitized }
       })
-      return merged
+      return sanitized
     } catch (error) {
       console.warn('Failed to refresh analysis snapshot', error)
       return analysis
@@ -514,7 +577,7 @@ export default function Niveau4() {
               {phase === 'results' && (
                 <div className="mt-4">
                   {resultsStep === 'actions' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <button onClick={onPreview} disabled={previewing} className="w-full h-12 px-3 rounded-lg bg-white text-gray-900 border border-gray-300">
                         <span className="w-full h-full flex items-center justify-center gap-2">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8S2 12 2 12Z" strokeLinecap="round" strokeLinejoin="round"/><circle cx="12" cy="12" r="3"/></svg>
@@ -598,7 +661,9 @@ export default function Niveau4() {
 
               <section className="bg-surface border border-line rounded-xl shadow-card p-6">
                 <h3 className="text-lg font-semibold mb-2">Analyse de personnalité</h3>
-                <div className="whitespace-pre-wrap text-gray-800">{analysis?.personalityAnalysis || '—'}</div>
+                <div className="space-y-4">
+                  {renderParagraphs(analysis?.personalityAnalysis)}
+                </div>
               </section>
 
               {Array.isArray(analysis?.jobRecommendations) && analysis.jobRecommendations.length > 0 && (

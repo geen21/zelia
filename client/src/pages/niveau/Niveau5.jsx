@@ -1,8 +1,13 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import supabase from '../../lib/supabase'
 import apiClient, { usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
+
+function countWords(text) {
+  if (!text) return 0
+  return text.trim().split(/\s+/).filter(Boolean).length
+}
 
 // Reuse helper from other levels (simplified fallback only to avoid duplication)
 function buildAvatarFromProfile(profile, seed = 'zelia') {
@@ -71,6 +76,7 @@ export default function Niveau5() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [userId, setUserId] = useState('')
+  const lastAudioTextRef = useRef('')
 
   // flow
   // sequence: messages and input steps interleaved
@@ -83,14 +89,17 @@ export default function Niveau5() {
   const [englishLevel, setEnglishLevel] = useState('')
 
   // TTS function
-  const speakText = (text) => {
+  const speakText = useCallback((text) => {
+    if (!text) return
     if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.lang = 'en-US' // English
       utterance.rate = 0.8
+      lastAudioTextRef.current = text
       window.speechSynthesis.speak(utterance)
     }
-  }
+  }, [])
 
   // Load profile
   useEffect(() => {
@@ -117,31 +126,37 @@ export default function Niveau5() {
   }, [navigate])
 
   const dialogue = useMemo(() => ([
-    { type: 'text', text: "Hey! Welcome to Level 5. We're going to test your English skills in a fun conversation. I'll ask you questions, play some audio, and at the end, I'll tell you your CEFR level from A1 to C2. Ready?", durationMs: 6000 },
+  { type: 'text', text: "Hey! Welcome to Level 5. We're going to test your English skills in a fun conversation. I'll ask you questions, play some audio, and at the end, I'll tell you your CEFR level from A1 to C2. Ready?\n\n*cela ne remplace en aucun cas un test d'anglais.*", durationMs: 6500 },
     { type: 'text', text: "First, let's test your listening. I'll play a short audio. Listen carefully and answer the question after.", durationMs: 4000 },
-    { type: 'audio', text: "Listen: 'Hello, my name is John. I live in London and I work as a teacher. I like reading books and playing football.' What is John's job?", audioText: "Hello, my name is John. I live in London and I work as a teacher. I like reading books and playing football." },
+    { type: 'audio', text: "Listen: 'Hello, my name is John. I live in London and I work as a teacher. I like reading books and playing football.'\n\nWhat is John's job?", audioText: "Hello, my name is John. I live in London and I work as a teacher. I like reading books and playing football." },
     { type: 'input', id: 'listening1', placeholder: 'Your answer...' },
     { type: 'text', text: "Good! Now, another listening test. Listen: 'The weather is sunny today. I am going to the park with my friends. We will have a picnic and play games.' Where are they going?", durationMs: 4000 },
-    { type: 'audio', text: "Listen carefully.", audioText: "The weather is sunny today. I am going to the park with my friends. We will have a picnic and play games." },
+    { type: 'audio', text: "Listen: 'The weather is sunny today. I am going to the park with my friends. We will have a picnic and play games.'\n\nWhere are they going?", audioText: "The weather is sunny today. I am going to the park with my friends. We will have a picnic and play games." },
     { type: 'input', id: 'listening2', placeholder: 'Your answer...' },
     { type: 'text', text: "Great listening! Now, speaking. Describe your favorite hobby in English. Be as detailed as you can.", durationMs: 3000 },
-    { type: 'input', id: 'speaking1', placeholder: 'Describe your hobby...' },
-    { type: 'text', text: "Nice! Reading test. Read this: 'Cats are popular pets. They are independent and playful. Many people love cats because they are cute and fun.' What are cats described as?", durationMs: 5000 },
-    { type: 'input', id: 'reading1', placeholder: 'Your answer...' },
+    { type: 'input', id: 'speaking1', placeholder: 'Describe your hobby in at least 20 words...' },
+    { type: 'text', text: "Nice! Reading test. Read this: 'Cats are popular pets. They are independent and playful. Many people love cats because they are cute and fun.'\n\nWhat are cats best described as?\n\nRéponds en donnant les adjectifs exacts.", durationMs: 5500 },
+    { type: 'input', id: 'reading1', placeholder: 'Donne les adjectifs exacts...' },
     { type: 'text', text: "Good. Writing test. Write a short paragraph about your daily routine. Use at least 5 sentences.", durationMs: 3000 },
     { type: 'input', id: 'writing1', placeholder: 'Write your paragraph...' },
     { type: 'text', text: "Vocabulary: What does 'happy' mean? Choose: a) sad, b) joyful, c) angry", durationMs: 3000 },
     { type: 'input', id: 'vocab1', placeholder: 'a, b, or c...' },
     { type: 'text', text: "Grammar: Fill in the blank: 'I ___ to school every day.' (go, goes, going)", durationMs: 3000 },
     { type: 'input', id: 'grammar1', placeholder: 'Your answer...' },
-    { type: 'text', text: "Conversation: What do you think about learning English? Why is it important?", durationMs: 3000 },
-    { type: 'input', id: 'conversation1', placeholder: 'Your opinion...' },
+    { type: 'text', text: "Conversation: What do you think about learning English? Why is it important? Réponds en détaillant au moins 20 mots.", durationMs: 3500 },
+    { type: 'input', id: 'conversation1', placeholder: 'Share your thoughts in at least 20 words...' },
     { type: 'text', text: "Thanks for participating! Now, let's calculate your English level based on your answers.", durationMs: 3000 },
     { type: 'result' },
   ]), [])
 
   const current = dialogue[idx] || { type: 'text', text: '', durationMs: 1000 }
   const { text: typed, done: typedDone, skip } = useTypewriter((current.type === 'text' || current.type === 'audio') ? current.text : '', current.durationMs || 1500)
+
+  useEffect(() => {
+    if (current.type === 'audio') {
+      speakText(current.audioText)
+    }
+  }, [current, speakText])
 
   // mouth animation while typing
   useEffect(() => {
@@ -177,12 +192,27 @@ export default function Niveau5() {
     return url
   }, [baseAvatarUrl, current, typedDone, mouthAlt])
 
+  const getInputValidation = useCallback((item) => {
+    if (!item) return { ok: true }
+    const value = inputs[item.id] || ''
+    if (!value.trim()) return { ok: false, message: 'Réponse requise.' }
+    const wordLimitedIds = ['speaking1', 'conversation1']
+    if (wordLimitedIds.includes(item.id)) {
+      const count = countWords(value)
+      if (count < 20) return { ok: false, message: 'Écris au moins 20 mots.' }
+    }
+    return { ok: true }
+  }, [inputs])
+
   const canProceed = () => {
     if (current.type === 'text' || current.type === 'audio') return typedDone
-    if (current.type === 'input') return inputs[current.id] && inputs[current.id].trim().length > 0
+    if (current.type === 'input') return getInputValidation(current).ok
     if (current.type === 'result') return true
     return true
   }
+
+  const currentValidation = current.type === 'input' ? getInputValidation(current) : { ok: true }
+  const currentWordCount = current.type === 'input' ? countWords(inputs[current.id]) : 0
 
   const onNext = () => {
     if (current.type === 'text' && !typedDone) { skip(); return }
@@ -191,9 +221,6 @@ export default function Niveau5() {
       const nextIdx = idx + 1
       setIdx(nextIdx)
       const nextItem = dialogue[nextIdx]
-      if (nextItem && nextItem.type === 'audio') {
-        speakText(nextItem.audioText)
-      }
       if (nextItem && nextItem.type === 'result') {
         setEnglishLevel(calculateEnglishLevel(inputs))
       }
@@ -204,14 +231,14 @@ export default function Niveau5() {
 
   function getLevelMessage(level) {
     const messages = {
-      A1: "Your English level is: A1 (Beginner)\n\nL'anglais est essentiel pour votre avenir professionnel car c'est la langue internationale des affaires. À ce niveau débutant, concentrez-vous sur les bases : vocabulaire quotidien, phrases simples. Avec de la pratique régulière, vous progresserez rapidement vers des niveaux plus avancés qui ouvriront des opportunités internationales.",
-      A2: "Your English level is: A2 (Elementary)\n\nL'anglais est essentiel pour votre avenir professionnel car c'est la langue internationale des affaires et de la technologie. À ce niveau élémentaire, vous pouvez déjà communiquer sur des sujets familiers. Continuez à pratiquer pour atteindre B1 et améliorer votre employabilité sur le marché international.",
-      B1: "Your English level is: B1 (Intermediate)\n\nL'anglais est essentiel pour votre avenir professionnel car c'est la langue internationale des affaires, de la technologie et de la communication. À ce niveau intermédiaire, vous pouvez discuter de sujets variés et comprendre des textes complexes. Cela vous donne déjà un avantage compétitif ; visez B2 pour des opportunités plus élevées.",
-      B2: "Your English level is: B2 (Upper Intermediate)\n\nL'anglais est essentiel pour votre avenir professionnel car c'est la langue internationale des affaires, de la technologie et de la communication. À ce niveau avancé, vous maîtrisez la langue couramment. Cela ouvre des portes vers des postes internationaux et des carrières dans des entreprises multinationales. Continuez à perfectionner pour atteindre C1.",
-      C1: "Your English level is: C1 (Advanced)\n\nL'anglais est essentiel pour votre avenir professionnel car c'est la langue internationale des affaires, de la technologie et de la communication. À ce niveau avancé, vous utilisez l'anglais avec aisance et précision. Cela vous positionne pour des rôles de leadership international et des opportunités dans des secteurs de pointe. Visez C2 pour une maîtrise totale.",
-      C2: "Your English level is: C2 (Proficient)\n\nL'anglais est essentiel pour votre avenir professionnel car c'est la langue internationale des affaires, de la technologie et de la communication. À ce niveau expert, vous maîtrisez parfaitement l'anglais. Cela vous donne accès aux meilleures opportunités professionnelles mondiales, y compris dans des domaines spécialisés et innovants. Félicitations pour ce niveau exceptionnel !"
+      A1: "Your English level is: A1 (Beginner)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires. À ce niveau débutant, concentre-toi sur les bases : vocabulaire quotidien, phrases simples. Avec de la pratique régulière, tu progresseras rapidement vers des niveaux plus avancés qui ouvriront des opportunités internationales.",
+      A2: "Your English level is: A2 (Elementary)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires et de la technologie. À ce niveau élémentaire, tu peux déjà communiquer sur des sujets familiers. Continue à pratiquer pour atteindre B1 et améliorer ton employabilité sur le marché international.",
+      B1: "Your English level is: B1 (Intermediate)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. À ce niveau intermédiaire, tu peux discuter de sujets variés et comprendre des textes plus complexes. Cela te donne déjà un avantage compétitif ; vise B2 pour des opportunités encore plus élevées.",
+      B2: "Your English level is: B2 (Upper Intermediate)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. À ce niveau avancé, tu maîtrises la langue couramment. Cela ouvre des portes vers des postes internationaux et des carrières dans des entreprises multinationales. Continue à te perfectionner pour atteindre C1.",
+      C1: "Your English level is: C1 (Advanced)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. À ce niveau avancé, tu utilises l'anglais avec aisance et précision. Cela te positionne pour des rôles de leadership international et des opportunités dans des secteurs de pointe. Vise C2 pour une maîtrise totale.",
+      C2: "Your English level is: C2 (Proficient)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. À ce niveau expert, tu maîtrises parfaitement l'anglais. Cela te donne accès aux meilleures opportunités professionnelles mondiales, y compris dans des domaines spécialisés et innovants. Félicitations pour ce niveau exceptionnel !"
     }
-    return messages[level] || "Your English level is: " + level + "\n\nL'anglais est essentiel pour votre avenir professionnel. Continuez à pratiquer !"
+    return messages[level] || "Your English level is: " + level + "\n\nL'anglais est essentiel pour ton avenir professionnel. Continue à pratiquer !"
   }
 
   function calculateEnglishLevel(answers) {
@@ -220,8 +247,8 @@ export default function Niveau5() {
     if (answers.listening1?.toLowerCase().includes('teacher') || answers.listening1?.toLowerCase().includes('professor')) score += 25
     if (answers.listening2?.toLowerCase().includes('park') || answers.listening2?.toLowerCase().includes('garden')) score += 25
     // Speaking: length, structure, vocabulary
-    const speak = answers.speaking1 || ''
-    const speakWords = speak.split(/\s+/).length
+  const speak = answers.speaking1 || ''
+  const speakWords = countWords(speak)
     if (speakWords > 20) score += 15
     if (speak.includes('I') && speak.includes('like')) score += 10
     if (speak.includes('because') || speak.includes('so')) score += 5
@@ -229,8 +256,8 @@ export default function Niveau5() {
     const read = answers.reading1?.toLowerCase() || ''
     if (read.includes('independent') || read.includes('playful') || read.includes('cute') || read.includes('fun')) score += 20
     // Writing: length, structure, grammar
-    const write = answers.writing1 || ''
-    const writeWords = write.split(/\s+/).length
+  const write = answers.writing1 || ''
+  const writeWords = countWords(write)
     const sentences = write.split(/[.!?]+/).filter(s => s.trim().length > 0).length
     if (sentences >= 5) score += 15
     if (writeWords > 50) score += 10
@@ -240,8 +267,8 @@ export default function Niveau5() {
     // Grammar: exact
     if (answers.grammar1?.toLowerCase().trim() === 'go') score += 15
     // Conversation: length, opinion
-    const conv = answers.conversation1 || ''
-    const convWords = conv.split(/\s+/).length
+  const conv = answers.conversation1 || ''
+  const convWords = countWords(conv)
     if (convWords > 30) score += 10
     if (conv.includes('important') || conv.includes('because') || conv.includes('future')) score += 10
 
@@ -314,15 +341,32 @@ export default function Niveau5() {
               {current.type === 'input' && (
                 <div className="space-y-3">
                   <label className="font-medium text-text-primary block">Réponse</label>
+                  {(current.id === 'speaking1' || current.id === 'conversation1') && (
+                    <p className="text-sm text-gray-500">20 mots minimum. ({currentWordCount} mots)</p>
+                  )}
+                  {current.id === 'reading1' && (
+                    <p className="text-sm text-gray-500">Donne exactement les adjectifs du texte.</p>
+                  )}
                   <textarea
                     className="w-full rounded-xl border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-black min-h-[140px]"
                     placeholder={current.placeholder || 'Ta réponse...'}
-                    value={inputs[current.id]}
+                    value={inputs[current.id] || ''}
                     onChange={(e) => setInputs(prev => ({ ...prev, [current.id]: e.target.value }))}
                   />
+                  {Boolean((inputs[current.id] || '').trim()) && !currentValidation.ok && (
+                    <p className="text-sm text-red-600">{currentValidation.message}</p>
+                  )}
                 </div>
               )}
               <div className="mt-4 flex flex-wrap gap-3">
+                {current.type === 'audio' && (
+                  <button
+                    onClick={() => speakText(current.audioText || lastAudioTextRef.current)}
+                    className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300"
+                  >
+                    Réécouter
+                  </button>
+                )}
                 <button
                   onClick={onNext}
                   disabled={!canProceed() || saving}

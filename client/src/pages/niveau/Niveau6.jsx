@@ -182,12 +182,23 @@ export default function Niveau6() {
   const [completionError, setCompletionError] = useState('')
   const [completed, setCompleted] = useState(false)
 
+  const firstName = useMemo(() => {
+    const raw = profile?.first_name || profile?.prenom || profile?.firstName || ''
+    if (!raw || typeof raw !== 'string') return ''
+    const trimmed = raw.trim()
+    if (!trimmed) return ''
+    return trimmed.split(/\s+/)[0]
+  }, [profile])
+
   const introMessages = useMemo(() => ([
     { text: 'Bravo, tu viens de débloquer le niveau Formations !', durationMs: 2200 },
-    { text: 'Je vais te montrer comment trouver rapidement une formation qui colle à ton projet.', durationMs: 4200 },
+    {
+      text: "Je vais te montrer comment sélectionner les pistes d’études et formations dans les grandes familles de métiers.\nTu verras comme c’est riche et inspirant, ça te donnera déjà plein d’infos.",
+      durationMs: 5200
+    },
     { text: "On va faire ça ensemble : tu appliques chaque étape et je reste là si tu bloques.", durationMs: 4200 },
-    { text: 'Prêt·e ? On démarre le tutoriel.', durationMs: 2000 }
-  ]), [])
+    { text: firstName ? `On y va ${firstName} ?` : 'On y va ?', durationMs: 2000 }
+  ]), [firstName])
 
   const currentIntro = introMessages[introIdx] || { text: '', durationMs: 2000 }
   const { text: introText, done: introDone, skip: skipIntro } = useTypewriter(currentIntro.text, currentIntro.durationMs)

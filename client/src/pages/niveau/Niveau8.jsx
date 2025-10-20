@@ -121,9 +121,14 @@ export default function Niveau8() {
   }, [navigate])
 
   const messages = useMemo(() => ([
-    { text: "Welcome back ! Alors, tu as trouvé des ami.es que ça peut intéresser ? ;) L’orientation, ça doit être accessible à tout le monde. C’est si dur d’y voir clair, mais je suis sûre que ce parcours peut aider beaucoup d’élèves comme toi", durationMs: 6000 },
-    { text: "Bref, je sais pas pourquoi je parle trop comme ça. Moi aussi j’ai encore des choses sur lesquelles je dois bosser ahah.", durationMs: 3500 },
-    { text: "Comme une vidéo vaut mille mots, je te laisse découvrir une vidéo faite par Nicolas, l’un des dirigeants de la société Zélia. Il parle de la réalité de l’orientation… Rien que ça !", durationMs: 6500 },
+    { text: "Welcome back ! J’espère que tout se passe bien pour toi jusqu’ici …", durationMs: 1500 },
+    { text: "Je me disais que ça pourrait être cool que tes potes profitent également de mes connaissances pour trouver leur voie professionnelle.", durationMs: 4000 },
+    { text: "L’orientation doit vraiment être accessible pour tout le monde", durationMs:  1500 },
+    { text: "Si tu penses comme nous, tu peux directement leur partager ce lien pour qu’ils créent un compte /register", durationMs:  1500 },
+    { text: "Bref je parle beaucoup moi ! Comme quoi, j’ai encore des choses à apprendre aussi", durationMs:  1500 },
+    { text: "Je pense que c’est le bon moment pour passer le relai à Nicolas, qui va te parler de la diversité des métiers en France.", durationMs:  1500 },
+    { text: "Tu vas voir, c’est assez dingue !", durationMs:  1500 },
+    { text: "On se retrouve après au niveau 9….", durationMs:  1000 }
   ]), [])
 
   const current = messages[idx] || { text: '', durationMs: 1500 }
@@ -315,7 +320,17 @@ export default function Niveau8() {
               </div>
 
               {phase === 'intro' && (
-                <div className="mt-4">
+                <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                  {idx === 3 && (
+                    <a
+                      href="/register"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto text-center"
+                    >
+                      Ouvrir la page d'inscription
+                    </a>
+                  )}
                   <button onClick={next} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">
                     {idx === messages.length - 1 ? 'Oui laisse moi voir la vidéo' : 'Suivant'}
                   </button>

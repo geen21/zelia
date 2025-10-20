@@ -37,22 +37,73 @@ function truncate(text, max = 34) {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text
 }
 
-function extractTopQualities(text, max = 3) {
-  if (!text || typeof text !== 'string') return []
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
+function toTitleCase(text) {
+  if (!text || typeof text !== 'string') return ''
+  const trimmed = text.trim()
+  if (!trimmed) return ''
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
+}
 
-  const qualities = []
-  for (const rawLine of lines) {
-    let cleaned = rawLine.replace(/^[-•–]\s+/, '').replace(/^\d+\.\s*/, '').trim()
-    if (cleaned.includes(':')) cleaned = cleaned.split(':')[0].trim()
-    if (cleaned.length > 60) cleaned = `${cleaned.slice(0, 57)}…`
-    if (cleaned) qualities.push(cleaned)
-    if (qualities.length >= max) break
+function wrapText(ctx, text, maxWidth) {
+  if (!text) return []
+  const words = text.split(/\s+/)
+  const lines = []
+  let currentLine = ''
+
+  words.forEach((word) => {
+    const testLine = currentLine ? `${currentLine} ${word}` : word
+    const metrics = ctx.measureText(testLine)
+    if (metrics.width > maxWidth && currentLine) {
+      lines.push(currentLine)
+      currentLine = word
+    } else {
+      currentLine = testLine
+    }
+  })
+
+  if (currentLine) {
+    lines.push(currentLine)
   }
-  return qualities
+
+  return lines
+}
+
+function deriveTopCompetences(analysis, max = 3) {
+  const result = []
+  const seen = new Set()
+  const addValue = (value) => {
+    const cleaned = toTitleCase(value)
+    if (!cleaned) return
+    const key = cleaned.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    result.push(cleaned)
+  }
+
+  const jobs = Array.isArray(analysis?.jobRecommendations) ? analysis.jobRecommendations : []
+  for (const job of jobs) {
+    if (!Array.isArray(job?.skills)) continue
+    for (const skill of job.skills) {
+      if (result.length >= max) break
+      const normalized = typeof skill === 'string' ? skill.replace(/^[-•–]\s*/, '').trim() : ''
+      if (normalized) addValue(normalized)
+    }
+    if (result.length >= max) break
+  }
+
+  if (result.length < max && typeof analysis?.personalityAnalysis === 'string') {
+    const sentences = analysis.personalityAnalysis
+      .split(/[\.?!]/)
+      .map((sentence) => sentence.trim())
+      .filter(Boolean)
+    for (const sentence of sentences) {
+      if (result.length >= max) break
+      if (sentence.length > 120) continue
+      addValue(sentence)
+    }
+  }
+
+  return result.slice(0, max)
 }
 
 function loadImage(src) {
@@ -200,21 +251,25 @@ export async function generateMbtiShareImage({
       }
     }
 
-    const qualities = extractTopQualities(analysis?.skillsAssessment || '', 3)
+    const qualities = deriveTopCompetences(analysis, 3)
     ctx.font = '800 80px "Bricolage Grotesque", "ClashGroteskMedium", system-ui, sans-serif'
     ctx.fillStyle = colors.text
     ctx.textAlign = 'center'
     const qualitiesY = titleY + 150
     ctx.fillText('Qualités', width / 2, qualitiesY)
 
-    ctx.font = '600 40px system-ui, -apple-system, sans-serif'
+    ctx.font = '600 32px system-ui, -apple-system, sans-serif'
     let qualityY = qualitiesY + 80
     qualities.forEach((quality, index) => {
       const padX = 30
-      const padY = 20
-      const textWidth = ctx.measureText(quality).width
-      const pillW = Math.min(textWidth + padX * 2, width - 80)
-      const pillH = 70
+      const padY = 24
+      const maxTextWidth = width - 160
+      const lines = wrapText(ctx, quality, maxTextWidth - padX * 2).slice(0, 3)
+      const textLines = lines.length ? lines : [quality]
+      const longest = textLines.reduce((maxLen, line) => Math.max(maxLen, ctx.measureText(line).width), 0)
+      const pillW = Math.min(Math.max(longest + padX * 2, 320), width - 80)
+      const lineHeight = 42
+      const pillH = lineHeight * textLines.length + padY * 2
       const x = (width - pillW) / 2
       const y = qualityY
 
@@ -236,9 +291,14 @@ export async function generateMbtiShareImage({
       ctx.fill()
 
       ctx.fillStyle = '#000'
-      ctx.font = '600 40px system-ui, -apple-system, sans-serif'
+      ctx.font = '600 32px system-ui, -apple-system, sans-serif'
       ctx.textAlign = 'center'
-      ctx.fillText(quality, x + pillW / 2, y + padY + 10)
+      ctx.textBaseline = 'middle'
+      textLines.forEach((lineText, lineIndex) => {
+        const lineY = y + padY + lineHeight * lineIndex + lineHeight / 2
+        ctx.fillText(lineText, x + pillW / 2, lineY)
+      })
+      ctx.textBaseline = 'top'
 
       qualityY += pillH + 25
     })
@@ -247,7 +307,7 @@ export async function generateMbtiShareImage({
     const jobsTitleY = qualityY + 20
     ctx.fillStyle = colors.text
     ctx.font = '800 80px "Bricolage Grotesque", "ClashGroteskMedium", system-ui, sans-serif'
-    ctx.fillText('Top métiers', width / 2 + 20, jobsTitleY)
+    ctx.fillText('Top compétences', width / 2 + 20, jobsTitleY)
 
     ctx.font = '600 50px system-ui, -apple-system, sans-serif'
     ctx.fillStyle = colors.text
@@ -288,4 +348,4 @@ export async function generateMbtiShareImage({
   }
 }
 
-export { extractMbtiCode, extractTopQualities, truncate, ZELIA_COLORS, DEFAULT_LOGO_PATH, MBTI_JOBS_FR }
+export { extractMbtiCode, deriveTopCompetences, truncate, ZELIA_COLORS, DEFAULT_LOGO_PATH, MBTI_JOBS_FR }

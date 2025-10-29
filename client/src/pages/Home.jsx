@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { blogPosts } from './blog/posts'
 
 // Simple typewriter for a single message
 function useTypewriter(message, durationMs) {
@@ -170,6 +171,8 @@ export default function Home() {
     return () => io.disconnect()
   }, [])
 
+  const featuredPosts = useMemo(() => blogPosts.slice(0, 3), [])
+
   return (
     <div className="aximo-all-section landing-lock" style={{ background: '#fffbf7', color: '#000' }}>
       {/* Full-screen parallax scene with overlay nav */}
@@ -190,6 +193,10 @@ export default function Home() {
                 <img src="/assets/images/logo-dark.png" alt="Zélia" className="logo-image" />
               </Link>
               <div className="nav-actions">
+                <Link to="/blog" className="nav-link-btn" aria-label="Blog">
+                  <span>Blog</span>
+                  <div className="btn-highlight"></div>
+                </Link>
                 <button className="nav-link-btn" onClick={() => navigate('/avatar')}>
                   <span>Questionnaire</span>
                   <div className="btn-highlight"></div>
@@ -292,25 +299,27 @@ export default function Home() {
                         <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="currentColor"/>
                       </svg>
                     </div>
-                    <span className="tagline-text">LA COPILOTE DE L'AVENIR PROFESSIONNEL</span>
+                    <span className="tagline-text">L’ORIENTATION DEVIENT UN JEU D’ENFANT</span>
                   </div>
                   
                   <div className="brand-stats">
                     <div className="stat-item">
-                      <div className="stat-number">98%</div>
-                      <div className="stat-label">des utilisateurs ont appris quelque chose sur eux-mêmes</div>
+                      <div className="stat-number">83%</div>
+                      <div className="stat-label">
+                        des étudiants se disent inquiets lorsqu’ils pensent à des choix en matière d’orientation
+                      </div>
                     </div>
                   </div>
-                  
                   <div className="brand-features">
                     <div className="feature-item">
-                      <span>Jeu d'orientation intelligent</span>
+                      <span>+ de 50 modules et jeux interactifs</span>
+
                     </div>
                     <div className="feature-item">
-                      <span>Orientation ultra personnalisée</span>
+                      <span>Apprendre à se connaître</span>
                     </div>
                     <div className="feature-item">
-                      <span>Accompagnement continu</span>
+                      <span>Trouver sa voie professionnelle </span>
                     </div>
                   </div>
                 </div>
@@ -368,6 +377,46 @@ export default function Home() {
                 Débuter le Niveau 1
               </button>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="blog-section">
+        <div className="container">
+          <div className="blog-section__header reveal">
+            <span className="blog-section__eyebrow">Blog</span>
+            <h2 className="blog-section__title">Les coulisses de l'orientation</h2>
+            <p className="blog-section__subtitle">
+              Histoires, conseils et tendances pour éclairer chaque étape du parcours d'orientation.
+            </p>
+            <div className="blog-section__actions">
+              <Link to="/blog" className="blog-section__cta">
+                Voir tous les articles
+              </Link>
+            </div>
+          </div>
+
+          <div className="blog-section__grid">
+            {featuredPosts.map((post) => (
+              <article
+                key={post.slug}
+                className="blog-card reveal"
+                style={{ '--accent': post.accent, '--accent-soft': post.accentSoft }}
+              >
+                <div className="blog-card__meta">
+                  <span>{post.category}</span>
+                  <span>{post.readingTime}</span>
+                </div>
+                <h3 className="blog-card__title">{post.title}</h3>
+                <p className="blog-card__description">{post.description}</p>
+                <div className="blog-card__footer">
+                  <span className="blog-card__date">{post.publishedAt}</span>
+                  <Link to={`/blog/${post.slug}`} className="blog-card__cta">
+                    Lire
+                  </Link>
+                </div>
+              </article>
+            ))}
           </div>
         </div>
       </section>

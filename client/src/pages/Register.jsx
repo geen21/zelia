@@ -176,12 +176,6 @@ export default function Register() {
               <h1 className="text-2xl font-bold">Créer un compte</h1>
               <p className="text-text-secondary">Choisissez votre type de profil pour une expérience personnalisée.</p>
             </div>
-            <div className="mb-4 flex gap-2">
-              {/* Single label-style button for consistency; no black border, same size, no rounded */}
-              <button type="button" className="h-11 px-4 rounded-none border border-line bg-white text-sm text-text-primary cursor-default" disabled>
-                Étudiant
-              </button>
-            </div>
             <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-xl shadow-card p-6">
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                     {/* Student fields only */}

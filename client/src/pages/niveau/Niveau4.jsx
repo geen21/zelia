@@ -132,7 +132,7 @@ export default function Niveau4() {
   // Results gating: first show actions, then confirmation step
   const [resultsStep, setResultsStep] = useState('actions') // 'actions' | 'confirm'
 
-  const ZELIA_IG_HANDLE = '@zelia' // change to the official handle when known
+  const ZELIA_IG_HANDLE = '@zelia_orientation' // handle officiel
 
   const renderParagraphs = (text, emptyLabel = '—') => {
     const paragraphs = splitIntoParagraphs(text)
@@ -188,8 +188,8 @@ export default function Niveau4() {
     return ([
       { text: greeting, durationMs: 2000 },
       { text: "Je vais te poser quelques questions sur toi et je vais te donner des résultats concrets sur qui tu es vraiment, je vais essayer d'analyser en profondeur ta personne", durationMs: 4000 },
-      { text: "Je me base sur les travaux de Mayer Briggs, un psychanaliste reconnu pour ses travaux sur l'analyse de personnalité, c'est le test MBTI", durationMs: 3000 },
-      { text: "Cela va t'aider à comprendre comment tu fonctionnes et quels métiers te collent à la peau", durationMs: 2000 },
+      { text: "On va faire ensemble un petit test de personnalité en 40 questions", durationMs: 3000 },
+      { text: "Ça te permettra de comprendre un peu mieux qui tu es, et comment tu fonctionnes", durationMs: 2000 },
       { text: launchLine, durationMs: 2000 },
     ])
   }, [firstName])
@@ -552,14 +552,22 @@ export default function Niveau4() {
                   {phase === 'intro' ? (
                     <>{typed}</>
                   ) : phase === 'quiz' ? (
-                    <>Réponds aux questions MBTI, puis termine pour lancer l'analyse.</>
+                    <>Réponds aux questions pour récupérer ton analyse.</>
                   ) : phase === 'generating' ? (
                     <>J'analyse vos réponses, cela peut prendre jusqu'à 1 minute, ne rechargez pas la page…</>
                   ) : phase === 'results' ? (
                     <>
                       {resultsStep === 'confirm'
                         ? "Hésite pas à nous taguer dans ta story pour qu'on te republie si t'as aimé les résultats"
-                        : <>Voici ton analyse MBTI. Si tu veux, tu peux la partager en story et me taguer <strong>@zelia</strong> pour que je la reposte ✨</>}
+                        : <>
+                            Et voilà le tour est joué, ton analyse de personnalité est prête !
+                            <br />
+                            <br />
+                            Tu devrais partager tes résultats d’orientation et de personnalité sur TikTok ou Insta ou directement à tes potes pour voir comment ils réagissent 😅
+                            <br />
+                            <br />
+                            Tu peux me mentionner aussi : <strong>@zelia_orientation</strong> pour que je reposte !
+                          </>}
                     </>
                   ) : phase === 'success' ? (
                     <>Niveau 4 réussi !</>

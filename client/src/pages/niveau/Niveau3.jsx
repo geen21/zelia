@@ -102,7 +102,7 @@ export default function Niveau3() {
   const [recording, setRecording] = useState(false)
   const chunksRef = useRef([])
   const [audioUrl, setAudioUrl] = useState('')
-  const [rating, setRating] = useState(7)
+  const [rating, setRating] = useState(null) // Start with null to force user interaction
   const [showSuccess, setShowSuccess] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
 
@@ -271,7 +271,7 @@ export default function Niveau3() {
 
   const resetPractice = () => {
     setAudioUrl('')
-    setRating(7)
+    setRating(null) // Reset to null
     setPhase('practice')
   }
 
@@ -323,12 +323,55 @@ export default function Niveau3() {
                     <>Tu peux maintenant lire le texte d’exemple et t'enregistrer quand tu veux.</>
                   ) : phase === 'rate' ? (
                     <>
-                      <div className="mb-3">Alors combien tu te noterais sur 10 ?</div>
-                      <div className="flex items-center gap-3">
-                        <input type="range" min="0" max="10" step="1" value={rating} onChange={(e) => setRating(Number(e.target.value))} className="flex-1 min-w-0" />
-                        <div className="w-10 text-center font-bold">{rating}</div>
+                      <div className="mb-4">Alors combien tu te noterais sur 10 ?</div>
+                      
+                      {/* Custom slider with visual feedback */}
+                      <div className="mb-4">
+                        <div className="flex flex-wrap justify-center gap-2 mb-3">
+                          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => (
+                            <button
+                              key={val}
+                              type="button"
+                              onClick={() => setRating(val)}
+                              className={`w-9 h-9 md:w-10 md:h-10 lg:w-11 lg:h-11 rounded-full font-bold text-sm md:text-base transition-all ${
+                                rating === val
+                                  ? (val >= 8 ? 'bg-[#F68FFF] text-black ring-2 ring-black' : 'bg-[#c1ff72] text-black ring-2 ring-black')
+                                  : rating !== null && val <= rating
+                                  ? (val >= 8 ? 'bg-[#F68FFF]/40 text-black' : 'bg-[#c1ff72]/40 text-black')
+                                  : 'bg-white/20 text-white/60 hover:bg-white/30'
+                              }`}
+                            >
+                              {val}
+                            </button>
+                          ))}
+                        </div>
+                        
+                        {/* Visual bar showing the rating */}
+                        <div className="relative h-2 bg-white/20 rounded-full overflow-hidden mx-2">
+                          <div
+                            className="absolute top-0 left-0 h-full bg-[#c1ff72] rounded-full transition-all duration-300"
+                            style={{ width: `${rating !== null ? (rating * 10) : 0}%` }}
+                          />
+                        </div>
+                        
+                        {rating !== null && (
+                          <div className="text-center mt-2 text-[#c1ff72] font-bold text-lg">
+                            {rating}/10
+                          </div>
+                        )}
                       </div>
-                      <button onClick={submitRating} className="mt-3 px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">Valider</button>
+                      
+                      <button 
+                        onClick={submitRating} 
+                        disabled={rating === null}
+                        className={`mt-3 px-4 py-2 rounded-lg border border-gray-200 w-full sm:w-auto transition-all ${
+                          rating === null 
+                            ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                            : 'bg-[#c1ff72] text-black hover:bg-[#b3ee5f]'
+                        }`}
+                      >
+                        Valider
+                      </button>
                     </>
                   ) : showFeedback ? (
                     <>C'est déjà pas trop mal, on va essayer de le refaire, recommençons ensemble.</>
@@ -356,17 +399,8 @@ export default function Niveau3() {
 
         {/* Right: Pitch + Recorder */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">🎤</div>
-            <h2 className="text-xl font-bold">Pitch 60s</h2>
-          </div>
-          {phase !== 'intro' ? (
-            <div className="text-text-primary whitespace-pre-wrap mb-4">{pitchText}</div>
-          ) : (
-            <div className="text-text-secondary text-sm mb-4">Le texte d’exemple s’affichera après avoir cliqué sur « Afficher le texte ».</div>
-          )}
-
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Controls moved above the title */}
+          <div className="flex flex-wrap items-center gap-3 mb-4">
             {!recording && (
               <button onClick={startRecording} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">S'enregistrer</button>
             )}
@@ -380,6 +414,15 @@ export default function Niveau3() {
               </>
             )}
           </div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">🎤</div>
+            <h2 className="text-xl font-bold">Pitch 60s</h2>
+          </div>
+          {phase !== 'intro' ? (
+            <div className="text-text-primary whitespace-pre-wrap mb-4">{pitchText}</div>
+          ) : (
+            <div className="text-text-secondary text-sm mb-4">Le texte d’exemple s’affichera après avoir cliqué sur « Afficher le texte ».</div>
+          )}
         </div>
       </div>
 

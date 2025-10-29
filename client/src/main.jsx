@@ -26,6 +26,10 @@ import Niveau4 from './pages/niveau/Niveau4.jsx'
 import Niveau5 from './pages/niveau/Niveau5.jsx'
 import EmailConfirmation from './pages/EmailConfirmation.jsx'
 import Chat from './pages/Chat.jsx'
+import BlogIndex from './pages/blog/BlogIndex.jsx'
+import BlogExploreMetiers from './pages/blog/BlogExploreMetiers.jsx'
+import BlogQuestionnaire from './pages/blog/BlogQuestionnaire.jsx'
+import BlogParents from './pages/blog/BlogParents.jsx'
 
 const dynamicNiveauModules = import.meta.glob([
   './pages/niveau/Niveau[6-9].jsx',
@@ -60,6 +64,10 @@ function App() {
   <Route path="/questionnaire" element={<Questionnaire />} />
         <Route path="/legal/mentions-legales" element={<MentionsLegales />} />
         <Route path="/legal/conditions" element={<ConditionsConfidentialite />} />
+    <Route path="/blog" element={<BlogIndex />} />
+    <Route path="/blog/explorer-metiers-demain" element={<BlogExploreMetiers />} />
+    <Route path="/blog/questionnaire-orientation-premiers-pas" element={<BlogQuestionnaire />} />
+    <Route path="/blog/accompagner-parents" element={<BlogParents />} />
         <Route path="/app" element={<RequireAuth><Layout /></RequireAuth>}>
           <Route index element={
             <Suspense fallback={<div className="p-6 text-center">Chargement des activités…</div>}>

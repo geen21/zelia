@@ -466,6 +466,7 @@ const Activites = () => {
     const maxLevelRoute = 10;
     const currentLevel = progression?.level || 1;
     const targetLevel = Math.min(Math.max(1, currentLevel), maxLevelRoute);
+    const previousLevel = targetLevel > 1 ? targetLevel - 1 : null;
     const hasAccessibleLevel = targetLevel >= 1 && targetLevel <= maxLevelRoute;
     const { ui, avatar, perks, xpGained } = lastResponse;
 
@@ -491,13 +492,13 @@ const Activites = () => {
                                     height="96"
                                 />
                                 <div className="absolute -bottom-2 -right-2 bg-yellow-400 text-black px-2 py-1 rounded-full text-xs font-bold">
-                                    Niv. {progression.level}
+                                    Niv. {previousLevel}
                                 </div>
                             </div>
                             <div className="text-center sm:text-left">
                                 <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-3">
                                     <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">
-                                        Aventure Zélia - Niveau {progression.level}
+                                        Aventure Zélia - Niveau {previousLevel}
                                     </h1>
                                     <button
                                         onClick={() => {

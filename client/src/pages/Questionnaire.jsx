@@ -193,16 +193,7 @@ export default function Questionnaire() {
             >
               Précédent
             </button>
-            {idx < questions.length - 1 ? (
-              <button
-                type="button"
-                className="h-10 px-4 rounded-lg bg-black text-white disabled:opacity-50"
-                onClick={() => setIdx(i => Math.min(questions.length-1, i+1))}
-                disabled={!answered}
-              >
-                Suivant
-              </button>
-            ) : (
+            {idx === questions.length - 1 && (
               <button
                 type="button"
                 className="h-10 px-4 rounded-lg bg-black text-white disabled:opacity-50"

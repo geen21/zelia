@@ -57,21 +57,41 @@ router.get('/', optionalAuth, async (req, res) => {
     }
 
     if (q) {
-      const term = q
-        .trim()
-        .replace(/'/g, "''")
-        .replace(/,/g, '\\,')
+      const rawWords = q
+        .split(/[\s,;:/]+/)
+        .map((word) => word.trim())
+        .filter(Boolean)
 
-      const orFilters = [
-        `nmc.ilike.%${term}%`,
-        `etab_nom.ilike.%${term}%`,
-        `commune.ilike.%${term}%`,
-        `departement.ilike.%${term}%`,
-        `region.ilike.%${term}%`,
-        `tc.ilike.%${term}%`
-      ]
+      const sanitizedWords = Array.from(new Set(rawWords.map((word) =>
+        word
+          .replace(/'/g, "''")
+          .replace(/,/g, '\\,')
+      ).filter(Boolean)))
 
-      query = query.or(orFilters.join(','))
+      const targetColumns = ['nmc', 'etab_nom', 'commune', 'departement', 'region', 'tc']
+
+      const orFilters = []
+      sanitizedWords.slice(0, 6).forEach((word) => {
+        targetColumns.forEach((column) => {
+          orFilters.push(`${column}.ilike.%${word}%`)
+        })
+      })
+
+      if (orFilters.length === 0) {
+        const fallback = q
+          .trim()
+          .replace(/'/g, "''")
+          .replace(/,/g, '\\,')
+        if (fallback) {
+          targetColumns.forEach((column) => {
+            orFilters.push(`${column}.ilike.%${fallback}%`)
+          })
+        }
+      }
+
+      if (orFilters.length > 0) {
+        query = query.or(orFilters.join(','))
+      }
     }
 
     const { data, error, count } = await query

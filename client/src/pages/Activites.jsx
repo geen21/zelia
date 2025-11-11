@@ -334,6 +334,8 @@ function typeLabelFR(t) {
     return TYPE_LABELS_FR[t] || String(t || '').replace('_', ' ')
 }
 
+const ACTIVITES_VIDEO_URL = import.meta.env.VITE_ACTIVITES_VIDEO_URL || 'https://www.youtube.com/embed/VIDEO_ID';
+
 const Activites = () => {
     const [user, setUser] = useState(null);
     const [profile, setProfile] = useState(null);
@@ -341,6 +343,8 @@ const Activites = () => {
     const [gameState, setGameState] = useState(null);
     const [gameEngine] = useState(new ZeliaGameEngine());
     const [lastResponse, setLastResponse] = useState(null);
+    const [shareFeedback, setShareFeedback] = useState('');
+    const [showVideoOverlay, setShowVideoOverlay] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -442,6 +446,34 @@ const Activites = () => {
         return Math.round((clamped / totalXp) * 100);
     }, [xpForProgress]);
 
+    useEffect(() => {
+        if (!shareFeedback) return;
+        const timer = setTimeout(() => setShareFeedback(''), 2500);
+        return () => clearTimeout(timer);
+    }, [shareFeedback]);
+
+    const handleShare = async () => {
+        const shareUrl = window.location.href;
+        const shareData = {
+            title: 'Zélia',
+            text: "Découvre Zélia, l'aventure orientation personnalisée.",
+            url: shareUrl
+        };
+        try {
+            if (navigator.share) {
+                await navigator.share(shareData);
+                setShareFeedback('Partagé ✅');
+                return;
+            }
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(shareUrl);
+                setShareFeedback('Lien copié ✅');
+                return;
+            }
+        } catch {}
+        setShareFeedback('Impossible de partager');
+    };
+
     if (!gameState || !lastResponse) {
         return (
             <div className="flex items-center justify-center h-screen bg-white">
@@ -467,13 +499,15 @@ const Activites = () => {
     const currentLevel = progression?.level || 1;
     const targetLevel = Math.min(Math.max(1, currentLevel), maxLevelRoute);
     const previousLevel = targetLevel > 1 ? targetLevel - 1 : null;
+    const displayLevel = previousLevel ?? targetLevel;
     const hasAccessibleLevel = targetLevel >= 1 && targetLevel <= maxLevelRoute;
     const { ui, avatar, perks, xpGained } = lastResponse;
 
     
 
     return (
-        <div className="min-h-screen bg-white p-4">
+        <>
+            <div className="min-h-screen bg-white p-4">
             <div className="mx-auto w-full">
                 <div className="lg:grid lg:grid-cols-3 lg:gap-6">
                     <div className="lg:col-span-2 space-y-6">
@@ -486,20 +520,43 @@ const Activites = () => {
                                     src={avatar.dicebear}
                                     alt="Avatar Zélia"
                                     className="w-28 h-28 md:w-32 md:h-32 rounded-full border-4 border-white shadow-lg"
-                                    loading="lazy"
-                                    decoding="async"
+                                    loading="eager"
+                                    fetchpriority="high"
+                                    decoding="sync"
                                     width="96"
                                     height="96"
                                 />
                                 <div className="absolute -bottom-2 -right-2 bg-yellow-400 text-black px-2 py-1 rounded-full text-xs font-bold">
-                                    Niv. {previousLevel}
+                                    Niv. {displayLevel}
                                 </div>
                             </div>
                             <div className="text-center sm:text-left">
                                 <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-3">
-                                    <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">
-                                        Aventure Zélia - Niveau {previousLevel}
-                                    </h1>
+                                    <div className="flex items-center gap-3">
+                                        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+                                            Aventure Zélia - Niveau {displayLevel}
+                                        </h1>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={handleShare}
+                                                type="button"
+                                                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:bg-[#f68fff]/10 hover:text-[#f68fff]"
+                                                title="Partager Zélia"
+                                            >
+                                                <i className="ph ph-share-network text-lg" aria-hidden="true"></i>
+                                                <span className="sr-only">Partager Zélia</span>
+                                            </button>
+                                            <button
+                                                onClick={() => setShowVideoOverlay(true)}
+                                                type="button"
+                                                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:bg-[#f68fff]/10 hover:text-[#f68fff]"
+                                                title="Voir la vidéo de présentation"
+                                            >
+                                                <i className="ph ph-play-circle text-lg" aria-hidden="true"></i>
+                                                <span className="sr-only">Voir la vidéo de présentation</span>
+                                            </button>
+                                        </div>
+                                    </div>
                                     <button
                                         onClick={() => {
                                             if (hasAccessibleLevel) navigate(`/app/niveau/${targetLevel}`);
@@ -512,6 +569,11 @@ const Activites = () => {
                                         <span>{hasAccessibleLevel ? `Aller au Niveau ${targetLevel}` : 'Niveaux terminés'}</span>
                                     </button>
                                 </div>
+                                {shareFeedback && (
+                                    <div className="text-sm text-[#f68fff] font-medium mt-2">
+                                        {shareFeedback}
+                                    </div>
+                                )}
                                 <p className="text-gray-600 text-base md:text-lg mt-2">
                                     {ui.speak}
                                 </p>
@@ -703,7 +765,43 @@ const Activites = () => {
                     </aside>
                 </div>
             </div>
-        </div>
+            </div>
+            {showVideoOverlay && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
+                    onClick={() => setShowVideoOverlay(false)}
+                    role="presentation"
+                >
+                    <div
+                        className="relative w-full max-w-3xl rounded-2xl bg-white p-4 shadow-xl"
+                        onClick={(event) => event.stopPropagation()}
+                        role="presentation"
+                    >
+                    <button
+                        type="button"
+                        onClick={() => setShowVideoOverlay(false)}
+                        className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition hover:bg-gray-200"
+                        title="Fermer la vidéo"
+                    >
+                        <i className="ph ph-x" aria-hidden="true"></i>
+                        <span className="sr-only">Fermer la vidéo</span>
+                    </button>
+                        <div className="text-center mb-3 font-semibold text-gray-800">
+                            Découvre Zélia en vidéo
+                        </div>
+                        <div className="relative w-full pt-[56.25%] overflow-hidden rounded-xl">
+                            <iframe
+                                src={ACTIVITES_VIDEO_URL}
+                                title="Présentation Zélia"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                                className="absolute inset-0 h-full w-full border-0"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 };
 

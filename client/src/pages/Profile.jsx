@@ -2,7 +2,25 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { analysisAPI, usersAPI } from '../lib/api'
 import { resolveAvatarUrl } from '../lib/avatar'
 import { fetchProgression, getDefaultProgression } from '../lib/progression'
-import { generateMbtiShareImage } from '../lib/shareImage'
+import { generateZeliaShareImage } from '../lib/shareImage'
+
+const stripLegacyMbtiTokens = (text) => {
+  if (!text || typeof text !== 'string') return text || ''
+  return text
+    .replace(/\(([IE][NS][FT][JP])\)/gi, '')
+    .replace(/\b[IE][NS][FT][JP]\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+const normalizeZeliaAnalysis = (analysis) => {
+  if (!analysis || typeof analysis !== 'object') return analysis || null
+  const normalized = { ...analysis }
+  if (typeof normalized.personalityType === 'string') {
+    normalized.personalityType = stripLegacyMbtiTokens(normalized.personalityType)
+  }
+  return normalized
+}
 
 const MIN_LEVEL_FOR_AVATAR = 4
 
@@ -114,7 +132,7 @@ export default function Profile() {
         const profileData = profileRes?.data?.profile || profileRes?.data || null
         setProfile(profileData)
         setAuthUser(userRes?.data?.user || null)
-        setAnalysis(results)
+  setAnalysis(normalizeZeliaAnalysis(results))
         setProgression(progressionData || getDefaultProgression())
       } catch (err) {
         console.error('Profile load error', err)
@@ -199,12 +217,13 @@ export default function Profile() {
   const refreshLatestAnalysis = useCallback(async () => {
     try {
       const resp = await analysisAPI.getMyResults()
-      const latest = resp?.data?.results || null
+      const latestRaw = resp?.data?.results || null
+      const latest = normalizeZeliaAnalysis(latestRaw)
       if (!latest) return null
 
       setAnalysis(prev => {
         if (!prev) return latest
-        return { ...prev, ...latest }
+        return normalizeZeliaAnalysis({ ...prev, ...latest })
       })
 
       return latest
@@ -245,17 +264,19 @@ export default function Profile() {
 
       try {
         const latest = await refreshLatestAnalysis()
-        const snapshot = latest ? { ...resolvedAnalysis, ...latest } : resolvedAnalysis
+        const snapshot = latest
+          ? normalizeZeliaAnalysis({ ...resolvedAnalysis, ...latest })
+          : normalizeZeliaAnalysis(resolvedAnalysis)
 
         if (!force && snapshot?.shareImageUrl) {
           if (isMountedRef.current) {
             setShareImageUrl(snapshot.shareImageUrl)
-            setAnalysis(prev => (prev ? { ...prev, shareImageUrl: snapshot.shareImageUrl } : prev))
+            setAnalysis(prev => (prev ? normalizeZeliaAnalysis({ ...prev, shareImageUrl: snapshot.shareImageUrl }) : prev))
           }
           return snapshot.shareImageUrl
         }
 
-        const dataUrl = await generateMbtiShareImage({ analysis: snapshot, avatarUrl })
+  const dataUrl = await generateZeliaShareImage({ analysis: snapshot, avatarUrl })
         if (!dataUrl) {
           throw new Error('Empty dataUrl from share image generator')
         }
@@ -281,7 +302,7 @@ export default function Profile() {
 
         if (remoteUrl) {
           if (isMountedRef.current) {
-            setAnalysis(prev => (prev ? { ...prev, shareImageUrl: remoteUrl } : prev))
+            setAnalysis(prev => (prev ? normalizeZeliaAnalysis({ ...prev, shareImageUrl: remoteUrl }) : prev))
             setShareImageUrl(remoteUrl)
           }
           return remoteUrl
@@ -351,9 +372,9 @@ export default function Profile() {
     const url = shareImageUrl || (await ensureShareImage())
     if (!url) return
     try {
-      const link = document.createElement('a')
-      link.href = url
-      link.download = 'zelia-mbti-story.png'
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'zelia-story.png'
       link.rel = 'noopener'
       document.body.appendChild(link)
       link.click()
@@ -371,12 +392,12 @@ export default function Profile() {
     try {
       const response = await fetch(url)
       const blob = await response.blob()
-      const file = new File([blob], 'zelia-mbti-story.png', { type: 'image/png' })
+  const file = new File([blob], 'zelia-story.png', { type: 'image/png' })
 
       if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
-          title: resolvedAnalysis?.personalityType || 'Profil MBTI',
-          text: `Mon profil MBTI sur Zélia — ${resolvedAnalysis?.personalityType || ''}`.trim(),
+          title: resolvedAnalysis?.personalityType || 'Profil Zélia',
+          text: `Mon profil personnalité Zélia — ${resolvedAnalysis?.personalityType || ''}`.trim(),
           files: [file]
         })
       } else {
@@ -450,7 +471,7 @@ export default function Profile() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Mon Profil</h1>
-          <p className="text-text-secondary">Informations personnelles et image MBTI à partager</p>
+          <p className="text-text-secondary">Informations personnelles et visuel à partager</p>
         </div>
         <div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">
           <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
@@ -465,7 +486,7 @@ export default function Profile() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Mon Profil</h1>
-          <p className="text-text-secondary">Informations personnelles et image MBTI à partager</p>
+          <p className="text-text-secondary">Informations personnelles et visuel à partager</p>
         </div>
         <div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">
           <div className="text-red-600 text-4xl">!</div>
@@ -479,7 +500,7 @@ export default function Profile() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Mon Profil</h1>
-        <p className="text-text-secondary">Informations personnelles et image MBTI à partager</p>
+  <p className="text-text-secondary">Informations personnelles et visuel à partager</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -612,7 +633,7 @@ export default function Profile() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-xl font-semibold">Mon image Niveau 4</h2>
-                <p className="text-text-secondary text-sm">Téléchargez ou partagez votre visuel MBTI débloqué au niveau 4.</p>
+                <p className="text-text-secondary text-sm">Téléchargez ou partagez votre visuel de personnalité débloqué au niveau 4.</p>
               </div>
               {(resolvedAnalysis?.updatedAt || analysis?.updatedAt) && (
                 <span className="text-xs text-text-secondary">
@@ -626,7 +647,7 @@ export default function Profile() {
                 <div className="text-text-secondary text-4xl mb-2">✨</div>
                 <h3 className="text-lg font-semibold mb-2">Terminez le niveau 4</h3>
                 <p className="text-text-secondary">
-                  Débloquez le niveau 4 pour générer votre image MBTI prête à partager sur vos réseaux.
+                  Débloquez le niveau 4 pour générer votre visuel Zélia prêt à partager sur vos réseaux.
                 </p>
               </div>
             ) : (
@@ -646,12 +667,12 @@ export default function Profile() {
                   ) : shareImageUrl ? (
                     <img
                       src={shareImageUrl}
-                      alt="Aperçu partage MBTI"
+                      alt="Aperçu du visuel Zélia"
                       className="w-full max-w-[260px] sm:max-w-[320px] md:max-w-[360px] rounded-xl border border-gray-200 shadow-md"
                     />
                   ) : (
                     <div className="text-center text-sm text-text-secondary">
-                      Cliquez sur « Régénérer » pour créer votre image MBTI.
+                      Cliquez sur « Régénérer » pour créer votre visuel Zélia.
                     </div>
                   )}
                 </div>

@@ -239,7 +239,7 @@ export default function Niveau1() {
 		{ id: 'study_length', type: 'buttons', text: 'Tu te vois plutôt études longues ou entrer vite dans le concret ?', options: ['Études longues', 'Rapide et pro', 'Je ne sais pas'] },
 		{ id: 'team_or_solo', type: 'buttons', text: 'Tu préfères travailler en équipe ou plutôt en solo ?', options: ['Équipe', 'Solo', 'Peu importe'] },
 		{ id: 'five_years', type: 'input', text: 'Tu te vois où dans 5 ans ?', placeholder: 'Décris en une phrase' },
-		{ id: 'favorite_subjects', type: 'buttons', text: "Quelle matière t’attire le +?", options: ['Sciences', 'Langues', 'Littérature', 'Éco/Gestion', 'Art/Design'] },
+		{ id: 'favorite_subjects', type: 'multi', text: "Quelle matière t’attire le +?", options: ['Sciences', 'Langues', 'Littérature', 'Éco/Gestion', 'Art/Design'] },
 		{ id: 'learn_style', type: 'buttons', text: 'Tu apprends mieux en faisant ou en lisant ?', options: ['En faisant', 'En lisant', 'Mix des deux'] },
 		{ id: 'english_level', type: 'buttons', text: 'Ton niveau d’anglais approximatif ?', options: ['Débutant', 'Intermédiaire', 'Avancé'] },
 		{ id: 'proud_project', type: 'input', text: "Tu peux me parler d’un projet perso que tu as réalisé (sport, activité, job, etc) ?", placeholder: 'Dis-m’en un mot' },
@@ -360,15 +360,19 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 
 	async function persistAnswers() {
 		try {
+			const normalizeAnswer = (val) => {
+				if (Array.isArray(val)) return val.join(', ')
+				return val ?? ''
+			}
 			const postEntries = postQuestions.map(q => ({
 				question_id: q.id,
 				question_text: q.text,
-				answer_text: postAnswers[q.id] ?? ''
+				answer_text: normalizeAnswer(postAnswers[q.id])
 			}))
 			const convEntries = convSteps.map(s => ({
 				question_id: s.id,
 				question_text: s.text,
-				answer_text: convAnswers[s.id] ?? ''
+				answer_text: normalizeAnswer(convAnswers[s.id])
 			}))
 			const entries = [...postEntries, ...convEntries].filter(e => e.question_id && e.question_text)
 			if (entries.length) await usersAPI.saveExtraInfo(entries)
@@ -470,7 +474,7 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 								<div className="mt-4 flex flex-col sm:flex-row gap-3 w-full">
 									<input type="text" value={userInput} onChange={(e) => setUserInput(e.target.value)}
 											 placeholder="Ton métier de rêve"
-											 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg w-full" />
+											 className="flex-1 px-4 py-3 border border-gray-300 rounded-lg w-full text-base sm:text-lg" />
 									<button onClick={onSubmitDream} disabled={busy || !userInput.trim()} className="px-4 py-2 rounded-lg bg-black text-white disabled:opacity-50 w-full sm:w-auto">Valider</button>
 								</div>
 							)}
@@ -508,7 +512,7 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 									)}
 									{postQuestions[postIdx]?.type === 'input' && (
 										<div className="flex flex-col sm:flex-row gap-3 w-full">
-											<input type="text" placeholder={postQuestions[postIdx].placeholder || ''} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg w-full"
+											<input type="text" placeholder={postQuestions[postIdx].placeholder || ''} className="flex-1 px-4 py-3 border border-gray-300 rounded-lg w-full text-base sm:text-lg"
 													value={postAnswers[postQuestions[postIdx].id] || ''}
 													onChange={(e) => setPostAnswers({ ...postAnswers, [postQuestions[postIdx].id]: e.target.value })}
 											/>
@@ -527,9 +531,50 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 											))}
 										</div>
 									)}
+									{convSteps[convIdx]?.type === 'multi' && (
+										<div className="space-y-3">
+											{(() => {
+												const step = convSteps[convIdx]
+												const selected = Array.isArray(convAnswers[step.id]) ? convAnswers[step.id] : []
+												const toggle = (opt) => {
+													let next
+													if (selected.includes(opt)) next = selected.filter(o => o !== opt)
+													else next = [...selected, opt]
+													setConvAnswers({ ...convAnswers, [step.id]: next })
+												}
+												return (
+													<>
+														<div className="flex flex-wrap gap-3">
+															{(step.options || []).map((opt, i) => {
+																const active = selected.includes(opt)
+																return (
+																	<button
+																		key={i}
+																		onClick={() => toggle(opt)}
+																		className={`px-4 py-2 rounded-lg border w-full sm:w-auto ${active ? 'bg-black text-white border-black' : 'bg-white text-gray-900 border-gray-300'}`}
+																	>
+																		{opt}
+																	</button>
+																)
+															})}
+														</div>
+														<div>
+															<button
+																onClick={() => { handleConvNext(); if (convIdx + 1 >= convSteps.length) persistAnswers() }}
+																disabled={selected.length === 0}
+																className="px-4 py-2 rounded-lg bg-black text-white disabled:opacity-50 w-full sm:w-auto"
+															>
+																Valider
+															</button>
+														</div>
+													</>
+												)
+											})()}
+										</div>
+									)}
 									{convSteps[convIdx]?.type === 'input' && (
 										<div className="flex flex-col sm:flex-row gap-3 w-full">
-											<input type="text" placeholder={convSteps[convIdx].placeholder || ''} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg w-full"
+											<input type="text" placeholder={convSteps[convIdx].placeholder || ''} className="flex-1 px-4 py-3 border border-gray-300 rounded-lg w-full text-base sm:text-lg"
 													value={convAnswers[convSteps[convIdx].id] || ''}
 													onChange={(e) => setConvAnswers({ ...convAnswers, [convSteps[convIdx].id]: e.target.value })}
 											/>

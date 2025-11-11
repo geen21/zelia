@@ -9,10 +9,13 @@ router.get('/', optionalAuth, async (req, res) => {
   try {
     const { location, category, search, limit = 50, offset = 0 } = req.query
 
+    const parsedLimit = Math.min(Number.parseInt(limit, 10) || 50, 100)
+    const parsedOffset = Math.max(Number.parseInt(offset, 10) || 0, 0)
+
     let query = supabase
       .from('jobs')
       .select('*')
-      .range(offset, offset + limit - 1)
+      .range(parsedOffset, parsedOffset + parsedLimit - 1)
       .order('created_at', { ascending: false })
 
     if (location) {
@@ -24,7 +27,41 @@ router.get('/', optionalAuth, async (req, res) => {
     }
 
     if (search) {
-      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,company.ilike.%${search}%`)
+      const rawWords = search
+        .split(/[\s,;:/]+/)
+        .map((word) => word.trim())
+        .filter(Boolean)
+
+      const sanitizedWords = Array.from(new Set(rawWords.map((word) =>
+        word
+          .replace(/'/g, "''")
+          .replace(/,/g, '\\,')
+      ).filter(Boolean)))
+
+      const targetColumns = ['title', 'description', 'company']
+      const orFilters = []
+
+      sanitizedWords.slice(0, 6).forEach((word) => {
+        targetColumns.forEach((column) => {
+          orFilters.push(`${column}.ilike.%${word}%`)
+        })
+      })
+
+      if (orFilters.length === 0) {
+        const fallback = search
+          .trim()
+          .replace(/'/g, "''")
+          .replace(/,/g, '\\,')
+        if (fallback) {
+          targetColumns.forEach((column) => {
+            orFilters.push(`${column}.ilike.%${fallback}%`)
+          })
+        }
+      }
+
+      if (orFilters.length > 0) {
+        query = query.or(orFilters.join(','))
+      }
     }
 
     const { data, error, count } = await query
@@ -35,9 +72,9 @@ router.get('/', optionalAuth, async (req, res) => {
 
     res.json({
       jobs: data,
-      total: count,
-      limit: parseInt(limit),
-      offset: parseInt(offset)
+      total: typeof count === 'number' ? count : (Array.isArray(data) ? data.length : 0),
+      limit: parsedLimit,
+      offset: parsedOffset
     })
   } catch (error) {
     console.error('Jobs fetch error:', error)

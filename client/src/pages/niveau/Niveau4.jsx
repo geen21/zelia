@@ -4,7 +4,7 @@ import apiClient, { analysisAPI, usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
-import { generateMbtiShareImage } from '../../lib/shareImage'
+import { generateZeliaShareImage } from '../../lib/shareImage'
 
 let jsPdfFactoryPromise = null
 async function loadJsPdf() {
@@ -26,6 +26,13 @@ function limitWords(text, maxWords) {
 function sanitizeAnalysisPayload(raw) {
   if (!raw || typeof raw !== 'object') return raw
   const sanitized = { ...raw }
+  if (sanitized.personalityType && typeof sanitized.personalityType === 'string') {
+    sanitized.personalityType = sanitized.personalityType
+      .replace(/\(([IE][NS][FT][JP])\)/gi, '')
+      .replace(/\b[IE][NS][FT][JP]\b/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+  }
   const jobsArray = Array.isArray(sanitized.jobRecommendations)
     ? sanitized.jobRecommendations.slice(0, 6)
     : []
@@ -156,7 +163,7 @@ export default function Niveau4() {
         const prof = pRes?.data?.profile || null
         setProfile(prof)
         setAvatarUrl(buildAvatarFromProfile(prof, user.id))
-        // Load MBTI questions
+  // Load Zélia personality questions (internally typed as "mbti")
         const qRes = await apiClient.get('/questionnaire/questions', { params: { type: 'mbti', _: Date.now() } })
         const list = Array.isArray(qRes?.data) ? qRes.data : []
         setQuestions(list)
@@ -188,9 +195,9 @@ export default function Niveau4() {
     return ([
       { text: greeting, durationMs: 2000 },
       { text: "Je vais te poser quelques questions sur toi et je vais te donner des résultats concrets sur qui tu es vraiment, je vais essayer d'analyser en profondeur ta personne", durationMs: 4000 },
-      { text: "On va faire ensemble un petit test de personnalité en 40 questions", durationMs: 3000 },
+      { text: "On va faire ensemble un petit test de personnalité en 40 questions", durationMs: 2000 },
       { text: "Ça te permettra de comprendre un peu mieux qui tu es, et comment tu fonctionnes", durationMs: 2000 },
-      { text: launchLine, durationMs: 2000 },
+      { text: launchLine, durationMs: 500 },
     ])
   }, [firstName])
   const current = messages[introIdx] || { text: '', durationMs: 1500 }
@@ -227,7 +234,20 @@ export default function Niveau4() {
   const progress = questions.length ? Math.round(((qIdx + 1) / questions.length) * 100) : 0
   const answered = currentQ ? answers[currentQ.id] != null : false
 
-  async function submitMbti() {
+  // Align answer behavior with signup questionnaire: click = select + auto-advance
+  function choose(ans) {
+    const qid = currentQ?.id
+    if (!qid) return
+    const newAnswers = { ...answers, [qid]: ans }
+    setAnswers(newAnswers)
+    // Auto-advance if not on last question
+    const next = qIdx + 1
+    if (next < questions.length) {
+      setQIdx(next)
+    }
+  }
+
+  async function submitZeliaProfile() {
     setBusy(true)
     try {
       const payload = { answers: Object.entries(answers).map(([qid, ans]) => ({ question_id: Number(qid), answer: ans })), questionnaireType: 'mbti' }
@@ -243,8 +263,8 @@ export default function Niveau4() {
       }
       setPhase('results')
     } catch (e) {
-      console.error('MBTI submit/analyze error', e)
-      setError("Impossible de générer l'analyse MBTI")
+      console.error('Zelia submit/analyze error', e)
+      setError("Impossible de générer l'analyse de personnalité")
     } finally {
       setBusy(false)
     }
@@ -290,7 +310,7 @@ export default function Niveau4() {
       const x = (pageWidth - drawW) / 2
       const y = (pageHeight - drawH) / 2
       pdf.addImage(dataUrl, 'PNG', x, y, drawW, drawH, undefined, 'FAST')
-      pdf.save('zelia-mbti-resultat.pdf')
+  pdf.save('zelia-profil-zelia.pdf')
       URL.revokeObjectURL(imgUrl)
     } catch (e) {
       console.error('PDF generation failed', e)
@@ -322,11 +342,11 @@ export default function Niveau4() {
 
       const response = await fetch(url)
       const blob = await response.blob()
-      const file = new File([blob], 'zelia-mbti-story.png', { type: 'image/png' })
+  const file = new File([blob], 'zelia-story.png', { type: 'image/png' })
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
-          title: analysis?.personalityType || 'Profil MBTI',
-          text: `Mon profil MBTI sur Zélia — ${analysis?.personalityType || ''}`.trim(),
+          title: analysis?.personalityType || 'Profil Zélia',
+          text: `Mon profil personnalité Zélia — ${analysis?.personalityType || ''}`.trim(),
           files: [file]
         })
         return
@@ -360,7 +380,7 @@ export default function Niveau4() {
       // Header
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(18)
-      const title = analysis?.personalityType ? `Résultats MBTI — ${analysis.personalityType}` : 'Résultats MBTI'
+  const title = analysis?.personalityType ? `Profil Zélia — ${analysis.personalityType}` : 'Profil Zélia'
       doc.text(title, margin, y)
       y += 8
       doc.setDrawColor(0)
@@ -420,7 +440,7 @@ export default function Niveau4() {
       // Footer
       doc.setFont('helvetica', 'italic')
       doc.setFontSize(9)
-      const footer = 'Généré par Zélia — Niveau 4 MBTI'
+  const footer = 'Généré par Zélia — Niveau 4 (Personnalités Zélia)'
       const pageCount = doc.getNumberOfPages()
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i)
@@ -428,7 +448,7 @@ export default function Niveau4() {
         doc.text(footer, (pageWidth - w) / 2, 295)
       }
 
-      doc.save('zelia-mbti-resultats.pdf')
+  doc.save('zelia-resultats-personnalite.pdf')
     } catch (e) {
       console.error('PDF report generation failed', e)
     } finally {
@@ -483,7 +503,7 @@ export default function Niveau4() {
 
     setShareUploading(true)
     try {
-      const dataUrl = await generateMbtiShareImage({ analysis: snapshot, avatarUrl })
+  const dataUrl = await generateZeliaShareImage({ analysis: snapshot, avatarUrl })
       if (!dataUrl) return ''
       setShareImgUrl(dataUrl)
 
@@ -627,7 +647,7 @@ export default function Niveau4() {
           {phase === 'quiz' && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xl font-bold">Test de personnalité MBTI</h2>
+                <h2 className="text-xl font-bold">Test de personnalité Zélia</h2>
                 {(() => {
                   const startNum = 1
                   const qLen = questions.length || 0
@@ -642,19 +662,35 @@ export default function Niveau4() {
               <div className="mb-4 text-text-primary whitespace-pre-wrap">{displayText}</div>
               <div className="flex flex-wrap gap-2">
                 {choices.map((opt, i) => (
-                  <button key={i} type="button" onClick={() => setAnswers({ ...answers, [currentQ?.id]: opt })}
-                          className={`px-3 py-2 rounded-lg border ${answers[currentQ?.id]===opt ? 'border-black bg-black text-white':'border-line'}`}>
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => choose(opt)}
+                    className={`px-3 py-2 rounded-lg border ${answers[currentQ?.id]===opt ? 'border-black bg-black text-white':'border-line'}`}
+                  >
                     {opt}
                   </button>
                 ))}
               </div>
 
               <div className="flex items-center justify-between mt-6">
-                <button type="button" className="h-10 px-4 rounded-lg border border-line disabled:opacity-50" onClick={() => setQIdx(i => Math.max(0, i-1))} disabled={qIdx===0}>Précédent</button>
-                {qIdx < questions.length - 1 ? (
-                  <button type="button" className="h-10 px-4 rounded-lg bg-black text-white disabled:opacity-50" onClick={() => setQIdx(i => Math.min(questions.length-1, i+1))} disabled={!answered}>Suivant</button>
-                ) : (
-                  <button type="button" className="h-10 px-4 rounded-lg bg-black text-white disabled:opacity-50" onClick={() => { setPhase('generating'); submitMbti() }} disabled={!answered || busy}>{busy ? 'Analyse…' : 'Terminer'}</button>
+                <button
+                  type="button"
+                  className="h-10 px-4 rounded-lg border border-line disabled:opacity-50"
+                  onClick={() => setQIdx(i => Math.max(0, i-1))}
+                  disabled={qIdx===0}
+                >
+                  Précédent
+                </button>
+                {qIdx === questions.length - 1 && (
+                  <button
+                    type="button"
+                    className="h-10 px-4 rounded-lg bg-black text-white disabled:opacity-50"
+                    onClick={() => { setPhase('generating'); submitZeliaProfile() }}
+                    disabled={!answered || busy}
+                  >
+                    {busy ? 'Analyse…' : 'Terminer'}
+                  </button>
                 )}
               </div>
             </div>
@@ -663,8 +699,8 @@ export default function Niveau4() {
           {phase === 'results' && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-xl font-bold">Mes Résultats (MBTI)</h2>
-                <p className="text-text-secondary">Analyse personnalisée de ton test MBTI</p>
+                <h2 className="text-xl font-bold">Mes Résultats</h2>
+                <p className="text-text-secondary">Analyse personnalisée de ton test Zélia</p>
               </div>
 
               <section className="bg-surface border border-line rounded-xl shadow-card p-6">
@@ -692,7 +728,7 @@ export default function Niveau4() {
                 </section>
               )}
 
-              {/* No study recommendations for MBTI requirements */}
+              {/* Pas de recommandations d'études pour ce test */}
             </div>
           )}
         </div>
@@ -704,7 +740,7 @@ export default function Niveau4() {
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 4 réussi !</h3>
-            <p className="text-text-secondary mb-4">Bravo, tu as complété le test MBTI et découvert ton profil.</p>
+            <p className="text-text-secondary mb-4">Bravo, tu as complété le test Zélia et découvert ton profil.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/results')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300">Voir mes résultats</button>
@@ -738,7 +774,7 @@ export default function Niveau4() {
             <h3 className="text-lg font-bold pr-8">Prévisualisation à partager</h3>
 
             {shareImgUrl ? (
-              <img src={shareImgUrl} alt="Zélia MBTI Story" className="mt-3 w-full h-auto rounded-lg border border-gray-200" />
+              <img src={shareImgUrl} alt="Visuel à partager Zélia" className="mt-3 w-full h-auto rounded-lg border border-gray-200" />
             ) : (
               <div className="text-center py-10">Génération de l'image…</div>
             )}
@@ -759,10 +795,10 @@ export default function Niveau4() {
                   )}
                 </div>
                 {shareImgUrl && (
-                  <a href={shareImgUrl} download="zelia-mbti-story.png" className="px-4 py-2 rounded-lg bg-black text-white border border-gray-200">Enregistrer l'image</a>
+                  <a href={shareImgUrl} download="zelia-story.png" className="px-4 py-2 rounded-lg bg-black text-white border border-gray-200">Enregistrer l'image</a>
                 )}
                 {shareImgUrl && (
-                  <button onClick={async () => { try { const res = await fetch(shareImgUrl); const blob = await res.blob(); const file = new File([blob], 'zelia-mbti-story.png', { type: 'image/png' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ title: analysis?.personalityType || 'Profil MBTI', text: `Mon profil MBTI sur Zélia — ${analysis?.personalityType || ''}`.trim(), files: [file] }); setShareOpen(false) } else { alert('Le partage natif n\'est pas supporté sur cet appareil. Vous pouvez enregistrer l\'image puis la partager manuellement.') } } catch (e) { console.warn('Share from modal failed', e) } }} className="px-4 py-2 rounded-lg bg-[#f68fff] text-black border border-gray-200">Partager</button>
+                  <button onClick={async () => { try { const res = await fetch(shareImgUrl); const blob = await res.blob(); const file = new File([blob], 'zelia-story.png', { type: 'image/png' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ title: analysis?.personalityType || 'Profil Zélia', text: `Mon profil personnalité Zélia — ${analysis?.personalityType || ''}`.trim(), files: [file] }); setShareOpen(false) } else { alert('Le partage natif n\'est pas supporté sur cet appareil. Vous pouvez enregistrer l\'image puis la partager manuellement.') } } catch (e) { console.warn('Share from modal failed', e) } }} className="px-4 py-2 rounded-lg bg-[#f68fff] text-black border border-gray-200">Partager</button>
                 )}
                 <button onClick={() => setShareOpen(false)} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300">Fermer</button>
               </div>

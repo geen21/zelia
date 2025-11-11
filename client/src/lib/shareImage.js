@@ -7,29 +7,76 @@ const ZELIA_COLORS = {
 
 const DEFAULT_LOGO_PATH = '/assets/images/logo-dark.png'
 
-const MBTI_JOBS_FR = {
-  ISTJ: ['Comptable', 'Contrôleur qualité', 'Analyste financier', 'Gestionnaire logistique', 'Responsable conformité'],
-  ISFJ: ['Assistant social', 'Infirmier', 'Gestionnaire RH', 'Coordinateur pédagogique', 'Orthophoniste'],
-  INFJ: ['Psychologue', 'Coach', 'Rédacteur', 'UX Writer', "Conseiller d’orientation"],
-  INTJ: ['Data Scientist', 'Architecte logiciel', 'Consultant stratégie', 'Chercheur', 'Chef de produit technique'],
-  ISTP: ['Technicien industriel', 'Développeur embarqué', 'Mécanicien de précision', 'Pilote de ligne', 'Secops Analyst'],
-  ISFP: ['Designer graphique', 'Photographe', 'Styliste', 'Illustrateur', 'Ergonome'],
-  INFP: ['Écrivain', 'Psychologue', 'UX Designer', 'Métiers de l’édition', 'Chargé de communication'],
-  INTP: ['Développeur', 'Chercheur IA', 'Analyste systèmes', 'Ingénieur R&D', 'Architecte données'],
-  ESTP: ['Commercial', 'Entrepreneur', 'Chef de chantier', 'Événementiel', 'Responsable opérations'],
-  ESFP: ['Animateur', 'Community Manager', 'Événementiel', 'Vente retail', 'Chargé de projets culturels'],
-  ENFP: ['Créatif publicitaire', 'Chef de projet innovation', 'Conseiller en insertion', 'Chargé de communication', 'Formateur'],
-  ENTP: ['Growth Hacker', 'Entrepreneur', 'Consultant innovation', 'Chef de produit', 'Stratège digital'],
-  ESTJ: ['Chef de projet', 'Manager logistique', 'Responsable qualité', 'Administrateur systèmes', 'Gestion de production'],
-  ESFJ: ['RH', 'Conseiller clientèle', 'Enseignant', 'Coordinateur événementiel', 'Chargé de mission associative'],
-  ENFJ: ['Coach', 'Formateur', 'Consultant RH', 'Responsable partenariats', 'Chef de projet communautaire'],
-  ENTJ: ['Directeur produit', 'Consultant stratégie', 'Sales Manager', 'Entrepreneur', 'Project Director']
+const ZELIA_ARCHETYPE_KEYS = {
+  'ZL-01': 'visionnaire',
+  'ZL-02': 'strategiste',
+  'ZL-03': 'mediateur',
+  'ZL-04': 'catalyseur',
+  'ZL-05': 'gardien',
+  'ZL-06': 'explorateur',
+  'ZL-07': 'connecteur',
+  'ZL-08': 'orchestrateur'
 }
 
-function extractMbtiCode(personalityType) {
-  if (!personalityType) return null
-  const match = personalityType.match(/\(([IE][NS][FT][JP])\)/i)
-  return match ? match[1].toUpperCase() : null
+const ZELIA_ARCHETYPE_LABELS = {
+  visionnaire: ['visionnaire lumineux', 'visionnaire'],
+  strategiste: ['ingenieur strategiste', 'strategiste'],
+  mediateur: ['mediateur empathique', 'mediateur'],
+  catalyseur: ['catalyseur creatif', 'catalyseur'],
+  gardien: ['gardien pragmatique', 'gardien'],
+  explorateur: ['explorateur curieux', 'explorateur'],
+  connecteur: ['connecteur energique', 'connecteur'],
+  orchestrateur: ['orchestrateur visionnaire', 'orchestrateur']
+}
+
+const ZELIA_SIGNATURE_SKILLS = {
+  visionnaire: ['Vision stratégique', 'Empathie utilisateur', 'Leadership créatif', "Storytelling d'impact", 'Facilitation collective'],
+  strategiste: ['Analyse de données', 'Pensée systémique', 'Modélisation', 'Anticipation des risques', 'Optimisation continue'],
+  mediateur: ['Écoute active', 'Médiation', 'Intelligence émotionnelle', 'Accompagnement individuel', 'Gestion de communautés'],
+  catalyseur: ['Créativité', 'Conception visuelle', 'Expérimentation', 'Narration multimédia', 'Innovation produit'],
+  gardien: ['Rigueur opérationnelle', 'Gestion de la qualité', 'Organisation', 'Fiabilisation des processus', 'Sens du détail'],
+  explorateur: ['Recherche utilisateur', 'Curiosité', 'Veille stratégique', 'Pensée critique', 'Exploration prospective'],
+  connecteur: ['Animation de réseau', 'Communication engageante', 'Énergie collective', 'Gestion de partenariats', 'Sens relationnel'],
+  orchestrateur: ['Pilotage transverse', 'Vision long terme', 'Arbitrage', 'Gestion du changement', 'Structuration stratégique']
+}
+
+const DEFAULT_ZELIA_SKILLS = [
+  'Curiosité',
+  "Sens de l'initiative",
+  'Collaboration',
+  'Résolution de problèmes',
+  'Communication',
+  'Apprentissage continu'
+]
+
+function normalizeArchetypeLabel(text) {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[-–—]/g, ' ')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function extractZeliaSignature(personalityType) {
+  if (!personalityType || typeof personalityType !== 'string') return null
+
+  const codeMatch = personalityType.match(/\bZL-\d{2}\b/i)
+  if (codeMatch) {
+    const slug = ZELIA_ARCHETYPE_KEYS[codeMatch[0].toUpperCase()]
+    if (slug) return slug
+  }
+
+  const normalized = normalizeArchetypeLabel(personalityType)
+  for (const [slug, labels] of Object.entries(ZELIA_ARCHETYPE_LABELS)) {
+    if (labels.some((label) => normalized.includes(label))) {
+      return slug
+    }
+  }
+
+  return null
 }
 
 function truncate(text, max = 34) {
@@ -143,20 +190,67 @@ async function ensureCanvasFontsLoaded() {
   }
 }
 
-function pickJobsFromAnalysis(analysis) {
-  if (!analysis) return []
-  const jobs = Array.isArray(analysis?.jobRecommendations) ? analysis.jobRecommendations.slice(0, 3) : []
-  if (jobs.length > 0) return jobs
-
-  const fallbackCode = extractMbtiCode(analysis?.personalityType)
-  if (fallbackCode && MBTI_JOBS_FR[fallbackCode]) {
-    return MBTI_JOBS_FR[fallbackCode].slice(0, 3).map((title) => ({ title }))
-  }
-
-  return []
+function normalizeSkillText(value) {
+  if (!value || typeof value !== 'string') return ''
+  return value.replace(/^[-•–]\s*/, '').trim()
 }
 
-export async function generateMbtiShareImage({
+function normalizeSkillKey(value) {
+  const base = normalizeSkillText(value)
+  return base ? base.toLowerCase() : ''
+}
+
+function pickSkillsFromAnalysis(analysis, max = 6, exclude = []) {
+  if (!analysis) return []
+
+  const result = []
+  const seen = new Set(exclude.map(normalizeSkillKey).filter(Boolean))
+  const addSkill = (raw) => {
+    const skill = normalizeSkillText(raw)
+    if (!skill) return
+    const key = normalizeSkillKey(skill)
+    if (seen.has(key)) return
+    seen.add(key)
+    result.push(skill)
+  }
+
+  const jobs = Array.isArray(analysis?.jobRecommendations) ? analysis.jobRecommendations : []
+  for (const job of jobs) {
+    if (!Array.isArray(job?.skills)) continue
+    for (const skill of job.skills) {
+      addSkill(skill)
+      if (result.length >= max) return result.slice(0, max)
+    }
+  }
+
+  if (result.length < max && typeof analysis?.skillsAssessment === 'string') {
+    analysis.skillsAssessment
+      .split(/[\n,;]+/)
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .forEach(addSkill)
+  }
+
+  if (result.length < max) {
+    const derived = deriveTopCompetences(analysis, max * 2)
+    derived.forEach(addSkill)
+  }
+
+  if (result.length < max) {
+    const signature = extractZeliaSignature(analysis?.personalityType)
+    if (signature && ZELIA_SIGNATURE_SKILLS[signature]) {
+      ZELIA_SIGNATURE_SKILLS[signature].forEach(addSkill)
+    }
+  }
+
+  if (result.length < max) {
+    DEFAULT_ZELIA_SKILLS.forEach(addSkill)
+  }
+
+  return result.slice(0, max)
+}
+
+export async function generateZeliaShareImage({
   analysis,
   avatarUrl,
   logoPath = DEFAULT_LOGO_PATH,
@@ -198,7 +292,7 @@ export async function generateMbtiShareImage({
       console.warn('Logo not loaded for share image', logoError)
     }
 
-    const title = analysis?.personalityType || 'Profil MBTI'
+    const title = analysis?.personalityType || 'Profil Zélia'
     ctx.fillStyle = colors.text
     ctx.font = '800 120px "Bricolage Grotesque", "ClashGroteskMedium", system-ui, -apple-system, sans-serif'
     ctx.textAlign = 'center'
@@ -303,26 +397,23 @@ export async function generateMbtiShareImage({
       qualityY += pillH + 25
     })
 
-    const jobs = pickJobsFromAnalysis(analysis)
-    const jobsTitleY = qualityY + 20
+  const skills = pickSkillsFromAnalysis(analysis, 6, qualities)
+    const skillsTitleY = qualityY + 20
     ctx.fillStyle = colors.text
     ctx.font = '800 80px "Bricolage Grotesque", "ClashGroteskMedium", system-ui, sans-serif'
-    ctx.fillText('Top compétences', width / 2 + 20, jobsTitleY)
+    ctx.fillText('Top compétences', width / 2 + 20, skillsTitleY)
 
     ctx.font = '600 50px system-ui, -apple-system, sans-serif'
     ctx.fillStyle = colors.text
-    let jobsY = jobsTitleY + 80
+    let skillsY = skillsTitleY + 80
 
-    jobs.forEach((job, index) => {
-      const title = typeof job === 'string' ? job : job?.title || ''
-      if (!title) return
-
-      const truncatedTitle = truncate(title, 35)
+    skills.forEach((skill, index) => {
+      const label = truncate(skill, 40)
 
       ctx.save()
       ctx.fillStyle = index % 2 === 0 ? colors.accent1 : colors.accent2
       const circleX = width / 2 - 250
-      const circleY = jobsY + 25
+      const circleY = skillsY + 25
       ctx.beginPath()
       ctx.arc(circleX, circleY, 25, 0, Math.PI * 2)
       ctx.fill()
@@ -330,16 +421,21 @@ export async function generateMbtiShareImage({
       ctx.fillStyle = '#000'
       ctx.font = '700 28px system-ui, sans-serif'
       ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
       ctx.fillText(String(index + 1), circleX, circleY - 2)
       ctx.restore()
 
       ctx.fillStyle = colors.text
       ctx.font = '600 50px system-ui, -apple-system, sans-serif'
-      ctx.textAlign = 'center'
-      ctx.fillText(truncatedTitle, width / 2 + 30, jobsY + 5)
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'top'
+      ctx.fillText(label, width / 2 - 200, skillsY + 5)
 
-      jobsY += 70
+      skillsY += 70
     })
+
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
 
     return canvas.toDataURL('image/png')
   } catch (error) {
@@ -348,4 +444,12 @@ export async function generateMbtiShareImage({
   }
 }
 
-export { extractMbtiCode, deriveTopCompetences, truncate, ZELIA_COLORS, DEFAULT_LOGO_PATH, MBTI_JOBS_FR }
+export {
+  deriveTopCompetences,
+  truncate,
+  ZELIA_COLORS,
+  DEFAULT_LOGO_PATH,
+  ZELIA_SIGNATURE_SKILLS,
+  DEFAULT_ZELIA_SKILLS,
+  extractZeliaSignature
+}

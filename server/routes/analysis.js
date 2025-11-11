@@ -98,8 +98,8 @@ router.post('/generate-analysis', async (req, res) => {
       + `Votre tâche est de générer une réponse structurée qui DOIT IMPÉRATIVEMENT contenir EXACTEMENT les sections suivantes:\n\n`
       + `###Type de personalité###\n`
       + `[Nom de la personalité]\n\n`
-      + `###Analyse de personnalité###\n`
-      + `[Analyse approfondie de la personnalité de l'utilisateur en utilisant les travaux de Mayer Briggs pour l'analyse de résultat. Cependant tu ne dois pas citer les inititales INTP, ou ENFJ par exemple, tu t'appuies juste sur les travaux de mayer briggs pour en faire une analyse de personalité comme un psychologue. Environ 500 mots]\n\n`
+  + `###Analyse de personnalité###\n`
+  + `[Analyse approfondie de la personnalité de l'utilisateur un language générique et pédagogique comme le ferait un psychologue. Environ 500 mots]\n\n`
       + `###Évaluation des compétences###\n`
       + `[Évaluation concise des compétences en points clés, maximum 300 mots. Présentez sous forme de liste.]\n\n`
       + `###Recommandations d'emploi###\n`
@@ -211,7 +211,16 @@ function limitWords(text, maxWords) {
   return `${words.slice(0, maxWords).join(' ')}…`
 }
 
-// Generate analysis for a specific questionnaire type (e.g., mbti), with extended MBTI-style analysis
+function stripMbtiTokens(text) {
+  if (!text || typeof text !== 'string') return text
+  return text
+    .replace(/\(([IE][NS][FT][JP])\)/gi, '')
+    .replace(/\b[IE][NS][FT][JP]\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+// Generate analysis for a specific questionnaire type (e.g., mbti), with extended Zélia-style analysis
 router.post('/generate-analysis-by-type', async (req, res) => {
   try {
     const { userId, questionnaireType } = req.body || {}
@@ -289,24 +298,29 @@ router.post('/generate-analysis-by-type', async (req, res) => {
     // Tailored prompt for MBTI style analysis with compact synthesis anchored to future jobs
     const isMbti = qType.toLowerCase() === 'mbti'
     const opening = isMbti
-      ? `Tu es un psychologue du travail expert en MBTI (Myers-Briggs Type Indicator). Réponds en français, de manière professionnelle et nuancée, comme le ferait le test officiel. Ne copie jamais les questions ni les réponses textuellement.`
+      ? `Tu es un psychologue du travail expert du modèle de personnalités Zélia (Z-Types). Réponds en français, de manière professionnelle et nuancée. Ne copie jamais textuellement les questions ni les réponses.`
       : `Vous êtes un conseiller d'orientation professionnel expert qui fournit des analyses détaillées en français.`
 
     let prompt
     if (isMbti) {
-      prompt = `${opening} Ta réponse doit IMPÉRATIVEMENT suivre EXACTEMENT ces sections et titres :\n\n` +
+  const archetypeContext = `Voici la cartographie officielle des 8 archétypes de personnalités Zélia. Choisis toujours celui qui correspond le mieux aux réponses et utilise uniquement son code officiel :\n- ZL-01 - Visionnaire Lumineux : imagine des solutions ambitieuses, met l'humain au centre et projette des scénarios inspirants.\n- ZL-02 - Ingénieur Stratégiste : structure les idées, modélise des systèmes fiables et sécurise la croissance.\n- ZL-03 - Médiateur Empathique : connecte les personnes, apaise les tensions et crée des environnements inclusifs.\n- ZL-04 - Catalyseur Créatif : révèle des concepts inattendus, raconte des histoires impactantes et expérimente sans cesse.\n- ZL-05 - Gardien Pragmatique : fiabilise les opérations, protège la qualité et anticipe les risques.\n- ZL-06 - Explorateur Curieux : capte les signaux faibles, questionne les modèles établis et ouvre de nouvelles pistes.\n- ZL-07 - Connecteur Energique : fédère des communautés, active des réseaux et dynamise les projets.\n- ZL-08 - Orchestrateur Visionnaire : synchronise les parties prenantes, pilote les transformations et donne du sens collectif.`
+
+      prompt = `${opening}\n\n${archetypeContext}\n\nTa réponse doit IMPÉRATIVEMENT suivre EXACTEMENT ces sections et titres :\n\n` +
         `###Type de personalité###\n` +
-        `[Nom complet du type (ex: Architecte), avec éventuellement les 4 lettres entre parenthèses si pertinent]\n\n` +
-    `###Analyse de personnalité###\n` +
-    `[Analyse approfondie structurée en 3 à 4 paragraphes, au maximum 300 mots. Fais explicitement le lien entre le fonctionnement MBTI observé et les environnements de travail/métiers d'avenir qui conviendront le mieux. Mentionne explicitement au moins deux intitulés de métiers précis (les mêmes ou très proches de ceux que tu recommanderas ensuite) et explique pourquoi ils correspondent aux forces décrites.]\n\n` +
+  `[Format obligatoire : "ZL-0X - Nom de l'archétype" suivi d'une phrase d'accroche (max 25 mots) qui relie le profil à ses forces clés. N'utilise jamais de codes MBTI ou de suites de quatre lettres.]\n\n` +
+        `###Analyse de personnalité###\n` +
+        `[Analyse approfondie structurée en 3 à 4 paragraphes, maximum 300 mots. Fais explicitement le lien entre l'archétype Zélia retenu et des environnements de travail/métiers d'avenir adaptés. Cite au moins deux titres de métiers précis (identiques ou très proches de ceux listés ensuite) et explique en quoi ils valorisent les forces du profil.]\n\n` +
         `###Recommandations d'emploi###\n` +
-        `Fournis exactement 6 recommandations d'emploi cohérentes avec le profil et tournées vers l'avenir. Pour chaque recommandation, suis le format suivant :\n` +
+        `Fournis exactement 6 recommandations d'emploi cohérentes avec l'archétype et tournées vers l'avenir. Pour chaque recommandation, suis le format suivant :\n` +
         `1. [Titre du poste]\n` +
         `   - Compétences requises: [3-4 compétences principales sous forme liste, par mots clés]\n\n` +
         `1. Utilisez EXACTEMENT les titres de section indiqués ci-dessus avec trois dièses (###).\n` +
         `2. Chaque section est OBLIGATOIRE et doit apparaître dans l'ordre indiqué.\n` +
-        `3. Ne fournis AUCUNE autre section ni recommandations d'études.\n` +
-        `4. Réponds uniquement en français.\n\n` +
+        `3. N'introduis aucune autre section ni recommandations d'études.\n` +
+        `4. Réponds uniquement en français.\n` +
+        `5. Interdiction absolue d'utiliser des codes MBTI ou des appellations du type INFP, ENTJ, etc.\n` +
+  `6. N'affiche le code ZL-0X que dans la section "Type de personalité".\n` +
+  `7. Dans toute ta réponse, n'utilise jamais les termes "MBTI", "Myers-Briggs" ni des suites composées uniquement des lettres E, I, N, S, T, F, P, J (par exemple ENTP, I/E, N-F). Reformule systématiquement avec des mots descriptifs en français.\n\n` +
         `Voici les données à analyser :\n\n${formattedData}---\n`
     } else {
       const analysisLengthHint = 'environ 500 mots'
@@ -359,6 +373,7 @@ router.post('/generate-analysis-by-type', async (req, res) => {
 
     const sections = parseGeminiResponse(generatedText)
     if (isMbti) {
+      sections.personalityType = stripMbtiTokens(sections.personalityType)
       sections.skillsAssessment = ''
     }
 

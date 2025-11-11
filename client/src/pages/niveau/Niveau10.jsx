@@ -26,20 +26,20 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i
 
 const DIALOGUE_STEPS = [
   {
-    text: 'Félicitations, tu as déjà atteint les 10 premiers niveaux de Zélia, dans ta quête d’orientation et de connaissance de toi !',
-    durationMs: 4200
+    text: 'C’est trop cool, tu as déjà atteint le 10ème niveau, félications !',
+    durationMs: 2200
   },
   {
-    text: 'Tu fais partie des 0,01% des élèves qui prennent leur avenir en main, tu peux vraiment te féliciter !',
-    durationMs: 3600
+    text: 'Tu fais partie des 0,1% d’élèves de ton âge qui prennent en main leur avenir professionnel !',
+    durationMs: 2600
   },
   {
-    text: 'Mais ce n’était qu’un début, on a encore plein de choses à t’apprendre et à te partager. Pour ça, on va encore avoir besoin de toi.',
-    durationMs: 4200
+    text: 'Ta quête de sens, d’orientation et de connaissance de soi à déjà très bien avancée ',
+    durationMs: 3200
   },
   {
-    text: 'Il faudrait, pour passer à la version suivante, que tu partages ton profil et tes réussites sur Zélia aux personnes qui pourront t’inscrire sur la version payante de Zélia. On va t’aider pour ça bien sûr, comme pour le reste.',
-    durationMs: 5200
+    text: 'On va d’ailleurs te générer un bilan qui résume tout ça très bien. Tu pourras le télécharger et le mettre en avant.',
+    durationMs: 3200
   },
   {
     text: 'Insère les mails des personnes concernées, nous leur envoyons ton profil MPC - Métiers, Personnalité, Compétences, en PDF avec les infos de ce qui t’attend pour la suite : les nouveaux ateliers, les nouvelles fonctionnalités, les rencontres que tu pourras faire, TOUT !',

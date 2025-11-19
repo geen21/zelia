@@ -23,6 +23,8 @@ const REGIONS = [
   'La Réunion'
 ]
 
+const QUICK_SUGGESTIONS = ['Droit', 'Marketing', 'Commerce', 'Histoire', 'Science', 'Physique']
+
 function buildAvatarFromProfile(profile, seed = 'zelia') {
   try {
     if (profile?.avatar_url && typeof profile.avatar_url === 'string') return profile.avatar_url
@@ -123,6 +125,28 @@ function useTypewriter(message, durationMs) {
   return { text, done, skip }
 }
 
+function normalizeSearchText(value) {
+  if (value === null || value === undefined) return ''
+  return String(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}+/gu, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function extractLongQueryTokens(input) {
+  const normalized = normalizeSearchText(input)
+  if (!normalized) return []
+  return normalized.split(' ').filter((token) => token.length >= 5)
+}
+
+function buildSearchIndex(parts = []) {
+  if (!Array.isArray(parts)) return normalizeSearchText(parts)
+  return normalizeSearchText(parts.filter(Boolean).join(' '))
+}
+
 function normalizeFormations(payload) {
   if (!payload) return []
   if (Array.isArray(payload)) return payload
@@ -144,10 +168,25 @@ function mapFormation(item, index) {
     : []
 
   const locationParts = [item?.commune, item?.departement, item?.region].filter(Boolean)
+  const primaryTitle = nameList[0] || item?.nmc || item?.etab_nom || 'Formation sans titre'
+  const searchIndex = buildSearchIndex([
+    nameList.join(' '),
+    item?.nmc,
+    item?.etab_nom,
+    item?.tc,
+    item?.typeformation,
+    item?.type_formation,
+    tags.join(' '),
+    locationParts.join(' '),
+    item?.description,
+    item?.presentation
+  ])
 
   return {
     id: item?.id ?? item?.gta ?? item?.gti ?? `formation-${index}`,
-    title: nameList[0] || item?.nmc || item?.etab_nom || 'Formation sans titre',
+    title: primaryTitle,
+    nm: primaryTitle,
+    titleVariants: nameList,
     provider: item?.etab_nom || 'Organisme non renseigné',
     city: item?.commune || '',
     department: item?.departement || '',
@@ -157,8 +196,15 @@ function mapFormation(item, index) {
     fiche: item?.fiche || item?.dataviz || item?.etab_url || null,
     etabUrl: item?.etab_url || null,
     tags,
-    locationSummary: locationParts.join(' · ')
+    locationSummary: locationParts.join(' · '),
+    searchIndex
   }
+}
+
+function matchesLongToken(formation, tokens) {
+  if (!Array.isArray(tokens) || tokens.length === 0) return true
+  if (!formation?.searchIndex) return false
+  return tokens.some((token) => formation.searchIndex.includes(token))
 }
 
 function extractJobSuggestionTitles(payload) {
@@ -396,9 +442,11 @@ export default function Niveau6() {
       params.limit = 24
 
       const response = await formationsAPI.getAll(params)
-      const normalized = normalizeFormations(response?.data)
-      const mapped = normalized.map((item, index) => mapFormation(item, index))
-      setResults(mapped)
+  const normalized = normalizeFormations(response?.data)
+  const mapped = normalized.map((item, index) => mapFormation(item, index))
+  const longTokens = extractLongQueryTokens(form.keyword)
+  const filtered = longTokens.length > 0 ? mapped.filter((formation) => matchesLongToken(formation, longTokens)) : mapped
+  setResults(filtered)
       setSearchExecuted(true)
     } catch (err) {
       console.warn('Formation search failed', err)
@@ -639,8 +687,25 @@ export default function Niveau6() {
                 )}
 
                 {searchExecuted && results.length === 0 && (
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                    Aucun résultat pour ces critères. Essaie un autre mot-clé ou élargis les filtres.
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
+                    <p>Aucun résultat pour ces critères. Essaie un autre mot-clé ou élargis les filtres.</p>
+                    {QUICK_SUGGESTIONS.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Suggestions rapides</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {QUICK_SUGGESTIONS.map((suggestion) => (
+                            <button
+                              key={`suggestion-${suggestion}`}
+                              type="button"
+                              onClick={() => handleSuggestionClick(suggestion)}
+                              className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 transition hover:border-black"
+                            >
+                              {suggestion}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -657,7 +722,7 @@ export default function Niveau6() {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <h4 className="text-lg font-semibold text-gray-900">{formation.title}</h4>
+                            <h4 className="text-lg font-semibold text-gray-900">{formation.nm || formation.title}</h4>
                             <p className="text-sm text-gray-600">{formation.provider}</p>
                           </div>
                           {formation.type && (

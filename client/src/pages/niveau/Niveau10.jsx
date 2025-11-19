@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { loadStripe } from '@stripe/stripe-js'
 import supabase from '../../lib/supabase'
-import apiClient, { paymentsAPI, shareAPI, usersAPI } from '../../lib/api'
+import apiClient, { paymentsAPI, shareAPI, usersAPI, waitlistAPI } from '../../lib/api'
 import { levelUp } from '../../lib/progression'
 
 let jsPdfFactoryPromise = null
@@ -34,12 +34,24 @@ const DIALOGUE_STEPS = [
     durationMs: 2600
   },
   {
-    text: 'Ta quête de sens, d’orientation et de connaissance de soi à déjà très bien avancée ',
+    text: 'Ta quête de sens, d’orientation et de connaissance de soi a déjà très bien avancée ',
     durationMs: 3200
   },
   {
     text: 'On va d’ailleurs te générer un bilan qui résume tout ça très bien. Tu pourras le télécharger et le mettre en avant.',
     durationMs: 3200
+  },
+  {
+    text: 'Les prochains modules sont en cours de développement chez Zélia.',
+    durationMs: 3000
+  },
+  {
+    text: 'Ils seront payants et te donneront accès à Zélia+, avec encore des dizaines d’activités, des rencontres, des apprentissages, pour être vraiment au top du top :)',
+    durationMs: 5000
+  },
+  {
+    text: 'D’ailleurs si cette version t’as aidé à y voir plus clair, tu aimerais rejoindre la liste d’attente pour avoir les infos en priorité sur les prochains modules ?',
+    durationMs: 4500
   },
   {
     text: 'Insère les mails des personnes concernées, nous leur envoyons ton profil MPC - Métiers, Personnalité, Compétences, en PDF avec les infos de ce qui t’attend pour la suite : les nouveaux ateliers, les nouvelles fonctionnalités, les rencontres que tu pourras faire, TOUT !',
@@ -258,6 +270,7 @@ export default function Niveau10() {
   const [savingProgress, setSavingProgress] = useState(false)
   const [completed, setCompleted] = useState(false)
   const [showPaymentCelebration, setShowPaymentCelebration] = useState(false)
+  const [waitlistEntry, setWaitlistEntry] = useState(null)
   const [analysisData, setAnalysisData] = useState(null)
   const [analysisLoading, setAnalysisLoading] = useState(false)
   const [analysisError, setAnalysisError] = useState('')
@@ -265,6 +278,7 @@ export default function Niveau10() {
   const [emailInput, setEmailInput] = useState('')
   const [sendError, setSendError] = useState('')
   const [sendingEmails, setSendingEmails] = useState(false)
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
   const [stripeConfig, setStripeConfig] = useState({
     publishableKey: null,
     priceId: null,
@@ -316,6 +330,20 @@ export default function Niveau10() {
     return 'ton enfant'
   }, [profile])
 
+  const waitlistJoined = Boolean(waitlistEntry?.id)
+
+  const waitlistJoinDateLabel = useMemo(() => {
+    if (!waitlistEntry?.created_at) return null
+    try {
+      return new Intl.DateTimeFormat('fr-FR', {
+        dateStyle: 'medium',
+        timeStyle: 'short'
+      }).format(new Date(waitlistEntry.created_at))
+    } catch {
+      return null
+    }
+  }, [waitlistEntry])
+
   const currentDialogue = DIALOGUE_STEPS[Math.min(dialogueIdx, DIALOGUE_STEPS.length - 1)]
   const { text: dialogueText, done: dialogueDone, skip: skipDialogue } = useTypewriter(currentDialogue?.text || '', currentDialogue?.durationMs || 2000)
 
@@ -364,6 +392,28 @@ export default function Niveau10() {
       cancelled = true
     }
   }, [navigate])
+
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+
+    ;(async () => {
+      try {
+        const { data } = await waitlistAPI.getMyEntry()
+        if (!cancelled && data?.entry) {
+          setWaitlistEntry(data.entry)
+        }
+      } catch (err) {
+        if (err?.response?.status !== 404) {
+          console.warn('Unable to fetch waitlist entry', err)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [userId])
 
   useEffect(() => {
     let cancelled = false
@@ -588,6 +638,59 @@ export default function Niveau10() {
     }
   }
 
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true)
+    setSendError('')
+    try {
+      const data = await ensureAnalysisData()
+      const orientationResults = data?.orientation
+      if (!orientationResults) {
+        throw new Error('Résultats d’orientation indisponibles')
+      }
+      const pdf = await generateResultsPdf({ profile, results: orientationResults, benefits, priceLabel: defaultPriceLabel })
+      const filename = `resultats-orientation-${userFirstName.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.pdf`
+      pdf.save(filename)
+    } catch (err) {
+      console.error('Download PDF failed', err)
+      setSendError('Impossible de télécharger le PDF.')
+    } finally {
+      setDownloadingPdf(false)
+    }
+  }
+
+  // Stripe checkout conservé pour référence si on réactive le paiement direct :
+  /*
+  try {
+    const { data } = await paymentsAPI.createCheckout()
+    const sessionId = data?.sessionId
+
+    if (!sessionId) {
+      throw new Error('Missing session id')
+    }
+
+    const stripe = stripePromiseRef.current ? await stripePromiseRef.current : null
+
+    if (stripe) {
+      const { error: stripeError } = await stripe.redirectToCheckout({ sessionId })
+      if (stripeError) {
+        console.warn('Stripe redirect error', stripeError)
+        if (data?.url) {
+          window.location.href = data.url
+          return
+        }
+        throw stripeError
+      }
+    } else if (data?.url) {
+      window.location.href = data.url
+    } else {
+      throw new Error('Stripe non initialisé')
+    }
+  } catch (err) {
+    console.error('Checkout initiation failed', err)
+    setError("Impossible de lancer le paiement. Merci de réessayer dans quelques instants.")
+  }
+  */
+
   const handleCheckout = async () => {
     setError('')
     setStatusBanner(null)
@@ -605,33 +708,30 @@ export default function Niveau10() {
     }
 
     try {
-      const { data } = await paymentsAPI.createCheckout()
-      const sessionId = data?.sessionId
-
-      if (!sessionId) {
-        throw new Error('Missing session id')
-      }
-
-      const stripe = stripePromiseRef.current ? await stripePromiseRef.current : null
-
-      if (stripe) {
-        const { error: stripeError } = await stripe.redirectToCheckout({ sessionId })
-        if (stripeError) {
-          console.warn('Stripe redirect error', stripeError)
-          if (data?.url) {
-            window.location.href = data.url
-            return
-          }
-          throw stripeError
+      const { data } = await waitlistAPI.join({
+        source: 'niveau-10',
+        level: 10,
+        note: 'Inscription déclenchée depuis le CTA du niveau 10',
+        metadata: {
+          hasPaid,
+          profileId: profile?.id || userId || null
         }
-      } else if (data?.url) {
-        window.location.href = data.url
-      } else {
-        throw new Error('Stripe non initialisé')
+      })
+      if (data?.entry) {
+        setWaitlistEntry(data.entry)
       }
+      setStatusBanner({
+        tone: 'success',
+        text: data?.alreadyJoined
+          ? 'Tu es déjà sur la liste d’attente. On revient très vite vers toi !'
+          : 'Inscription confirmée ! On t’avertit dès que Zélia+ est prêt.'
+      })
+      setError('')
     } catch (err) {
-      console.error('Checkout initiation failed', err)
-      setError("Impossible de lancer le paiement. Merci de réessayer dans quelques instants.")
+      console.error('Waitlist join failed', err)
+      const message = err.response?.data?.error || "Impossible de t'inscrire sur la liste d'attente. Réessaie dans quelques instants."
+      setError(message)
+    } finally {
       setCheckoutState('idle')
     }
   }
@@ -694,15 +794,12 @@ export default function Niveau10() {
         </div>
 
         <div className="rounded-3xl border border-gray-200 bg-white p-6 text-sm shadow-card md:p-8">
-          <h2 className="text-xl font-bold text-gray-900">Ce qu’on va faire juste avant le paiement</h2>
+          <h2 className="text-xl font-bold text-gray-900">Tu as atteint le dernier niveau</h2>
           <p className="mt-3 text-gray-600">
-            Tu viens d’atteindre un jalon clé. Avant d’activer Zélia+, on t’aide à partager tes réussites auprès des personnes qui peuvent valider ton accès (parents, tuteur, référent éducatif…).
+            Tu as atteint le dernier niveau de cette version gratuite :) Si tu souhaites continuer pour approfondir tes connaissances (rencontres métiers, jobs, inspirations, mini exercices pour préciser tes choix...), inscris-toi sur la liste d’attente et on te prévient quand tout est prêt !
           </p>
           <p className="mt-3 text-gray-600">
-            À la fin du dialogue, tu pourras saisir leurs e-mails pour leur transmettre ton dossier complet (Métiers, Personnalité, Compétences) en PDF.
-          </p>
-          <p className="mt-3 text-gray-600">
-            Ensuite seulement, tu activeras Zélia+ et accéderas aux niveaux 11 à 50 avec toutes les fonctionnalités premium.
+            Tu pourras activer Zélia+.
           </p>
         </div>
       </div>
@@ -797,17 +894,25 @@ export default function Niveau10() {
             <button
               type="button"
               onClick={handleSendEmails}
-              disabled={sendingEmails || analysisLoading}
+              disabled={sendingEmails || downloadingPdf || analysisLoading}
               className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {sendingEmails ? 'Envoi en cours…' : 'Envoyer mon dossier' }
             </button>
             <button
               type="button"
-              onClick={() => navigate('/app/activites')}
-              className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-5 py-3 text-base font-semibold text-gray-700 transition hover:bg-gray-100"
+              onClick={handleDownloadPdf}
+              disabled={sendingEmails || downloadingPdf || analysisLoading}
+              className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-5 py-3 text-base font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Retour aux activités
+              {downloadingPdf ? 'Génération…' : 'Télécharger le PDF'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPhase('payment')}
+              className="inline-flex items-center justify-center rounded-xl border border-transparent px-5 py-3 text-base font-semibold text-gray-500 transition hover:text-gray-700 hover:bg-gray-50"
+            >
+              Passer
             </button>
           </div>
 
@@ -864,14 +969,16 @@ export default function Niveau10() {
                 <button
                   type="button"
                   onClick={handleCheckout}
-                  disabled={checkoutState !== 'idle'}
+                  disabled={checkoutState !== 'idle' || waitlistJoined}
                   className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {checkoutState === 'processing'
-                    ? 'Redirection en cours…'
-                    : checkoutState === 'verifying'
-                      ? 'Vérification…'
-                      : "S'inscrire sur la liste d'attente"}
+                  {waitlistJoined
+                    ? 'Déjà inscrit·e sur la liste'
+                    : checkoutState === 'processing'
+                      ? 'Inscription en cours…'
+                      : checkoutState === 'verifying'
+                        ? 'Vérification…'
+                        : "S'inscrire sur la liste d'attente"}
                 </button>
                 <button
                   type="button"
@@ -882,9 +989,15 @@ export default function Niveau10() {
                 </button>
               </div>
 
+              {waitlistJoined && (
+                <p className="text-sm text-gray-500">
+                  Inscription enregistrée{waitlistJoinDateLabel ? ` le ${waitlistJoinDateLabel}` : ''}. On te tient informé·e par e-mail.
+                </p>
+              )}
+
               <p className="flex items-center gap-2 text-sm text-gray-400">
                 <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-                Paiement 100% sécurisé via Stripe. Les données bancaires ne transitent jamais par Zélia.
+                L’activation restera 100% sécurisée via Stripe dès son ouverture. Les données bancaires ne transitent jamais par Zélia.
               </p>
             </div>
           )}

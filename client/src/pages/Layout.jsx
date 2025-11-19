@@ -126,7 +126,7 @@ export default function Layout() {
 							<i className="ph ph-x text-xl"></i>
 						</button>
 					</div>
-					<nav className="py-4 flex-1 overflow-y-auto">
+					<nav className="py-4 flex-1 overflow-y-auto flex flex-col">
 					{/* Activités is always accessible */}
 					<SidebarLink
 						to="/app"
@@ -172,15 +172,25 @@ export default function Layout() {
 					</SidebarLink>
 					{/* Chat - unlock at level 15 */}
 								<SidebarLink
-						to="/app/chat"
-						icon="ph-chats"
-						active={active('/app/chat')}
-						onClick={() => setSidebarOpen(false)}
-						locked={!isUnlocked(thresholds.chat)}
+									to="/app/chat"
+									icon="ph-chats"
+									active={active('/app/chat')}
+									onClick={() => setSidebarOpen(false)}
+									locked={!isUnlocked(thresholds.chat)}
 									lockTitle={`Niveau ${thresholds.chat}`}
-					>
-						Chat
-					</SidebarLink>
+								>
+									Chat
+								</SidebarLink>
+								<div className="mt-auto">
+									<SidebarLink
+										to="/app/results"
+										icon="ph-chart-line-up"
+										active={active('/app/results')}
+										onClick={() => setSidebarOpen(false)}
+									>
+										Mes resultats
+									</SidebarLink>
+								</div>
 					</nav>
 					<div className="px-6 pb-3 pt-2 border-t border-line flex flex-col items-center gap-2 text-text-secondary">
 						{/* Alpha badge + Report bug */}

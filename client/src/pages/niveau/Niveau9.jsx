@@ -5,6 +5,7 @@ import apiClient, { usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 
 const CONTRACT_TYPES = ['CDI', 'CDD', 'Alternance', 'Stage', 'Intérim', 'Saisonnier']
+const QUICK_JOB_SUGGESTIONS = ['Droit', 'Marketing', 'Commerce', 'Histoire', 'Science', 'Physique']
 
 function buildAvatarFromProfile(profile, seed = 'zelia') {
   try {
@@ -539,8 +540,25 @@ export default function Niveau9() {
                 )}
 
                 {searchExecuted && results.length === 0 && (
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                    Aucun résultat pour ces critères. Essaie un autre mot-clé ou élargis les filtres.
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
+                    <p>Aucun résultat pour ces critères. Essaie un autre mot-clé ou élargis les filtres.</p>
+                    {QUICK_JOB_SUGGESTIONS.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Suggestions rapides</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {QUICK_JOB_SUGGESTIONS.map((suggestion) => (
+                            <button
+                              key={`job-suggestion-${suggestion}`}
+                              type="button"
+                              onClick={() => updateForm('keyword', suggestion)}
+                              className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 transition hover:border-black"
+                            >
+                              {suggestion}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

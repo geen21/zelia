@@ -12,8 +12,18 @@ const DIALOGUE_STEPS = [
   },
   {
     id: 'intro-2',
-    text: "Je commence à bien te connaitre, merci pour toutes ces infos !\n\nIci le but est de rentrer dans une relation honnête pour avancer ensemble dans la bonne direction.\n\nJe ne connais pas encore tes notes mais je peux déjà te dire si un métier te correspond ou pas sur la base de ces infos",
-    durationMs: 5200
+    text: 'Je commence à bien te connaitre, merci pour toutes ces infos !',
+    durationMs: 2500
+  },
+  {
+    id: 'intro-3',
+    text: 'Ici le but est de rentrer dans une relation honnête pour avancer ensemble dans la bonne direction.',
+    durationMs: 4000
+  },
+  {
+    id: 'intro-4',
+    text: 'Je ne connais pas encore tes notes mais je peux déjà te dire si un métier te correspond ou pas sur la base de ces infos.',
+    durationMs: 4500
   },
   {
     id: 'job-prompt',
@@ -279,7 +289,10 @@ export default function Niveau7() {
     setEvaluating(true)
 
     try {
-      const { data } = await analysisAPI.evaluateJob({ job })
+      const { data } = await analysisAPI.evaluateJob({
+        job,
+        context: 'user_results.job_recommandations'
+      })
       const verdict = formatVerdictLabel(data?.verdict)
       const explanation = clampExplanation(data?.explanation)
 

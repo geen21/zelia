@@ -127,7 +127,7 @@ export const questionnairesAPI = {
 // Analysis API
 export const analysisAPI = {
   getMyResults: () => apiClient.get('/analysis/my-results'),
-  evaluateJob: ({ job }) => apiClient.post('/analysis/level7/evaluate-job', { job }),
+  evaluateJob: ({ job, context }) => apiClient.post('/analysis/level7/evaluate-job', { job, context }),
   saveShareImage: ({ dataUrl, questionnaireType = 'mbti', metadata }) =>
     apiClient.post('/analysis/share-image', {
       image: dataUrl,
@@ -179,4 +179,9 @@ export const shareAPI = {
 export const supportAPI = {
   reportBug: ({ title, description, location, userAgent, email }) =>
     apiClient.post('/support/bug', { title, description, location, userAgent, email })
+}
+
+export const waitlistAPI = {
+  join: (payload = {}) => apiClient.post('/waitlist', payload),
+  getMyEntry: () => apiClient.get('/waitlist/me')
 }

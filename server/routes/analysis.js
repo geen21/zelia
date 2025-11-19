@@ -615,6 +615,7 @@ const evaluateJobHandler = async (req, res) => {
   try {
     const userId = req.user.id
     const rawJob = req.body?.job
+    const contextType = req.body?.context
 
     if (!rawJob || typeof rawJob !== 'string' || rawJob.trim().length < 3) {
       return res.status(400).json({ error: 'Indique un métier valide (3 caractères minimum).' })
@@ -652,11 +653,13 @@ const evaluateJobHandler = async (req, res) => {
     }
 
     const sections = []
-    const personality = safeString(results.personality_analysis, 1200)
-    if (personality) sections.push(`Analyse de personnalité: ${personality}`)
+    if (contextType !== 'user_results.job_recommandations') {
+      const personality = safeString(results.personality_analysis, 1200)
+      if (personality) sections.push(`Analyse de personnalité: ${personality}`)
 
-    const skills = safeString(results.skills_assessment, 600)
-    if (skills) sections.push(`Compétences observées: ${skills}`)
+      const skills = safeString(results.skills_assessment, 600)
+      if (skills) sections.push(`Compétences observées: ${skills}`)
+    }
 
     const jobRecommendations = Array.isArray(results.job_recommendations)
       ? results.job_recommendations
@@ -694,7 +697,7 @@ const evaluateJobHandler = async (req, res) => {
     }
 
     const context = sections.join('\n')
-    const prompt = `Tu es Zélia, conseillère d'orientation bienveillante mais lucide. Tu disposes du profil suivant:\n${context}\n\nAnalyse si la personne est adaptée pour le métier suivant: "${jobTitle}".\nRéponds STRICTEMENT au format: \"Oui — explication\" ou \"Non — explication\".\nL'explication doit faire au maximum 100 mots, directe et précise, sans proposer d'autres métiers.\nTu dois choisir entre Oui ou Non. Si les informations sont insuffisantes, choisis le verdict le plus probable et précise les conditions manquantes en restant sous 100 mots.`
+    const prompt = `Tu es Zélia, conseillère d'orientation bienveillante mais lucide. Tu disposes du profil suivant:\n${context}\n\nAnalyse si la personne est adaptée pour le métier suivant: "${jobTitle}".\nRéponds STRICTEMENT au format: "Oui — explication" ou "Non — explication".\nSi le métier est dans la liste "Métiers qui te correspondent déjà", tu dois répondre "Oui".\nL'explication doit faire au maximum 100 mots, directe et précise, sans proposer d'autres métiers.\nTu dois choisir entre Oui ou Non. Si les informations sont insuffisantes, choisis le verdict le plus probable et précise les conditions manquantes en restant sous 100 mots.`
 
     const geminiApiKey = process.env.GEMINI_API_KEY
     if (!geminiApiKey) {

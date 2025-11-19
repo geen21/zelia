@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import axios from 'axios'
 import { jwtDecode } from 'jwt-decode'
+import Fuse from 'fuse.js'
 
 export default function Emplois(){
 	const [q, setQ] = useState('')
@@ -19,6 +20,18 @@ export default function Emplois(){
 	const [jobRecs, setJobRecs] = useState(null) // [{title, skills:[]}, ...]
 	const [recoLoading, setRecoLoading] = useState(false)
 	const authToken = localStorage.getItem('token') || localStorage.getItem('supabase_auth_token')
+    const [fuse, setFuse] = useState(null);
+
+    useEffect(() => {
+        if (items) {
+            const fuseOptions = {
+                keys: ['intitule', 'entreprise_nom', 'lieu_travail_libelle', 'romecode'],
+                includeScore: true,
+                threshold: 0.4,
+            };
+            setFuse(new Fuse(items, fuseOptions));
+        }
+    }, [items]);
 
 	// Align with Results.jsx: derive the user ID from the token (no auth header needed for GET /api/analysis/results/:userId)
 	const getUserId = () => {
@@ -55,7 +68,6 @@ export default function Emplois(){
 		const effectivePageSize = recommendedOnly ? 50 : 20
 		// Avoid sending empty filters; some backends treat empty strings awkwardly
 		const params = { page: p, page_size: effectivePageSize }
-		if (q && String(q).trim() !== '') params.q = q
 		if (typecontrat) params.typecontrat = typecontrat
 		if (alternance) params.alternance = alternance === 'true'
 		setLoading(true)
@@ -148,6 +160,13 @@ export default function Emplois(){
 		return best
 	}
 
+    const clientSideFilteredItems = useMemo(() => {
+        if (q && fuse) {
+            return fuse.search(q).map(result => result.item);
+        }
+        return items;
+    }, [q, items, fuse]);
+
 // Load data based on toggle state; ensures recommendations are fetched first when needed
 useEffect(() => {
 		let cancelled = false
@@ -173,13 +192,13 @@ useEffect(() => {
 
 	// Compute filtered view when recommendedOnly is enabled
 	const displayItems = React.useMemo(()=>{
-		if (!recommendedOnly || recoLoading || !Array.isArray(jobRecs) || jobRecs.length===0) return items
-		return items
+		if (!recommendedOnly || recoLoading || !Array.isArray(jobRecs) || jobRecs.length===0) return clientSideFilteredItems
+		return clientSideFilteredItems
 			.map(it=>({ it, score: scoreJobItem(it) }))
 			.filter(x=>x.score >= 0.1)
 			.sort((a,b)=>b.score-a.score)
 			.map(x=>x.it)
-	}, [items, recommendedOnly, jobRecs, recoLoading])
+	}, [clientSideFilteredItems, recommendedOnly, jobRecs, recoLoading, scoreJobItem])
 
 	const onToggleRecommended = () => {
 		setRecommendedOnly(prev => !prev)
@@ -237,7 +256,7 @@ useEffect(() => {
 							{recoLoading ? <i className="ph ph-circle-notch animate-spin"></i> : <i className="ph ph-magic-wand wand-twinkle"></i>}
 						</button>
 						<button className="inline-flex items-center justify-center h-11 px-4 bg-black text-white rounded-lg text-sm disabled:opacity-60" disabled={loading} onClick={()=>load(1)}>
-							{loading ? (<span className="inline-flex items-center gap-2"><i className="ph ph-circle-notch animate-spin"></i>Chargement...</span>) : 'Filtrer'}
+							{loading ? (<span className="inline-flex items-center gap-2"><i className="ph ph-circle-notch animate-spin"></i>Chargement...</span>) : 'Rechercher'}
 						</button>
 					</div>
 				</div>

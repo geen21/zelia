@@ -18,6 +18,8 @@ export default function Register() {
 
   const [error, setError] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [acceptTerms, setAcceptTerms] = useState(false)
+  const [newsletterOptIn, setNewsletterOptIn] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
   const navigate = useNavigate()
 
@@ -66,6 +68,11 @@ export default function Register() {
         setError('Les mots de passe ne correspondent pas')
         return
       }
+
+      if (!acceptTerms) {
+        setError('Vous devez accepter les CGV et CGU pour continuer')
+        return
+      }
       
       // Get cached avatar and questionnaire data
       const avatarCfg = localStorage.getItem('avatar_cfg')
@@ -99,7 +106,11 @@ export default function Register() {
         nom, prenom, age: Number(age), genre, departement, ecole, numeroTelephone,
         // Also include English names for compatibility
         first_name: prenom, last_name: nom, gender: genre,
-        department: departement, school: ecole, phone_number: numeroTelephone
+        department: departement, school: ecole, phone_number: numeroTelephone,
+        newsletter_opt_in: newsletterOptIn,
+        newsletterOptIn,
+        accept_terms: acceptTerms,
+        termsAcceptedAt: new Date().toISOString()
       }
 
       // Use custom API endpoint that can handle avatar and questionnaire data properly
@@ -108,7 +119,9 @@ export default function Register() {
         password,
         userData,
         avatarData,
-        questionnaireResponses
+        questionnaireResponses,
+        acceptTerms,
+        newsletterOptIn
       })
 
       // Show email confirmation message
@@ -228,6 +241,33 @@ export default function Register() {
                     <div className="md:col-span-3">
                       <label className="block text-sm text-text-secondary mb-1">Confirmer le mot de passe *</label>
                       <input className="w-full border border-line rounded-none h-11 px-3 outline-none text-sm focus:outline-none focus:ring-0 focus:shadow-none transition-none no-outline" type="password" placeholder="Confirmez votre mot de passe" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} required />
+                    </div>
+                    <div className="md:col-span-12">
+                      <label className="flex items-start gap-3 text-sm text-text-secondary">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 border border-line focus:outline-none focus:ring-0 focus:shadow-none transition-none"
+                          checked={acceptTerms}
+                          onChange={(e) => setAcceptTerms(e.target.checked)}
+                          required
+                        />
+                        <span>
+                          J'ai lu et j'accepte les <Link to="/legal/conditions" className="underline">Conditions Générales de Vente (CGV) et d'Utilisation (CGU)</Link>, ainsi que les <Link to="/legal/mentions-legales" className="underline">Mentions légales</Link>.
+                        </span>
+                      </label>
+                    </div>
+                    <div className="md:col-span-12">
+                      <label className="flex items-start gap-3 text-sm text-text-secondary">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 border border-line focus:outline-none focus:ring-0 focus:shadow-none transition-none"
+                          checked={newsletterOptIn}
+                          onChange={(e) => setNewsletterOptIn(e.target.checked)}
+                        />
+                        <span>
+                          Je souhaite recevoir la newsletter Zelia (optionnel).
+                        </span>
+                      </label>
                     </div>
                     {error && <div className="md:col-span-12 text-red-600 text-sm">{error}</div>}
                     <div className="md:col-span-12">

@@ -574,7 +574,7 @@ export default function Niveau4() {
                   ) : phase === 'quiz' ? (
                     <>Réponds aux questions pour récupérer ton analyse.</>
                   ) : phase === 'generating' ? (
-                    <>J'analyse vos réponses, cela peut prendre jusqu'à 1 minute, ne rechargez pas la page…</>
+                    <>J'analyse tes réponses, cela peut prendre jusqu'à 1 minute, ne recharge pas la page…</>
                   ) : phase === 'results' ? (
                     <>
                       {resultsStep === 'confirm'

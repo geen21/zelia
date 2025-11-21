@@ -170,6 +170,7 @@ function formatUpdatedAt(value) {
 export default function Niveau9() {
   const navigate = useNavigate()
   const [avatarUrl, setAvatarUrl] = useState('')
+  const [firstName, setFirstName] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [phase, setPhase] = useState('intro')
@@ -190,8 +191,8 @@ export default function Niveau9() {
   const introMessages = useMemo(() => ([
     { text: 'Te voilà au niveau Métiers ! On va apprendre à trouver des offres de jobs en un clin d’œil.', durationMs: 3200 },
     { text: 'Je vais te guider pour utiliser la page Emplois et repérer les opportunités qui collent à ton profil.', durationMs: 3800 },
-    { text: 'Prépare un mot-clé, un contrat et suis-moi étape par étape. Prêt·e ?', durationMs: 2800 }
-  ]), [])
+    { text: `Prépare un mot-clé, un contrat et suis-moi étape par étape. On y va ${firstName}?`, durationMs: 2800 }
+  ]), [firstName])
 
   const currentIntro = introMessages[introIdx] || { text: '', durationMs: 2000 }
   const { text: introText, done: introDone, skip: skipIntro } = useTypewriter(currentIntro.text, currentIntro.durationMs)
@@ -215,8 +216,10 @@ export default function Niveau9() {
         }
         const profileRes = await usersAPI.getProfile().catch(() => null)
         if (!mounted) return
-  const prof = profileRes?.data?.profile || profileRes?.data || {}
+        const prof = profileRes?.data?.profile || profileRes?.data || {}
         setAvatarUrl(buildAvatarFromProfile(prof, user.id))
+        const rawName = (prof?.first_name || prof?.prenom || '').trim()
+        if (rawName) setFirstName(rawName.split(/\s+/)[0])
       } catch (err) {
         console.error('Niveau9 profile load failed', err)
         if (!mounted) return
@@ -314,7 +317,7 @@ export default function Niveau9() {
 
     try {
   const params = { page: 1, page_size: 24 }
-      if (form.keyword.trim()) params.q = form.keyword.trim()
+      if (form.keyword.trim()) params.search = form.keyword.trim()
       if (form.contract) params.typecontrat = form.contract
   if (form.location.trim()) params.location = form.location.trim()
 

@@ -937,7 +937,7 @@ export default function Niveau10() {
             </div>
             <h1 className="text-3xl font-extrabold text-gray-900">Active Zélia+ pour débloquer la suite</h1>
             <p className="text-lg text-gray-600">
-              Ce niveau débloque toutes les ressources premium et les niveaux 11 à 50. Un paiement unique de {defaultPriceLabel} via Stripe te donne un accès immédiat, en toute sécurité.
+              Nous te félicitons pour être arrivé jusqu’ici ! Pour continuer ton aventure et accéder aux niveaux 11 à 50, inscris-toi sur la liste d’attente de Zélia+.
             </p>
           </div>
 
@@ -962,7 +962,7 @@ export default function Niveau10() {
                   <li>Ateliers premium (CV, lettre, Parcoursup, oraux)</li>
                   <li>Support prioritaire et mises à jour exclusives</li>
                 </ul>
-                <p className="mt-3 text-sm text-gray-500">Tarif : {defaultPriceLabel} (paiement unique). Le récapitulatif complet est affiché sur la page Stripe sécurisée.</p>
+                <p className="mt-3 text-sm text-gray-500">Tarif : {defaultPriceLabel} (paiement unique). Si tu es intéressé·e, inscris-toi sur la liste d’attente.</p>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import axios from 'axios'
 import { jwtDecode } from 'jwt-decode'
-import Fuse from 'fuse.js'
 
 export default function Emplois(){
 	const [q, setQ] = useState('')
@@ -20,18 +19,14 @@ export default function Emplois(){
 	const [jobRecs, setJobRecs] = useState(null) // [{title, skills:[]}, ...]
 	const [recoLoading, setRecoLoading] = useState(false)
 	const authToken = localStorage.getItem('token') || localStorage.getItem('supabase_auth_token')
-    const [fuse, setFuse] = useState(null);
 
+    // Debounce search
     useEffect(() => {
-        if (items) {
-            const fuseOptions = {
-                keys: ['intitule', 'entreprise_nom', 'lieu_travail_libelle', 'romecode'],
-                includeScore: true,
-                threshold: 0.4,
-            };
-            setFuse(new Fuse(items, fuseOptions));
-        }
-    }, [items]);
+        const timer = setTimeout(() => {
+            load(1)
+        }, 600)
+        return () => clearTimeout(timer)
+    }, [q, typecontrat, alternance])
 
 	// Align with Results.jsx: derive the user ID from the token (no auth header needed for GET /api/analysis/results/:userId)
 	const getUserId = () => {
@@ -68,6 +63,7 @@ export default function Emplois(){
 		const effectivePageSize = recommendedOnly ? 50 : 20
 		// Avoid sending empty filters; some backends treat empty strings awkwardly
 		const params = { page: p, page_size: effectivePageSize }
+        if (q) params.search = q
 		if (typecontrat) params.typecontrat = typecontrat
 		if (alternance) params.alternance = alternance === 'true'
 		setLoading(true)
@@ -160,12 +156,7 @@ export default function Emplois(){
 		return best
 	}
 
-    const clientSideFilteredItems = useMemo(() => {
-        if (q && fuse) {
-            return fuse.search(q).map(result => result.item);
-        }
-        return items;
-    }, [q, items, fuse]);
+    const clientSideFilteredItems = items;
 
 // Load data based on toggle state; ensures recommendations are fetched first when needed
 useEffect(() => {

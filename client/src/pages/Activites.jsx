@@ -30,6 +30,7 @@ class ZeliaGameEngine {
         switch (event.type) {
             case 'micro_action':
                 xpGained = Math.random() > 0.5 ? 3 : 5;
+                if (event.questId) questsCompleted.push(event.questId);
                 break;
             case 'quiz_completed':
                 xpGained = 35;
@@ -49,6 +50,7 @@ class ZeliaGameEngine {
                 break;
             case 'video_watched':
                 xpGained = 15;
+                if (event.questId) questsCompleted.push(event.questId);
                 break;
         }
 
@@ -102,8 +104,6 @@ class ZeliaGameEngine {
         // Generate contextual dialogue and actions based on arc
         switch (arc) {
             case 'exploration':
-                if (!speak) speak = 'Commençons ton aventure d\'orientation ! ';
-                speak += 'Explorons tes premiers intérêts ensemble.';
                 emotion = emotion === 'calm' ? 'encouraging' : emotion;
                 suggestedActions = [
                     { id: 'complete_test', type: 'quiz_completed', label: 'Compléter le test d\'orientation', xp: 35 },
@@ -345,6 +345,7 @@ const Activites = () => {
     const [lastResponse, setLastResponse] = useState(null);
     const [shareFeedback, setShareFeedback] = useState('');
     const [showVideoOverlay, setShowVideoOverlay] = useState(false);
+    const [resultsAvailable, setResultsAvailable] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -356,15 +357,20 @@ const Activites = () => {
             setUser(user);
             try { gameEngine.setSeed(user.id); } catch {}
 
-            // Fetch profile + progression in parallel
+            // Fetch profile + progression + results status in parallel
             try {
-                const [profRes, progRes] = await Promise.all([
+                const [profRes, progRes, resultsRes] = await Promise.all([
                     usersAPI.getProfile().catch(() => null),
-                    api.get(`/progression/${user.id}`).catch(() => null)
+                    api.get(`/progression/${user.id}`).catch(() => null),
+                    api.get('/analysis/my-results', { headers: { 'Cache-Control': 'no-cache' }, params: { _: Date.now() } }).catch(() => null)
                 ]);
 
                 const prof = profRes?.data?.profile || null;
                 if (isMounted) setProfile(prof);
+
+                // Check if results exist (status 200 and data present)
+                const hasResults = !!(resultsRes && resultsRes.status === 200 && resultsRes.data);
+                if (isMounted) setResultsAvailable(hasResults);
 
                 const pdata = progRes?.data || {};
                 const cleanLevel = Math.max(1, Math.min(Math.floor(pdata?.level) || 1, MAX_LEVEL));
@@ -376,13 +382,17 @@ const Activites = () => {
                 const rawToNext = gameEngine.levelThreshold(cleanLevel + 1) - cleanXp;
                 const normalizedToNext = cleanLevel >= MAX_LEVEL ? 0 : rawToNext > 0 ? rawToNext : XP_PER_LEVEL;
 
+                // If results are available, mark 'complete_test' as done in local state
+                const mergedQuests = new Set(pdata?.quests || []);
+                if (hasResults) mergedQuests.add('complete_test');
+
                 const initialState = {
                     progression: {
                         level: cleanLevel,
                         xp: cleanXp,
                         toNext: normalizedToNext
                     },
-                    quests: pdata?.quests || [],
+                    quests: Array.from(mergedQuests),
                     perks: pdata?.perks || []
                 };
                 if (!isMounted) return;
@@ -503,10 +513,16 @@ const Activites = () => {
     const hasAccessibleLevel = targetLevel >= 1 && targetLevel <= maxLevelRoute;
     const { ui, avatar, perks, xpGained } = lastResponse;
 
-    
+    // Level 1 blocking logic: if level 1 and no results yet, block everything except the results button
+    const isLevel1Blocked = progression?.level === 1 && !resultsAvailable;
+    // Display 0.5 if at level 1 (start), otherwise follow standard display logic
+    const effectiveLevel = (progression?.level === 1) ? 0.5 : displayLevel;
 
     return (
         <>
+            {isLevel1Blocked && (
+                <div className="fixed inset-0 bg-black/60 z-[90] transition-opacity duration-500 backdrop-blur-sm" />
+            )}
             <div className="min-h-screen bg-white p-4">
             <div className="mx-auto w-full">
                 <div className="lg:grid lg:grid-cols-3 lg:gap-6">
@@ -527,14 +543,14 @@ const Activites = () => {
                                     height="96"
                                 />
                                 <div className="absolute -bottom-2 -right-2 bg-yellow-400 text-black px-2 py-1 rounded-full text-xs font-bold">
-                                    Niv. {displayLevel}
+                                    Niv. {effectiveLevel}
                                 </div>
                             </div>
                             <div className="text-center sm:text-left">
                                 <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-3">
                                     <div className="flex items-center gap-3">
                                         <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-                                            Aventure Zélia - Niveau {displayLevel}
+                                            Aventure Zélia - Niveau {effectiveLevel}
                                         </h1>
                                         <div className="flex items-center gap-2">
                                             <button
@@ -608,12 +624,13 @@ const Activites = () => {
                 </div>
 
                 {/* Revoir mes résultats */}
-                <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-card">
+                <div className={`bg-white rounded-3xl p-6 border border-gray-200 shadow-card ${isLevel1Blocked ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md z-[100] ring-4 ring-[#c1ff72] shadow-2xl' : ''}`}>
                     <div className="flex items-center justify-between mb-2">
                         <h3 className="text-lg font-semibold">Revoir mes résultats</h3>
                         <button
                             onClick={() => navigate('/app/results')}
                             className="text-sm text-text-secondary hover:text-text-primary"
+                            disabled={isLevel1Blocked}
                         >
                             Voir tout
                         </button>
@@ -622,10 +639,20 @@ const Activites = () => {
                         <div className="text-sm text-gray-700">
                             Consulte ton analyse et tes recommandations personnalisées pour guider tes prochaines actions.
                         </div>
-                        <div className="text-right">
+                        <div className="text-right relative">
+                            {isLevel1Blocked && (
+                                <>
+                                    <div className="md:hidden absolute -top-14 left-1/2 -translate-x-1/2 text-4xl animate-bounce z-[101]">
+                                        👇
+                                    </div>
+                                    <div className="hidden md:block absolute right-[calc(100%+1.5rem)] top-1/2 -translate-y-1/2 text-5xl animate-bounce z-[101]">
+                                        👉
+                                    </div>
+                                </>
+                            )}
                             <button
                                 onClick={() => navigate('/app/results')}
-                                className="inline-flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg text-sm"
+                                className={`inline-flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg text-sm relative ${isLevel1Blocked ? 'z-[101] ring-2 ring-offset-2 ring-black scale-110' : ''}`}
                             >
                                 <i className="ph ph-arrow-up-right"></i>
                                 Ouvrir mes résultats
@@ -740,14 +767,26 @@ const Activites = () => {
                                 const completed = new Set(gameState.quests || []);
                                 const total = ALL_QUEST_IDS.length;
                                 const done = completed.size;
+                                const firstUndoneIndex = ALL_QUEST_IDS.findIndex(qid => !completed.has(qid));
+
                                 return (
                                     <>
                                         <p className="text-sm text-gray-600 mb-4">{done} / {total} complétée(s)</p>
                                         <ul className="space-y-2 max-h-[420px] overflow-auto pr-1">
-                                            {ALL_QUEST_IDS.map((qid) => {
+                                            {ALL_QUEST_IDS.map((qid, index) => {
                                                 const isDone = completed.has(qid);
+                                                let style = {};
+                                                if (!isDone && firstUndoneIndex !== -1 && index > firstUndoneIndex) {
+                                                    const dist = index - firstUndoneIndex;
+                                                    style = {
+                                                        filter: `blur(${Math.min(dist * 1.5, 6)}px)`,
+                                                        opacity: Math.max(0.3, 1 - dist * 0.15),
+                                                        transition: 'all 0.3s ease'
+                                                    };
+                                                }
+
                                                 return (
-                                                    <li key={qid} className="flex items-center justify-between">
+                                                    <li key={qid} className="flex items-center justify-between" style={style}>
                                                         <span className="text-sm text-gray-800">{questLabel(qid)}</span>
                                                         {isDone ? (
                                                             <span className="text-xs px-2 py-0.5 rounded-full bg-[#c1ff72] text-black border border-gray-200">OK</span>

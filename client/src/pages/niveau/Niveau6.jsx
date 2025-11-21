@@ -136,12 +136,6 @@ function normalizeSearchText(value) {
     .trim()
 }
 
-function extractLongQueryTokens(input) {
-  const normalized = normalizeSearchText(input)
-  if (!normalized) return []
-  return normalized.split(' ').filter((token) => token.length >= 5)
-}
-
 function buildSearchIndex(parts = []) {
   if (!Array.isArray(parts)) return normalizeSearchText(parts)
   return normalizeSearchText(parts.filter(Boolean).join(' '))
@@ -199,12 +193,6 @@ function mapFormation(item, index) {
     locationSummary: locationParts.join(' · '),
     searchIndex
   }
-}
-
-function matchesLongToken(formation, tokens) {
-  if (!Array.isArray(tokens) || tokens.length === 0) return true
-  if (!formation?.searchIndex) return false
-  return tokens.some((token) => formation.searchIndex.includes(token))
 }
 
 function extractJobSuggestionTitles(payload) {
@@ -297,13 +285,13 @@ export default function Niveau6() {
   }, [profile])
 
   const introMessages = useMemo(() => ([
-    { text: 'Bravo, tu viens de débloquer le niveau Formations !', durationMs: 2200 },
+    { text: 'Bravo, tu viens de débloquer le niveau Formations !', durationMs: 1200 },
     {
       text: "Je vais te montrer comment sélectionner les pistes d’études et formations dans les grandes familles de métiers.\nTu verras comme c’est riche et inspirant, ça te donnera déjà plein d’infos.",
-      durationMs: 5200
+      durationMs: 3200
     },
-    { text: "On va faire ça ensemble : tu appliques chaque étape et je reste là si tu bloques.", durationMs: 4200 },
-    { text: firstName ? `On y va ${firstName} ?` : 'On y va ?', durationMs: 2000 }
+    { text: "On va faire ça ensemble : tu appliques chaque étape et je reste là si tu bloques.", durationMs: 2200 },
+    { text: firstName ? `On y va ${firstName} ?` : 'On y va ?', durationMs: 200 }
   ]), [firstName])
 
   const currentIntro = introMessages[introIdx] || { text: '', durationMs: 2000 }
@@ -444,9 +432,7 @@ export default function Niveau6() {
       const response = await formationsAPI.getAll(params)
   const normalized = normalizeFormations(response?.data)
   const mapped = normalized.map((item, index) => mapFormation(item, index))
-  const longTokens = extractLongQueryTokens(form.keyword)
-  const filtered = longTokens.length > 0 ? mapped.filter((formation) => matchesLongToken(formation, longTokens)) : mapped
-  setResults(filtered)
+  setResults(mapped)
       setSearchExecuted(true)
     } catch (err) {
       console.warn('Formation search failed', err)

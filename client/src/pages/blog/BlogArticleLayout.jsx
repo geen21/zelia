@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import BlogHeaderNav from './BlogHeaderNav'
+import SEO from '../../components/SEO'
 
 export default function BlogArticleLayout({ post, children, aside }) {
   if (!post) return null
@@ -16,6 +17,12 @@ export default function BlogArticleLayout({ post, children, aside }) {
 
   return (
     <article className="blog-article" style={{ '--accent': post.accent, '--accent-soft': post.accentSoft }}>
+      <SEO 
+        title={`${post.title} - Blog Zelia`}
+        description={post.description}
+        url={`https://zelia.io/blog/${post.slug}`}
+        type="article"
+      />
       <BlogHeaderNav />
       <header className="blog-article__hero">
         <div className="container">

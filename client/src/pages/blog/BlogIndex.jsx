@@ -2,6 +2,7 @@ import React, { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { blogPosts } from './posts'
 import BlogHeaderNav from './BlogHeaderNav'
+import SEO from '../../components/SEO'
 
 export default function BlogIndex() {
   const sortedPosts = useMemo(() => {
@@ -10,6 +11,11 @@ export default function BlogIndex() {
 
   return (
     <div className="blog-page">
+      <SEO 
+        title="Blog Zelia - Conseils et actualités sur l'orientation"
+        description="Retrouvez nos analyses, astuces et retours d'expérience pour accompagner les jeunes dans leur quête d'orientation scolaire et professionnelle."
+        url="https://zelia.io/blog"
+      />
       <BlogHeaderNav />
       <header className="blog-page__hero">
         <div className="container">

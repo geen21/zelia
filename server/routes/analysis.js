@@ -310,6 +310,8 @@ router.post('/generate-analysis-by-type', async (req, res) => {
   `[Format obligatoire : "ZL-0X - Nom de l'archétype" suivi d'une phrase d'accroche (max 25 mots) qui relie le profil à ses forces clés. N'utilise jamais de codes MBTI ou de suites de quatre lettres.]\n\n` +
         `###Analyse de personnalité###\n` +
         `[Analyse approfondie structurée en 3 à 4 paragraphes, maximum 300 mots. Fais explicitement le lien entre l'archétype Zélia retenu et des environnements de travail/métiers d'avenir adaptés. Cite au moins deux titres de métiers précis (identiques ou très proches de ceux listés ensuite) et explique en quoi ils valorisent les forces du profil.]\n\n` +
+        `###Tes qualités###\n` +
+        `[Rédige un texte inspirant d'environ 100 mots qui met en valeur les qualités humaines et professionnelles de ce profil. Adopte un ton valorisant et bienveillant.]\n\n` +
         `###Recommandations d'emploi###\n` +
         `Fournis exactement 6 recommandations d'emploi cohérentes avec l'archétype et tournées vers l'avenir. Pour chaque recommandation, suis le format suivant :\n` +
         `1. [Titre du poste]\n` +
@@ -374,8 +376,53 @@ router.post('/generate-analysis-by-type', async (req, res) => {
     const sections = parseGeminiResponse(generatedText)
     if (isMbti) {
       sections.personalityType = stripMbtiTokens(sections.personalityType)
-      sections.skillsAssessment = ''
+      // Map 'Tes qualités' (captured in skillsAssessment by parser update) to skillsAssessment
+      // No change needed here if parser puts it in skillsAssessment
     }
+
+    // --- NEW: Second prompt for Share Card Data (MBTI only) ---
+    let shareCardData = null
+    if (isMbti) {
+      try {
+        const sharePrompt = `Tu es un expert en synthèse de profil. À partir des données suivantes, génère un objet JSON strict pour une carte de partage.
+        
+        Contexte du profil généré précédemment :
+        Utilisateur: ${safeProfile.first_name} ${safeProfile.last_name}
+        Type: ${sections.personalityType}
+        Analyse: ${sections.personalityAnalysis}
+        
+        Ta tâche est de générer :
+        1. "zeliaProfile" : Le Prénom et Nom de l'utilisateur.
+        2. "qualities" : Exactement 3 qualités principales (max 2 mots chacune).
+        3. "competences" : Exactement 3 compétences clés (max 2 mots chacune).
+        
+        Réponds UNIQUEMENT avec un JSON valide, sans markdown, sans explications.
+        Format attendu :
+        {
+          "zeliaProfile": "...",
+          "qualities": ["...", "...", "..."],
+          "competences": ["...", "...", "..."]
+        }`
+
+        const shareResp = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: sharePrompt }] }] })
+        })
+
+        if (shareResp.ok) {
+          const shareJson = await shareResp.json()
+          const shareText = shareJson.candidates?.[0]?.content?.parts?.[0]?.text
+          if (shareText) {
+            const cleanJson = shareText.replace(/```json/g, '').replace(/```/g, '').trim()
+            shareCardData = JSON.parse(cleanJson)
+          }
+        }
+      } catch (e) {
+        console.warn('Share card data generation failed', e)
+      }
+    }
+    // ----------------------------------------------------------
 
     const personalityAnalysis = isMbti
       ? limitWords(sections.personalityAnalysis, 300)
@@ -391,10 +438,12 @@ router.post('/generate-analysis-by-type', async (req, res) => {
         user_id: userId,
         questionnaire_type: qType,
         personality_analysis: personalityAnalysis,
-        skills_assessment: isMbti ? null : sections.skillsAssessment,
+        skills_assessment: sections.skillsAssessment, // Allow skillsAssessment for MBTI (contains Qualities)
         job_recommendations: jobRecommendations,
         // Per requirement, do not store study recommendations for MBTI
         study_recommendations: isMbti ? null : sections.studyRecommendations,
+        skills_data: shareCardData, // Store the share card data here
+        share_image_url: null, // Reset share image on new analysis
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id,questionnaire_type', ignoreDuplicates: false })
 
@@ -415,13 +464,14 @@ router.post('/generate-analysis-by-type', async (req, res) => {
       analysis: {
         personalityType: sections.personalityType,
         personalityAnalysis,
-        skillsAssessment: isMbti ? null : sections.skillsAssessment,
+        skillsAssessment: sections.skillsAssessment, // Return it
         jobRecommendations,
         // No study recommendations for MBTI output
         studyRecommendations: isMbti ? [] : (sections.studyRecommendations || []),
         avatarUrlBase: profile?.avatar_json?.url || profile?.avatar || null,
         avatarConfig: profile?.avatar_json || null,
-        shareImageUrl: shareRow?.share_image_url || null
+        shareImageUrl: shareRow?.share_image_url || null,
+        shareCardData // Return this to the frontend
       }
     })
   } catch (error) {
@@ -507,9 +557,16 @@ function parseGeminiResponse(text) {
       sections.personalityAnalysis = cleanText(personalityAnalysisMatch[1])
     }
 
-    const skillsMatch = text.match(/###Évaluation des compétences###\s*(.*?)\s*(?=###)/s)
-    if (skillsMatch) {
-      sections.skillsAssessment = cleanText(skillsMatch[1])
+    // Try to match "Tes qualités" first (for MBTI)
+    const qualitiesMatch = text.match(/###Tes qualités###\s*(.*?)\s*(?=###)/s)
+    if (qualitiesMatch) {
+      sections.skillsAssessment = cleanText(qualitiesMatch[1])
+    } else {
+      // Fallback to standard skills assessment
+      const skillsMatch = text.match(/###Évaluation des compétences###\s*(.*?)\s*(?=###)/s)
+      if (skillsMatch) {
+        sections.skillsAssessment = cleanText(skillsMatch[1])
+      }
     }
 
     const jobsMatch = text.match(/###Recommandations d'emploi###\s*(.*?)\s*(?=###)/s)
@@ -919,7 +976,8 @@ router.get('/my-results', authenticateToken, async (req, res) => {
         studyRecommendations,
         shareImageUrl: row.share_image_url || null,
         createdAt: row.created_at,
-        updatedAt: row.updated_at
+        updatedAt: row.updated_at,
+        shareCardData: row.skills_data || null
       }
     }
 

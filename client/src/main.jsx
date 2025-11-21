@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HelmetProvider } from 'react-helmet-async'
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import './landing.css'
 import './admin.css'
@@ -54,9 +55,10 @@ const dynamicNiveauLevels = Object.keys(dynamicNiveauComponents)
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-  <Route path="/" element={<Home />} />
+    <HelmetProvider>
+      <BrowserRouter>
+        <Routes>
+    <Route path="/" element={<Home />} />
   <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/email-confirmation" element={<EmailConfirmation />} />
@@ -105,9 +107,10 @@ function App() {
             )
           })}
         </Route>
-  <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </BrowserRouter>
+        <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </BrowserRouter>
+    </HelmetProvider>
   )
 }
 

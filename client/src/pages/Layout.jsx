@@ -1,7 +1,9 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { fetchProgression } from '../lib/progression'
-import { supportAPI } from '../lib/api'
+import { supportAPI, usersAPI } from '../lib/api'
+import { buildAvatarFromProfile } from '../lib/avatar'
+import { supabase } from '../lib/supabase'
 
 export default function Layout() {
 	const nav = useNavigate()
@@ -15,6 +17,8 @@ export default function Layout() {
 	const [bugDesc, setBugDesc] = useState('')
 	const [bugSending, setBugSending] = useState(false)
 	const [bugSent, setBugSent] = useState(false)
+	const [avatarUrl, setAvatarUrl] = useState('/static/images/logo-dark.png')
+	const [userName, setUserName] = useState('Utilisateur')
 
 	useEffect(() => {
 		function handleClickOutside(event) {
@@ -26,14 +30,31 @@ export default function Layout() {
 		return () => document.removeEventListener('mousedown', handleClickOutside)
 	}, [])
 
-	// Load user's progression level ("niveau")
+	// Load user's progression level ("niveau") and profile
 	useEffect(() => {
 		let mounted = true
 		;(async () => {
 			try {
-				const prog = await fetchProgression()
-				if (mounted && prog && Number.isFinite(Number(prog.level))) {
-					setLevel(Number(prog.level) || 1)
+				const { data: { user } } = await supabase.auth.getUser()
+				if (!mounted) return
+
+				const [prog, profRes] = await Promise.all([
+					fetchProgression().catch(() => null),
+					usersAPI.getProfile().catch(() => null)
+				])
+
+				if (mounted) {
+					if (prog && Number.isFinite(Number(prog.level))) {
+						setLevel(Number(prog.level) || 1)
+					}
+					const profile = profRes?.data?.profile
+					if (profile) {
+						if (user) {
+							setAvatarUrl(buildAvatarFromProfile(profile, user.id))
+						}
+						const name = profile.first_name || profile.prenom || 'Utilisateur'
+						setUserName(name)
+					}
 				}
 			} catch {
 				// Default level stays at 1
@@ -194,12 +215,12 @@ export default function Layout() {
 					</nav>
 					<div className="px-6 pb-3 pt-2 border-t border-line flex flex-col items-center gap-2 text-text-secondary">
 						{/* Alpha badge + Report bug */}
-						<div className="flex items-center gap-2 text-[11px] uppercase tracking-wide">
-							<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-[#f68fff] text-[#f68fff]">
+						<div className="flex flex-row items-center justify-center gap-2 text-[11px] uppercase tracking-wide w-full">
+							<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-[#f68fff] text-[#f68fff] whitespace-nowrap">
 								<span className="inline-block w-1.5 h-1.5 rounded-full bg-[#f68fff]"></span>
 								Version Alpha
 							</span>
-							<button onClick={() => setBugOpen(true)} className="text-[#f68fff] hover:underline">Signaler un bug</button>
+							<button onClick={() => setBugOpen(true)} className="text-[#f68fff] hover:underline whitespace-nowrap">Signaler un bug</button>
 						</div>
 
 						<div className="flex items-center justify-center gap-3">
@@ -236,8 +257,8 @@ export default function Layout() {
 						</button>
 						<div className="relative" ref={dropdownRef}>
 							<button className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-50" onClick={() => setDropdownOpen(!dropdownOpen)}>
-								<img src="/static/images/logo-dark.png" className="w-8 h-8 rounded-full bg-white p-1" alt="Avatar" />
-								<span className="hidden sm:block text-sm">Utilisateur</span>
+								<img src={avatarUrl} className="w-8 h-8 rounded-full bg-white p-1 object-cover" alt="Avatar" />
+								<span className="hidden sm:block text-sm">{userName}</span>
 								<i className="ph ph-caret-down"></i>
 							</button>
 							{dropdownOpen && (

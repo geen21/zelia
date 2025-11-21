@@ -5,17 +5,16 @@ export const PAYWALL_LEVEL = 10
 export const XP_PER_LEVEL = 100
 
 const CORE_QUEST_SEQUENCE = [
-  { id: 'complete_test', label: "Test d'orientation" },
-  { id: 'explore_interests', label: "Explorer mes centres d'intérêt" },
-  { id: 'watch_intro', label: "Vidéo d'introduction" },
-  { id: 'strengths_quiz', label: 'Pitch de 60s' },
-  { id: 'personality_test', label: 'Test de personnalité' },
-  { id: 'values_exploration', label: "Test d'anglais" },
-  { id: 'job_research', label: 'Rechercher des formations' },
-  { id: 'salary_analysis', label: 'Le métier qui te convient' },
-  { id: 'job_videos', label: 'Vidéos métiers' },
-  { id: 'schedule_meeting', label: 'Rechercher des entreprises' },
-  { id: 'prepare_questions', label: 'Bilan primaire' },
+  { id: 'explore_interests', label: "Exploration métiers et intérêts" },
+  { id: 'watch_intro', label: "L’importance de l’orientation (vidéo)" },
+  { id: 'strengths_quiz', label: 'Apprendre à se présenter' },
+  { id: 'personality_test', label: 'Apprendre à se connaître' },
+  { id: 'values_exploration', label: "Test d’anglais" },
+  { id: 'job_research', label: 'Recherche formations et études' },
+  { id: 'salary_analysis', label: 'Matching métier' },
+  { id: 'job_videos', label: 'La diversité des métiers (vidéo)' },
+  { id: 'schedule_meeting', label: 'Recherche métiers' },
+  { id: 'prepare_questions', label: 'Bilan numéro 1' },
   { id: 'company_visit', label: "Visite d'entreprise virtuelle" },
   { id: 'soft_skills_assessment', label: 'Éval. des soft skills' },
   { id: 'star_method', label: 'Méthode STAR' },
@@ -58,9 +57,12 @@ const LEVEL_QUEST_ENTRIES = Array.from({ length: MAX_LEVEL }, (_, index) => {
 })
 
 const QUEST_ID_BY_LEVEL = new Map(LEVEL_QUEST_ENTRIES.map((entry) => [entry.level, entry.id]))
-const QUEST_LABEL_BY_ID = new Map(LEVEL_QUEST_ENTRIES.map((entry) => [entry.id, entry.label]))
+const QUEST_LABEL_BY_ID = new Map([
+  ['complete_test', "Test d'orientation"],
+  ...LEVEL_QUEST_ENTRIES.map((entry) => [entry.id, entry.label])
+])
 
-export const ALL_QUEST_IDS = LEVEL_QUEST_ENTRIES.map((entry) => entry.id)
+export const ALL_QUEST_IDS = ['complete_test', ...LEVEL_QUEST_ENTRIES.map((entry) => entry.id)]
 
 const DEFAULT_PROGRESSION = {
   level: 1,

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { blogPosts } from './blog/posts'
+import SEO from '../components/SEO'
 
 // Simple typewriter for a single message
 function useTypewriter(message, durationMs) {
@@ -175,6 +176,11 @@ export default function Home() {
 
   return (
     <div className="aximo-all-section landing-lock" style={{ background: '#fffbf7', color: '#000' }}>
+      <SEO 
+        title="Zelia - Ta conseillère d'orientation virtuelle"
+        description="Découvre ton avenir avec Zelia, l'IA qui révolutionne l'orientation scolaire et professionnelle. Parcours personnalisé, découverte de métiers et formations."
+        url="https://zelia.io/"
+      />
       {/* Full-screen parallax scene with overlay nav */}
       <section className="landing-hero parallax-hero fullscreen" ref={heroRef}>
         {/* Background parallax layers */}

@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import axios from 'axios'
-import Fuse from 'fuse.js'
 
 export default function Formations(){
 	const [q, setQ] = useState('')
@@ -17,18 +16,14 @@ export default function Formations(){
 	const [studyRecs, setStudyRecs] = useState() // [{type, degree}]
 	const [recoLoading, setRecoLoading] = useState(false)
 	const authToken = localStorage.getItem('token') || localStorage.getItem('supabase_auth_token')
-    const [fuse, setFuse] = useState(null)
 
+    // Debounce search
     useEffect(() => {
-        if (items) {
-            const fuseOptions = {
-                keys: ['nm', 'etab_nom', 'departement', 'commune', 'tc', 'tf'],
-                includeScore: true,
-                threshold: 0.4,
-            };
-            setFuse(new Fuse(items, fuseOptions));
-        }
-    }, [items])
+        const timer = setTimeout(() => {
+            load(1)
+        }, 600)
+        return () => clearTimeout(timer)
+    }, [q, region, departement])
 
 	const normalizeStudyRecs = React.useCallback((raw) => {
 		if (!raw) return []
@@ -134,12 +129,7 @@ export default function Formations(){
 		}
 	}
 
-    const filteredItems = useMemo(() => {
-        if (q && fuse) {
-            return fuse.search(q).map(result => result.item);
-        }
-        return items;
-    }, [q, items, fuse]);
+    const filteredItems = items;
 
 // Load data on toggle state; ensure recommendations available first
 useEffect(() => {

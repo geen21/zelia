@@ -42,7 +42,7 @@ function sanitizeAnalysisPayload(raw) {
     sanitized.personalityAnalysis = ensureJobMentions(sanitized.personalityAnalysis, jobsArray)
     sanitized.personalityAnalysis = limitWords(sanitized.personalityAnalysis, 300)
   }
-  sanitized.skillsAssessment = null
+  // sanitized.skillsAssessment = null // Keep skillsAssessment for "Tes qualités"
   return sanitized
 }
 
@@ -259,6 +259,8 @@ export default function Niveau4() {
         setAnalysis(normalized)
         if (normalized.shareImageUrl) {
           setShareImgUrl(normalized.shareImageUrl)
+        } else {
+          setShareImgUrl('')
         }
       }
       setPhase('results')
@@ -486,10 +488,10 @@ export default function Niveau4() {
     }
   }, [analysis])
 
-  const ensureShareImage = useCallback(async () => {
+  const ensureShareImage = useCallback(async (force = false) => {
     if (!analysis) return ''
 
-    if (analysis.shareImageUrl) {
+    if (analysis.shareImageUrl && !force) {
       setShareImgUrl(analysis.shareImageUrl)
       return analysis.shareImageUrl
     }
@@ -709,6 +711,15 @@ export default function Niveau4() {
                   {renderParagraphs(analysis?.personalityAnalysis)}
                 </div>
               </section>
+
+              {analysis?.skillsAssessment && (
+                <section className="bg-surface border border-line rounded-xl shadow-card p-6">
+                  <h3 className="text-lg font-semibold mb-2">Tes qualités</h3>
+                  <div className="space-y-4">
+                    {renderParagraphs(analysis.skillsAssessment)}
+                  </div>
+                </section>
+              )}
 
               {Array.isArray(analysis?.jobRecommendations) && analysis.jobRecommendations.length > 0 && (
                 <section className="bg-surface border border-line rounded-xl shadow-card p-6">

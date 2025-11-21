@@ -116,7 +116,7 @@ function wrapText(ctx, text, maxWidth) {
 }
 
 function deriveTopCompetences(analysis, max = 3) {
-  const result = []
+  const candidates = []
   const seen = new Set()
   const addValue = (value) => {
     const cleaned = toTitleCase(value)
@@ -124,33 +124,36 @@ function deriveTopCompetences(analysis, max = 3) {
     const key = cleaned.toLowerCase()
     if (seen.has(key)) return
     seen.add(key)
-    result.push(cleaned)
+    candidates.push(cleaned)
   }
 
   const jobs = Array.isArray(analysis?.jobRecommendations) ? analysis.jobRecommendations : []
   for (const job of jobs) {
     if (!Array.isArray(job?.skills)) continue
     for (const skill of job.skills) {
-      if (result.length >= max) break
       const normalized = typeof skill === 'string' ? skill.replace(/^[-•–]\s*/, '').trim() : ''
       if (normalized) addValue(normalized)
     }
-    if (result.length >= max) break
   }
 
-  if (result.length < max && typeof analysis?.personalityAnalysis === 'string') {
+  if (typeof analysis?.personalityAnalysis === 'string') {
+    // Try to extract short phrases or keywords if possible, otherwise skip long sentences
     const sentences = analysis.personalityAnalysis
       .split(/[\.?!]/)
       .map((sentence) => sentence.trim())
       .filter(Boolean)
     for (const sentence of sentences) {
-      if (result.length >= max) break
-      if (sentence.length > 120) continue
-      addValue(sentence)
+      if (sentence.split(/\s+/).length <= 3) { // Allow slightly longer for fallback
+        addValue(sentence)
+      }
     }
   }
 
-  return result.slice(0, max)
+  // Prioritize short skills (1-2 words)
+  const short = candidates.filter(c => c.split(/\s+/).length <= 2)
+  if (short.length >= max) return short.slice(0, max)
+
+  return [...short, ...candidates.filter(c => !short.includes(c))].slice(0, max)
 }
 
 function loadImage(src) {
@@ -167,7 +170,7 @@ async function ensureCanvasFontsLoaded() {
   if (typeof document === 'undefined' || !('fonts' in document)) return
 
   try {
-    const clashFace = new FontFace('ClashGroteskMedium', 'url(/static/fonts/ClashGroteskSemibold.woff2) format("woff2")')
+    const clashFace = new FontFace('ShareClashGrotesk', 'url(/static/fonts/ClashGroteskSemibold.woff2) format("woff2")')
     await clashFace.load()
     document.fonts.add(clashFace)
 
@@ -179,12 +182,12 @@ async function ensureCanvasFontsLoaded() {
       await bricolageFace.load()
       document.fonts.add(bricolageFace)
     } catch (bricolageError) {
-      console.warn('Bricolage Grotesque not available, using ClashGroteskMedium', bricolageError)
+      console.warn('Bricolage Grotesque not available, using ShareClashGrotesk', bricolageError)
     }
 
-    await document.fonts.load('800 88px "Bricolage Grotesque", "ClashGroteskMedium"')
-    await document.fonts.load('800 64px "Bricolage Grotesque", "ClashGroteskMedium"')
-    await document.fonts.load('800 48px "Bricolage Grotesque", "ClashGroteskMedium"')
+    await document.fonts.load('800 88px "Bricolage Grotesque", "ShareClashGrotesk"')
+    await document.fonts.load('800 64px "Bricolage Grotesque", "ShareClashGrotesk"')
+    await document.fonts.load('800 48px "Bricolage Grotesque", "ShareClashGrotesk"')
   } catch (error) {
     console.warn('Canvas font load failed, falling back to system fonts', error)
   }
@@ -203,7 +206,7 @@ function normalizeSkillKey(value) {
 function pickSkillsFromAnalysis(analysis, max = 6, exclude = []) {
   if (!analysis) return []
 
-  const result = []
+  const candidates = []
   const seen = new Set(exclude.map(normalizeSkillKey).filter(Boolean))
   const addSkill = (raw) => {
     const skill = normalizeSkillText(raw)
@@ -211,7 +214,7 @@ function pickSkillsFromAnalysis(analysis, max = 6, exclude = []) {
     const key = normalizeSkillKey(skill)
     if (seen.has(key)) return
     seen.add(key)
-    result.push(skill)
+    candidates.push(skill)
   }
 
   const jobs = Array.isArray(analysis?.jobRecommendations) ? analysis.jobRecommendations : []
@@ -219,11 +222,10 @@ function pickSkillsFromAnalysis(analysis, max = 6, exclude = []) {
     if (!Array.isArray(job?.skills)) continue
     for (const skill of job.skills) {
       addSkill(skill)
-      if (result.length >= max) return result.slice(0, max)
     }
   }
 
-  if (result.length < max && typeof analysis?.skillsAssessment === 'string') {
+  if (typeof analysis?.skillsAssessment === 'string') {
     analysis.skillsAssessment
       .split(/[\n,;]+/)
       .map((entry) => entry.trim())
@@ -231,23 +233,21 @@ function pickSkillsFromAnalysis(analysis, max = 6, exclude = []) {
       .forEach(addSkill)
   }
 
-  if (result.length < max) {
-    const derived = deriveTopCompetences(analysis, max * 2)
-    derived.forEach(addSkill)
+  const derived = deriveTopCompetences(analysis, max * 2)
+  derived.forEach(addSkill)
+
+  const signature = extractZeliaSignature(analysis?.personalityType)
+  if (signature && ZELIA_SIGNATURE_SKILLS[signature]) {
+    ZELIA_SIGNATURE_SKILLS[signature].forEach(addSkill)
   }
 
-  if (result.length < max) {
-    const signature = extractZeliaSignature(analysis?.personalityType)
-    if (signature && ZELIA_SIGNATURE_SKILLS[signature]) {
-      ZELIA_SIGNATURE_SKILLS[signature].forEach(addSkill)
-    }
-  }
+  DEFAULT_ZELIA_SKILLS.forEach(addSkill)
 
-  if (result.length < max) {
-    DEFAULT_ZELIA_SKILLS.forEach(addSkill)
-  }
+  // Prioritize short skills (1-2 words)
+  const short = candidates.filter(c => c.split(/\s+/).length <= 2)
+  if (short.length >= max) return short.slice(0, max)
 
-  return result.slice(0, max)
+  return [...short, ...candidates.filter(c => !short.includes(c))].slice(0, max)
 }
 
 export async function generateZeliaShareImage({
@@ -292,9 +292,12 @@ export async function generateZeliaShareImage({
       console.warn('Logo not loaded for share image', logoError)
     }
 
-    const title = analysis?.personalityType || 'Profil Zélia'
+    // Use shareCardData if available (from 2nd prompt), otherwise fallback
+    const shareData = analysis?.shareCardData || {}
+    const title = shareData.zeliaProfile || analysis?.personalityType || 'Profil Zélia'
+    
     ctx.fillStyle = colors.text
-    ctx.font = '800 120px "Bricolage Grotesque", "ClashGroteskMedium", system-ui, -apple-system, sans-serif'
+    ctx.font = '800 120px "Bricolage Grotesque", "ShareClashGrotesk", system-ui, -apple-system, sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'top'
 
@@ -345,12 +348,15 @@ export async function generateZeliaShareImage({
       }
     }
 
-    const qualities = deriveTopCompetences(analysis, 3)
-    ctx.font = '800 80px "Bricolage Grotesque", "ClashGroteskMedium", system-ui, sans-serif'
+    const qualities = (Array.isArray(shareData.qualities) && shareData.qualities.length === 3)
+      ? shareData.qualities
+      : deriveTopCompetences(analysis, 3)
+
+    ctx.font = '800 80px "Bricolage Grotesque", "ShareClashGrotesk", system-ui, sans-serif'
     ctx.fillStyle = colors.text
     ctx.textAlign = 'center'
     const qualitiesY = titleY + 150
-    ctx.fillText('Qualités', width / 2, qualitiesY)
+    ctx.fillText('Tes qualités', width / 2, qualitiesY)
 
     ctx.font = '600 32px system-ui, -apple-system, sans-serif'
     let qualityY = qualitiesY + 80
@@ -397,10 +403,13 @@ export async function generateZeliaShareImage({
       qualityY += pillH + 25
     })
 
-  const skills = pickSkillsFromAnalysis(analysis, 6, qualities)
+    const skills = (Array.isArray(shareData.competences) && shareData.competences.length === 3)
+      ? shareData.competences
+      : pickSkillsFromAnalysis(analysis, 3, qualities)
+
     const skillsTitleY = qualityY + 20
     ctx.fillStyle = colors.text
-    ctx.font = '800 80px "Bricolage Grotesque", "ClashGroteskMedium", system-ui, sans-serif'
+    ctx.font = '800 80px "Bricolage Grotesque", "ShareClashGrotesk", system-ui, sans-serif'
     ctx.fillText('Top compétences', width / 2 + 20, skillsTitleY)
 
     ctx.font = '600 50px system-ui, -apple-system, sans-serif'

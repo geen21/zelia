@@ -739,25 +739,7 @@ const Activites = () => {
                     </div>
                 </div>
 
-                {/* Quick Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-white rounded-xl p-4 text-center border border-gray-200 shadow-card">
-                        <div className="text-2xl font-bold text-purple-600">{effectiveLevel}</div>
-                        <div className="text-sm text-gray-600">Niveau Actuel</div>
-                    </div>
-                    <div className="bg-white rounded-xl p-4 text-center border border-gray-200 shadow-card">
-                        <div className="text-2xl font-bold text-blue-600">{effectiveXp}</div>
-                        <div className="text-sm text-gray-600">XP Total</div>
-                    </div>
-                    <div className="bg-white rounded-xl p-4 text-center border border-gray-200 shadow-card">
-                        <div className="text-2xl font-bold text-green-600">{Math.round((progression.level / 50) * 100)}%</div>
-                        <div className="text-sm text-gray-600">Progression</div>
-                    </div>
-                    <div className="bg-white rounded-xl p-4 text-center border border-gray-200 shadow-card">
-                        <div className="text-2xl font-bold text-orange-600">{50 - progression.level}</div>
-                        <div className="text-sm text-gray-600">Niveaux Restants</div>
-                    </div>
-                </div>
+
                     </div>
                     
                     {/* Sidebar: All Quests with Status */}

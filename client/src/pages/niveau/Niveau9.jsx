@@ -316,11 +316,10 @@ export default function Niveau9() {
     setSelectedJob(null)
 
     try {
-  const params = { page: 1, page_size: 24 }
-      if (form.keyword.trim()) params.search = form.keyword.trim()
+      const params = { page: 1, page_size: 24 }
+      if (form.keyword.trim()) params.q = form.keyword.trim()
       if (form.contract) params.typecontrat = form.contract
-  if (form.location.trim()) params.location = form.location.trim()
-
+      if (form.location.trim()) params.location = form.location.trim()
       const response = await apiClient.get('/catalog/metiers/search', { params })
       const normalized = normalizeJobs(response?.data)
       const mapped = normalized.map((item, index) => mapJob(item, index))
@@ -652,9 +651,16 @@ export default function Niveau9() {
               <button
                 type="button"
                 onClick={() => navigate('/app/activites')}
-                className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d]"
+                className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-5 py-3 text-base font-semibold text-gray-700 transition hover:bg-gray-100"
               >
                 Retour aux activités
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/app/niveau/10')}
+                className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d]"
+              >
+                Passer au niveau suivant
               </button>
               <button
                 type="button"

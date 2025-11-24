@@ -113,7 +113,7 @@ router.post('/generate-analysis', async (req, res) => {
       + `1. Utilisez EXACTEMENT les titres de section indiqués ci-dessus avec trois dièses (###).\n`
       + `2. Chaque section est OBLIGATOIRE et doit apparaître dans l'ordre indiqué.\n`
       + `3. Si vous ne pouvez pas respecter ce format ou si l'une des sections manque.\n`
-      + `Répondez uniquement en français.\n\n`
+      + `Répondez uniquement en français et tutoies la personne concernée.\n\n`
       + `Voici les données à analyser :\n\n${formattedData}---\n`
 
     // Call Gemini API (2.5 Flash)

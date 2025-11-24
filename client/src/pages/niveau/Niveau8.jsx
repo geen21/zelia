@@ -96,6 +96,14 @@ export default function Niveau8() {
   const [mouthAlt, setMouthAlt] = useState(false)
   const [userId, setUserId] = useState('')
 
+  const [linkCopied, setLinkCopied] = useState(false)
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText("https://zelia.io?utm_source=share_zelia&utm_medium=niveau_8&utm_campaign=copy_link")
+    setLinkCopied(true)
+    setTimeout(() => setLinkCopied(false), 2000)
+  }
+
   // Load profile + set avatar
   useEffect(() => {
     let mounted = true
@@ -322,14 +330,12 @@ export default function Niveau8() {
               {phase === 'intro' && (
                 <div className="mt-4 flex flex-col sm:flex-row gap-2">
                   {idx === 3 && (
-                    <a
-                      href="/register"
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      onClick={handleCopyLink}
                       className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto text-center"
                     >
-                      Ouvrir la page d'inscription
-                    </a>
+                      {linkCopied ? 'Lien copié !' : 'Copier le lien'}
+                    </button>
                   )}
                   <button onClick={next} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">
                     {idx === messages.length - 1 ? 'Oui laisse moi voir la vidéo' : 'Suivant'}
@@ -383,7 +389,8 @@ export default function Niveau8() {
             <h3 className="text-2xl font-extrabold mb-2">Niveau 8 réussi !</h3>
             <p className="text-text-secondary mb-4">Bravo, tu as regardé la vidéo sur la réalité de l’orientation.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/niveau/9')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />

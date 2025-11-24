@@ -31,6 +31,13 @@ import BlogIndex from './pages/blog/BlogIndex.jsx'
 import BlogExploreMetiers from './pages/blog/BlogExploreMetiers.jsx'
 import BlogQuestionnaire from './pages/blog/BlogQuestionnaire.jsx'
 import BlogParents from './pages/blog/BlogParents.jsx'
+import TagManager from 'react-gtm-module'
+
+const tagManagerArgs = {
+    gtmId: 'GTM-TTNGZ2H8'
+}
+
+TagManager.initialize(tagManagerArgs)
 
 const dynamicNiveauModules = import.meta.glob([
   './pages/niveau/Niveau[6-9].jsx',

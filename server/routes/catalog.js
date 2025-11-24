@@ -98,12 +98,13 @@ router.get('/metiers/search', optionalAuth, async (req, res) => {
     if (q) {
       const like = `%${q}%`
       // Use a conservative set of columns known to exist across schemas to avoid 400 errors
-      query = query.or([
-        `intitule.ilike.${like}`,
-        `description.ilike.${like}`,
-        `romecode.ilike.${like}`,
-        `entreprise_nom.ilike.${like}`
-      ].join(','))
+      // Removed description and others to avoid timeouts on large datasets
+      query = query.ilike('intitule', like)
+
+      // Add date filter to improve performance on large dataset
+      const days = 180 // 6 months
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+      query = query.gte('dateactualisation', since)
     }
 
     if (location) {

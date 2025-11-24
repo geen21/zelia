@@ -63,7 +63,7 @@ export default function Emplois(){
 		const effectivePageSize = recommendedOnly ? 50 : 20
 		// Avoid sending empty filters; some backends treat empty strings awkwardly
 		const params = { page: p, page_size: effectivePageSize }
-        if (q) params.search = q
+        if (q) params.q = q
 		if (typecontrat) params.typecontrat = typecontrat
 		if (alternance) params.alternance = alternance === 'true'
 		setLoading(true)

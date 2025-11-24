@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import supabase from '../../lib/supabase'
-import { analysisAPI, formationsAPI, usersAPI } from '../../lib/api'
+import { formationsAPI, usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 
 const REGIONS = [
@@ -195,62 +195,7 @@ function mapFormation(item, index) {
   }
 }
 
-function extractJobSuggestionTitles(payload) {
-  const titles = new Set()
 
-  const addTitle = (value) => {
-    if (!value) return
-    const raw = String(value).trim()
-    if (!raw) return
-    const cleaned = raw.replace(/^[\d\s\-_.:()]+/, '').trim()
-    if (cleaned) titles.add(cleaned)
-  }
-
-  const processSource = (source) => {
-    if (!source) return
-    if (Array.isArray(source)) {
-      source.forEach((item) => {
-        if (!item) return
-        if (typeof item === 'string') {
-          addTitle(item)
-        } else if (typeof item === 'object') {
-          const title =
-            item.title ||
-            item.titre ||
-            item.titlle ||
-            item.name ||
-            item.label ||
-            item.job ||
-            item.metier ||
-            item.profession ||
-            item.intitule
-          if (title) addTitle(title)
-        }
-      })
-    } else if (typeof source === 'string') {
-      source.split(/[\n;,]+/).forEach((part) => addTitle(part))
-    }
-  }
-
-  const candidates = [
-    payload?.results?.jobRecommendations,
-    payload?.results?.job_recommendations,
-    payload?.results?.inscriptionResults?.jobRecommendations,
-    payload?.results?.inscriptionResults?.job_recommendations,
-    payload?.results?.user_results?.jobRecommendations,
-    payload?.results?.user_results?.job_recommandations,
-    payload?.jobRecommendations,
-    payload?.job_recommendations,
-    payload?.user_results?.jobRecommendations,
-    payload?.user_results?.job_recommandations,
-    payload?.data?.jobRecommendations,
-    payload?.data?.job_recommendations
-  ]
-
-  candidates.forEach(processSource)
-
-  return Array.from(titles)
-}
 
 export default function Niveau6() {
   const navigate = useNavigate()
@@ -268,7 +213,7 @@ export default function Niveau6() {
   const [searchError, setSearchError] = useState('')
   const [results, setResults] = useState([])
   const [selectedFormation, setSelectedFormation] = useState(null)
-  const [jobSuggestions, setJobSuggestions] = useState([])
+  const [jobSuggestions, setJobSuggestions] = useState(QUICK_SUGGESTIONS)
 
   const [completionSaving, setCompletionSaving] = useState(false)
   const [completionError, setCompletionError] = useState('')
@@ -319,15 +264,6 @@ export default function Niveau6() {
         const prof = profileRes?.data?.profile || profileRes?.data || {}
         setProfile(prof)
         setAvatarUrl(buildAvatarFromProfile(prof, user.id))
-
-        try {
-          const analysisRes = await analysisAPI.getMyResults()
-          if (!mounted) return
-          const titles = extractJobSuggestionTitles(analysisRes?.data)
-          if (titles.length > 0) setJobSuggestions(titles)
-        } catch (suggestionErr) {
-          console.warn('Niveau6 job suggestions load failed', suggestionErr)
-        }
       } catch (err) {
         console.error('Niveau6 profile load failed', err)
         if (!mounted) return
@@ -601,7 +537,7 @@ export default function Niveau6() {
               <form className="space-y-4" onSubmit={handleSearch}>
                 {displayJobSuggestions.length > 0 && (
                   <div>
-                    <p className="mb-2 text-sm font-medium text-gray-700">Suggestions de métiers</p>
+                    <p className="mb-2 text-sm font-medium text-gray-700">Suggestions de formations</p>
                     <div className="flex flex-wrap gap-2">
                       {displayJobSuggestions.map((suggestion) => (
                         <button
@@ -791,9 +727,16 @@ export default function Niveau6() {
               <button
                 type="button"
                 onClick={() => navigate('/app/activites')}
-                className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d]"
+                className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-5 py-3 text-base font-semibold text-gray-700 transition hover:bg-gray-100"
               >
                 Retour aux activités
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/app/niveau/7')}
+                className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d]"
+              >
+                Passer au niveau suivant
               </button>
               <button
                 type="button"

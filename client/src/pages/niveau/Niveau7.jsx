@@ -490,9 +490,16 @@ export default function Niveau7() {
               <button
                 type="button"
                 onClick={() => navigate('/app/activites')}
-                className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d]"
+                className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-5 py-3 text-base font-semibold text-gray-700 transition hover:bg-gray-100"
               >
                 Retour aux activités
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/app/niveau/8')}
+                className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d]"
+              >
+                Passer au niveau suivant
               </button>
               <button
                 type="button"

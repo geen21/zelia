@@ -130,7 +130,7 @@ export default function Niveau5() {
     { type: 'text', text: "First, let's test your listening. I'll play a short audio. Listen carefully and answer the question after.", durationMs: 4000 },
     { type: 'audio', text: "Listen: 'Hello, my name is John. I live in London and I work as a teacher. I like reading books and playing football.'\n\nWhat is John's job?", audioText: "Hello, my name is John. I live in London and I work as a teacher. I like reading books and playing football." },
     { type: 'input', id: 'listening1', placeholder: 'Your answer...' },
-    { type: 'text', text: "Good! Now, another listening test. Listen: 'The weather is sunny today. I am going to the park with my friends. We will have a picnic and play games.' Where are they going?", durationMs: 4000 },
+    { type: 'text', text: "Good! Now, another listening test.", durationMs: 1000 },
     { type: 'audio', text: "Listen: 'The weather is sunny today. I am going to the park with my friends. We will have a picnic and play games.'\n\nWhere are they going?", audioText: "The weather is sunny today. I am going to the park with my friends. We will have a picnic and play games." },
     { type: 'input', id: 'listening2', placeholder: 'Your answer...' },
     { type: 'text', text: "Great listening! Now, speaking. Describe your favorite hobby in English. Be as detailed as you can.", durationMs: 3000 },
@@ -388,7 +388,8 @@ export default function Niveau5() {
             <h3 className="text-2xl font-extrabold mb-2">Niveau 5 terminé !</h3>
             <p className="text-text-secondary mb-4">Ton niveau d'anglais est : <strong>{englishLevel}</strong>. Continue à pratiquer pour progresser !</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/niveau/6')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
           </div>
         </div>

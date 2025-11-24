@@ -463,7 +463,7 @@ const Activites = () => {
     }, [shareFeedback]);
 
     const handleShare = async () => {
-        const shareUrl = window.location.href;
+        const shareUrl = "https://zelia.io?utm_source=share_zelia&utm_medium=dashboard&utm_campaign=copy_link";
         const shareData = {
             title: 'Zélia',
             text: "Découvre Zélia, l'aventure orientation personnalisée.",
@@ -517,6 +517,7 @@ const Activites = () => {
     const isLevel1Blocked = progression?.level === 1 && !resultsAvailable;
     // Display 0.5 if at level 1 (start), otherwise follow standard display logic
     const effectiveLevel = (progression?.level === 1) ? 0.5 : displayLevel;
+    const effectiveXp = (progression?.level === 1) ? 50 : progression.xp;
 
     return (
         <>
@@ -608,7 +609,7 @@ const Activites = () => {
                     <div className="mt-6">
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-sm font-medium text-gray-700">
-                                {progression.xp} / {MAX_LEVEL * XP_PER_LEVEL} XP
+                                {effectiveXp} / {MAX_LEVEL * XP_PER_LEVEL} XP
                             </span>
                             <span className="text-sm font-medium text-gray-700">
                                 {progression.level >= MAX_LEVEL ? 'Niveau max atteint' : `${progression.toNext} XP jusqu'au niveau ${progression.level + 1}`}
@@ -741,11 +742,11 @@ const Activites = () => {
                 {/* Quick Stats */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="bg-white rounded-xl p-4 text-center border border-gray-200 shadow-card">
-                        <div className="text-2xl font-bold text-purple-600">{progression.level}</div>
+                        <div className="text-2xl font-bold text-purple-600">{effectiveLevel}</div>
                         <div className="text-sm text-gray-600">Niveau Actuel</div>
                     </div>
                     <div className="bg-white rounded-xl p-4 text-center border border-gray-200 shadow-card">
-                        <div className="text-2xl font-bold text-blue-600">{progression.xp}</div>
+                        <div className="text-2xl font-bold text-blue-600">{effectiveXp}</div>
                         <div className="text-sm text-gray-600">XP Total</div>
                     </div>
                     <div className="bg-white rounded-xl p-4 text-center border border-gray-200 shadow-card">

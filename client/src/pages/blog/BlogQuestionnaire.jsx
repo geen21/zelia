@@ -20,7 +20,7 @@ export default function BlogQuestionnaire() {
         <li>Zelia t’aide à te découvrir en 70 jours d’aventure.</li>
       </ul>
       <div className="mt-4 text-center">
-        <Link to="/register" className="btn btn-primary btn-sm w-100">
+        <Link to="/avatar" className="btn btn-primary btn-sm w-100">
           Découvrir Zelia
         </Link>
       </div>
@@ -66,7 +66,7 @@ export default function BlogQuestionnaire() {
           Et tu te retrouves à cocher une case, sans savoir pourquoi. Juste parce qu’il “faut bien avancer”.
         </p>
         <div className="my-5 text-center">
-          <Link to="/register" className="btn btn-primary btn-lg">
+          <Link to="/avatar" className="btn btn-primary btn-lg">
             Découvre Zelia
           </Link>
         </div>
@@ -131,7 +131,7 @@ export default function BlogQuestionnaire() {
           Pour être honnête, on ne t’aide même pas à trouver le travail parfait, le job de tes rêves. On t’aide à trouver le métier idéal, celui qui est fait pour toi, qui te correspond. Un métier ou plusieurs métiers avec le ou lesquel(s) tu pourrais matcher. Parce qu’avant de “choisir ta voie”, tu dois d’abord te rencontrer.
         </p>
         <div className="my-5 text-center">
-          <Link to="/register" className="btn btn-primary btn-lg">
+          <Link to="/avatar" className="btn btn-primary btn-lg">
             Découvre Zelia
           </Link>
         </div>
@@ -184,7 +184,7 @@ export default function BlogQuestionnaire() {
           N’attend plus pour te lancer et saisi ta chance, sur zelia.io
         </p>
         <div className="mt-4 text-center">
-          <Link to="/register" className="btn btn-primary btn-lg">
+          <Link to="/avatar" className="btn btn-primary btn-lg">
             Découvre Zelia
           </Link>
         </div>

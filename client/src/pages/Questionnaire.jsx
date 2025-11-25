@@ -176,7 +176,7 @@ export default function Questionnaire() {
               <button
                 key={i}
                 type="button"
-                className={`px-3 py-2 rounded-lg border ${answers[current?.id]===opt ? 'border-black bg-black text-white':'border-line'}`}
+                className={`px-3 py-2 rounded-lg border ${answers[current?.id]===opt ? 'border-black':'border-line'}`}
                 onClick={() => choose(opt)}
               >
                 {opt}

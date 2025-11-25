@@ -20,7 +20,7 @@ export default function BlogExploreMetiers() {
         <li>Les compétences humaines (créativité, relationnel) seront clés.</li>
       </ul>
       <div className="mt-4 text-center">
-        <Link to="/register" className="btn btn-primary btn-sm w-100">
+        <Link to="/avatar" className="btn btn-primary btn-sm w-100">
           Découvrir Zelia
         </Link>
       </div>
@@ -81,7 +81,7 @@ export default function BlogExploreMetiers() {
           D’ailleurs, les métiers d’avenir ne sont pas forcément ceux auxquels on pourrait penser, et nous y reviendrons.
         </p>
         <div className="my-5 text-center">
-          <Link to="/register" className="btn btn-primary btn-lg">
+          <Link to="/avatar" className="btn btn-primary btn-lg">
             Découvre Zelia
           </Link>
         </div>
@@ -132,7 +132,7 @@ export default function BlogExploreMetiers() {
           Commence gratuitement ta quête avec Zelia aujourd’hui.
         </p>
         <div className="my-5 text-center">
-          <Link to="/register" className="btn btn-primary btn-lg">
+          <Link to="/avatar" className="btn btn-primary btn-lg">
             Lancer la quête
           </Link>
         </div>
@@ -175,7 +175,7 @@ export default function BlogExploreMetiers() {
           Découvre tout ton potentiel dès maintenant. Sur zelia.io.
         </p>
         <div className="mt-4 text-center">
-          <Link to="/register" className="btn btn-primary btn-lg">
+          <Link to="/avatar" className="btn btn-primary btn-lg">
             Lancer la quête
           </Link>
         </div>

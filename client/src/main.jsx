@@ -74,8 +74,8 @@ function App() {
         <Route path="/legal/mentions-legales" element={<MentionsLegales />} />
         <Route path="/legal/conditions" element={<ConditionsConfidentialite />} />
     <Route path="/blog" element={<BlogIndex />} />
-    <Route path="/blog/explorer-metiers-demain" element={<BlogExploreMetiers />} />
-    <Route path="/blog/questionnaire-orientation-premiers-pas" element={<BlogQuestionnaire />} />
+    <Route path="/blog/ia-remplacer-futur-metier" element={<BlogExploreMetiers />} />
+    <Route path="/blog/pourquoi-ecole-ne-t-aide-pas" element={<BlogQuestionnaire />} />
     <Route path="/blog/accompagner-parents" element={<BlogParents />} />
         <Route path="/app" element={<RequireAuth><Layout /></RequireAuth>}>
           <Route index element={

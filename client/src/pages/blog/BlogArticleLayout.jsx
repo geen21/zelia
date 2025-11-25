@@ -54,10 +54,6 @@ export default function BlogArticleLayout({ post, children, aside }) {
               <i className="ph ph-calendar" aria-hidden="true"></i>
               <span>Publié — {post.publishedAt}</span>
             </span>
-            <span className="blog-article__status">
-              <i className="ph ph-pencil-circle" aria-hidden="true"></i>
-              <span>Brouillon à enrichir</span>
-            </span>
           </div>
           <div className="blog-article__hero-divider" aria-hidden="true"></div>
         </div>

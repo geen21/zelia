@@ -1,21 +1,21 @@
 export const blogPosts = [
   {
-    slug: 'explorer-metiers-demain',
-    title: 'Explorer les métiers de demain',
-    description: 'Comment anticiper les compétences qui compteront pour les métiers émergents et se mettre en mouvement dès maintenant.',
+    slug: 'ia-remplacer-futur-metier',
+    title: 'L’intelligence artificielle va-t-elle remplacer ton futur métier ?',
+    description: 'L’IA inquiète, mais elle crée aussi des opportunités. Découvre quels métiers vont évoluer et comment te préparer à ce changement inévitable.',
     category: 'Futur du travail',
     readingTime: '6 min',
-    publishedAt: 'Octobre 2025',
+    publishedAt: 'Novembre 2025',
     accent: '#0ea5e9',
     accentSoft: '#e0f2fe'
   },
   {
-    slug: 'questionnaire-orientation-premiers-pas',
-    title: 'Bien démarrer le questionnaire Zélia',
-    description: 'Quelques repères pour aborder le questionnaire d\'orientation avec curiosité et sans stress inutile.',
-    category: 'Méthodologie',
-    readingTime: '4 min',
-    publishedAt: 'Septembre 2025',
+    slug: 'pourquoi-ecole-ne-t-aide-pas',
+    title: 'Pourquoi l’école ne t’aide pas à te connaître (et ce qu’on te cache sur l’orientation)',
+    description: 'L’école t’apprend à résoudre des équations, mais pas à savoir qui tu es. Découvre pourquoi le système actuel ne t’aide pas à trouver ta voie.',
+    category: 'Orientation',
+    readingTime: '5 min',
+    publishedAt: 'Novembre 2025',
     accent: '#6366f1',
     accentSoft: '#e0e7ff'
   },

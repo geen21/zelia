@@ -1,13 +1,11 @@
 import React, { useMemo, useState } from 'react'
 import axios from 'axios'
-import supabase from '../lib/supabase'
 import { Link, useNavigate } from 'react-router-dom'
 
 export default function Register() {
-  // Single mode: student
+  const [step, setStep] = useState(1)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  // student
   const [nom, setNom] = useState('')
   const [prenom, setPrenom] = useState('')
   const [age, setAge] = useState('18')
@@ -145,14 +143,39 @@ export default function Register() {
     }
   }
 
+  function nextStep() {
+    if (step === 1) {
+      if (!prenom || !nom || !age || !genre) {
+        setError('Veuillez remplir tous les champs obligatoires')
+        return
+      }
+    } else if (step === 2) {
+      if (!departement) {
+        setError('Veuillez sélectionner votre département')
+        return
+      }
+    } else if (step === 3) {
+      if (!email || !password || !confirmPassword) {
+        setError('Veuillez remplir tous les champs obligatoires')
+        return
+      }
+      if (password !== confirmPassword) {
+        setError('Les mots de passe ne correspondent pas')
+        return
+      }
+    }
+    setError('')
+    setStep(s => s + 1)
+  }
+
+  function prevStep() {
+    setError('')
+    setStep(s => s - 1)
+  }
+
   return (
-    <div className="min-h-screen bg-white text-text-primary flex items-center justify-center px-4">
-      <div className="w-full max-w-5xl py-10">
-        <style>{`
-        /* Helper to remove outlines / rings / transitions */
-        .no-outline, .no-outline:focus, .no-outline:focus-visible { outline: none !important; box-shadow: none !important; transition: none !important; }
-        .no-outline::-moz-focus-inner { border: 0 !important; }
-        `}</style>
+    <div className="fixed inset-0 bg-white text-text-primary flex flex-col items-center justify-center px-4 overflow-hidden">
+      <div className="w-full max-w-lg py-4 h-full flex flex-col justify-center overflow-y-auto">
         {emailSent ? (
           // Email confirmation message
           <div className="text-center">
@@ -185,97 +208,136 @@ export default function Register() {
         ) : (
           // Registration form
           <>
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold">Créer un compte</h1>
-              <p className="text-text-secondary">Choisissez votre type de profil pour une expérience personnalisée.</p>
+            <div className="mb-4 shrink-0">
+              <h1 className="text-xl md:text-2xl font-bold">Créer un compte</h1>
+              <p className="text-sm text-text-secondary">Étape {step} sur 4</p>
+              <div className="w-full bg-gray-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                <div className="bg-black h-full transition-all duration-300" style={{width: `${step * 25}%`}}></div>
+              </div>
             </div>
-            <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-xl shadow-card p-6">
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                    {/* Student fields only */}
-                    <div className="md:col-span-4">
-                      <label className="block text-sm text-text-secondary mb-1">Prénom *</label>
-                      <input className="w-full border border-line rounded-none h-11 px-3 outline-none text-sm focus:outline-none focus:ring-0 focus:shadow-none transition-none no-outline" type="text" placeholder="Votre prénom" value={prenom} onChange={e=>setPrenom(e.target.value)} required />
+            
+            <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-xl shadow-card p-4 md:p-6 shrink-0">
+              {step === 1 && (
+                <div className="space-y-3">
+                  <h2 className="font-semibold text-lg mb-2">Qui es-tu ?</h2>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-text-secondary mb-1">Prénom *</label>
+                      <input className="w-full border border-line rounded-lg h-10 px-3 outline-none text-sm focus:border-black transition-colors" type="text" placeholder="Prénom" value={prenom} onChange={e=>setPrenom(e.target.value)} />
                     </div>
-                    <div className="md:col-span-4">
-                      <label className="block text-sm text-text-secondary mb-1">Nom *</label>
-                      <input className="w-full border border-line rounded-none h-11 px-3 outline-none text-sm focus:outline-none focus:ring-0 focus:shadow-none transition-none no-outline" type="text" placeholder="Votre nom" value={nom} onChange={e=>setNom(e.target.value)} required />
+                    <div>
+                      <label className="block text-xs text-text-secondary mb-1">Nom *</label>
+                      <input className="w-full border border-line rounded-lg h-10 px-3 outline-none text-sm focus:border-black transition-colors" type="text" placeholder="Nom" value={nom} onChange={e=>setNom(e.target.value)} />
                     </div>
-                    <div className="md:col-span-4">
-                      <label className="block text-sm text-text-secondary mb-1">Âge *</label>
-                      <input className="w-full border border-line rounded-none h-11 px-3 outline-none text-sm focus:outline-none focus:ring-0 focus:shadow-none transition-none no-outline" type="number" min="10" max="100" placeholder="Votre âge" value={age} onChange={e=>setAge(e.target.value)} required />
-                    </div>
-                    <div className="md:col-span-6">
-                      <label className="block text-sm text-text-secondary mb-1">Département *</label>
-                      <select className="w-full border border-line rounded-none h-11 px-3 outline-none text-sm bg-white focus:outline-none focus:ring-0 focus:shadow-none transition-none no-outline" value={departement} onChange={e=>setDepartement(e.target.value)} required>
-                        <option value="">Sélectionnez votre département</option>
-                        {departements.map(d => <option key={d.code} value={`${d.code} - ${d.name}`}>{d.code} - {d.name}</option>)}
-                      </select>
-                    </div>
-                    <div className="md:col-span-6">
-                      <label className="block text-sm text-text-secondary mb-1">Genre *</label>
-                      <select className="w-full border border-line rounded-none h-11 px-3 outline-none text-sm bg-white focus:outline-none focus:ring-0 focus:shadow-none transition-none no-outline" value={genre} onChange={e=>setGenre(e.target.value)} required>
-                        <option value="">Sélectionnez un genre</option>
-                        <option value="Homme">Homme</option>
-                        <option value="Femme">Femme</option>
-                        <option value="Autre">Autre</option>
-                      </select>
-                    </div>
-                    <div className="md:col-span-6">
-                      <label className="block text-sm text-text-secondary mb-1">École/Formation</label>
-                      <input className="w-full border border-line rounded-none h-11 px-3 outline-none text-sm focus:outline-none focus:ring-0 focus:shadow-none transition-none no-outline" type="text" placeholder="Nom de votre école..." value={ecole} onChange={e=>setEcole(e.target.value)} />
-                      <small className="text-text-secondary">Facultatif - Saisissez le nom de votre école</small>
-                    </div>
-                    <div className="md:col-span-6">
-                      <label className="block text-sm text-text-secondary mb-1">Numéro de téléphone</label>
-                      <input className="w-full border border-line rounded-none h-11 px-3 outline-none text-sm focus:outline-none focus:ring-0 focus:shadow-none transition-none no-outline" type="tel" placeholder="ex: 06 12 34 56 78" value={numeroTelephone} onChange={e=>setNumeroTelephone(e.target.value)} />
-                      <small className="text-text-secondary">Facultatif</small>
-                    </div>
-                    <div className="md:col-span-6">
-                      <label className="block text-sm text-text-secondary mb-1">Adresse Email *</label>
-                      <input className="w-full border border-line rounded-none h-11 px-3 outline-none text-sm focus:outline-none focus:ring-0 focus:shadow-none transition-none no-outline" type="email" placeholder="Entrez votre adresse email" value={email} onChange={e=>setEmail(e.target.value)} required />
-                    </div>
-                    <div className="md:col-span-3">
-                      <label className="block text-sm text-text-secondary mb-1">Mot de passe *</label>
-                      <input className="w-full border border-line rounded-none h-11 px-3 outline-none text-sm focus:outline-none focus:ring-0 focus:shadow-none transition-none no-outline" type="password" placeholder="Entrez votre mot de passe" value={password} onChange={e=>setPassword(e.target.value)} required />
-                    </div>
-                    <div className="md:col-span-3">
-                      <label className="block text-sm text-text-secondary mb-1">Confirmer le mot de passe *</label>
-                      <input className="w-full border border-line rounded-none h-11 px-3 outline-none text-sm focus:outline-none focus:ring-0 focus:shadow-none transition-none no-outline" type="password" placeholder="Confirmez votre mot de passe" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} required />
-                    </div>
-                    <div className="md:col-span-12">
-                      <label className="flex items-start gap-3 text-sm text-text-secondary">
-                        <input
-                          type="checkbox"
-                          className="mt-1 h-4 w-4 border border-line focus:outline-none focus:ring-0 focus:shadow-none transition-none"
-                          checked={acceptTerms}
-                          onChange={(e) => setAcceptTerms(e.target.checked)}
-                          required
-                        />
-                        <span>
-                          J'ai lu et j'accepte les <Link to="/legal/conditions" className="underline">Conditions Générales de Vente (CGV) et d'Utilisation (CGU)</Link>, ainsi que les <Link to="/legal/mentions-legales" className="underline">Mentions légales</Link>.
-                        </span>
-                      </label>
-                    </div>
-                    <div className="md:col-span-12">
-                      <label className="flex items-start gap-3 text-sm text-text-secondary">
-                        <input
-                          type="checkbox"
-                          className="mt-1 h-4 w-4 border border-line focus:outline-none focus:ring-0 focus:shadow-none transition-none"
-                          checked={newsletterOptIn}
-                          onChange={(e) => setNewsletterOptIn(e.target.checked)}
-                        />
-                        <span>
-                          Je souhaite recevoir la newsletter Zelia (optionnel).
-                        </span>
-                      </label>
-                    </div>
-                    {error && <div className="md:col-span-12 text-red-600 text-sm">{error}</div>}
-                    <div className="md:col-span-12">
-                      <button type="submit" className="w-full bg-black text-white rounded-none h-11">S'inscrire</button>
-                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-1">Âge *</label>
+                    <input className="w-full border border-line rounded-lg h-10 px-3 outline-none text-sm focus:border-black transition-colors" type="number" min="10" max="100" placeholder="18" value={age} onChange={e=>setAge(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-1">Genre *</label>
+                    <select className="w-full border border-line rounded-lg h-10 px-3 outline-none text-sm bg-white focus:border-black transition-colors" value={genre} onChange={e=>setGenre(e.target.value)}>
+                      <option value="">Sélectionner</option>
+                      <option value="Homme">Homme</option>
+                      <option value="Femme">Femme</option>
+                      <option value="Autre">Autre</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {step === 2 && (
+                <div className="space-y-3">
+                  <h2 className="font-semibold text-lg mb-2">Ta situation</h2>
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-1">Département *</label>
+                    <select className="w-full border border-line rounded-lg h-10 px-3 outline-none text-sm bg-white focus:border-black transition-colors" value={departement} onChange={e=>setDepartement(e.target.value)}>
+                      <option value="">Sélectionner</option>
+                      {departements.map(d => <option key={d.code} value={`${d.code} - ${d.name}`}>{d.code} - {d.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-1">École/Formation</label>
+                    <input className="w-full border border-line rounded-lg h-10 px-3 outline-none text-sm focus:border-black transition-colors" type="text" placeholder="Nom de ton école..." value={ecole} onChange={e=>setEcole(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-1">Téléphone (optionnel)</label>
+                    <input className="w-full border border-line rounded-lg h-10 px-3 outline-none text-sm focus:border-black transition-colors" type="tel" placeholder="06 12 34 56 78" value={numeroTelephone} onChange={e=>setNumeroTelephone(e.target.value)} />
+                  </div>
+                </div>
+              )}
+
+              {step === 3 && (
+                <div className="space-y-3">
+                  <h2 className="font-semibold text-lg mb-2">Sécuriser ton compte</h2>
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-1">Email *</label>
+                    <input className="w-full border border-line rounded-lg h-10 px-3 outline-none text-sm focus:border-black transition-colors" type="email" placeholder="ton@email.com" value={email} onChange={e=>setEmail(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-1">Mot de passe *</label>
+                    <input className="w-full border border-line rounded-lg h-10 px-3 outline-none text-sm focus:border-black transition-colors" type="password" placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-1">Confirmer *</label>
+                    <input className="w-full border border-line rounded-lg h-10 px-3 outline-none text-sm focus:border-black transition-colors" type="password" placeholder="••••••••" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} />
+                  </div>
+                </div>
+              )}
+
+              {step === 4 && (
+                <div className="space-y-4">
+                  <h2 className="font-semibold text-lg mb-2">Dernière étape</h2>
+                  <div className="bg-gray-50 p-4 rounded-lg text-sm space-y-3">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 rounded border-gray-300 text-black focus:ring-black"
+                        checked={acceptTerms}
+                        onChange={(e) => setAcceptTerms(e.target.checked)}
+                      />
+                      <span className="text-text-secondary text-xs">
+                        J'accepte les <Link to="/legal/conditions" className="underline text-black">CGV/CGU</Link> et la <Link to="/legal/mentions-legales" className="underline text-black">Politique de confidentialité</Link>.
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 rounded border-gray-300 text-black focus:ring-black"
+                        checked={newsletterOptIn}
+                        onChange={(e) => setNewsletterOptIn(e.target.checked)}
+                      />
+                      <span className="text-text-secondary text-xs">
+                        Je souhaite recevoir la newsletter Zelia (conseils orientation, nouveautés).
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {error && <div className="mt-4 text-red-600 text-sm bg-red-50 p-2 rounded border border-red-100">{error}</div>}
+
+              <div className="mt-6 flex gap-3">
+                {step > 1 && (
+                  <button type="button" onClick={prevStep} className="flex-1 h-10 rounded-lg border border-line text-sm font-medium hover:bg-gray-50 transition-colors">
+                    Retour
+                  </button>
+                )}
+                {step < 4 ? (
+                  <button type="button" onClick={nextStep} className="flex-1 h-10 rounded-lg bg-black text-white text-sm font-medium hover:bg-gray-900 transition-colors">
+                    Suivant
+                  </button>
+                ) : (
+                  <button type="submit" className="flex-1 h-10 rounded-lg bg-black text-white text-sm font-medium hover:bg-gray-900 transition-colors">
+                    S'inscrire
+                  </button>
+                )}
               </div>
             </form>
-            <p className="mt-3 text-sm text-text-secondary">Vous avez déjà un compte ? <Link to="/login" className="underline">Se connecter</Link></p>
+            
+            <p className="mt-4 text-center text-sm text-text-secondary">
+              Déjà un compte ? <Link to="/login" className="text-black font-medium hover:underline">Se connecter</Link>
+            </p>
           </>
         )}
       </div>

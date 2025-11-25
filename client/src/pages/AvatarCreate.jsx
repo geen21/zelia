@@ -47,6 +47,9 @@ export default function AvatarCreate() {
 			glasses: Math.random() > 0.6
 		}))
 	}
+	function randomizeFace() {
+		updateCfg({ seed: Math.random().toString(36).slice(2, 10) })
+	}
 
 	async function saveAvatar() {
 		setSaving(true)
@@ -66,50 +69,52 @@ export default function AvatarCreate() {
 	}
 
 	return (
-		<div className="min-h-screen bg-white text-text-primary flex items-center justify-center px-4">
-			<div className="w-full max-w-5xl py-10">
-				<div className="mb-6">
-					<h1 className="text-2xl font-bold">Crée ton avatar</h1>
-					<p className="text-text-secondary">Personnalise ton avatar, il te suivra tout au long de l'expérience.</p>
+		<div className="fixed inset-0 bg-white text-text-primary flex flex-col items-center justify-center px-4 overflow-hidden">
+			<div className="w-full max-w-5xl py-2 md:py-10 h-full flex flex-col justify-center overflow-y-auto md:overflow-visible">
+				<div className="mb-2 md:mb-6 shrink-0">
+					<h1 className="text-xl md:text-2xl font-bold">Crée ton avatar</h1>
+					<p className="text-sm md:text-base text-text-secondary">Personnalise ton avatar, il te suivra tout au long de l'expérience.</p>
 				</div>
-				<div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+				<div className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-4 shrink-0">
 					<div className="md:col-span-5">
-						<div className="bg-surface border border-line rounded-xl shadow-card p-5 sm:p-6 grid place-items-center">
-							<img src={url} alt="avatar" className="w-full max-w-[200px] sm:max-w-[260px] md:max-w-[320px] lg:max-w-[360px]" />
+						<div className="bg-surface border border-line rounded-xl shadow-card p-3 md:p-6 grid place-items-center">
+							<img src={url} alt="avatar" className="w-full max-w-[140px] sm:max-w-[260px] md:max-w-[320px] lg:max-w-[360px]" />
 						</div>
 					</div>
 					<div className="md:col-span-7">
-						<div className="bg-surface border border-line rounded-xl shadow-card p-6">
-							<div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-								<div className="md:col-span-6">
-									<label className="block text-sm text-text-secondary mb-1">Nom (seed)</label>
-									<input className="w-full border border-line rounded-lg px-3 py-2 outline-none" type="text" value={cfg.seed} onChange={e=>updateCfg({seed:e.target.value})} />
+						<div className="bg-surface border border-line rounded-xl shadow-card p-3 md:p-6">
+							<div className="grid grid-cols-6 md:grid-cols-12 gap-2 md:gap-4">
+								<div className="col-span-6 md:col-span-6">
+									<label className="block text-xs md:text-sm text-text-secondary mb-1">Visage</label>
+									<button className="w-full border border-line rounded-lg px-3 py-1 md:py-2 text-sm bg-gray-50 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2" onClick={randomizeFace}>
+										<span>Change ton avatar</span>
+									</button>
 								</div>
-								<div className="md:col-span-6">
-									<label className="block text-sm text-text-secondary mb-1">Rayon</label>
+								<div className="col-span-6 md:col-span-6">
+									<label className="block text-xs md:text-sm text-text-secondary mb-1">Rayon</label>
 									<input className="w-full" type="range" min="0" max="50" value={cfg.radius} onChange={e=>updateCfg({radius:Number(e.target.value)})} />
 								</div>
-								<div className="md:col-span-4">
-									<label className="block text-sm text-text-secondary mb-1">Fond</label>
-									<input className="w-full h-10 p-1 border border-line rounded-lg" type="color" value={cfg.bg} onChange={e=>updateCfg({bg:e.target.value})} />
+								<div className="col-span-2 md:col-span-4">
+									<label className="block text-xs md:text-sm text-text-secondary mb-1">Fond</label>
+									<input className="w-full h-8 md:h-10 p-1 border border-line rounded-lg" type="color" value={cfg.bg} onChange={e=>updateCfg({bg:e.target.value})} />
 								</div>
-								<div className="md:col-span-4">
-									<label className="block text-sm text-text-secondary mb-1">Peau</label>
-									<input className="w-full h-10 p-1 border border-line rounded-lg" type="color" value={cfg.skin} onChange={e=>updateCfg({skin:e.target.value})} />
+								<div className="col-span-2 md:col-span-4">
+									<label className="block text-xs md:text-sm text-text-secondary mb-1">Peau</label>
+									<input className="w-full h-8 md:h-10 p-1 border border-line rounded-lg" type="color" value={cfg.skin} onChange={e=>updateCfg({skin:e.target.value})} />
 								</div>
-								<div className="md:col-span-4">
-									<label className="block text-sm text-text-secondary mb-1">Cheveux</label>
-									<input className="w-full h-10 p-1 border border-line rounded-lg" type="color" value={cfg.hair} onChange={e=>updateCfg({hair:e.target.value})} />
+								<div className="col-span-2 md:col-span-4">
+									<label className="block text-xs md:text-sm text-text-secondary mb-1">Cheveux</label>
+									<input className="w-full h-8 md:h-10 p-1 border border-line rounded-lg" type="color" value={cfg.hair} onChange={e=>updateCfg({hair:e.target.value})} />
 								</div>
-								<div className="md:col-span-6 flex items-center gap-2 mt-2">
+								<div className="col-span-6 md:col-span-6 flex items-center gap-2 mt-1 md:mt-2">
 									<input id="glasses" type="checkbox" className="h-4 w-4" checked={cfg.glasses} onChange={e=>updateCfg({glasses:e.target.checked})} />
-									<label htmlFor="glasses" className="text-sm text-text-secondary">Lunettes</label>
+									<label htmlFor="glasses" className="text-xs md:text-sm text-text-secondary">Lunettes</label>
 								</div>
 							</div>
 						</div>
-						<div className="flex gap-2 mt-3">
-							<button className="h-10 px-4 rounded-lg border border-line" onClick={randomize}>Au hasard</button>
-							<button className="h-10 px-4 rounded-lg bg-black text-white" onClick={saveAvatar} disabled={saving}>Enregistrer</button>
+						<div className="flex gap-2 mt-2 md:mt-3 shrink-0">
+							<button className="h-8 md:h-10 px-3 md:px-4 rounded-lg border border-line text-sm md:text-base" onClick={randomize}>Au hasard</button>
+							<button className="h-8 md:h-10 px-3 md:px-4 rounded-lg bg-black text-white text-sm md:text-base" onClick={saveAvatar} disabled={saving}>Enregistrer</button>
 						</div>
 					</div>
 				</div>

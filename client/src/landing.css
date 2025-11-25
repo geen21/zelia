@@ -344,7 +344,7 @@
 
 /* Blog Article */
 .blog-article{ background: linear-gradient(180deg, rgba(198,255,118,0.12) 0%, rgba(255,251,247,1) 14%), #fffbf7; color: #111827; min-height: 100vh; }
-.blog-article__hero{ position: relative; padding: 132px 0 80px; overflow: hidden; }
+.blog-article__hero{ position: relative; padding: 100px 0 60px; overflow: hidden; }
 .blog-article__hero::before{ content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 0% 0%, var(--landing-accent) 0%, transparent 55%), radial-gradient(circle at 85% 10%, var(--landing-accent-2) 0%, transparent 50%), linear-gradient(135deg, var(--accent-soft, rgba(227,246,255,0.6)) 0%, rgba(255,255,255,0) 70%); opacity: 0.65; }
 .blog-article__hero::after{ content: ""; position: absolute; right: 10%; top: 24%; width: 320px; height: 320px; background: radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 70%); filter: blur(2px); opacity: 0.6; }
 .blog-article__hero .container{ position: relative; z-index: 1; }
@@ -359,8 +359,8 @@
 .blog-article__chips{ display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
 .blog-article__chip{ display: inline-flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.05); color: #0f172a; border-radius: 999px; padding: 6px 18px; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
 .blog-article__chip i{ font-size: 16px; color: var(--accent, var(--landing-accent-2)); }
-.blog-article__title{ font-family: "GulfDisplay", "Bricolage Grotesque", "ClashGroteskMedium", system-ui, sans-serif; font-size: clamp(44px, 8vw, 88px); font-weight: 600; line-height: 0.94; max-width: 900px; margin-bottom: 38px; color: #05080f; }
-.blog-article__excerpt{ font-size: 20px; line-height: 1.7; color: rgba(5,8,15,0.7); max-width: 720px; margin-bottom: 26px; }
+.blog-article__title{ font-family: "GulfDisplay", "Bricolage Grotesque", "ClashGroteskMedium", system-ui, sans-serif; font-size: clamp(32px, 5vw, 60px); font-weight: 600; line-height: 1.1; max-width: 100%; margin-bottom: 24px; color: #05080f; }
+.blog-article__excerpt{ font-size: 18px; line-height: 1.6; color: rgba(5,8,15,0.7); max-width: 100%; margin-bottom: 24px; }
 .blog-article__meta{ display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-weight: 600; }
 .blog-article__meta span{ display: inline-flex; align-items: center; gap: 8px; }
 .blog-article__meta i{ font-size: 18px; color: var(--accent, var(--landing-accent-2)); }

@@ -38,10 +38,8 @@ export default function EmailConfirmation() {
           setStatus('success')
           setMessage('Email validé')
           
-          // Show alert and redirect after a short delay
+          // Redirect after a short delay (without alert)
           setTimeout(() => {
-            alert('Email validé')
-            
             // Check if user has questionnaire responses to determine redirect
             const hasQuestionnaireData = localStorage.getItem('answers_cache')
             if (hasQuestionnaireData) {
@@ -49,7 +47,7 @@ export default function EmailConfirmation() {
             } else {
               navigate('/app')
             }
-          }, 1000)
+          }, 2000)
         } else {
           setStatus('error')
           setMessage('Lien de confirmation invalide')

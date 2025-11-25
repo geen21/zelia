@@ -179,10 +179,29 @@ export default function Results() {
 		const clone = { ...results }
 		const isMbti = Boolean(clone.inscriptionResults) || (clone.personalityType && /\(([IE][NS][FT][JP])\)/i.test(clone.personalityType))
 		if (Array.isArray(clone.jobRecommendations)) {
+			// Filter out items that look like conversational preambles
+			clone.jobRecommendations = clone.jobRecommendations.filter(job => {
+				const title = (job?.title || '').trim()
+				if (title.startsWith('Voici') || title.endsWith(':') || (title.length > 50 && title.toLowerCase().includes('recommandations'))) {
+					return false
+				}
+				return true
+			})
 			clone.jobRecommendations = clone.jobRecommendations.slice(0, 6)
 		} else {
 			clone.jobRecommendations = []
 		}
+
+		if (Array.isArray(clone.studyRecommendations)) {
+			clone.studyRecommendations = clone.studyRecommendations.filter(study => {
+				const degree = (study?.degree || '').trim()
+				if (degree.startsWith('Voici') || degree.endsWith(':') || (degree.length > 50 && degree.toLowerCase().includes('recommandations'))) {
+					return false
+				}
+				return true
+			})
+		}
+
 		if (isMbti) {
 			// clone.skillsAssessment = null // Keep skillsAssessment for "Tes qualités"
 			if (clone.personalityAnalysis) {

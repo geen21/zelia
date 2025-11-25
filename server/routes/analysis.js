@@ -603,6 +603,9 @@ function parseJobRecommendations(text) {
     .filter(Boolean)
 
   for (const block of blocks) {
+    // Ignore blocks that don't start with a number (e.g. conversational preambles)
+    if (!/^\d+\./.test(block)) continue
+
     const lines = block.split(/\n/).map(l => l.trim()).filter(Boolean)
     if (lines.length === 0) continue
 
@@ -648,7 +651,13 @@ function parseJobRecommendations(text) {
 function parseStudyRecommendations(text) {
   const cleanText = (t) => (t || '').replace(/\*\*/g, '').trim()
   const studies = []
-  const lines = text.split('\n').filter(line => line.trim())
+  if (!text) return studies
+
+  // Remove potential conversational preamble by finding the first line starting with "1."
+  const startMatch = text.match(/^\s*1\./m)
+  const content = startMatch ? text.substring(startMatch.index) : text
+
+  const lines = content.split('\n').filter(line => line.trim())
   
   for (let i = 0; i < lines.length; i += 2) {
     if (lines[i] && lines[i + 1]) {

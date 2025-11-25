@@ -173,6 +173,14 @@ export default function Register() {
     setStep(s => s - 1)
   }
 
+  // Clear error when acceptTerms changes
+  function handleAcceptTermsChange(checked) {
+    setAcceptTerms(checked)
+    if (error === 'Vous devez accepter les CGV et CGU pour continuer' && checked) {
+      setError('')
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-white text-text-primary flex flex-col items-center justify-center px-4 overflow-hidden">
       <div className="w-full max-w-lg py-4 h-full flex flex-col justify-center overflow-y-auto">
@@ -294,7 +302,7 @@ export default function Register() {
                         type="checkbox"
                         className="mt-1 h-4 w-4 rounded border-gray-300 text-black focus:ring-black"
                         checked={acceptTerms}
-                        onChange={(e) => setAcceptTerms(e.target.checked)}
+                        onChange={(e) => handleAcceptTermsChange(e.target.checked)}
                       />
                       <span className="text-text-secondary text-xs">
                         J'accepte les <Link to="/legal/conditions" className="underline text-black">CGV/CGU</Link> et la <Link to="/legal/mentions-legales" className="underline text-black">Politique de confidentialité</Link>.

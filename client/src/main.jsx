@@ -32,6 +32,7 @@ import BlogExploreMetiers from './pages/blog/BlogExploreMetiers.jsx'
 import BlogQuestionnaire from './pages/blog/BlogQuestionnaire.jsx'
 import BlogParents from './pages/blog/BlogParents.jsx'
 import TagManager from 'react-gtm-module'
+import { usePageTracking } from './lib/usePageTracking.js'
 
 const tagManagerArgs = {
     gtmId: 'GTM-TTNGZ2H8'
@@ -60,10 +61,17 @@ const dynamicNiveauLevels = Object.keys(dynamicNiveauComponents)
   .map((level) => Number(level))
   .sort((a, b) => a - b)
 
+// Component to handle page tracking (must be inside BrowserRouter)
+function PageTracker() {
+  usePageTracking()
+  return null
+}
+
 function App() {
   return (
     <HelmetProvider>
       <BrowserRouter>
+        <PageTracker />
         <Routes>
     <Route path="/" element={<Home />} />
   <Route path="/login" element={<Login />} />

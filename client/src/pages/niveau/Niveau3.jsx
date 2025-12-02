@@ -242,11 +242,21 @@ export default function Niveau3() {
       setShowFeedback(false)
       setAudioUrl('')
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mr = new MediaRecorder(stream)
+      
+      let options = undefined
+      // Prefer mp4 for iOS compatibility, then webm
+      if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        options = { mimeType: 'audio/mp4' }
+      } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        options = { mimeType: 'audio/webm;codecs=opus' }
+      }
+
+      const mr = options ? new MediaRecorder(stream, options) : new MediaRecorder(stream)
       chunksRef.current = []
       mr.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunksRef.current.push(e.data) }
       mr.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        const type = mr.mimeType || (options && options.mimeType) || 'audio/webm'
+        const blob = new Blob(chunksRef.current, { type })
         const url = URL.createObjectURL(blob)
         setAudioUrl(url)
         setPhase('rate')

@@ -328,6 +328,20 @@ export default function Results() {
 		)
 	}
 
+	const ContinueAdventureButton = () => {
+		if (!progressionLevel) return null
+		return (
+			<div className="flex justify-center my-4">
+				<button
+					onClick={() => navigate(`/app/niveau/${progressionLevel}`)}
+					className="px-5 py-2.5 bg-[#c1ff72] hover:bg-[#b3ff5d] text-black text-sm rounded-lg border border-gray-200 transition"
+				>
+					Continuer l'aventure Zelia – Aller au niveau {progressionLevel}
+				</button>
+			</div>
+		)
+	}
+
 	const renderOrientationTab = () => {
 		const data = analysisData.inscriptionResults || analysisData // fallback if only simple results
 		if (!data) return null
@@ -361,6 +375,7 @@ export default function Results() {
 						</div>
 					</div>
 				)}
+				<ContinueAdventureButton />
 				{data.skillsAssessment && (
 					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
 						<div className="flex items-center gap-3 mb-4">
@@ -376,6 +391,7 @@ export default function Results() {
 						</div>
 					</div>
 				)}
+				<ContinueAdventureButton />
 				{data.jobRecommendations && data.jobRecommendations.length > 0 && (
 					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
 						<div className="flex items-center gap-3 mb-4">
@@ -400,6 +416,7 @@ export default function Results() {
 						</div>
 					</div>
 				)}
+				<ContinueAdventureButton />
 				{data.studyRecommendations && data.studyRecommendations.length > 0 && (
 					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
 						<div className="flex items-center gap-3 mb-4">
@@ -456,6 +473,7 @@ export default function Results() {
 						<p className="text-blue-800 font-semibold text-lg">{analysisData.personalityType}</p>
 					</div>
 				)}
+				<ContinueAdventureButton />
 				{analysisData.personalityAnalysis && (
 					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
 						{avatarUrls.analysis && (
@@ -474,6 +492,7 @@ export default function Results() {
 						</div>
 					</div>
 				)}
+				<ContinueAdventureButton />
 				{analysisData.skillsAssessment && (
 					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
 						{avatarUrls.skills && (
@@ -492,7 +511,7 @@ export default function Results() {
 						</div>
 					</div>
 				)}
-
+				<ContinueAdventureButton />
 				{analysisData.jobRecommendations && analysisData.jobRecommendations.length > 0 && (
 					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
 						{avatarUrls.jobs && (
@@ -523,6 +542,7 @@ export default function Results() {
 						</div>
 					</div>
 				)}
+				<ContinueAdventureButton />
 			</div>
 		)
 	}

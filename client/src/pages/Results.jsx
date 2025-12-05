@@ -88,7 +88,9 @@ export default function Results() {
 				headers: { 'Cache-Control': 'no-cache' },
 				params: { _: Date.now() }
 			})
-			setAnalysisData(sanitizeResultsForDisplay(response.data.results))
+			const sanitized = sanitizeResultsForDisplay(response.data.results)
+			setAnalysisData(sanitized)
+			setLoading(false)
 		} catch (err) {
 			if (err.response?.status === 404) {
 				// No stored analysis yet: try to generate, then refetch
@@ -101,7 +103,9 @@ export default function Results() {
 							headers: { 'Cache-Control': 'no-cache' },
 							params: { _: Date.now() }
 						})
-						setAnalysisData(sanitizeResultsForDisplay(refreshed.data.results))
+						const sanitized = sanitizeResultsForDisplay(refreshed.data.results)
+						setAnalysisData(sanitized)
+						setLoading(false)
 						return
 					} catch (genErr) {
 						// If the AI analysis generation fails (e.g., missing API key),
@@ -119,7 +123,9 @@ export default function Results() {
 								(refreshed.data.results.jobRecommendations ?? []).length > 0 ||
 								(refreshed.data.results.studyRecommendations ?? []).length > 0
 							)) {
-								setAnalysisData(sanitizeResultsForDisplay(refreshed.data.results))
+								const sanitized = sanitizeResultsForDisplay(refreshed.data.results)
+								setAnalysisData(sanitized)
+								setLoading(false)
 								return
 							}
 
@@ -131,7 +137,9 @@ export default function Results() {
 							const simple = latestSimple?.data?.results?.analysis
 							if (simple) {
 								const mapped = mapSimpleAnalysisToUI(simple)
-								setAnalysisData(sanitizeResultsForDisplay(mapped))
+								const sanitized = sanitizeResultsForDisplay(mapped)
+								setAnalysisData(sanitized)
+								setLoading(false)
 								return
 							}
 						} catch (fallbackErr) {
@@ -142,14 +150,15 @@ export default function Results() {
 
 				// If we got here, we couldn't load or generate results
 				setAnalysisData(null)
+				setLoading(false)
 			} else if (err.response?.status === 401) {
 				setError('Utilisateur non authentifié')
+				setLoading(false)
 			} else {
 				console.error('Error loading results:', err)
 				setError(err.response?.data?.error || 'Erreur lors du chargement des résultats')
+				setLoading(false)
 			}
-		} finally {
-			setLoading(false)
 		}
 	}
 

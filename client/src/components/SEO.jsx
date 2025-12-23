@@ -1,35 +1,77 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 
-export default function SEO({ title, description, name, type, url, image }) {
+const DEFAULT_ORIGIN = 'https://zelia.io';
+
+function getOriginFromUrl(url) {
+  if (!url) return DEFAULT_ORIGIN;
+  try {
+    return new URL(url).origin;
+  } catch {
+    return DEFAULT_ORIGIN;
+  }
+}
+
+function toAbsoluteUrl(value, origin) {
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith('/')) return `${origin}${value}`;
+  return `${origin}/${value}`;
+}
+
+export default function SEO({
+  title,
+  description,
+  name,
+  type,
+  url,
+  image,
+  imageAlt,
+  twitterCard,
+  siteName,
+  locale
+}) {
+  const origin = getOriginFromUrl(url);
+  const absoluteImage = toAbsoluteUrl(image, origin);
+  const twitterHandle = typeof name === 'string' && name.trim().startsWith('@') ? name.trim() : null;
+
   return (
     <Helmet>
-      {/* Standard metadata tags */}
       <title>{title}</title>
-      <meta name='description' content={description} />
+      <meta name="description" content={description} />
       {url && <link rel="canonical" href={url} />}
-      
-      {/* Facebook tags */}
+
       <meta property="og:type" content={type} />
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
       {url && <meta property="og:url" content={url} />}
-      {image && <meta property="og:image" content={image} />}
-      
-      {/* Twitter tags */}
-      <meta name="twitter:creator" content={name} />
-      <meta name="twitter:card" content={type} />
+      {siteName && <meta property="og:site_name" content={siteName} />}
+      {locale && <meta property="og:locale" content={locale} />}
+      {absoluteImage && <meta property="og:image" content={absoluteImage} />}
+      {absoluteImage && <meta property="og:image:secure_url" content={absoluteImage} />}
+      {imageAlt && <meta property="og:image:alt" content={imageAlt} />}
+
+      <meta name="twitter:card" content={twitterCard} />
+      {url && <meta name="twitter:url" content={url} />}
+      {twitterHandle && <meta name="twitter:creator" content={twitterHandle} />}
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
-      {image && <meta name="twitter:image" content={image} />}
+      {absoluteImage && <meta name="twitter:image" content={absoluteImage} />}
+      {imageAlt && <meta name="twitter:image:alt" content={imageAlt} />}
     </Helmet>
   );
 }
 
 SEO.defaultProps = {
-  title: 'Zelia - Ta conseillère d\'orientation virtuelle',
-  description: 'Découvre ton avenir avec Zelia, l\'IA qui révolutionne l\'orientation scolaire et professionnelle.',
+  title: "Zelia - Ta conseillère d'orientation virtuelle",
+  description:
+    "Découvre ton avenir avec Zelia, l'IA qui révolutionne l'orientation scolaire et professionnelle.",
   name: 'Zelia',
   type: 'website',
-  image: '/assets/images/social/share-image.png' // Make sure this image exists or use a default one
+  url: 'https://zelia.io/',
+  siteName: 'Zelia',
+  locale: 'fr_FR',
+  twitterCard: 'summary_large_image',
+  image: '/assets/images/logo-dark.png',
+  imageAlt: 'Zelia'
 };

@@ -31,6 +31,9 @@ import BlogIndex from './pages/blog/BlogIndex.jsx'
 import BlogExploreMetiers from './pages/blog/BlogExploreMetiers.jsx'
 import BlogQuestionnaire from './pages/blog/BlogQuestionnaire.jsx'
 import BlogParents from './pages/blog/BlogParents.jsx'
+import BlogMetierFaitPourSoi from './pages/blog/BlogMetierFaitPourSoi.jsx'
+import BlogChoisirSesEtudes from './pages/blog/BlogChoisirSesEtudes.jsx'
+import BlogEtudeSalaire from './pages/blog/BlogEtudeSalaire.jsx'
 import TagManager from 'react-gtm-module'
 import { usePageTracking } from './lib/usePageTracking.js'
 
@@ -85,6 +88,9 @@ function App() {
     <Route path="/blog/ia-remplacer-futur-metier" element={<BlogExploreMetiers />} />
     <Route path="/blog/pourquoi-ecole-ne-t-aide-pas" element={<BlogQuestionnaire />} />
     <Route path="/blog/accompagner-parents" element={<BlogParents />} />
+    <Route path="/blog/metier-bien-fait-pour-soi-mode-emploi" element={<BlogMetierFaitPourSoi />} />
+    <Route path="/blog/choisir-ses-etudes-sans-pression" element={<BlogChoisirSesEtudes />} />
+    <Route path="/blog/etude-salaire-bon-salaire-ados" element={<BlogEtudeSalaire />} />
         <Route path="/app" element={<RequireAuth><Layout /></RequireAuth>}>
           <Route index element={
             <Suspense fallback={<div className="p-6 text-center">Chargement des activités…</div>}>

@@ -12,6 +12,7 @@
     "@stripe/stripe-js": "^3.5.0",
     "@supabase/supabase-js": "^2.45.1",
     "axios": "^1.7.2",
+    "apexcharts": "^4.7.0",
     "bootstrap": "^5.3.8",
     "fuse.js": "^7.1.0",
     "jspdf": "^2.5.1",
@@ -21,6 +22,7 @@
     "react-ga": "^3.3.1",
     "react-gtm-module": "^2.0.11",
     "react-helmet-async": "^2.0.5",
+    "react-apexcharts": "^1.7.0",
     "react-router-dom": "^6.23.1",
     "tailwind": "^4.0.0",
     "three": "^0.161.0"

@@ -222,19 +222,7 @@ export default function Niveau1() {
 	]
 
 	const convSteps = useMemo(() => ([
-		{ id: 'learn_overview', type: 'text', text: 'Durant ton parcours, je vais t\'apprendre à te repérer parmi les métiers et à poser un cap clair.' },
-		{ id: 'english_test', type: 'text', text: "On fera un test d\'anglais rapide pour évaluer ton niveau et te proposer des pistes pour progresser." },
-		{ id: 'cv_build', type: 'text', text: 'On va créer ton CV étape par étape, avec des exemples et un modèle qui te ressemble.' },
-		{ id: 'sell_yourself', type: 'text', text: 'Tu apprendras à te vendre: valoriser tes expériences, tes forces et tes réussites.' },
-		{ id: 'pitch', type: 'text', text: 'On travaillera ton pitch 60 secondes pour faire forte impression.' },
-		{ id: 'schools', type: 'text', text: 'On repèrera des écoles et formations qui collent vraiment à ton projet.' },
-		{ id: 'calendar', type: 'text', text: 'On t\'aidera à organiser ton calendrier Parcoursup et tes échéances.' },
-		{ id: 'tips', type: 'text', text: 'Tu auras des tips concrets à chaque étape pour gagner du temps.' },
-		{ id: 'interview', type: 'text', text: 'On préparera tes entretiens: questions fréquentes, pièges et réponses efficaces.' },
-		{ id: 'checklist', type: 'text', text: 'Tu auras une checklist personnalisée pour rester au top jusqu\'au bout.' },
-		{ id: 'motivated', type: 'buttons', text: 'Est-ce que tu es motivé pour cela ?', options: ['Oui', 'Mitigé', 'Non'] },
 		{ id: 'explore_another', type: 'buttons', text: 'Veux-tu explorer une autre fiche métier ?', options: ['Oui', 'Non'] },
-		// 10 autres mini-dialogues pour converser
 		{ id: 'why_attraction', type: 'buttons', text: "Qu’est ce qui t’attire le + dans un métier ?", options: ['Le sens', 'Le salaire', 'Les études', 'Le quotidien'] },
 		{ id: 'study_length', type: 'buttons', text: 'Tu te vois plutôt études longues ou entrer vite dans le concret ?', options: ['Études longues', 'Rapide et pro', 'Je ne sais pas'] },
 		{ id: 'team_or_solo', type: 'buttons', text: 'Tu préfères travailler en équipe ou plutôt en solo ?', options: ['Équipe', 'Solo', 'Peu importe'] },

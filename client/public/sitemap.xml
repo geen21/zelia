@@ -20,9 +20,27 @@
   </url>
   <url>
     <loc>https://zelia.io/blog</loc>
-    <lastmod>2025-11-20</lastmod>
+    <lastmod>2025-12-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://zelia.io/blog/etude-salaire-bon-salaire-ados</loc>
+    <lastmod>2025-12-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://zelia.io/blog/choisir-ses-etudes-sans-pression</loc>
+    <lastmod>2025-12-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://zelia.io/blog/metier-bien-fait-pour-soi-mode-emploi</loc>
+    <lastmod>2025-12-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://zelia.io/blog/ia-remplacer-futur-metier</loc>

@@ -102,7 +102,7 @@ router.get('/metiers/search', optionalAuth, async (req, res) => {
       query = query.ilike('intitule', like)
 
       // Add date filter to improve performance on large dataset
-      const days = 180 // 6 months
+      const days = 90 // 3 months window
       const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
       query = query.gte('dateactualisation', since)
     }

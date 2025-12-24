@@ -334,7 +334,7 @@ function typeLabelFR(t) {
     return TYPE_LABELS_FR[t] || String(t || '').replace('_', ' ')
 }
 
-const ACTIVITES_VIDEO_URL = import.meta.env.VITE_ACTIVITES_VIDEO_URL || 'https://www.youtube.com/embed/VIDEO_ID';
+const ACTIVITES_VIDEO_URL = import.meta.env.VITE_ACTIVITES_VIDEO_URL || 'https://www.youtube.com/embed/MHXCNHB9KPA?si=NcKNlfWVKE4idIvh';
 
 const Activites = () => {
     const [user, setUser] = useState(null);

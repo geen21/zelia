@@ -4,3 +4,6 @@ node_modules/
 # Ignore build outputs
 dist/
 build/
+
+# Ignore built client bundles
+client/dist/assets/

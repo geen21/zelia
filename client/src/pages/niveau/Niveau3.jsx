@@ -244,10 +244,91 @@ export default function Niveau3() {
   const currentQuestion = questions[qIdx]
   const isCorrect = revealed && selected != null ? selected === currentQuestion?.correctIndex : false
 
+<<<<<<< HEAD
   function handleIntroNext() {
     if (!introDone) { skipIntro(); return }
     if (introIdx + 1 < introMessages.length) {
       setIntroIdx((v) => v + 1)
+=======
+  // Pitch text computed from profile and results
+  const pitchText = useMemo(() => {
+    const fn = profile?.first_name || ''
+    const ln = profile?.last_name || ''
+    const dep = profile?.department || ''
+    const pref = profile?.home_preference || ''
+    const jobTitle = (String(pref).toLowerCase() === 'questionnaire')
+      ? (jobTitleFromResults || 'un métier qui me correspond')
+      : (pref || jobTitleFromResults || 'un métier qui me correspond')
+    return (
+      `Bonjour, je m'appelle ${fn} ${ln}, j'habite actuellement dans le ${dep}. ` +
+      `Ce qui me motive profondément dans le métier de ${jobTitle}, c’est de comprendre comment les choses fonctionnent et comment les améliorer. ` +
+      `Je ne me contente jamais de la première réponse ; ma curiosité me pousse à explorer différentes perspectives avant d’agir.\n\n` +
+      `J'aborde chaque nouveau défi avec la même méthode : j’écoute, j’apprends vite, et je connecte les idées et les gens pour construire quelque chose qui a du sens. ` +
+      `Je crois fermement que les meilleures solutions naissent de la collaboration et d'une vision d'ensemble.\n\n` +
+      `Mon objectif n'est pas simplement d'accomplir des tâches, mais d'apporter une énergie positive et une volonté de faire avancer les projets. ` +
+      `Je cherche à m'investir dans un environnement où je pourrai continuer à apprendre et avoir un impact concret.`
+    )
+  }, [profile, jobTitleFromResults])
+
+  // Recording handlers
+  const startRecording = async () => {
+    try {
+      setShowFeedback(false)
+      setAudioUrl('')
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      
+      let options = undefined
+      // Prefer mp4 for iOS compatibility, then webm
+      if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        options = { mimeType: 'audio/mp4' }
+      } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        options = { mimeType: 'audio/webm;codecs=opus' }
+      }
+
+      const mr = options ? new MediaRecorder(stream, options) : new MediaRecorder(stream)
+      chunksRef.current = []
+      mr.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunksRef.current.push(e.data) }
+      mr.onstop = () => {
+        const type = mr.mimeType || (options && options.mimeType) || 'audio/webm'
+        const blob = new Blob(chunksRef.current, { type })
+        const url = URL.createObjectURL(blob)
+        setAudioUrl(url)
+        setPhase('rate')
+        setRecording(false)
+        // stop all tracks
+        stream.getTracks().forEach(t => t.stop())
+      }
+      mediaRecorderRef.current = mr
+      mr.start()
+      setRecording(true)
+    } catch (e) {
+      console.error('Recording start failed', e)
+      alert('Impossible d’accéder au micro. Autorisez le micro puis réessayez.')
+    }
+  }
+
+  const stopRecording = () => {
+    try {
+      mediaRecorderRef.current?.stop()
+    } catch {}
+  }
+
+  const resetPractice = () => {
+    setAudioUrl('')
+    setRating(null) // Reset to null
+    setPhase('practice')
+  }
+
+  const submitRating = async () => {
+    if (rating >= 8) {
+      setShowSuccess(true)
+      // Level up by +1 (ensure minimum 3)
+      ;(async () => {
+        try {
+          await levelUp({ minLevel: 3, xpReward: XP_PER_LEVEL })
+        } catch (e) { console.warn('Progression update failed (non-blocking):', e) }
+      })()
+>>>>>>> 88172d3270aaf084fe35f9b168a7d68017c75a7f
     } else {
       setPhase('quiz')
     }

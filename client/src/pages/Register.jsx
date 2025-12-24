@@ -281,7 +281,11 @@ export default function Register() {
                   <div>
                     <label className="block text-xs text-text-secondary mb-1">Email *</label>
                     <input className="w-full border border-line rounded-lg h-10 px-3 outline-none text-sm focus:border-black transition-colors" type="email" placeholder="ton@email.com" value={email} onChange={e=>setEmail(e.target.value)} />
+<<<<<<< HEAD
                     <p className="mt-1 text-xs text-text-secondary">Cet email devra être confirmé par la suite.</p>
+=======
+                    <p className="text-xs text-text-secondary mt-1">Votre email devra être confirmé par la suite.</p>
+>>>>>>> 88172d3270aaf084fe35f9b168a7d68017c75a7f
                   </div>
                   <div>
                     <label className="block text-xs text-text-secondary mb-1">Mot de passe *</label>

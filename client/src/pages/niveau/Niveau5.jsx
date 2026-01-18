@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import supabase from '../../lib/supabase'
-import apiClient, { usersAPI } from '../../lib/api'
+import { usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 
 function countWords(text) {
@@ -281,16 +281,51 @@ export default function Niveau5() {
     return 'C2'
   }
 
+  function buildNiveau5ExtraInfoEntries({ answers, level }) {
+    const entries = []
+    // Store each input answer with the closest previous prompt as question_text
+    for (let i = 0; i < dialogue.length; i += 1) {
+      const item = dialogue[i]
+      if (!item || item.type !== 'input' || !item.id) continue
+
+      let questionText = 'Question'
+      for (let j = i - 1; j >= 0; j -= 1) {
+        const prev = dialogue[j]
+        if (prev && (prev.type === 'text' || prev.type === 'audio') && prev.text) {
+          questionText = prev.text
+          break
+        }
+      }
+
+      entries.push({
+        question_id: `niv5_${item.id}`,
+        question_text: questionText,
+        answer_text: (answers?.[item.id] ?? '').toString()
+      })
+    }
+
+    entries.push({
+      question_id: 'niv5_english_level',
+      question_text: "Niveau d'anglais (CEFR) calculé",
+      answer_text: level
+    })
+
+    return entries
+  }
+
   function finishLevel() {
     const level = calculateEnglishLevel(inputs)
     setEnglishLevel(level)
     setSaving(true)
     ;(async () => {
       try {
-        // Save answers and level (fire and forget)
+        // Save answers and CEFR level to public.informations_complementaires
         try {
-          await apiClient.post('/questionnaire/niveau5', { answers: inputs, englishLevel: level })
-        } catch {}
+          const entries = buildNiveau5ExtraInfoEntries({ answers: inputs, level })
+          if (entries.length) await usersAPI.saveExtraInfo(entries)
+        } catch (e) {
+          console.warn('Persist Niveau5 extra info failed (non-blocking):', e)
+        }
         // progression
         try {
           await levelUp({ minLevel: 5, xpReward: XP_PER_LEVEL })

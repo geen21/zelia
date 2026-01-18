@@ -1025,3 +1025,188 @@ router.get('/my-results', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Internal server error' })
   }
 })
+
+// Niveau 10: competency bilan aggregation endpoint (authenticated)
+router.get('/level10/bilan', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id
+    const db = supabaseAdmin || supabase
+
+    // 1) Fetch results (mbti + inscription) if present
+    const { data: rows, error: resultsErr } = await db
+      .from('user_results')
+      .select('*')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+
+    if (resultsErr && resultsErr.code !== 'PGRST116') {
+      console.error('level10 bilan: results fetch error:', resultsErr)
+      return res.status(500).json({ error: 'Error fetching results' })
+    }
+
+    const safeRows = Array.isArray(rows) ? rows : []
+    const findByType = (type) => safeRows.find(r => (r.questionnaire_type || '').toLowerCase() === type)
+    const mbtiRow = findByType('mbti') || null
+    const inscriptionRow = findByType('inscription') || null
+    const primaryRow = mbtiRow || inscriptionRow || null
+
+    // 2) Fetch extra infos
+    const NIVEAU1_QUESTION_IDS = [
+      'salary_expectation',
+      'good_salary',
+      'motivation_salary',
+      'explore_another',
+      'why_attraction',
+      'study_length',
+      'team_or_solo',
+      'five_years',
+      'favorite_subjects',
+      'learn_style',
+      'english_level',
+      'proud_project',
+      'geo_constraints',
+      'action_plan'
+    ]
+
+    const [{ data: extraNiv1 }, { data: extraNiv5 }, { data: extraNiv10 }] = await Promise.all([
+      db
+        .from('informations_complementaires')
+        .select('question_id, question_text, answer_text, created_at')
+        .eq('user_id', userId)
+        .in('question_id', NIVEAU1_QUESTION_IDS)
+        .order('created_at', { ascending: true }),
+      db
+        .from('informations_complementaires')
+        .select('question_id, question_text, answer_text, created_at')
+        .eq('user_id', userId)
+        .ilike('question_id', 'niv5_%')
+        .order('created_at', { ascending: true }),
+      db
+        .from('informations_complementaires')
+        .select('question_id, question_text, answer_text, created_at')
+        .eq('user_id', userId)
+        .ilike('question_id', 'niv10_%')
+        .order('created_at', { ascending: true })
+    ])
+
+    const englishLevel = (Array.isArray(extraNiv5)
+      ? extraNiv5.find(r => r.question_id === 'niv5_english_level')
+      : null)?.answer_text || null
+
+    const studyRecommendations = Array.isArray(inscriptionRow?.study_recommendations)
+      ? inscriptionRow.study_recommendations
+      : []
+
+    const jobRecommendations = Array.isArray(primaryRow?.job_recommendations)
+      ? primaryRow.job_recommendations
+      : []
+
+    const personalityAnalysis = primaryRow?.personality_analysis || ''
+    const skillsAssessment = primaryRow?.skills_assessment || ''
+
+    // 3) Ask Gemini for summaries (optional if key present)
+    const geminiApiKey = process.env.GEMINI_API_KEY
+    let summaries = null
+
+    if (geminiApiKey) {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`
+
+      const niveau1TextBlock = (Array.isArray(extraNiv1) ? extraNiv1 : [])
+        .map(r => `- ${r.question_text}: ${r.answer_text || '—'}`)
+        .join('\n')
+
+      const jobTitles = jobRecommendations
+        .map(j => (typeof j === 'string' ? j : j?.title))
+        .filter(Boolean)
+        .slice(0, 6)
+
+      const studyTitles = studyRecommendations
+        .map(s => {
+          if (typeof s === 'string') return s
+          const degree = s?.degree || s?.diploma || s?.title || ''
+          const type = s?.type || s?.study_type || s?.label || ''
+          return [degree, type].filter(Boolean).join(' – ') || null
+        })
+        .filter(Boolean)
+        .slice(0, 8)
+
+      const prompt = `Tu es un conseiller d'orientation. Tu dois produire un JSON strict (pas de markdown, pas de texte hors JSON).
+
+Données disponibles:
+- Niveau d'anglais (CEFR): ${englishLevel || 'Non disponible'}
+- Formations/pistes d'études: ${studyTitles.length ? studyTitles.join(' | ') : 'Non disponible'}
+- Métiers recommandés: ${jobTitles.length ? jobTitles.join(' | ') : 'Non disponible'}
+
+Analyse de personnalité (source Zélia):
+${(personalityAnalysis || '').slice(0, 4000)}
+
+Évaluation des compétences (source Zélia):
+${(skillsAssessment || '').slice(0, 2000)}
+
+Réponses du Niveau 1:
+${niveau1TextBlock || 'Non disponible'}
+
+Ta tâche:
+1) Résumer le test de personnalité (5-7 lignes max).
+2) Résumer les réponses du Niveau 1 (5-7 lignes max).
+3) Produire un bilan de compétences (8-12 lignes max) en français, en tutoyant.
+
+Format JSON attendu EXACT:
+{
+  "personalitySummary": "...",
+  "niveau1Summary": "...",
+  "skillsBilan": "..."
+}`
+
+      try {
+        const geminiResponse = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        })
+
+        if (geminiResponse.ok) {
+          const geminiData = await geminiResponse.json()
+          const generatedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+          if (generatedText) {
+            const clean = generatedText
+              .replace(/```json/gi, '')
+              .replace(/```/g, '')
+              .trim()
+            summaries = JSON.parse(clean)
+          }
+        } else {
+          const t = await geminiResponse.text()
+          console.warn('level10 bilan: Gemini error:', t)
+        }
+      } catch (e) {
+        console.warn('level10 bilan: Gemini call failed:', e)
+      }
+    }
+
+    res.json({
+      english: {
+        level: englishLevel
+      },
+      formations: {
+        studyRecommendations
+      },
+      personality: {
+        personalityType: null,
+        personalityAnalysis: personalityAnalysis || null,
+        skillsAssessment: skillsAssessment || null,
+        jobRecommendations
+      },
+      niveau1: {
+        answers: Array.isArray(extraNiv1) ? extraNiv1 : []
+      },
+      niveau10: {
+        answers: Array.isArray(extraNiv10) ? extraNiv10 : []
+      },
+      summaries
+    })
+  } catch (error) {
+    console.error('level10 bilan error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})

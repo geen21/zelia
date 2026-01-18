@@ -8,33 +8,33 @@ const DIALOGUE_STEPS = [
   {
     id: 'intro-1',
     text: "J'espère que ça va toujours, te voici au niveau 7, tu avances super bien!",
-    durationMs: 2400
+    durationMs: 1400
   },
   {
     id: 'intro-2',
     text: 'Je commence à bien te connaitre, merci pour toutes ces infos !',
-    durationMs: 2500
+    durationMs: 500
   },
   {
     id: 'intro-3',
     text: 'Ici le but est de rentrer dans une relation honnête pour avancer ensemble dans la bonne direction.',
-    durationMs: 4000
+    durationMs: 1000
   },
   {
     id: 'intro-4',
     text: 'Je ne connais pas encore tes notes mais je peux déjà te dire si un métier te correspond ou pas sur la base de ces infos.',
-    durationMs: 4500
+    durationMs: 1500
   },
   {
     id: 'job-prompt',
     text: 'Dis-moi un métier et je te dirai si oui ou non tu es fait pour ce métier',
-    durationMs: 3200,
+    durationMs: 1200,
     requiresEvaluation: true
   },
   {
     id: 'closing',
     text: "Au niveau 14 tu auras la possibilité d'aller beaucoup plus loin, en m'indiquant tous les métiers que tu souhaites. Encore une fois je serai intransigeante et la plus honnête possible.",
-    durationMs: 4200,
+    durationMs: 2200,
     closing: true
   }
 ]

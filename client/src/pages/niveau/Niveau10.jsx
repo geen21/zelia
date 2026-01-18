@@ -1,67 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { loadStripe } from '@stripe/stripe-js'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import supabase from '../../lib/supabase'
-import apiClient, { paymentsAPI, shareAPI, usersAPI, waitlistAPI } from '../../lib/api'
-import { levelUp } from '../../lib/progression'
-
-let jsPdfFactoryPromise = null
-async function loadJsPdf() {
-  if (!jsPdfFactoryPromise) {
-    jsPdfFactoryPromise = import('jspdf').then((module) => module.jsPDF)
-  }
-  return jsPdfFactoryPromise
-}
-
-const XP_REWARD = 220
-
-const STATUS_STYLES = {
-  success: 'bg-emerald-50 border border-emerald-200 text-emerald-700',
-  info: 'bg-blue-50 border border-blue-200 text-blue-700',
-  warning: 'bg-amber-50 border border-amber-200 text-amber-700',
-  error: 'bg-red-50 border border-red-200 text-red-700'
-}
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i
-
-const DIALOGUE_STEPS = [
-  {
-    text: 'C’est trop cool, tu as déjà atteint le 10ème niveau, félications !',
-    durationMs: 2200
-  },
-  {
-    text: 'Tu fais partie des 0,1% d’élèves de ton âge qui prennent en main leur avenir professionnel !',
-    durationMs: 2600
-  },
-  {
-    text: 'Ta quête de sens, d’orientation et de connaissance de soi a déjà très bien avancée ',
-    durationMs: 3200
-  },
-  {
-    text: 'On va d’ailleurs te générer un bilan qui résume tout ça très bien. Tu pourras le télécharger et le mettre en avant.',
-    durationMs: 3200
-  },
-  {
-    text: 'Les prochains modules sont en cours de développement chez Zélia.',
-    durationMs: 3000
-  },
-  {
-    text: 'Ils seront payants et te donneront accès à Zélia+, avec encore des dizaines d’activités, des rencontres, des apprentissages, pour être vraiment au top du top :)',
-    durationMs: 5000
-  },
-  {
-    text: 'D’ailleurs si cette version t’as aidé à y voir plus clair, tu aimerais rejoindre la liste d’attente pour avoir les infos en priorité sur les prochains modules ?',
-    durationMs: 4500
-  },
-  {
-    text: 'Insère les mails des personnes concernées, nous leur envoyons ton profil MPC - Métiers, Personnalité, Compétences, en PDF avec les infos de ce qui t’attend pour la suite : les nouveaux ateliers, les nouvelles fonctionnalités, les rencontres que tu pourras faire, TOUT !',
-    durationMs: 6200
-  },
-  {
-    text: 'C’est parti !',
-    durationMs: 1600
-  }
-]
+import { analysisAPI, usersAPI } from '../../lib/api'
+import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 
 function buildAvatarFromProfile(profile, seed = 'zelia') {
   try {
@@ -70,7 +11,7 @@ function buildAvatarFromProfile(profile, seed = 'zelia') {
     if (profile?.avatar_json) {
       let conf = profile.avatar_json
       if (typeof conf === 'string') {
-        try { conf = JSON.parse(conf) } catch { /* ignore */ }
+        try { conf = JSON.parse(conf) } catch {}
       }
       if (conf && typeof conf === 'object') {
         if (conf.url && typeof conf.url === 'string') {
@@ -79,36 +20,33 @@ function buildAvatarFromProfile(profile, seed = 'zelia') {
             if (!u.searchParams.has('seed')) u.searchParams.set('seed', String(seed))
             if (!u.searchParams.has('size')) u.searchParams.set('size', '300')
             return u.toString()
-          } catch { /* ignore */ }
+          } catch {}
         }
         const params = new URLSearchParams()
         params.set('seed', String(seed))
-        Object.entries(conf).forEach(([key, value]) => {
-          if (value !== undefined && value !== null && value !== '') params.set(key, String(value))
+        Object.entries(conf).forEach(([k, v]) => {
+          if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
         })
         if (!params.has('size')) params.set('size', '300')
         return `https://api.dicebear.com/9.x/lorelei/svg?${params.toString()}`
       }
     }
-  } catch { /* ignore */ }
-  const fallback = new URLSearchParams({ seed: String(seed), size: '300', radius: '15' })
-  return `https://api.dicebear.com/9.x/lorelei/svg?${fallback.toString()}`
+  } catch {}
+  const p = new URLSearchParams({ seed: String(seed), size: '300', radius: '15' })
+  return `https://api.dicebear.com/9.x/lorelei/svg?${p.toString()}`
 }
 
 function modifyDicebearUrl(urlStr, params = {}) {
   try {
-    const url = new URL(urlStr)
-    const isDicebear = /api\.dicebear\.com/.test(url.host) && /\/lorelei\/svg/.test(url.pathname)
-    if (!isDicebear) return urlStr
-    Object.entries(params).forEach(([key, value]) => {
-      if (value === null || value === undefined || value === '') {
-        url.searchParams.delete(key)
-      } else {
-        url.searchParams.set(key, String(value))
-      }
+    const u = new URL(urlStr)
+    const isDice = /api\.dicebear\.com/.test(u.host) && /\/lorelei\/svg/.test(u.pathname)
+    if (!isDice) return urlStr
+    Object.entries(params).forEach(([k, v]) => {
+      if (v === null || v === undefined || v === '') u.searchParams.delete(k)
+      else u.searchParams.set(k, String(v))
     })
-    if (!url.searchParams.has('size')) url.searchParams.set('size', '300')
-    return url.toString()
+    if (!u.searchParams.has('size')) u.searchParams.set('size', '300')
+    return u.toString()
   } catch {
     return urlStr
   }
@@ -153,111 +91,349 @@ function useTypewriter(message, durationMs) {
   return { text, done, skip }
 }
 
-function buildEmailBody({ firstName, benefits, price }) {
-  const intro = `Bonjour,\n\nVous trouverez en pièce jointe le dossier d’orientation complet de ${firstName}. Il résume ses avancées sur Zélia : métiers, personnalité et compétences.`
-  const activate = `\n\nActivez Zélia+ pour ${firstName} afin de poursuivre l’accompagnement premium.`
-  const unlock = ['\n\nCe que Zélia+ débloque :', ...benefits.map((b) => `- ${b.title} : ${b.description}`)].join('\n')
-  const priceLine = price ? `\n\nActivation en un paiement unique de ${price} sur la plateforme sécurisée Stripe.` : ''
-  const outro = '\n\nÀ très vite,\nL’équipe Zélia'
-  return `${intro}${activate}${unlock}${priceLine}${outro}`
-}
+const STEP_INTRO = 'intro'
+const STEP_Q1 = 'q1'
+const STEP_Q2 = 'q2'
+const STEP_BILAN = 'bilan'
 
-function buildEmailHtml({ firstName, benefits, price }) {
-  return `<!DOCTYPE html>
-  <html lang="fr">
-    <body style="font-family:Arial,Helvetica,sans-serif;color:#111;line-height:1.5;">
-      <p>Bonjour,</p>
-      <p>Vous trouverez en pièce jointe le dossier d’orientation complet de <strong>${firstName}</strong>. Il résume ses avancées sur Zélia : métiers, personnalité et compétences.</p>
-      <p><strong>Activez Zélia+ pour ${firstName}</strong> afin de poursuivre l’accompagnement premium.</p>
-      <p><strong>Ce que Zélia+ débloque :</strong></p>
-      <ul>
-        ${benefits.map((b) => `<li><strong>${b.title}</strong> – ${b.description}</li>`).join('')}
-      </ul>
-      ${price ? `<p>Activation en un paiement unique de <strong>${price}</strong> sur la plateforme sécurisée Stripe.</p>` : ''}
-      <p>À très vite,<br/>L’équipe Zélia</p>
-    </body>
-  </html>`
-}
-
-async function generateResultsPdf({ profile, results, benefits, priceLabel }) {
-  const JsPDF = await loadJsPdf()
-  const doc = new JsPDF({ unit: 'pt', format: 'a4' })
-  const margin = 48
-  let y = margin
-
-  const addSection = (title, content = []) => {
-    if (!content.length) return
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(14)
-    doc.text(title, margin, y)
-    y += 18
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(11)
-    content.forEach((item) => {
-      const lines = doc.splitTextToSize(item, 515)
-      lines.forEach((line) => {
-        if (y > 770) {
-          doc.addPage()
-          y = margin
-        }
-        doc.text(line, margin, y)
-        y += 16
-      })
-      y += 4
-    })
-    y += 8
-  }
-
-  const fullName = profile?.full_name || profile?.first_name ? `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() : ''
-
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(20)
-  doc.text('Dossier d’orientation – Zélia', margin, y)
-  y += 28
-
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(11)
-  if (fullName) {
-    doc.text(`Élève : ${fullName}`, margin, y)
-    y += 16
-  }
-  doc.text(`Date : ${new Intl.DateTimeFormat('fr-FR').format(new Date())}`, margin, y)
-  y += 22
-
-  addSection('Synthèse Profils & Analyses', [
-    results?.personalityType ? `Profil identifié : ${results.personalityType}` : null,
-    results?.personalityAnalysis || null,
-    results?.skillsAssessment || null
-  ].filter(Boolean))
-
-  if (Array.isArray(results?.jobRecommendations) && results.jobRecommendations.length) {
-    const jobLines = results.jobRecommendations.map((job, idx) => {
-      const skills = Array.isArray(job.skills) && job.skills.length ? `Compétences clés : ${job.skills.join(', ')}` : null
-      return [`${idx + 1}. ${job.title}`, skills].filter(Boolean).join(' — ')
-    })
-    addSection('Métiers recommandés', jobLines)
-  }
-
-  if (Array.isArray(results?.studyRecommendations) && results.studyRecommendations.length) {
-    const studyLines = results.studyRecommendations.map((study, idx) => `${idx + 1}. ${study.degree} – ${study.type}`)
-    addSection('Pistes d’études', studyLines)
-  }
-
-  addSection(`Activez Zélia+ pour ${profile?.first_name || fullName || 'l’élève'}`, [
-    'Paiement unique pour accéder aux niveaux 11 à 50 et à toutes les ressources premium.',
-    priceLabel ? `Tarif indicatif : ${priceLabel}.` : null
-  ].filter(Boolean))
-
-  addSection('Ce que Zélia+ débloque', benefits.map((b) => `${b.title} : ${b.description}`))
-
-  return doc
-}
+const OPTIONS_3 = ['Oui', 'Non', 'Je ne sais pas']
 
 export default function Niveau10() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [profile, setProfile] = useState(null)
+  const [baseAvatarUrl, setBaseAvatarUrl] = useState('')
+
+  const [phase, setPhase] = useState(STEP_INTRO)
+  const [mouthAlt, setMouthAlt] = useState(false)
+
+  const [answers, setAnswers] = useState({
+    careerIdeas: '',
+    likeApp: ''
+  })
+
+  const [bilanLoading, setBilanLoading] = useState(false)
+  const [bilanError, setBilanError] = useState('')
+  const [bilan, setBilan] = useState(null)
+
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [finishing, setFinishing] = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          navigate('/login')
+          return
+        }
+        const pRes = await usersAPI.getProfile().catch(() => null)
+        if (!mounted) return
+        const prof = pRes?.data?.profile || pRes?.data || null
+        setProfile(prof)
+        setBaseAvatarUrl(buildAvatarFromProfile(prof, user.id))
+      } catch (e) {
+        console.error('Niveau10 load error', e)
+        if (!mounted) return
+        setError('Erreur de chargement')
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    })()
+    return () => { mounted = false }
+  }, [navigate])
+
+  const bubble = useMemo(() => {
+    if (phase === STEP_INTRO) return { text: "C'est le moment de faire un premier bilan", durationMs: 1400 }
+    if (phase === STEP_Q1) return { text: "As t-on réélement réussi à te donner des idées sur ton futur métier", durationMs: 1200 }
+    if (phase === STEP_Q2) return { text: "On va passer au niveau suivant mais on aimerait bien savoir si tu aimes bien l'application ?", durationMs: 1400 }
+    return { text: 'Ok voici ton bilan', durationMs: 800 }
+  }, [phase])
+
+  const { text: typed, done: typedDone, skip } = useTypewriter(bubble.text, bubble.durationMs)
+  const shouldAnimateMouth = !typedDone
+
+  useEffect(() => {
+    if (!shouldAnimateMouth) return
+    const id = setInterval(() => setMouthAlt(v => !v), 200)
+    return () => clearInterval(id)
+  }, [shouldAnimateMouth])
+
+  const displayedAvatarUrl = useMemo(() => {
+    if (!baseAvatarUrl) return baseAvatarUrl
+    if (!shouldAnimateMouth) return modifyDicebearUrl(baseAvatarUrl, { mouth: null })
+    return modifyDicebearUrl(baseAvatarUrl, { mouth: mouthAlt ? 'happy08' : 'happy01' })
+  }, [baseAvatarUrl, shouldAnimateMouth, mouthAlt])
+
+  const canContinueFromIntro = phase === STEP_INTRO
+  const showQ1 = phase === STEP_Q1
+  const showQ2 = phase === STEP_Q2
+  const showBilan = phase === STEP_BILAN
+
+  async function saveNiveau10Answers(nextAnswers) {
+    const entries = [
+      {
+        question_id: 'niv10_career_ideas',
+        question_text: "As t-on réélement réussi à te donner des idées sur ton futur métier (Oui / non / Je ne sais pas )",
+        answer_text: nextAnswers.careerIdeas
+      },
+      {
+        question_id: 'niv10_like_app',
+        question_text: "On va passer au niveau suivant mais on aimerait bien savoir si tu aimes bien l'application ? (Oui/ non / Je ne sais pas)",
+        answer_text: nextAnswers.likeApp
+      }
+    ]
+    await usersAPI.saveExtraInfo(entries)
+  }
+
+  async function loadBilan() {
+    setBilanError('')
+    setBilanLoading(true)
+    try {
+      const { data } = await analysisAPI.getLevel10Bilan()
+      setBilan(data || null)
+    } catch (e) {
+      console.error('Niveau10 bilan fetch failed', e)
+      setBilan(null)
+      setBilanError("Impossible de générer ton bilan pour le moment.")
+    } finally {
+      setBilanLoading(false)
+    }
+  }
+
+  const onIntroContinue = () => {
+    if (!typedDone) { skip(); return }
+    setPhase(STEP_Q1)
+  }
+
+  const onPickQ1 = async (value) => {
+    const next = { ...answers, careerIdeas: value }
+    setAnswers(next)
+    setPhase(STEP_Q2)
+  }
+
+  const onPickQ2 = async (value) => {
+    const next = { ...answers, likeApp: value }
+    setAnswers(next)
+
+    setBilanError('')
+    setPhase(STEP_BILAN)
+    setBilan(null)
+
+    try {
+      await saveNiveau10Answers(next)
+    } catch (e) {
+      console.warn('Niveau10 extra info save failed (non-blocking):', e)
+    }
+    await loadBilan()
+  }
+
+  const onFinish = async () => {
+    if (finishing) return
+    setFinishing(true)
+    try {
+      await levelUp({ minLevel: 10, xpReward: XP_PER_LEVEL })
+      setShowSuccess(true)
+    } catch (e) {
+      console.error('Niveau10 levelUp failed', e)
+      setBilanError('Impossible de valider le niveau pour le moment. Réessaie.')
+    } finally {
+      setFinishing(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6 text-center">
+        <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
+        <p className="mt-2 text-text-secondary">Chargement…</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">{error}</div>
+      </div>
+    )
+  }
+
+  const personalitySummary = bilan?.summaries?.personalitySummary
+  const niveau1Summary = bilan?.summaries?.niveau1Summary
+  const skillsBilan = bilan?.summaries?.skillsBilan
+
+  const englishLevel = bilan?.english?.level || null
+  const formations = Array.isArray(bilan?.formations?.studyRecommendations)
+    ? bilan.formations.studyRecommendations
+    : []
+
+  const formationsText = formations
+    .map(s => {
+      if (!s) return null
+      if (typeof s === 'string') return s
+      const degree = s.degree || s.diploma || s.title || ''
+      const type = s.type || s.study_type || s.label || ''
+      return [degree, type].filter(Boolean).join(' – ') || null
+    })
+    .filter(Boolean)
+    .slice(0, 8)
+
+  return (
+    <div className="p-4 md:p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
+          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+            <img
+              src={displayedAvatarUrl}
+              alt="Avatar"
+              className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-52 lg:h-52 xl:w-60 xl:h-60 2xl:w-64 2xl:h-64 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto md:mx-0"
+            />
+            <div className="flex-1 w-full">
+              <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
+                <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
+                  {typed}
+                </div>
+                <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
+              </div>
+
+              <div className="mt-4 flex flex-col gap-3">
+                {canContinueFromIntro && (
+                  <button
+                    type="button"
+                    onClick={onIntroContinue}
+                    className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto"
+                  >
+                    Continuer
+                  </button>
+                )}
+
+                {showQ1 && (
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {OPTIONS_3.map(opt => (
+                      <button
+                        key={`q1-${opt}`}
+                        type="button"
+                        onClick={() => onPickQ1(opt)}
+                        className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto"
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {showQ2 && (
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {OPTIONS_3.map(opt => (
+                      <button
+                        key={`q2-${opt}`}
+                        type="button"
+                        onClick={() => onPickQ2(opt)}
+                        className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto"
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {showBilan && (
+                  <button
+                    type="button"
+                    onClick={onFinish}
+                    disabled={bilanLoading || finishing}
+                    className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto disabled:opacity-60"
+                  >
+                    Continuer
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">📋</div>
+            <h2 className="text-xl font-bold">Bilan</h2>
+          </div>
+
+          {!showBilan ? (
+            <div className="text-text-secondary">Réponds aux 2 questions pour voir ton bilan.</div>
+          ) : bilanLoading ? (
+            <div className="text-center">
+              <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
+              <p className="mt-2 text-text-secondary">Génération de ton bilan…</p>
+            </div>
+          ) : bilanError ? (
+            <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">{bilanError}</div>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div className="font-semibold">Anglais</div>
+                <div className="text-text-secondary">Niveau : {englishLevel || 'Non disponible'}</div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div className="font-semibold">Formations</div>
+                {formationsText.length ? (
+                  <ul className="mt-2 list-disc pl-5 text-text-secondary">
+                    {formationsText.map((t, idx) => (
+                      <li key={`formation-${idx}`}>{t}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-text-secondary">Non disponible</div>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div className="font-semibold">Résumé du test de personnalité</div>
+                <div className="mt-2 whitespace-pre-wrap text-text-secondary">{personalitySummary || 'Non disponible'}</div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div className="font-semibold">Résumé de tes réponses du Niveau 1</div>
+                <div className="mt-2 whitespace-pre-wrap text-text-secondary">{niveau1Summary || 'Non disponible'}</div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div className="font-semibold">Bilan des compétences</div>
+                <div className="mt-2 whitespace-pre-wrap text-text-secondary">{skillsBilan || 'Non disponible'}</div>
+              </div>
+
+              {Boolean(bilanError) && (
+                <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">{bilanError}</div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {showSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md">🏆</div>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 10 réussi !</h3>
+            <button
+              type="button"
+              onClick={() => navigate('/app/niveau/11')}
+              className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto"
+            >
+              Continuer
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Legacy upsell implementation (disabled). Will be removed once confirmed unnecessary.
+function Niveau10Legacy_DISABLED() {
   const [hasPaid, setHasPaid] = useState(false)
   const [userId, setUserId] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')

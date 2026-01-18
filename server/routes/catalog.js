@@ -65,7 +65,7 @@ router.get('/formations/search', optionalAuth, async (req, res) => {
 router.get('/metiers/search', optionalAuth, async (req, res) => {
   try {
     const { q, typecontrat, alternance, location } = req.query
-    const { page, pageSize, from, to } = getPagination(req.query)
+    const { page, pageSize, from } = getPagination(req.query)
 
     // Fetch only the columns used by the client and avoid expensive total counts
     // Use the column names present in your provided schema (no snake_case variants)
@@ -84,6 +84,13 @@ router.get('/metiers/search', optionalAuth, async (req, res) => {
       'entreprise_logo'
     ].join(',')
 
+  const rawQuery = typeof q === 'string' ? q.trim() : ''
+  const normalizedQuery = rawQuery.replace(/\s+/g, ' ').slice(0, 80)
+  const shortQuery = normalizedQuery.length > 0 && normalizedQuery.length <= 4
+  const likePattern = normalizedQuery
+    ? shortQuery ? `${normalizedQuery}%` : `%${normalizedQuery}%`
+    : ''
+
   let query = supabase
       .from('metiers_france')
       .select(selectCols, { count: 'none' })
@@ -95,16 +102,17 @@ router.get('/metiers/search', optionalAuth, async (req, res) => {
       const boolVal = String(alternance).toLowerCase() === 'true'
       query = query.eq('alternance', boolVal)
     }
-    if (q) {
-      const like = `%${q}%`
+    if (normalizedQuery) {
       // Use a conservative set of columns known to exist across schemas to avoid 400 errors
       // Removed description and others to avoid timeouts on large datasets
-      query = query.ilike('intitule', like)
+      query = query.ilike('intitule', likePattern)
 
-      // Add date filter to improve performance on large dataset
-      const days = 90 // 3 months window
-      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
-      query = query.gte('dateactualisation', since)
+      // Add date filter to improve performance on large dataset (avoid for very short queries)
+      if (!shortQuery) {
+        const days = 90 // 3 months window
+        const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+        query = query.gte('dateactualisation', since)
+      }
     }
 
     if (location) {
@@ -124,7 +132,7 @@ router.get('/metiers/search', optionalAuth, async (req, res) => {
   // Avoid expensive ORDER BY on huge tables when no filters are applied.
   // Apply ordering only if a filter/search is present; otherwise just use range for speed.
   const toPlusOne = from + pageSize
-  const hasFilter = !!(q || typecontrat || location || (typeof alternance !== 'undefined' && alternance !== ''))
+  const hasFilter = !!(normalizedQuery || typecontrat || location || (typeof alternance !== 'undefined' && alternance !== ''))
   if (hasFilter) {
     query = query
       .order('dateactualisation', { ascending: false, nullsFirst: false })
@@ -132,8 +140,35 @@ router.get('/metiers/search', optionalAuth, async (req, res) => {
   }
   query = query.range(from, toPlusOne)
 
-  const { data, error } = await query
-    if (error) return res.status(400).json({ error: error.message })
+  let { data, error } = await query
+  if (error) {
+    console.warn('Catalog metiers search error, retrying with fallback:', error.message)
+    try {
+      let fallback = supabase
+        .from('metiers_france')
+        .select(selectCols, { count: 'none' })
+
+      if (normalizedQuery) {
+        const fallbackPattern = normalizedQuery.length <= 3 ? `${normalizedQuery}%` : `%${normalizedQuery}%`
+        fallback = fallback.ilike('intitule', fallbackPattern)
+      }
+      if (typecontrat) fallback = fallback.eq('typecontrat', typecontrat)
+      if (typeof alternance !== 'undefined' && alternance !== '') {
+        const boolVal = String(alternance).toLowerCase() === 'true'
+        fallback = fallback.eq('alternance', boolVal)
+      }
+      if (location) fallback = fallback.ilike('lieutravail_libelle', `%${location}%`)
+
+      fallback = fallback.range(from, toPlusOne)
+      const retry = await fallback
+      data = retry.data
+      error = retry.error
+    } catch (retryErr) {
+      console.error('Catalog metiers fallback failed:', retryErr)
+      return res.status(400).json({ error: error?.message || 'Query error' })
+    }
+  }
+  if (error) return res.status(400).json({ error: error.message })
 
     const rows = data || []
     const has_more = rows.length > pageSize

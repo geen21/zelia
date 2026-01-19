@@ -80,6 +80,28 @@ router.get('/me', authenticateToken, async (req, res) => {
   }
 })
 
+// Get current user's extra info entries
+router.get('/profile/extra-info', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id
+    const db = supabaseAdmin || supabase
+    const { data, error } = await db
+      .from('informations_complementaires')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      return res.status(400).json({ error: error.message })
+    }
+
+    res.json({ entries: data || [] })
+  } catch (error) {
+    console.error('Extra info fetch error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 export default router
 
 // Extra info saving endpoint

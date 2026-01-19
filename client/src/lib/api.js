@@ -87,6 +87,7 @@ export const usersAPI = {
   updateProfile: (profileData) => apiClient.put('/users/profile', profileData),
   getCurrentUser: () => apiClient.get('/users/me'),
   saveExtraInfo: (entries) => apiClient.post('/users/profile/extra-info', { entries }),
+  getExtraInfo: () => apiClient.get('/users/profile/extra-info'),
 }
 
 // Activities API
@@ -133,6 +134,12 @@ export const analysisAPI = {
     apiClient.post('/analysis/share-image', {
       image: dataUrl,
       questionnaireType,
+      metadata
+    }),
+  saveSharePdf: ({ dataUrl, documentType = 'cv', metadata }) =>
+    apiClient.post('/analysis/share-pdf', {
+      pdf: dataUrl,
+      documentType,
       metadata
     })
 }

@@ -89,6 +89,7 @@ export default function Profile() {
   const [profile, setProfile] = useState(null)
   const [authUser, setAuthUser] = useState(null)
   const [analysis, setAnalysis] = useState(null)
+  const [extraInfos, setExtraInfos] = useState([])
   const [progression, setProgression] = useState(getDefaultProgression())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -111,6 +112,7 @@ export default function Profile() {
       try {
         const profilePromise = usersAPI.getProfile()
         const userPromise = usersAPI.getCurrentUser().catch(() => null)
+        const extraInfoPromise = usersAPI.getExtraInfo().catch(() => null)
         const resultsPromise = analysisAPI
           .getMyResults()
           .then(res => res?.data?.results || null)
@@ -120,9 +122,10 @@ export default function Profile() {
           })
         const progressionPromise = fetchProgression().catch(() => getDefaultProgression())
 
-        const [profileRes, userRes, results, progressionData] = await Promise.all([
+        const [profileRes, userRes, extraRes, results, progressionData] = await Promise.all([
           profilePromise,
           userPromise,
+          extraInfoPromise,
           resultsPromise,
           progressionPromise
         ])
@@ -132,6 +135,7 @@ export default function Profile() {
         const profileData = profileRes?.data?.profile || profileRes?.data || null
         setProfile(profileData)
         setAuthUser(userRes?.data?.user || null)
+        setExtraInfos(Array.isArray(extraRes?.data?.entries) ? extraRes.data.entries : [])
   setAnalysis(normalizeZeliaAnalysis(results))
         setProgression(progressionData || getDefaultProgression())
       } catch (err) {
@@ -213,6 +217,13 @@ export default function Profile() {
   }, [analysis])
 
   const email = authUser?.email || profile?.email || ''
+
+  const cvPdfUrl = useMemo(() => {
+    const entries = Array.isArray(extraInfos) ? extraInfos : []
+    const match = entries.find((row) => row?.question_id === 'niveau17_cv_pdf_url')
+    const url = match?.answer_text || ''
+    return typeof url === 'string' ? url.trim() : ''
+  }, [extraInfos])
 
   const refreshLatestAnalysis = useCallback(async () => {
     try {
@@ -627,6 +638,40 @@ export default function Profile() {
                 </div>
               )}
             </form>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-semibold">Mon CV (Niveau 17)</h2>
+                <p className="text-text-secondary text-sm">Retrouvez ici votre CV généré et enregistré.</p>
+              </div>
+            </div>
+
+            {cvPdfUrl ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <a
+                  href={cvPdfUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 rounded-lg bg-black text-white border border-black hover:opacity-90 transition"
+                >
+                  Ouvrir le PDF
+                </a>
+                <a
+                  href={cvPdfUrl}
+                  download
+                  className="px-4 py-2 rounded-lg border border-line bg-white text-gray-700 hover:bg-gray-50"
+                >
+                  Télécharger
+                </a>
+                <p className="text-xs text-text-secondary break-all">{cvPdfUrl}</p>
+              </div>
+            ) : (
+              <div className="bg-surface border border-line rounded-xl shadow-card p-6 text-sm text-text-secondary">
+                Aucun CV enregistré pour le moment. Termine le Niveau 17 pour le générer.
+              </div>
+            )}
           </div>
 
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">

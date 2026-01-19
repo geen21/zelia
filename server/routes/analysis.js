@@ -921,6 +921,60 @@ router.post('/share-image', authenticateToken, async (req, res) => {
   }
 })
 
+router.post('/share-pdf', authenticateToken, async (req, res) => {
+  try {
+    if (!isCloudinaryConfigured()) {
+      return res.status(500).json({ error: 'Cloudinary is not configured on the server.' })
+    }
+
+    const userId = req.user?.id
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+
+    const { pdf, documentType = 'cv', metadata = {} } = req.body || {}
+    if (!pdf || typeof pdf !== 'string') {
+      return res.status(400).json({ error: 'PDF data URL is required.' })
+    }
+
+    const trimmed = pdf.trim()
+    const dataUrlPattern = /^data:application\/pdf;base64,/i
+    let uploadPayload = trimmed
+
+    if (!dataUrlPattern.test(trimmed)) {
+      const base64Only = trimmed.replace(/^data:[^;]+;base64,/, '')
+      const base64Regex = /^[A-Za-z0-9+/=\r\n]+$/
+      if (!base64Regex.test(base64Only)) {
+        return res.status(400).json({ error: 'Invalid PDF payload. Expecting base64-encoded PDF.' })
+      }
+      uploadPayload = `data:application/pdf;base64,${base64Only}`
+    }
+
+    const folder = `zelia/${documentType}`
+    const publicId = `${userId}-${documentType}`
+
+    const uploadResult = await cloudinary.uploader.upload(uploadPayload, {
+      folder,
+      public_id: publicId,
+      overwrite: true,
+      invalidate: true,
+      resource_type: 'raw',
+      format: 'pdf',
+      context: Object.entries(metadata || {}).map(([key, value]) => `${key}=${value}`).join('|') || undefined
+    })
+
+    const fileUrl = uploadResult?.secure_url
+    if (!fileUrl) {
+      return res.status(500).json({ error: 'Failed to upload PDF to Cloudinary.' })
+    }
+
+    res.json({ url: fileUrl })
+  } catch (error) {
+    console.error('share-pdf upload error:', error)
+    res.status(500).json({ error: 'Internal server error while uploading PDF.' })
+  }
+})
+
 export default router
 
 // New endpoint: get current user's analysis results (authenticated)

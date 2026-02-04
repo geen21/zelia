@@ -328,6 +328,11 @@ export default function Home() {
                       <span>Trouver sa voie professionnelle </span>
                     </div>
                   </div>
+                  <div className="mt-8">
+                    <Link to="/create_avatar" className="nav-cta-btn">
+                      <span>Passer le test d'orientation</span>
+                    </Link>
+                  </div>
                 </div>
               </div>
             </div>

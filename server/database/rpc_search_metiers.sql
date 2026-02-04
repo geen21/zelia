@@ -31,7 +31,7 @@ CREATE OR REPLACE FUNCTION search_metiers(
     p_offset int DEFAULT 0
 )
 RETURNS TABLE (
-    id bigint,
+    id text,
     intitule text,
     romecode text,
     dateactualisation timestamp,

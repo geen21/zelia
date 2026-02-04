@@ -50,12 +50,12 @@ router.post('/bug', authenticateToken, async (req, res) => {
   const user = req.user || {}
   const reporterEmail = (email && EMAIL_REGEX.test(email)) ? email : (user.email || null)
 
-  const safeTitle = (typeof title === 'string' && title.trim()) ? title.trim() : 'Bug report (Version Alpha)'
+  const safeTitle = (typeof title === 'string' && title.trim()) ? title.trim() : 'Bug report (Version BETA 1.0)'
   const safeLocation = typeof location === 'string' ? location : ''
   const safeUA = typeof userAgent === 'string' ? userAgent : ''
 
   const html = `
-    <h2>Bug report - Version Alpha</h2>
+    <h2>Bug report - Version BETA 1.0</h2>
     <p><strong>Reporter:</strong> ${reporterEmail ? reporterEmail : 'Unknown'}</p>
     <p><strong>User ID:</strong> ${user?.id || 'n/a'}</p>
     <p><strong>Location:</strong> ${safeLocation}</p>
@@ -64,7 +64,7 @@ router.post('/bug', authenticateToken, async (req, res) => {
     <p style="white-space:pre-wrap;">${description.replace(/</g, '&lt;')}</p>
   `
 
-  const text = `Bug report - Version Alpha\n\nReporter: ${reporterEmail || 'Unknown'}\nUser ID: ${user?.id || 'n/a'}\nLocation: ${safeLocation}\nUser-Agent: ${safeUA}\n\n${description}`
+  const text = `Bug report - Version BETA 1.0\n\nReporter: ${reporterEmail || 'Unknown'}\nUser ID: ${user?.id || 'n/a'}\nLocation: ${safeLocation}\nUser-Agent: ${safeUA}\n\n${description}`
 
   try {
     const tx = await getTransporter()

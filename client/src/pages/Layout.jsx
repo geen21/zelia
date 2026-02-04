@@ -122,7 +122,7 @@ export default function Layout() {
 							setTimeout(()=>{ setBugOpen(false); setBugSent(false); }, 1200)
 						} catch (e) {
 									// fallback to mailto if backend not reachable (e.g., 404 on prod host)
-									const subject = encodeURIComponent(bugTitle || 'Bug report (Version Alpha)')
+									const subject = encodeURIComponent(bugTitle || 'Bug report (Version BETA 1.0)')
 									const body = encodeURIComponent(`${bugDesc}\n\nURL: ${window.location?.href}\nUA: ${navigator.userAgent}`)
 									window.location.href = `mailto:nicolas.wiegele@zelia.io?subject=${subject}&body=${body}`
 						} finally {
@@ -218,7 +218,7 @@ export default function Layout() {
 						<div className="flex flex-row items-center justify-center gap-2 text-[11px] uppercase tracking-wide w-full">
 							<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-[#f68fff] text-[#f68fff] whitespace-nowrap">
 								<span className="inline-block w-1.5 h-1.5 rounded-full bg-[#f68fff]"></span>
-								Version Alpha
+								Version BETA 1.0
 							</span>
 							<button onClick={() => setBugOpen(true)} className="text-[#f68fff] hover:underline whitespace-nowrap">Signaler un bug</button>
 						</div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiClient, { analysisAPI, usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
@@ -160,17 +160,36 @@ function EditableList({ items, onChange, className }) {
     onChange(next)
   }
 
+  const handleRemove = (idx) => {
+    if (items.length <= 1) return
+    const next = items.filter((_, i) => i !== idx)
+    onChange(next)
+  }
+
   return (
     <ul className={className}>
       {items.map((item, idx) => (
-        <li key={`${idx}-${item}`} className="leading-snug">
-          <EditableText
-            value={item}
-            onChange={(val) => handleChange(idx, val)}
-            className="outline-none"
-            tag="span"
-            placeholder="Élément"
-          />
+        <li key={`${idx}-${item}`} className="leading-snug flex items-center gap-1">
+          <span className="flex-1">
+            <EditableText
+              value={item}
+              onChange={(val) => handleChange(idx, val)}
+              className="outline-none"
+              tag="span"
+              placeholder="Tâche"
+            />
+          </span>
+          {items.length > 1 && (
+            <button
+              type="button"
+              onClick={() => handleRemove(idx)}
+              className="text-red-400 hover:text-red-600 text-sm px-1 print:hidden"
+              data-html2canvas-ignore="true"
+              title="Supprimer"
+            >
+              ✕
+            </button>
+          )}
         </li>
       ))}
     </ul>
@@ -426,6 +445,8 @@ export default function Niveau17() {
         `Contraintes STRICTES :\n` +
         `- Réponds UNIQUEMENT en JSON valide (sans Markdown).\n` +
         `- Structure attendue : {"fullName":"","title":"","summary":"","experiences":[{"company":"","role":"","period":"","details":["","","..."]}],"education":[{"title":"","period":"","details":["",""]}],"skills":[""],"qualities":[""],"languages":[""],"interests":[""]}\n` +
+        `- IMPORTANT : Chaque élément de "details" doit faire MAXIMUM 60 caractères. Sois concis et percutant.\n` +
+        `- Maximum 3 tâches par expérience, 2 détails par formation.\n` +
         `- Ajoute des détails concrets pour remplir une page A4, sans inventer d'entreprise si aucune n'est fournie (utilise "Projet personnel").\n` +
         `- Sois concis, professionnel, et évite toute phrase d'introduction ou de conclusion.`
 
@@ -437,7 +458,9 @@ export default function Niveau17() {
       })
 
       const raw = resp?.data?.reply || ''
+      console.log('CV AI raw response:', raw)
       const parsed = extractJson(raw)
+      console.log('CV AI parsed:', parsed)
       const fallback = buildFallbackCv({
         profile,
         targetJob: payload.targetJob,

@@ -6,6 +6,7 @@ export const blogPosts = [
     category: 'Méthodologie',
     readingTime: '6 min',
     publishedAt: 'Décembre 2025',
+    dateIso: '2025-12-10T10:00:00+01:00',
     accent: '#f97316',
     accentSoft: '#ffedd5'
   },
@@ -16,6 +17,7 @@ export const blogPosts = [
     category: 'Orientation',
     readingTime: '6 min',
     publishedAt: 'Décembre 2025',
+    dateIso: '2025-12-05T10:00:00+01:00',
     accent: '#6366f1',
     accentSoft: '#e0e7ff'
   },
@@ -26,6 +28,7 @@ export const blogPosts = [
     category: 'Méthodologie',
     readingTime: '9 min',
     publishedAt: 'Décembre 2025',
+    dateIso: '2025-12-01T10:00:00+01:00',
     accent: '#0ea5e9',
     accentSoft: '#e0f2fe'
   },
@@ -36,6 +39,7 @@ export const blogPosts = [
     category: 'Futur du travail',
     readingTime: '6 min',
     publishedAt: 'Novembre 2025',
+    dateIso: '2025-11-20T10:00:00+01:00',
     accent: '#0ea5e9',
     accentSoft: '#e0f2fe'
   },
@@ -46,6 +50,7 @@ export const blogPosts = [
     category: 'Orientation',
     readingTime: '5 min',
     publishedAt: 'Novembre 2025',
+    dateIso: '2025-11-15T10:00:00+01:00',
     accent: '#6366f1',
     accentSoft: '#e0e7ff'
   },
@@ -56,6 +61,7 @@ export const blogPosts = [
     category: 'Vie familiale',
     readingTime: '5 min',
     publishedAt: 'Août 2025',
+    dateIso: '2025-08-01T10:00:00+01:00',
     accent: '#f97316',
     accentSoft: '#ffedd5'
   }

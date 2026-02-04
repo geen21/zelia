@@ -106,25 +106,32 @@ export default function Niveau14() {
         setProfile(prof)
         setAvatarUrl(buildAvatarFromProfile(prof, user.id))
 
-        // Fetch results to pick a recommended job if profile.home_preference is empty
+        // Fetch job_recommendations from user_results
         try {
-          const anal = await apiClient.get('/analysis/my-results', { headers: { 'Cache-Control': 'no-cache' }, params: { _: Date.now() } })
-          const r = anal?.data?.results || {}
-          const list = r.jobRecommendations || r.job_recommandations || []
-          if (Array.isArray(list) && list.length > 0) {
-            const title = list[0]?.title || list[0]?.intitule || (typeof list[0] === 'string' ? list[0] : '')
-            setJobFromResults(title || '')
-          }
-        } catch {
-          try {
-            const latest = await apiClient.get('/results/latest', { headers: { 'Cache-Control': 'no-cache' }, params: { _: Date.now() } })
-            const simple = latest?.data?.results?.analysis || latest?.data?.results || {}
-            const list = simple.jobRecommendations || simple.job_recommandations || simple.career_matches || []
-            if (Array.isArray(list) && list.length > 0) {
+          const { data: userResultsData } = await supabase
+            .from('user_results')
+            .select('job_recommendations')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single()
+          
+          if (userResultsData?.job_recommendations) {
+            let list = userResultsData.job_recommendations
+            if (typeof list === 'string') {
+              try { list = JSON.parse(list) } catch {}
+            }
+            if (Array.isArray(list) && list.length > 1) {
+              // Use index [1] (second recommendation)
+              const title = list[1]?.title || list[1]?.intitule || (typeof list[1] === 'string' ? list[1] : '')
+              setJobFromResults(title || '')
+            } else if (Array.isArray(list) && list.length > 0) {
               const title = list[0]?.title || list[0]?.intitule || (typeof list[0] === 'string' ? list[0] : '')
               setJobFromResults(title || '')
             }
-          } catch {}
+          }
+        } catch (e) {
+          console.warn('Failed to fetch job_recommendations from user_results', e)
         }
 
         // Fetch user_responses & informations_complementaires for context
@@ -165,9 +172,16 @@ export default function Niveau14() {
   }, [profile])
 
   const suggestedJob = useMemo(() => {
+    // Always use job from user_results.job_recommendations[1] if available
+    if (jobFromResults && jobFromResults.trim()) {
+      return jobFromResults.trim()
+    }
+    // Fallback to home_preference if it's a specific job (not 'questionnaire')
     const pref = (profile?.home_preference || '').trim()
-    if (pref && pref.toLowerCase() !== 'questionnaire') return pref
-    return (jobFromResults || '').trim()
+    if (pref && pref.toLowerCase() !== 'questionnaire') {
+      return pref
+    }
+    return ''
   }, [profile, jobFromResults])
 
   const dialogue = useMemo(() => {
@@ -276,6 +290,21 @@ export default function Niveau14() {
     if (finishing) return
     setFinishing(true)
     try {
+      // Sauvegarder les données du niveau 14
+      if (suggestedJob || companyInput || letter) {
+        await usersAPI.saveExtraInfo([
+          {
+            question_id: 'niveau14_target_job',
+            question_text: 'Métier ciblé pour la lettre de motivation',
+            answer_text: suggestedJob || companyInput || 'Non spécifié'
+          },
+          {
+            question_id: 'niveau14_letter_generated',
+            question_text: 'Lettre de motivation générée',
+            answer_text: letter ? 'Oui' : 'Non'
+          }
+        ])
+      }
       await levelUp({ minLevel: 14, xpReward: XP_PER_LEVEL })
       setShowSuccess(true)
     } catch (e) {
@@ -444,6 +473,13 @@ export default function Niveau14() {
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/15')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
+            </div>
+            {/* Subtle confetti dots */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />
+              <div className="absolute w-2 h-2 bg-yellow-400 rounded-full right-8 top-10 animate-ping" />
+              <div className="absolute w-2 h-2 bg-blue-400 rounded-full left-10 bottom-8 animate-ping" />
+              <div className="absolute w-2 h-2 bg-green-400 rounded-full right-6 bottom-10 animate-ping" />
             </div>
           </div>
         </div>

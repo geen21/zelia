@@ -103,11 +103,11 @@ router.post('/generate-analysis', async (req, res) => {
       + `###Évaluation des compétences###\n`
       + `[Évaluation concise des compétences en points clés, maximum 300 mots. Présentez sous forme de liste.]\n\n`
       + `###Recommandations d'emploi###\n`
-      + `Fournissez exactement 6 recommandations d'emploi. Pour chaque recommandation, suivez le format suivant :\n`
+      + `OBLIGATOIRE : Fournis EXACTEMENT 6 recommandations d'emploi. Cette section ne doit JAMAIS être vide. Pour chaque recommandation, suis le format suivant :\n`
       + `1. [Titre du poste]\n`
       + `   - Compétences requises: [3-4 compétences principales sous forme liste, par mots clés]\n\n`
       + `###Recommandations d'études###\n`
-      + `Fournissez exactement 6 recommandations d'études. Pour chaque recommandation, suivez le format suivant :\n`
+      + `OBLIGATOIRE : Fournis EXACTEMENT 6 recommandations d'études. Cette section ne doit JAMAIS être vide. Pour chaque recommandation, suis le format suivant :\n`
       + `1. [Nom du diplôme]\n`
       + `2. [Nom du type d'étude]\n\n`
       + `1. Utilisez EXACTEMENT les titres de section indiqués ci-dessus avec trois dièses (###).\n`
@@ -124,35 +124,85 @@ router.post('/generate-analysis', async (req, res) => {
     }
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`
 
-    const geminiResponse = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
+    // Retry loop: relancer Gemini si les recommandations sont vides (max 3 tentatives)
+    const MAX_RETRIES = 3
+    let sections = null
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      console.log(`Gemini inscription analysis attempt ${attempt}/${MAX_RETRIES} for user ${userId}`)
+
+      const geminiResponse = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
           }]
-        }]
+        })
       })
-    })
 
-    if (!geminiResponse.ok) {
-      const errorData = await geminiResponse.text()
-      console.error('Gemini API error:', errorData)
-      return res.status(500).json({ error: 'Error calling Gemini API' })
+      if (!geminiResponse.ok) {
+        const errorData = await geminiResponse.text()
+        console.error(`Gemini API error (attempt ${attempt}):`, errorData)
+        if (attempt === MAX_RETRIES) {
+          return res.status(500).json({ error: 'Error calling Gemini API' })
+        }
+        continue
+      }
+
+      const geminiData = await geminiResponse.json()
+      const generatedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+
+      if (!generatedText) {
+        console.error(`No response from Gemini API (attempt ${attempt})`)
+        if (attempt === MAX_RETRIES) {
+          return res.status(500).json({ error: 'No response from Gemini API' })
+        }
+        continue
+      }
+
+      // Parse the response to extract different sections
+      sections = parseGeminiResponse(generatedText)
+
+      // Vérifier si les recommandations sont vides
+      const jobsEmpty = !sections.jobRecommendations || sections.jobRecommendations.length === 0
+      const studiesEmpty = !sections.studyRecommendations || sections.studyRecommendations.length === 0
+
+      if (jobsEmpty) {
+        console.warn(`Gemini returned empty job_recommendations for inscription (attempt ${attempt}/${MAX_RETRIES}) - retrying...`)
+      }
+      if (studiesEmpty) {
+        console.warn(`Gemini returned empty study_recommendations for inscription (attempt ${attempt}/${MAX_RETRIES}) - retrying...`)
+      }
+
+      // Si tout est OK, sortir de la boucle
+      if (!jobsEmpty && !studiesEmpty) {
+        console.log(`Gemini inscription analysis successful on attempt ${attempt}`)
+        break
+      }
+
+      // Si c'est la dernière tentative et toujours vide, retourner une erreur
+      if (attempt === MAX_RETRIES) {
+        if (jobsEmpty) {
+          console.error('Gemini failed to generate job_recommendations for inscription after all retries')
+          return res.status(500).json({ 
+            error: 'L\'analyse n\'a pas pu générer de recommandations de métiers après plusieurs tentatives. Veuillez réessayer.',
+            details: 'job_recommendations is empty after retries'
+          })
+        }
+        if (studiesEmpty) {
+          console.error('Gemini failed to generate study_recommendations for inscription after all retries')
+          return res.status(500).json({ 
+            error: 'L\'analyse n\'a pas pu générer de recommandations d\'études après plusieurs tentatives. Veuillez réessayer.',
+            details: 'study_recommendations is empty after retries'
+          })
+        }
+      }
     }
-
-    const geminiData = await geminiResponse.json()
-    const generatedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
-
-    if (!generatedText) {
-      return res.status(500).json({ error: 'No response from Gemini API' })
-    }
-
-    // Parse the response to extract different sections
-    const sections = parseGeminiResponse(generatedText)
 
     // Store the results in user_results table
     const { data: resultData, error: resultError } = await db
@@ -313,7 +363,7 @@ router.post('/generate-analysis-by-type', async (req, res) => {
         `###Tes qualités###\n` +
         `[Rédige un texte inspirant d'environ 100 mots qui met en valeur les qualités humaines et professionnelles de ce profil. Adopte un ton valorisant et bienveillant.]\n\n` +
         `###Recommandations d'emploi###\n` +
-        `Fournis exactement 6 recommandations d'emploi cohérentes avec l'archétype et tournées vers l'avenir. Pour chaque recommandation, suis le format suivant :\n` +
+        `OBLIGATOIRE : Fournis EXACTEMENT 6 recommandations d'emploi cohérentes avec l'archétype et tournées vers l'avenir. Cette section ne doit JAMAIS être vide. Pour chaque recommandation, suis le format suivant :\n` +
         `1. [Titre du poste]\n` +
         `   - Compétences requises: [3-4 compétences principales sous forme liste, par mots clés]\n\n` +
         `1. Utilisez EXACTEMENT les titres de section indiqués ci-dessus avec trois dièses (###).\n` +
@@ -334,11 +384,11 @@ router.post('/generate-analysis-by-type', async (req, res) => {
         `###Évaluation des compétences###\n` +
         `[Évaluation concise des compétences en points clés, maximum 300 mots. Présentez sous forme de liste.]\n\n` +
         `###Recommandations d'emploi###\n` +
-        `Fournissez exactement 6 recommandations d'emploi. Pour chaque recommandation, suivez le format suivant :\n` +
+        `OBLIGATOIRE : Fournis EXACTEMENT 6 recommandations d'emploi. Cette section ne doit JAMAIS être vide. Pour chaque recommandation, suis le format suivant :\n` +
         `1. [Titre du poste]\n` +
         `   - Compétences requises: [3-4 compétences principales sous forme liste, par mots clés]\n\n` +
         `###Recommandations d'études###\n` +
-        `Fournissez exactement 6 recommandations d'études. Pour chaque recommandation, suivez le format suivant :\n` +
+        `OBLIGATOIRE : Fournis EXACTEMENT 6 recommandations d'études. Cette section ne doit JAMAIS être vide. Pour chaque recommandation, suis le format suivant :\n` +
         `1. [Nom du diplôme]\n` +
         `2. [Nom du type d'étude]\n\n` +
         `1. Utilisez EXACTEMENT les titres de section indiqués ci-dessus avec trois dièses (###).\n` +
@@ -355,32 +405,96 @@ router.post('/generate-analysis-by-type', async (req, res) => {
     }
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`
 
-    const geminiResponse = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-    })
+    // Pour MBTI: pas de retry, job_recommendations n'est pas obligatoire
+    // Pour inscription/autres: retry si les recommandations sont vides (max 3 tentatives)
+    const MAX_RETRIES = isMbti ? 1 : 3
+    let sections = null
+    let jobRecommendations = []
+    let personalityAnalysis = null
 
-    if (!geminiResponse.ok) {
-      const errorData = await geminiResponse.text()
-      console.error('Gemini API error:', errorData)
-      return res.status(500).json({ error: 'Error calling Gemini API' })
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      console.log(`Gemini analysis attempt ${attempt}/${MAX_RETRIES} for user ${userId} (${qType})`)
+
+      const geminiResponse = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      })
+
+      if (!geminiResponse.ok) {
+        const errorData = await geminiResponse.text()
+        console.error(`Gemini API error (attempt ${attempt}):`, errorData)
+        if (attempt === MAX_RETRIES) {
+          return res.status(500).json({ error: 'Error calling Gemini API' })
+        }
+        continue
+      }
+
+      const geminiData = await geminiResponse.json()
+      const generatedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+      if (!generatedText) {
+        console.error(`No response from Gemini API (attempt ${attempt})`)
+        if (attempt === MAX_RETRIES) {
+          return res.status(500).json({ error: 'No response from Gemini API' })
+        }
+        continue
+      }
+
+      sections = parseGeminiResponse(generatedText)
+      if (isMbti) {
+        sections.personalityType = stripMbtiTokens(sections.personalityType)
+      }
+
+      personalityAnalysis = isMbti
+        ? limitWords(sections.personalityAnalysis, 300)
+        : sections.personalityAnalysis
+      jobRecommendations = Array.isArray(sections.jobRecommendations)
+        ? sections.jobRecommendations.slice(0, 6)
+        : []
+
+      // Pour MBTI: pas de validation des recommandations, on accepte tout
+      if (isMbti) {
+        console.log(`Gemini MBTI analysis successful`)
+        break
+      }
+
+      // Pour inscription/autres: vérifier si les recommandations sont vides
+      const jobsEmpty = !jobRecommendations || jobRecommendations.length === 0
+      const studiesEmpty = !sections.studyRecommendations || sections.studyRecommendations.length === 0
+
+      if (jobsEmpty) {
+        console.warn(`Gemini returned empty job_recommendations (attempt ${attempt}/${MAX_RETRIES}) - retrying...`)
+      }
+      if (studiesEmpty) {
+        console.warn(`Gemini returned empty study_recommendations (attempt ${attempt}/${MAX_RETRIES}) - retrying...`)
+      }
+
+      // Si tout est OK, sortir de la boucle
+      if (!jobsEmpty && !studiesEmpty) {
+        console.log(`Gemini analysis successful on attempt ${attempt}`)
+        break
+      }
+
+      // Si c'est la dernière tentative et toujours vide, retourner une erreur
+      if (attempt === MAX_RETRIES) {
+        if (jobsEmpty) {
+          console.error('Gemini failed to generate job_recommendations after all retries')
+          return res.status(500).json({ 
+            error: 'L\'analyse n\'a pas pu générer de recommandations de métiers après plusieurs tentatives. Veuillez réessayer.',
+            details: 'job_recommendations is empty after retries'
+          })
+        }
+        if (studiesEmpty) {
+          console.error('Gemini failed to generate study_recommendations after all retries')
+          return res.status(500).json({ 
+            error: 'L\'analyse n\'a pas pu générer de recommandations d\'études après plusieurs tentatives. Veuillez réessayer.',
+            details: 'study_recommendations is empty after retries'
+          })
+        }
+      }
     }
 
-    const geminiData = await geminiResponse.json()
-    const generatedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
-    if (!generatedText) {
-      return res.status(500).json({ error: 'No response from Gemini API' })
-    }
-
-    const sections = parseGeminiResponse(generatedText)
-    if (isMbti) {
-      sections.personalityType = stripMbtiTokens(sections.personalityType)
-      // Map 'Tes qualités' (captured in skillsAssessment by parser update) to skillsAssessment
-      // No change needed here if parser puts it in skillsAssessment
-    }
-
-    // --- NEW: Second prompt for Share Card Data (MBTI only) ---
+    // --- Second prompt for Share Card Data (MBTI only) ---
     let shareCardData = null
     if (isMbti) {
       try {
@@ -423,13 +537,6 @@ router.post('/generate-analysis-by-type', async (req, res) => {
       }
     }
     // ----------------------------------------------------------
-
-    const personalityAnalysis = isMbti
-      ? limitWords(sections.personalityAnalysis, 300)
-      : sections.personalityAnalysis
-    const jobRecommendations = Array.isArray(sections.jobRecommendations)
-      ? sections.jobRecommendations.slice(0, 6)
-      : []
 
     // Upsert into user_results per questionnaire_type (composite unique)
     const { error: resultError } = await db

@@ -126,26 +126,26 @@ export default function Niveau5() {
   }, [navigate])
 
   const dialogue = useMemo(() => ([
-  { type: 'text', text: "Hey! Welcome to Level 5. We're going to test your English skills in a fun conversation. I'll ask you questions, play some audio, and at the end, I'll tell you your CEFR level from A1 to C2. Ready?\n\n*cela ne remplace en aucun cas un test d'anglais.*", durationMs: 6500 },
-    { type: 'text', text: "First, let's test your listening. I'll play a short audio. Listen carefully and answer the question after.", durationMs: 4000 },
+  { type: 'text', text: "Hey! Welcome to Level 5. We're going to test your English skills in a fun conversation. I'll ask you questions, play some audio, and at the end, I'll tell you your CEFR level from A1 to C2. Ready?\n\n*cela ne remplace en aucun cas un test d'anglais.*", durationMs: 3500 },
+    { type: 'text', text: "First, let's test your listening. I'll play a short audio. Listen carefully and answer the question after.", durationMs: 2200 },
     { type: 'audio', text: "Listen: 'Hello, my name is John. I live in London and I work as a teacher. I like reading books and playing football.'\n\nWhat is John's job?", audioText: "Hello, my name is John. I live in London and I work as a teacher. I like reading books and playing football." },
     { type: 'input', id: 'listening1', placeholder: 'Your answer...' },
-    { type: 'text', text: "Good! Now, another listening test.", durationMs: 1000 },
+    { type: 'text', text: "Good! Now, another listening test.", durationMs: 700 },
     { type: 'audio', text: "Listen: 'The weather is sunny today. I am going to the park with my friends. We will have a picnic and play games.'\n\nWhere are they going?", audioText: "The weather is sunny today. I am going to the park with my friends. We will have a picnic and play games." },
     { type: 'input', id: 'listening2', placeholder: 'Your answer...' },
-    { type: 'text', text: "Great listening! Now, speaking. Describe your favorite hobby in English. Be as detailed as you can.", durationMs: 3000 },
+    { type: 'text', text: "Great listening! Now, speaking. Describe your favorite hobby in English. Be as detailed as you can.", durationMs: 1800 },
     { type: 'input', id: 'speaking1', placeholder: 'Describe your hobby in at least 20 words...' },
-    { type: 'text', text: "Nice! Reading test. Read this: 'Cats are popular pets. They are independent and playful. Many people love cats because they are cute and fun.'\n\nWhat are cats best described as?\n\nRéponds en donnant les adjectifs exacts.", durationMs: 5500 },
+    { type: 'text', text: "Nice! Reading test. Read this: 'Cats are popular pets. They are independent and playful. Many people love cats because they are cute and fun.'\n\nWhat are cats best described as?\n\nRéponds en donnant les adjectifs exacts.", durationMs: 3000 },
     { type: 'input', id: 'reading1', placeholder: 'Donne les adjectifs exacts...' },
-    { type: 'text', text: "Good. Writing test. Write a short paragraph about your daily routine. Use at least 5 sentences.", durationMs: 3000 },
+    { type: 'text', text: "Good. Writing test. Write a short paragraph about your daily routine. Use at least 5 sentences.", durationMs: 1800 },
     { type: 'input', id: 'writing1', placeholder: 'Write your paragraph...' },
-    { type: 'text', text: "Vocabulary: What does 'happy' mean? Choose: a) sad, b) joyful, c) angry", durationMs: 3000 },
+    { type: 'text', text: "Vocabulary: What does 'happy' mean? Choose: a) sad, b) joyful, c) angry", durationMs: 1800 },
     { type: 'input', id: 'vocab1', placeholder: 'a, b, or c...' },
-    { type: 'text', text: "Grammar: Fill in the blank: 'I ___ to school every day.' (go, goes, going)", durationMs: 3000 },
+    { type: 'text', text: "Grammar: Fill in the blank: 'I ___ to school every day.' (go, goes, going)", durationMs: 1800 },
     { type: 'input', id: 'grammar1', placeholder: 'Your answer...' },
-    { type: 'text', text: "Conversation: What do you think about learning English? Why is it important? Réponds en détaillant au moins 20 mots.", durationMs: 3500 },
+    { type: 'text', text: "Conversation: What do you think about learning English? Why is it important? Réponds en détaillant au moins 20 mots.", durationMs: 2000 },
     { type: 'input', id: 'conversation1', placeholder: 'Share your thoughts in at least 20 words...' },
-    { type: 'text', text: "Thanks for participating! Now, let's calculate your English level based on your answers.", durationMs: 3000 },
+    { type: 'text', text: "Thanks for participating! Now, let's calculate your English level based on your answers.", durationMs: 1800 },
     { type: 'result' },
   ]), [])
 
@@ -409,7 +409,13 @@ export default function Niveau5() {
                 >
                   {idx + 1 < dialogue.length ? ((current.type === 'text' || current.type === 'audio') && !typedDone ? 'Passer' : 'Suivant') : 'Terminer'}
                 </button>
-                <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300">Quitter</button>
+                <button
+                  onClick={finishLevel}
+                  disabled={saving}
+                  className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 disabled:opacity-50"
+                >
+                  Passer ce niveau
+                </button>
               </div>
             </div>
           </div>
@@ -419,12 +425,19 @@ export default function Niveau5() {
       {completed && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🎯</div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 5 terminé !</h3>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">�</div>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 5 réussi !</h3>
             <p className="text-text-secondary mb-4">Ton niveau d'anglais est : <strong>{englishLevel}</strong>. Continue à pratiquer pour progresser !</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/6')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
+            </div>
+            {/* Subtle confetti dots */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />
+              <div className="absolute w-2 h-2 bg-yellow-400 rounded-full right-8 top-10 animate-ping" />
+              <div className="absolute w-2 h-2 bg-blue-400 rounded-full left-10 bottom-8 animate-ping" />
+              <div className="absolute w-2 h-2 bg-green-400 rounded-full right-6 bottom-10 animate-ping" />
             </div>
           </div>
         </div>

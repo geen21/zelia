@@ -1,5 +1,5 @@
 import express from 'express'
-import { supabase } from '../config/supabase.js'
+import { supabase, supabaseAdmin } from '../config/supabase.js'
 
 const router = express.Router()
 
@@ -218,6 +218,52 @@ router.post('/reset-password', async (req, res) => {
     res.json({ message: 'Password reset email sent' })
   } catch (error) {
     console.error('Password reset error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Manual email confirmation (fallback)
+router.post('/confirm-email', async (req, res) => {
+  try {
+    const { email } = req.body
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' })
+    }
+
+    if (!supabaseAdmin?.auth?.admin) {
+      return res.status(500).json({ error: 'Supabase admin client is not configured' })
+    }
+
+    const admin = supabaseAdmin.auth.admin
+    let user = null
+
+    if (typeof admin.getUserByEmail === 'function') {
+      const { data, error } = await admin.getUserByEmail(email)
+      if (error) {
+        return res.status(400).json({ error: error.message })
+      }
+      user = data?.user || null
+    } else {
+      const { data, error } = await admin.listUsers({ page: 1, perPage: 1000 })
+      if (error) {
+        return res.status(400).json({ error: error.message })
+      }
+      user = (data?.users || []).find(u => (u.email || '').toLowerCase() === email.toLowerCase()) || null
+    }
+
+    if (!user?.id) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    const { error: updateError } = await admin.updateUserById(user.id, { email_confirm: true })
+    if (updateError) {
+      return res.status(400).json({ error: updateError.message })
+    }
+
+    res.json({ message: 'Email confirmed successfully' })
+  } catch (error) {
+    console.error('Manual email confirmation error:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })

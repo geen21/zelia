@@ -19,6 +19,9 @@ export default function Register() {
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [newsletterOptIn, setNewsletterOptIn] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
+  const [manualConfirmLoading, setManualConfirmLoading] = useState(false)
+  const [manualConfirmError, setManualConfirmError] = useState('')
+  const [manualConfirmSuccess, setManualConfirmSuccess] = useState(false)
   const navigate = useNavigate()
 
   const departements = useMemo(() => [
@@ -181,6 +184,22 @@ export default function Register() {
     }
   }
 
+  async function handleManualEmailConfirm() {
+    if (!email || manualConfirmLoading) return
+    setManualConfirmError('')
+    setManualConfirmSuccess(false)
+    setManualConfirmLoading(true)
+    try {
+      await axios.post('/api/auth/confirm-email', { email })
+      setManualConfirmSuccess(true)
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || "Échec de la validation manuelle"
+      setManualConfirmError(msg)
+    } finally {
+      setManualConfirmLoading(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-white text-text-primary flex flex-col items-center justify-center px-4 overflow-hidden">
       <div className="w-full max-w-lg py-4 h-full flex flex-col justify-center overflow-y-auto">
@@ -211,6 +230,24 @@ export default function Register() {
               <p className="text-sm text-text-secondary">
                 L'email peut prendre quelques minutes à arriver. Pensez à vérifier votre dossier spam si vous ne le recevez pas.
               </p>
+            </div>
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={handleManualEmailConfirm}
+                className="text-sm text-black font-medium hover:underline disabled:opacity-60"
+                disabled={manualConfirmLoading}
+              >
+                {manualConfirmLoading ? 'Validation en cours…' : "Je n'ai pas reçu l'email"}
+              </button>
+              {manualConfirmSuccess && (
+                <div className="mt-3 text-sm text-green-700 bg-green-50 border border-green-100 p-2 rounded">
+                  Compte validé. Vous pouvez maintenant <Link to="/login" className="font-medium underline">vous connecter</Link>.
+                </div>
+              )}
+              {manualConfirmError && (
+                <div className="mt-3 text-sm text-red-600 bg-red-50 border border-red-100 p-2 rounded">{manualConfirmError}</div>
+              )}
             </div>
           </div>
         ) : (

@@ -1,11 +1,54 @@
 import express from 'express'
 import dotenv from 'dotenv'
+import nodemailer from 'nodemailer'
 import { supabase, supabaseAdmin } from '../config/supabase.js'
 import { authenticateToken, optionalAuth } from '../middleware/auth.js'
 
 dotenv.config()
 
 const router = express.Router()
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i
+const REQUIRED_SMTP_ENV = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD']
+const missingSmtpEnv = REQUIRED_SMTP_ENV.filter((key) => !process.env[key])
+
+if (missingSmtpEnv.length) {
+  console.warn('Letter route SMTP configuration missing environment variables:', missingSmtpEnv.join(', '))
+}
+
+const smtpPort = Number(process.env.SMTP_PORT || 0)
+const inferredSecure = smtpPort === 465
+const useSecure = process.env.SMTP_SECURE
+  ? process.env.SMTP_SECURE.toLowerCase() === 'true'
+  : inferredSecure
+
+let transporter = null
+
+async function resolveTransporter() {
+  if (!transporter) {
+    if (missingSmtpEnv.length) {
+      throw new Error('SMTP configuration is incomplete. Missing environment variables.')
+    }
+
+    transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: smtpPort || 465,
+      secure: useSecure,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASSWORD
+      }
+    })
+
+    try {
+      await transporter.verify()
+    } catch (error) {
+      console.warn('SMTP transporter verification failed:', error.message)
+    }
+  }
+
+  return transporter
+}
 
 // GET /api/letter/suggest?q=...&type=metier|formation
 // Suggest from metiers_france (intitule) or formations_france (nm)
@@ -164,6 +207,73 @@ router.post('/generate', authenticateToken, async (req, res) => {
     res.json({ letter })
   } catch (e) {
     console.error('letter generate error', e)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// POST /api/letter/future
+// body: { content: string, sendAt?: ISO string }
+router.post('/future', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id
+    const userEmail = req.user.email
+    const { content, sendAt } = req.body || {}
+
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json({ error: 'content is required' })
+    }
+
+    if (!userEmail || !EMAIL_REGEX.test(userEmail)) {
+      return res.status(400).json({ error: 'Invalid user email' })
+    }
+
+    let sendAtDate = sendAt ? new Date(sendAt) : new Date()
+    if (Number.isNaN(sendAtDate.getTime())) {
+      return res.status(400).json({ error: 'Invalid sendAt date' })
+    }
+
+    if (!sendAt) {
+      sendAtDate.setFullYear(sendAtDate.getFullYear() + 5)
+    }
+
+    const db = supabaseAdmin || supabase
+    const { error: insertError } = await db
+      .from('user_letter')
+      .insert({
+        user_id: userId,
+        email: userEmail,
+        content: content.trim(),
+        send_at: sendAtDate.toISOString(),
+        status: 'scheduled'
+      })
+
+    if (insertError) {
+      console.error('user_letter insert error', insertError)
+      return res.status(400).json({ error: insertError.message })
+    }
+
+    // Optional confirmation email (SMTP / Resend)
+    if (missingSmtpEnv.length === 0) {
+      try {
+        const mailTransporter = await resolveTransporter()
+        const fromAddress = process.env.EMAIL_FROM || 'Zélia <no-reply@zelia.io>'
+        const displayDate = sendAtDate.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+
+        await mailTransporter.sendMail({
+          from: fromAddress,
+          to: userEmail,
+          subject: 'Ta lettre pour dans 5 ans est programmée 🎉',
+          text: `Ta lettre a bien été enregistrée. Tu la recevras le ${displayDate}.`,
+          html: `<p>Ta lettre a bien été enregistrée.</p><p>Tu la recevras le <strong>${displayDate}</strong>.</p>`
+        })
+      } catch (mailError) {
+        console.warn('Letter confirmation email failed:', mailError)
+      }
+    }
+
+    res.json({ success: true })
+  } catch (e) {
+    console.error('letter future error', e)
     res.status(500).json({ error: 'Internal server error' })
   }
 })

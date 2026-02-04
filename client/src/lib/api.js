@@ -88,6 +88,12 @@ export const usersAPI = {
   getCurrentUser: () => apiClient.get('/users/me'),
   saveExtraInfo: (entries) => apiClient.post('/users/profile/extra-info', { entries }),
   getExtraInfo: () => apiClient.get('/users/profile/extra-info'),
+  saveNotes: (notes) => apiClient.post('/users/profile/notes', { notes }),
+  getNotes: () => apiClient.get('/users/profile/notes'),
+  saveFields: (fields) => apiClient.post('/users/profile/fields', { fields }),
+  getFields: () => apiClient.get('/users/profile/fields'),
+  saveSchools: (schools, contactAccepted) => apiClient.post('/users/profile/schools', { schools, contactAccepted }),
+  getSchools: () => apiClient.get('/users/profile/schools'),
 }
 
 // Activities API

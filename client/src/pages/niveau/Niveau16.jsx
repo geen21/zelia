@@ -172,6 +172,13 @@ export default function Niveau16() {
     setShowSuccess(true)
     ;(async () => {
       try {
+        await usersAPI.saveExtraInfo([
+          {
+            question_id: 'niveau16_video_watched',
+            question_text: 'Vidéo tutoriel Parcoursup regardée',
+            answer_text: 'Oui'
+          }
+        ])
         await levelUp({ minLevel: 16, xpReward: XP_PER_LEVEL })
       } catch (e) {
         console.warn('Progression update failed (non-blocking):', e)
@@ -265,6 +272,13 @@ export default function Niveau16() {
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/17')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
+            </div>
+            {/* Subtle confetti dots */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />
+              <div className="absolute w-2 h-2 bg-yellow-400 rounded-full right-8 top-10 animate-ping" />
+              <div className="absolute w-2 h-2 bg-blue-400 rounded-full left-10 bottom-8 animate-ping" />
+              <div className="absolute w-2 h-2 bg-green-400 rounded-full right-6 bottom-10 animate-ping" />
             </div>
           </div>
         </div>

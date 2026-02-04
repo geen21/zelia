@@ -158,8 +158,8 @@ export default function Niveau11() {
   }, [navigate])
 
   const surname = useMemo(() => {
-    if (profile?.last_name) return profile.last_name
     if (profile?.first_name) return profile.first_name
+    if (profile?.last_name) return profile.last_name
     return 'Salut'
   }, [profile])
 
@@ -239,7 +239,27 @@ export default function Niveau11() {
                 <div className="mt-4 flex flex-col sm:flex-row gap-3">
                   <button
                     type="button"
-                    onClick={() => setShowSuccess(true)}
+                    onClick={async () => {
+                      // Sauvegarder le classement des domaines
+                      try {
+                        const ranking = items.map((it, idx) => `${idx + 1}. ${it.label}`).join(' | ')
+                        await usersAPI.saveExtraInfo([
+                          {
+                            question_id: 'niveau11_domain_ranking',
+                            question_text: 'Classement des domaines d\'activités',
+                            answer_text: ranking
+                          },
+                          {
+                            question_id: 'niveau11_top3',
+                            question_text: 'Top 3 domaines préférés',
+                            answer_text: items.slice(0, 3).map((it) => it.label).join(', ')
+                          }
+                        ])
+                      } catch (e) {
+                        console.error('Niveau11 save error', e)
+                      }
+                      setShowSuccess(true)
+                    }}
                     className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto"
                   >
                     Valider mon classement
@@ -282,13 +302,17 @@ export default function Niveau11() {
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 11 réussi !</h3>
             <p className="text-text-secondary mb-4">Ton classement est validé.</p>
-            <button
-              type="button"
-              onClick={() => navigate('/app/niveau/12')}
-              className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto"
-            >
-              Continuer
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/niveau/12')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
+            </div>
+            {/* Subtle confetti dots */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />
+              <div className="absolute w-2 h-2 bg-yellow-400 rounded-full right-8 top-10 animate-ping" />
+              <div className="absolute w-2 h-2 bg-blue-400 rounded-full left-10 bottom-8 animate-ping" />
+              <div className="absolute w-2 h-2 bg-green-400 rounded-full right-6 bottom-10 animate-ping" />
+            </div>
           </div>
         </div>
       )}

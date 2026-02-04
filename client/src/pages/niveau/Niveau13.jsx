@@ -278,9 +278,16 @@ export default function Niveau13() {
   const submitRating = async () => {
     if (rating >= 8) {
       setShowSuccess(true)
-      // Level up by +1 (ensure minimum 3)
+      // Sauvegarder le rating et Level up
       ;(async () => {
         try {
+          await usersAPI.saveExtraInfo([
+            {
+              question_id: 'niveau13_pitch_rating',
+              question_text: 'Note auto-évaluation du pitch',
+              answer_text: `${rating}/10`
+            }
+          ])
           await levelUp({ minLevel: 13, xpReward: XP_PER_LEVEL })
         } catch (e) { console.warn('Progression update failed (non-blocking):', e) }
       })()

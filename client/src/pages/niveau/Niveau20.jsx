@@ -109,10 +109,16 @@ export default function Niveau20() {
         const entries = Array.isArray(extraRes?.data?.entries) ? extraRes.data.entries : []
         const filtered = entries.filter((row) => {
           const id = String(row?.question_id || '').toLowerCase()
-          return id.startsWith('niveau11') || id.startsWith('niveau12') || id.startsWith('niveau13') ||
-            id.startsWith('niveau14') || id.startsWith('niveau15') || id.startsWith('niveau16') ||
-            id.startsWith('niveau17') || id.startsWith('niveau18') || id.startsWith('niveau_19') ||
-            id.startsWith('niveau19')
+          // Support both formats: niveau11 and niveau_11
+          return id.startsWith('niveau11') || id.startsWith('niveau_11') ||
+            id.startsWith('niveau12') || id.startsWith('niveau_12') ||
+            id.startsWith('niveau13') || id.startsWith('niveau_13') ||
+            id.startsWith('niveau14') || id.startsWith('niveau_14') ||
+            id.startsWith('niveau15') || id.startsWith('niveau_15') ||
+            id.startsWith('niveau16') || id.startsWith('niveau_16') ||
+            id.startsWith('niveau17') || id.startsWith('niveau_17') ||
+            id.startsWith('niveau18') || id.startsWith('niveau_18') ||
+            id.startsWith('niveau19') || id.startsWith('niveau_19')
         })
         setExtraInfos(filtered)
       } catch (e) {
@@ -137,6 +143,18 @@ export default function Niveau20() {
     setBilanError('')
     setBilanLoading(true)
     try {
+      // Si aucune donnée des niveaux 11-19, afficher un message explicite
+      if (!extraInfos || extraInfos.length === 0) {
+        setBilan({ 
+          sections: [{ 
+            title: 'Données manquantes', 
+            content: 'Aucune donnée des niveaux 11 à 19 n\'a été trouvée. Assure-toi d\'avoir complété les niveaux précédents (notamment les niveaux 17, 18 et 19) avant de revenir faire ton bilan.' 
+          }] 
+        })
+        setBilanLoading(false)
+        return
+      }
+
       const context = formatExtraInfos(extraInfos)
       const message =
         `Tu dois produire un bilan clair des niveaux 11 à 19 à partir des informations ci-dessous.\n` +
@@ -146,7 +164,7 @@ export default function Niveau20() {
         `- 6 sections maximum, chacune avec 2 à 4 phrases.\n` +
         `- Inclure: classement métiers (N11/N18), lettre de motivation (N14), points positifs/négatifs (N15), CV (N17), points d'amélioration (N19).\n` +
         `- Si une info manque, indique "Non disponible" dans la section concernée.\n` +
-        `Données:\n${context || 'Aucune donnée disponible.'}`
+        `Données:\n${context}`
 
       const resp = await apiClient.post('/chat/ai', {
         mode: 'advisor',
@@ -288,15 +306,20 @@ export default function Niveau20() {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 20 réussi !</h3>
-            <button
-              type="button"
-              onClick={() => navigate('/app/niveau/21')}
-              className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto"
-            >
-              Continuer
-            </button>
+            <p className="text-text-secondary mb-4">Tu as terminé cette étape avec succès.</p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/niveau/21')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
+            </div>
+            {/* Subtle confetti dots */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />
+              <div className="absolute w-2 h-2 bg-yellow-400 rounded-full right-8 top-10 animate-ping" />
+              <div className="absolute w-2 h-2 bg-blue-400 rounded-full left-10 bottom-8 animate-ping" />
+              <div className="absolute w-2 h-2 bg-green-400 rounded-full right-6 bottom-10 animate-ping" />
+            </div>
           </div>
         </div>
       )}

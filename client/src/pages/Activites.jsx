@@ -233,8 +233,7 @@ class ZeliaGameEngine {
         if (level <= 30) return 'cv_lm';
         if (level <= 35) return 'parcoursup_preparation';
         if (level <= 40) return 'orals_pitch';
-        if (level <= 45) return 'dossiers_avances';
-        return 'maitrise_finale';
+        return 'orals_pitch';
     }
 
     unlockPerks(level) {
@@ -246,9 +245,7 @@ class ZeliaGameEngine {
         if (level === 25) perks.push('Simulateur de cohérence disponible');
         if (level === 30) perks.push('Alertes calendrier activées');
         if (level === 35) perks.push('Coaching express débloqué');
-        if (level === 40) perks.push('Révisions STAR disponibles');
-        if (level === 45) perks.push('Mode mentor activé');
-        if (level === 50) perks.push('Maître Zélia - Badge ultime !');
+        if (level === 40) perks.push('Bilan final débloqué');
         return perks;
     }
 
@@ -505,18 +502,16 @@ const Activites = () => {
 
     const { progression } = gameState;
     // Compute available level route (cap to implemented levels)
-    const maxLevelRoute = 10;
+    const maxLevelRoute = 50;
     const currentLevel = progression?.level || 1;
     const targetLevel = Math.min(Math.max(1, currentLevel), maxLevelRoute);
-    const previousLevel = targetLevel > 1 ? targetLevel - 1 : null;
-    const displayLevel = previousLevel ?? targetLevel;
     const hasAccessibleLevel = targetLevel >= 1 && targetLevel <= maxLevelRoute;
     const { ui, avatar, perks, xpGained } = lastResponse;
 
     // Level 1 blocking logic: if level 1 and no results yet, block everything except the results button
     const isLevel1Blocked = progression?.level === 1 && !resultsAvailable;
-    // Display 0.5 if at level 1 (start), otherwise follow standard display logic
-    const effectiveLevel = (progression?.level === 1) ? 0.5 : displayLevel;
+    // Display 0.5 if at level 1 (start), otherwise show current level
+    const effectiveLevel = (progression?.level === 1) ? 0.5 : currentLevel;
     const effectiveXp = (progression?.level === 1) ? 50 : progression.xp;
 
     return (
@@ -689,28 +684,22 @@ const Activites = () => {
                         Ton parcours vers le métier idéal
                     </h2>
                     
-                    <div className="grid md:grid-cols-5 gap-4">
+                    <div className="grid md:grid-cols-4 gap-4">
                         {[
-                            { levels: '1-5', title: 'Exploration', emoji: '🌟', color: 'from-green-400 to-green-600' },
-                            { levels: '6-10', title: 'Intérêts & Forces', emoji: '💪', color: 'from-blue-400 to-blue-600' },
-                            { levels: '11-15', title: 'Recherche Métiers', emoji: '🔍', color: 'from-purple-400 to-purple-600' },
-                            { levels: '16-20', title: 'Immersions', emoji: '🤝', color: 'from-orange-400 to-orange-600' },
-                            { levels: '21-25', title: 'Compétences', emoji: '🎯', color: 'from-pink-400 to-pink-600' },
-                            { levels: '26-30', title: 'CV & LM', emoji: '📄', color: 'from-indigo-400 to-indigo-600' },
-                            { levels: '31-35', title: 'Parcoursup', emoji: '🎓', color: 'from-red-400 to-red-600' },
-                            { levels: '36-40', title: 'Oraux', emoji: '🎤', color: 'from-yellow-400 to-yellow-600' },
-                            { levels: '41-45', title: 'Excellence', emoji: '⭐', color: 'from-teal-400 to-teal-600' },
-                            { levels: '46-50', title: 'Maîtrise', emoji: '👑', color: 'from-purple-600 to-pink-600' }
+                            { levels: '1-10', start: 1, end: 10, title: 'Se découvrir', emoji: '🌟', color: 'from-green-400 to-green-600' },
+                            { levels: '11-20', start: 11, end: 20, title: 'Explorer ses options\net valider ses choix', emoji: '🔍', color: 'from-blue-400 to-blue-600' },
+                            { levels: '21-30', start: 21, end: 30, title: 'Les études : en route\nvers son métier idéal', emoji: '🎓', color: 'from-purple-400 to-purple-600' },
+                            { levels: '31-40', start: 31, end: 40, title: 'Devenir la meilleure\nversion de soi-même', emoji: '⭐', color: 'from-orange-400 to-orange-600' }
                         ].map((arc, index) => {
-                            const arcStart = parseInt(arc.levels.split('-')[0]);
-                            const arcEnd = parseInt(arc.levels.split('-')[1]);
-                            const isCurrentArc = progression.level >= arcStart && progression.level <= arcEnd;
-                            const isCompleted = progression.level > arcEnd;
+                            const isCurrentArc = progression.level >= arc.start && progression.level <= arc.end;
+                            const isCompleted = progression.level > arc.end;
+                            const targetLevel = isCurrentArc ? progression.level : arc.start;
                             
                             return (
                                 <div 
                                     key={index}
-                                    className={`relative p-4 rounded-xl text-center ${
+                                    onClick={() => navigate(`/app/niveau/${targetLevel}`)}
+                                    className={`relative p-4 rounded-xl text-center cursor-pointer transition-all hover:scale-105 ${
                                         isCurrentArc 
                                             ? 'bg-white border-2 border-[#c1ff72] text-gray-800'
                                             : isCompleted
@@ -720,7 +709,7 @@ const Activites = () => {
                                 >
                                     <div className="text-2xl mb-2">{arc.emoji}</div>
                                     <div className="text-xs font-bold mb-1">Niveaux {arc.levels}</div>
-                                    <div className="text-sm font-medium">{arc.title}</div>
+                                    <div className="text-sm font-medium whitespace-pre-line">{arc.title}</div>
                                     
                                     {isCompleted && (
                                         <div className="absolute -top-2 -right-2 bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">

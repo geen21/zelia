@@ -249,6 +249,21 @@ export default function Niveau15() {
     if (finishing) return
     setFinishing(true)
     try {
+      // Sauvegarder les points positifs et négatifs
+      if (positives.length > 0 || negatives.length > 0) {
+        await usersAPI.saveExtraInfo([
+          {
+            question_id: 'niveau15_positives',
+            question_text: 'Points positifs identifiés',
+            answer_text: positives.slice(0, 5).join(' | ') || 'Aucun'
+          },
+          {
+            question_id: 'niveau15_negatives',
+            question_text: 'Points à améliorer identifiés',
+            answer_text: negatives.slice(0, 5).join(' | ') || 'Aucun'
+          }
+        ])
+      }
       await levelUp({ minLevel: 15, xpReward: XP_PER_LEVEL })
       setShowSuccess(true)
     } catch (e) {
@@ -424,6 +439,13 @@ export default function Niveau15() {
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/16')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
+            </div>
+            {/* Subtle confetti dots */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />
+              <div className="absolute w-2 h-2 bg-yellow-400 rounded-full right-8 top-10 animate-ping" />
+              <div className="absolute w-2 h-2 bg-blue-400 rounded-full left-10 bottom-8 animate-ping" />
+              <div className="absolute w-2 h-2 bg-green-400 rounded-full right-6 bottom-10 animate-ping" />
             </div>
           </div>
         </div>

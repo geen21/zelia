@@ -45,8 +45,8 @@ TagManager.initialize(tagManagerArgs)
 
 const dynamicNiveauModules = import.meta.glob([
   './pages/niveau/Niveau[6-9].jsx',
-  './pages/niveau/Niveau[1-4][0-9].jsx',
-  './pages/niveau/Niveau50.jsx'
+  './pages/niveau/Niveau[1-3][0-9].jsx',
+  './pages/niveau/Niveau40.jsx'
 ])
 
 const dynamicNiveauComponents = Object.entries(dynamicNiveauModules).reduce((acc, [path, loader]) => {

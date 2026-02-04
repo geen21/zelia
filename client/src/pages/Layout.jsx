@@ -96,7 +96,7 @@ export default function Layout() {
 		formations: 6,
 		emplois: 9,
 		lettre: 12,
-		chat: 15,
+		chat: 27,
 	}
 
 	const isUnlocked = (required) => Number(level) >= Number(required)

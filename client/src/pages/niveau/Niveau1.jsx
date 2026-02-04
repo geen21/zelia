@@ -223,16 +223,6 @@ export default function Niveau1() {
 
 	const convSteps = useMemo(() => ([
 		{ id: 'explore_another', type: 'buttons', text: 'Veux-tu explorer une autre fiche métier ?', options: ['Oui', 'Non'] },
-		{ id: 'why_attraction', type: 'buttons', text: "Qu’est ce qui t’attire le + dans un métier ?", options: ['Le sens', 'Le salaire', 'Les études', 'Le quotidien'] },
-		{ id: 'study_length', type: 'buttons', text: 'Tu te vois plutôt études longues ou entrer vite dans le concret ?', options: ['Études longues', 'Rapide et pro', 'Je ne sais pas'] },
-		{ id: 'team_or_solo', type: 'buttons', text: 'Tu préfères travailler en équipe ou plutôt en solo ?', options: ['Équipe', 'Solo', 'Peu importe'] },
-		{ id: 'five_years', type: 'input', text: 'Tu te vois où dans 5 ans ?', placeholder: 'Décris en une phrase' },
-		{ id: 'favorite_subjects', type: 'multi', text: "Quelle matière t’attire le +?", options: ['Sciences', 'Langues', 'Littérature', 'Éco/Gestion', 'Art/Design'] },
-		{ id: 'learn_style', type: 'buttons', text: 'Tu apprends mieux en faisant ou en lisant ?', options: ['En faisant', 'En lisant', 'Mix des deux'] },
-		{ id: 'english_level', type: 'buttons', text: 'Ton niveau d’anglais approximatif ?', options: ['Débutant', 'Intermédiaire', 'Avancé'] },
-		{ id: 'proud_project', type: 'input', text: "Tu peux me parler d’un projet perso que tu as réalisé (sport, activité, job, etc) ?", placeholder: 'Dis-m’en un mot' },
-		{ id: 'geo_constraints', type: 'buttons', text: 'Tu as des contraintes géographiques ?', options: ['Oui', 'Non'] },
-		{ id: 'action_plan', type: 'buttons', text: 'Tu veux qu’on bâtisse un plan d’action ensemble ?', options: ['Oui', 'Plus tard'] },
 	]), [])
 
 	// Helper: find index of a conversation step by id (used to resume after second fiche)
@@ -493,7 +483,12 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 											{postQuestions[postIdx].options.map((opt, i) => (
 												<button key={i} onClick={() => {
 													setPostAnswers({ ...postAnswers, [postQuestions[postIdx].id]: opt })
-													if (postIdx + 1 < postQuestions.length) setPostIdx(postIdx + 1); else { setPhase('conversation'); setConvIdx(0); persistAnswers() }
+													if (postIdx + 1 < postQuestions.length) {
+														setPostIdx(postIdx + 1)
+													} else {
+														persistAnswers()
+														finishLevel()
+													}
 												}} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto">{opt}</button>
 											))}
 										</div>
@@ -504,7 +499,14 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 													value={postAnswers[postQuestions[postIdx].id] || ''}
 													onChange={(e) => setPostAnswers({ ...postAnswers, [postQuestions[postIdx].id]: e.target.value })}
 											/>
-											<button onClick={() => { if (postIdx + 1 < postQuestions.length) setPostIdx(postIdx + 1); else { setPhase('conversation'); setConvIdx(0); persistAnswers() } }} className="px-4 py-2 rounded-lg bg-black text-white w-full sm:w-auto">Suivant</button>
+											<button onClick={() => {
+												if (postIdx + 1 < postQuestions.length) {
+													setPostIdx(postIdx + 1)
+												} else {
+													persistAnswers()
+													finishLevel()
+												}
+											}} className="px-4 py-2 rounded-lg bg-black text-white w-full sm:w-auto">Suivant</button>
 										</div>
 									)}
 								</div>

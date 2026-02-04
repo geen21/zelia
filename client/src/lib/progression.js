@@ -1,6 +1,6 @@
 import { progressionAPI } from './api'
 
-export const MAX_LEVEL = 50
+export const MAX_LEVEL = 40
 export const PAYWALL_LEVEL = 10
 export const XP_PER_LEVEL = 100
 
@@ -15,25 +15,36 @@ const CORE_QUEST_SEQUENCE = [
   { id: 'job_videos', label: 'La diversité des métiers (vidéo)' },
   { id: 'schedule_meeting', label: 'Recherche métiers' },
   { id: 'prepare_questions', label: 'Bilan numéro 1' },
-  { id: 'company_visit', label: "Visite d'entreprise virtuelle" },
-  { id: 'soft_skills_assessment', label: 'Éval. des soft skills' },
-  { id: 'star_method', label: 'Méthode STAR' },
-  { id: 'leadership_test', label: 'Test de leadership' },
-  { id: 'cv_builder', label: 'Générateur de CV' },
-  { id: 'cover_letter', label: 'Lettre de motivation' },
-  { id: 'cv_review', label: 'Révision du CV' },
-  { id: 'projet_motive', label: 'Projet motivé' },
-  { id: 'voeux_strategy', label: 'Stratégie de vœux' },
-  { id: 'calendar_planning', label: 'Planifier le calendrier' },
-  { id: 'pitch_practice', label: 'Analyse de ton dossier' },
-  { id: 'interview_simulation', label: "Simulation d'entretien" },
-  { id: 'confidence_building', label: 'Confiance en soi' },
-  { id: 'portfolio_review', label: 'Rencontre des experts' },
-  { id: 'coherence_check', label: 'Vérification de cohérence' },
-  { id: 'final_polish', label: 'Finitions' },
-  { id: 'mentor_others', label: 'Mentorat' },
-  { id: 'success_story', label: 'Partager mon histoire' },
-  { id: 'expert_badge', label: 'Badge expert' }
+  { id: 'company_visit', label: 'Explorer ses options : valeurs' },
+  { id: 'soft_skills_assessment', label: 'Explorer ses options : compétences' },
+  { id: 'star_method', label: 'Explorer des métiers possibles' },
+  { id: 'leadership_test', label: 'Comparer les formations possibles' },
+  { id: 'cv_builder', label: 'Valider ses choix : points forts' },
+  { id: 'cover_letter', label: 'Valider ses choix : points faibles' },
+  { id: 'cv_review', label: 'Échanger avec des pros' },
+  { id: 'projet_motive', label: 'Confirmer sa motivation' },
+  { id: 'voeux_strategy', label: 'Affiner ses préférences' },
+  { id: 'calendar_planning', label: 'Bilan numéro 2' },
+  { id: 'pitch_practice', label: 'Choisir une voie d’études' },
+  { id: 'interview_simulation', label: 'Panorama des études' },
+  { id: 'confidence_building', label: 'Construire son plan d’action' },
+  { id: 'portfolio_review', label: 'Statistiques et réalité' },
+  { id: 'coherence_check', label: 'Vidéo : études post-bac' },
+  { id: 'final_polish', label: 'Préparer Parcoursup' },
+  { id: 'mentor_others', label: 'Organiser ses candidatures' },
+  { id: 'success_story', label: 'Préparer les entretiens' },
+  { id: 'expert_badge', label: 'Se présenter avec impact' },
+  { id: 'level_30', label: 'Bilan numéro 3' },
+  { id: 'level_31', label: 'Débouchés et marché' },
+  { id: 'level_32', label: 'Mini-projets étudiants' },
+  { id: 'level_33', label: 'Lettre à soi-même' },
+  { id: 'level_34', label: 'Gérer son stress' },
+  { id: 'level_35', label: 'Vidéo motivation' },
+  { id: 'level_36', label: 'Soft skill : intelligence émotionnelle' },
+  { id: 'level_37', label: 'Soft skill : résolution de problème' },
+  { id: 'level_38', label: 'Soft skill : adaptabilité' },
+  { id: 'level_39', label: 'Retours utilisateurs' },
+  { id: 'level_40', label: 'Bilan final' }
 ]
 
 const LEVEL_QUEST_ENTRIES = Array.from({ length: MAX_LEVEL }, (_, index) => {

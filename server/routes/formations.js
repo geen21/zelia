@@ -241,4 +241,145 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 })
 
+// Advanced search with multiple keywords (for AI-generated queries)
+// Uses RPC function for optimized performance
+router.post('/search', optionalAuth, async (req, res) => {
+  try {
+    const { keywords = [], department, region, limit = 20 } = req.body
+
+    const parsedLimit = Math.min(Number.parseInt(limit, 10) || 20, 50)
+
+    // Clean keywords
+    const cleanKeywords = (Array.isArray(keywords) ? keywords : [])
+      .map(k => String(k || '').trim().toLowerCase())
+      .filter(k => k.length >= 2)
+      .slice(0, 10)
+
+    console.log('Formations search:', { keywords: cleanKeywords, department, region, limit: parsedLimit })
+
+    // Try RPC function first
+    let { data, error } = await supabase
+      .rpc('search_formations', {
+        p_keywords: cleanKeywords.length > 0 ? cleanKeywords : null,
+        p_department: department || null,
+        p_region: region || null,
+        p_limit: parsedLimit
+      })
+
+    if (error) {
+      console.error('Formations search RPC error:', error)
+      // Fallback to simple query if RPC fails
+      return await fallbackSearch(req, res, cleanKeywords, department, region, parsedLimit)
+    }
+
+    // If no results with department filter, try without it
+    if ((!data || data.length === 0) && department && cleanKeywords.length > 0) {
+      console.log('No results with department, trying without...')
+      const { data: dataNoDepth, error: errNoDepth } = await supabase
+        .rpc('search_formations', {
+          p_keywords: cleanKeywords,
+          p_department: null,
+          p_region: null,
+          p_limit: parsedLimit
+        })
+      if (!errNoDepth && dataNoDepth && dataNoDepth.length > 0) {
+        data = dataNoDepth
+      }
+    }
+
+    // If still no results, try with just keywords (broader search)
+    if ((!data || data.length === 0) && cleanKeywords.length > 1) {
+      console.log('No results, trying with fewer keywords...')
+      const { data: dataSingle, error: errSingle } = await supabase
+        .rpc('search_formations', {
+          p_keywords: [cleanKeywords[0]],
+          p_department: null,
+          p_region: null,
+          p_limit: parsedLimit
+        })
+      if (!errSingle && dataSingle && dataSingle.length > 0) {
+        data = dataSingle
+      }
+    }
+
+    console.log('Formations search returned:', data?.length ?? 0, 'results')
+
+    res.json({
+      formations: data ?? [],
+      total: data?.length ?? 0
+    })
+  } catch (error) {
+    console.error('Formations search error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Fallback search if RPC is not available
+async function fallbackSearch(req, res, keywords, department, region, limit) {
+  try {
+    const textColumns = ['nmc', 'etab_nom', 'tc']
+
+    let query = supabase
+      .from('formation_france')
+      .select(
+        `id,
+         nmc,
+         nm,
+         etab_nom,
+         etab_uai,
+         region,
+         departement,
+         commune,
+         tc,
+         tf,
+         fiche,
+         etab_url,
+         annee,
+         image,
+         email`
+      )
+      .limit(limit)
+      .order('annee', { ascending: false })
+
+    // Build OR filters for keywords on text columns only
+    if (keywords.length > 0) {
+      const orFilters = []
+      keywords.slice(0, 5).forEach((keyword) => {
+        const sanitized = String(keyword).trim().replace(/'/g, "''")
+        if (sanitized) {
+          textColumns.forEach((column) => {
+            orFilters.push(`${column}.ilike.%${sanitized}%`)
+          })
+        }
+      })
+      if (orFilters.length > 0) {
+        query = query.or(orFilters.join(','))
+      }
+    }
+
+    if (department) {
+      query = query.ilike('departement', `%${department}%`)
+    }
+
+    if (region) {
+      query = query.ilike('region', `%${region}%`)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error('Formations fallback search error:', error)
+      return res.status(400).json({ error: error.message })
+    }
+
+    res.json({
+      formations: data ?? [],
+      total: data?.length ?? 0
+    })
+  } catch (err) {
+    console.error('Formations fallback error:', err)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+}
+
 export default router

@@ -67,31 +67,32 @@ router.get('/metiers/search', optionalAuth, async (req, res) => {
     const { q, typecontrat, alternance, location } = req.query
     const { page, pageSize, from } = getPagination(req.query)
 
-    // Fetch only the columns used by the client and avoid expensive total counts
-    // Use the column names present in your provided schema (no snake_case variants)
-  const selectCols = [
+    // For large tables (230k entries), use minimal columns and aggressive filtering
+    const selectCols = [
       'id',
       'intitule',
       'romecode',
       'dateactualisation',
       'typecontrat',
       'lieutravail_libelle',
-      'lieutravail_latitude',
-      'lieutravail_longitude',
       'entreprise_nom',
-      'origineoffre_urlorigine',
-      'contact_urlpostulation',
-      'entreprise_logo'
+      'origineoffre_urlorigine'
     ].join(',')
 
-  const rawQuery = typeof q === 'string' ? q.trim() : ''
-  const normalizedQuery = rawQuery.replace(/\s+/g, ' ').slice(0, 80)
-  const shortQuery = normalizedQuery.length > 0 && normalizedQuery.length <= 4
-  const likePattern = normalizedQuery
-    ? shortQuery ? `${normalizedQuery}%` : `%${normalizedQuery}%`
-    : ''
+    const rawQuery = typeof q === 'string' ? q.trim() : ''
+    const normalizedQuery = rawQuery.replace(/\s+/g, ' ').slice(0, 80)
+    
+    // For performance on 230k entries, require minimum search length
+    if (normalizedQuery && normalizedQuery.length < 2) {
+      return res.json({ items: [], has_more: false, page, page_size: pageSize })
+    }
 
-  let query = supabase
+    const shortQuery = normalizedQuery.length > 0 && normalizedQuery.length <= 4
+    const likePattern = normalizedQuery
+      ? shortQuery ? `${normalizedQuery}%` : `%${normalizedQuery}%`
+      : ''
+
+    let query = supabase
       .from('metiers_france')
       .select(selectCols, { count: 'none' })
 
@@ -102,17 +103,14 @@ router.get('/metiers/search', optionalAuth, async (req, res) => {
       const boolVal = String(alternance).toLowerCase() === 'true'
       query = query.eq('alternance', boolVal)
     }
+    
     if (normalizedQuery) {
-      // Use a conservative set of columns known to exist across schemas to avoid 400 errors
-      // Removed description and others to avoid timeouts on large datasets
       query = query.ilike('intitule', likePattern)
 
-      // Add date filter to improve performance on large dataset (avoid for very short queries)
-      if (!shortQuery) {
-        const days = 90 // 3 months window
-        const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
-        query = query.gte('dateactualisation', since)
-      }
+      // CRITICAL: Always apply date filter to limit scan on 230k entries
+      const days = shortQuery ? 60 : 90 // Tighter window for short queries
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+      query = query.gte('dateactualisation', since)
     }
 
     if (location) {
@@ -120,55 +118,26 @@ router.get('/metiers/search', optionalAuth, async (req, res) => {
       query = query.ilike('lieutravail_libelle', like)
     }
 
-  // Avoid expensive full scans: when no filters, constrain to a recent window
-  if (!q && !typecontrat && (typeof alternance === 'undefined' || alternance === '')) {
-    try {
-      const days = 14 // adjust window as needed
+    // If no search term, constrain to recent window to avoid full scan
+    if (!normalizedQuery && !typecontrat && (typeof alternance === 'undefined' || alternance === '')) {
+      const days = 14
       const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
       query = query.gte('dateactualisation', since)
-    } catch {}
-  }
+    }
 
-  // Avoid expensive ORDER BY on huge tables when no filters are applied.
-  // Apply ordering only if a filter/search is present; otherwise just use range for speed.
-  const toPlusOne = from + pageSize
-  const hasFilter = !!(normalizedQuery || typecontrat || location || (typeof alternance !== 'undefined' && alternance !== ''))
-  if (hasFilter) {
+    // Apply ordering for consistency
+    const toPlusOne = from + pageSize
     query = query
       .order('dateactualisation', { ascending: false, nullsFirst: false })
       .order('id', { ascending: false })
-  }
-  query = query.range(from, toPlusOne)
+      .range(from, toPlusOne)
 
-  let { data, error } = await query
-  if (error) {
-    console.warn('Catalog metiers search error, retrying with fallback:', error.message)
-    try {
-      let fallback = supabase
-        .from('metiers_france')
-        .select(selectCols, { count: 'none' })
-
-      if (normalizedQuery) {
-        const fallbackPattern = normalizedQuery.length <= 3 ? `${normalizedQuery}%` : `%${normalizedQuery}%`
-        fallback = fallback.ilike('intitule', fallbackPattern)
-      }
-      if (typecontrat) fallback = fallback.eq('typecontrat', typecontrat)
-      if (typeof alternance !== 'undefined' && alternance !== '') {
-        const boolVal = String(alternance).toLowerCase() === 'true'
-        fallback = fallback.eq('alternance', boolVal)
-      }
-      if (location) fallback = fallback.ilike('lieutravail_libelle', `%${location}%`)
-
-      fallback = fallback.range(from, toPlusOne)
-      const retry = await fallback
-      data = retry.data
-      error = retry.error
-    } catch (retryErr) {
-      console.error('Catalog metiers fallback failed:', retryErr)
-      return res.status(400).json({ error: error?.message || 'Query error' })
+    let { data, error } = await query
+    
+    if (error) {
+      console.warn('Catalog metiers search error:', error.message)
+      return res.status(400).json({ error: error.message })
     }
-  }
-  if (error) return res.status(400).json({ error: error.message })
 
     const rows = data || []
     const has_more = rows.length > pageSize

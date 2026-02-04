@@ -177,7 +177,7 @@ export default function Niveau9() {
   const [introIdx, setIntroIdx] = useState(0)
   const [mouthAlt, setMouthAlt] = useState(false)
 
-  const [form, setForm] = useState({ keyword: '', contract: '', location: '' })
+  const [form, setForm] = useState({ keyword: '', contract: '' })
   const [searching, setSearching] = useState(false)
   const [searchExecuted, setSearchExecuted] = useState(false)
   const [searchError, setSearchError] = useState('')
@@ -250,7 +250,7 @@ export default function Niveau9() {
   }, [avatarUrl, shouldAnimateMouth, mouthAlt])
 
   const keywordDone = form.keyword.trim().length >= 2
-  const filtersDone = Boolean(form.contract || form.location)
+  const filtersDone = Boolean(form.contract)
   const searchDone = searchExecuted
   const exploreDone = Boolean(selectedJob)
 
@@ -264,7 +264,7 @@ export default function Niveau9() {
     {
       id: 'filters',
       title: 'Sélectionner un filtre',
-  description: 'Contrat ou lieu pour cibler les offres.',
+  description: 'Choisis un type de contrat pour cibler les offres.',
       done: filtersDone
     },
     {
@@ -287,7 +287,7 @@ export default function Niveau9() {
 
   const guideMessage = useMemo(() => {
   if (!keywordDone) return 'Commence par saisir un mot-clé. Pense au métier ou au secteur que tu vises.'
-  if (!filtersDone) return 'Top ! Ajoute un type de contrat ou précise un lieu pour affiner.'
+  if (!filtersDone) return 'Top ! Choisis un type de contrat pour cibler les offres.'
     if (!searchDone) return 'Parfait, lance la recherche pour voir les offres disponibles.'
     if (!exploreDone) return 'Clique sur une offre et observe le contrat, la localisation et la date.'
     return 'Tu maîtrises maintenant la recherche de jobs. Tu peux valider ce niveau quand tu veux.'
@@ -315,34 +315,26 @@ export default function Niveau9() {
     setSearching(true)
     setSelectedJob(null)
 
-    const performSearch = async (attempt = 1) => {
-      try {
-        const params = { page: 1, page_size: 24 }
-        if (form.keyword.trim()) params.q = form.keyword.trim()
-        if (form.contract) params.typecontrat = form.contract
-        if (form.location.trim()) params.location = form.location.trim()
-        
-        const response = await apiClient.get('/catalog/metiers/search', { params })
-        const normalized = normalizeJobs(response?.data)
-        const mapped = normalized.map((item, index) => mapJob(item, index))
-        setResults(mapped)
-        setSearchExecuted(true)
-      } catch (err) {
-        // Retry once if we get a timeout-like error (often 400 or 504)
-        if (attempt < 3) {
-          console.log(`Search attempt ${attempt} failed, retrying...`)
-          await new Promise(resolve => setTimeout(resolve, 1500))
-          return performSearch(attempt + 1)
-        }
-        console.warn('Job search failed', err)
-        setResults([])
-        setSearchExecuted(true)
-        setSearchError('Impossible de récupérer les offres. Réessaie dans un instant.')
-      }
-    }
-
     try {
-      await performSearch()
+      const params = { page: 1, page_size: 24 }
+      if (form.keyword.trim()) params.q = form.keyword.trim()
+      if (form.contract) params.typecontrat = form.contract
+
+      const { data } = await apiClient.get('/catalog/metiers/search', {
+        params,
+        timeout: 25000
+      })
+
+      const items = Array.isArray(data?.items) ? data.items : []
+      const normalized = normalizeJobs(items)
+      const mapped = normalized.map((item, index) => mapJob(item, index))
+      setResults(mapped)
+      setSearchExecuted(true)
+    } catch (err) {
+      console.warn('Job search failed', err)
+      setResults([])
+      setSearchExecuted(true)
+      setSearchError('Impossible de récupérer les offres. Réessaie dans un instant.')
     } finally {
       setSearching(false)
     }
@@ -500,10 +492,10 @@ export default function Niveau9() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
+                  <div className="md:col-span-2">
                     <label className="mb-1 block text-sm font-medium text-gray-700">Type de contrat</label>
                     <select
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-black"
                       value={form.contract}
                       onChange={(event) => updateForm('contract', event.target.value)}
                     >
@@ -514,16 +506,6 @@ export default function Niveau9() {
                         </option>
                       ))}
                     </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Lieu</label>
-                    <input
-                      type="text"
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
-                      value={form.location}
-                      onChange={(event) => updateForm('location', event.target.value)}
-                      placeholder="Ville, département…"
-                    />
                   </div>
                 </div>
 
@@ -661,37 +643,21 @@ export default function Niveau9() {
       </div>
 
       {completed && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="relative w-full max-w-md rounded-3xl border border-gray-200 bg-white p-8 text-center shadow-2xl">
-            <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-[#c1ff72] text-2xl shadow-lg">
-              🏆
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 9 réussi !</h3>
+            <p className="text-text-secondary mb-4">Tu sais maintenant filtrer et analyser les offres d'emploi.</p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/niveau/10')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
-            <h3 className="mt-4 text-2xl font-extrabold text-gray-900">Niveau 9 validé !</h3>
-            <p className="mt-2 text-gray-500">
-              Tu sais maintenant filtrer et analyser les offres d’emploi. Continue ton parcours pour concrétiser ton projet.
-            </p>
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <button
-                type="button"
-                onClick={() => navigate('/app/activites')}
-                className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-5 py-3 text-base font-semibold text-gray-700 transition hover:bg-gray-100"
-              >
-                Retour aux activités
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/app/niveau/10')}
-                className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d]"
-              >
-                Passer au niveau suivant
-              </button>
-              <button
-                type="button"
-                onClick={() => setCompleted(false)}
-                className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-5 py-3 text-base font-semibold text-gray-700 transition hover:bg-gray-100"
-              >
-                Rester ici
-              </button>
+            {/* Subtle confetti dots */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />
+              <div className="absolute w-2 h-2 bg-yellow-400 rounded-full right-8 top-10 animate-ping" />
+              <div className="absolute w-2 h-2 bg-blue-400 rounded-full left-10 bottom-8 animate-ping" />
+              <div className="absolute w-2 h-2 bg-green-400 rounded-full right-6 bottom-10 animate-ping" />
             </div>
           </div>
         </div>

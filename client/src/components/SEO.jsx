@@ -29,7 +29,10 @@ export default function SEO({
   imageAlt,
   twitterCard,
   siteName,
-  locale
+  locale,
+  schema,
+  publishedTime,
+  author
 }) {
   const origin = getOriginFromUrl(url);
   const absoluteImage = toAbsoluteUrl(image, origin);
@@ -58,6 +61,15 @@ export default function SEO({
       <meta name="twitter:description" content={description} />
       {absoluteImage && <meta name="twitter:image" content={absoluteImage} />}
       {imageAlt && <meta name="twitter:image:alt" content={imageAlt} />}
+
+      {publishedTime && <meta property="article:published_time" content={publishedTime} />}
+      {author && <meta property="article:author" content={author} />}
+
+      {schema && (
+        <script type="application/ld+json">
+          {JSON.stringify(schema)}
+        </script>
+      )}
     </Helmet>
   );
 }

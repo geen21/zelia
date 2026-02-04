@@ -15,6 +15,39 @@ export default function BlogArticleLayout({ post, children, aside }) {
     return icons[post.category] || 'ph-sparkle'
   }, [post.category])
 
+  const schema = useMemo(() => {
+    const origin = 'https://zelia.io'
+    const imageUrl = post.image 
+      ? (post.image.startsWith('http') ? post.image : `${origin}${post.image}`)
+      : `${origin}/assets/images/logo-dark.png`
+
+    return {
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      "headline": post.title,
+      "description": post.description,
+      "image": imageUrl,
+      "datePublished": post.dateIso || new Date().toISOString(),
+      "author": {
+        "@type": "Organization",
+        "name": "Zelia",
+        "url": "https://zelia.io"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Zelia",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://zelia.io/assets/images/logo-dark.png"
+        }
+      },
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": `https://zelia.io/blog/${post.slug}`
+      }
+    }
+  }, [post])
+
   return (
     <article className="blog-article" style={{ '--accent': post.accent, '--accent-soft': post.accentSoft }}>
       <SEO 
@@ -22,6 +55,9 @@ export default function BlogArticleLayout({ post, children, aside }) {
         description={post.description}
         url={`https://zelia.io/blog/${post.slug}`}
         type="article"
+        image={post.image}
+        publishedTime={post.dateIso}
+        schema={schema}
       />
       <BlogHeaderNav />
       <header className="blog-article__hero">

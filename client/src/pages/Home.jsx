@@ -329,7 +329,7 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="mt-8">
-                    <Link to="/create_avatar" className="nav-cta-btn">
+                    <Link to="/avatar" className="nav-cta-btn" style={{ pointerEvents: 'auto', transform: 'none', transition: 'none' }}>
                       <span>Passer le test d'orientation</span>
                     </Link>
                   </div>

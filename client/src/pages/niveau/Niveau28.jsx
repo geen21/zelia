@@ -177,6 +177,18 @@ export default function Niveau28() {
     if (finishing) return
     setFinishing(true)
     try {
+      await usersAPI.saveExtraInfo([
+        {
+          question_id: 'niveau28_interview_done',
+          question_text: 'Simulation entretien complétée (Niveau 28)',
+          answer_text: 'Oui'
+        },
+        {
+          question_id: 'niveau28_messages_exchanged',
+          question_text: 'Échanges avec le recruteur (Niveau 28)',
+          answer_text: `${messages.filter(m => m.role === 'user').length} réponse(s) donnée(s)`
+        }
+      ])
       await levelUp({ minLevel: 28, xpReward: XP_PER_LEVEL })
       setShowSuccess(true)
     } catch (e) {

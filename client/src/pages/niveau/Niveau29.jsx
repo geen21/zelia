@@ -175,6 +175,13 @@ export default function Niveau29() {
     if (finishing || showSuccess) return
     setFinishing(true)
     try {
+      await usersAPI.saveExtraInfo([
+        {
+          question_id: 'niveau29_video_watched',
+          question_text: 'Vidéo "comment se vendre" regardée (Niveau 29)',
+          answer_text: 'Oui'
+        }
+      ])
       await levelUp({ minLevel: 29, xpReward: XP_PER_LEVEL })
       setShowSuccess(true)
     } catch (e) {

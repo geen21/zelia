@@ -202,6 +202,21 @@ export default function Niveau34() {
     if (finishing) return
     setFinishing(true)
     try {
+      // Save stress profile to extra info
+      const profileData = ADVICE_PER_PROFILE[resultProfile]
+      await usersAPI.saveExtraInfo([
+        {
+          question_id: 'niveau34_stress_profile',
+          question_text: 'Gestion du stress',
+          answer_text: JSON.stringify({
+            profile: resultProfile,
+            profileTitle: profileData?.title || '',
+            answers,
+            completedAt: new Date().toISOString()
+          })
+        }
+      ]).catch(e => console.warn('saveExtraInfo N34 failed', e))
+      
       await levelUp({ minLevel: 34, xpReward: XP_PER_LEVEL })
       setShowSuccess(true)
     } catch (e) {

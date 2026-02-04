@@ -209,6 +209,18 @@ export default function Niveau27() {
     if (finishing) return
     setFinishing(true)
     try {
+      await usersAPI.saveExtraInfo([
+        {
+          question_id: 'niveau27_chat_discovered',
+          question_text: 'Découverte du chat communautaire (Niveau 27)',
+          answer_text: 'Oui'
+        },
+        {
+          question_id: 'niveau27_messages_sent',
+          question_text: 'Messages envoyés (Niveau 27)',
+          answer_text: `${messages.filter(m => m.user_id === user?.id).length} message(s)`
+        }
+      ])
       await levelUp({ minLevel: 27, xpReward: XP_PER_LEVEL })
       setShowSuccess(true)
     } catch (e) {

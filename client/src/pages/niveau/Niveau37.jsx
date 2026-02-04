@@ -200,6 +200,21 @@ export default function Niveau37() {
     if (finishing) return
     setFinishing(true)
     try {
+      // Save problem-solving profile to extra info
+      const profileData = ADVICE_PER_PROFILE[resultProfile]
+      await usersAPI.saveExtraInfo([
+        {
+          question_id: 'niveau37_problem_solving_profile',
+          question_text: 'Soft skill : résolution de problème',
+          answer_text: JSON.stringify({
+            profile: resultProfile,
+            profileTitle: profileData?.title || '',
+            answers,
+            completedAt: new Date().toISOString()
+          })
+        }
+      ]).catch(e => console.warn('saveExtraInfo N37 failed', e))
+      
       await levelUp({ minLevel: 37, xpReward: XP_PER_LEVEL })
       setShowSuccess(true)
     } catch (e) {

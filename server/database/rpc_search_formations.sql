@@ -33,7 +33,8 @@ CREATE OR REPLACE FUNCTION search_formations(
     p_keywords text[] DEFAULT NULL,
     p_department text DEFAULT NULL,
     p_region text DEFAULT NULL,
-    p_limit int DEFAULT 20
+    p_limit int DEFAULT 20,
+    p_offset int DEFAULT 0
 )
 RETURNS TABLE (
     id bigint,
@@ -51,7 +52,9 @@ RETURNS TABLE (
     annee text,
     image text,
     email text,
-    score int
+    score int,
+    lat double precision,
+    lon double precision
 )
 LANGUAGE plpgsql
 AS $$
@@ -94,6 +97,8 @@ BEGIN
             f.annee,
             f.image,
             f.email,
+            CAST(f.lat AS double precision) as lat,
+            CAST(f.lon AS double precision) as lon,
             -- Calcul du score de pertinence
             (
                 SELECT COALESCE(SUM(
@@ -156,14 +161,17 @@ BEGIN
         sf.annee,
         sf.image,
         sf.email,
-        sf.match_score AS score
+        sf.match_score AS score,
+        sf.lat,
+        sf.lon
     FROM scored_formations sf
     WHERE sf.match_score > 0 OR array_length(clean_keywords, 1) IS NULL OR array_length(clean_keywords, 1) = 0
     ORDER BY
         sf.match_score DESC,
         sf.annee DESC NULLS LAST,
         sf.id ASC
-    LIMIT LEAST(p_limit, 50);
+    LIMIT LEAST(p_limit, 50)
+    OFFSET p_offset;
 END;
 $$;
 

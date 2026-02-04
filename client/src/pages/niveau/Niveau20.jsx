@@ -74,6 +74,90 @@ function formatExtraInfos(entries) {
     .join('\n')
 }
 
+function buildFallbackBilan(entries) {
+  const byId = new Map()
+  const list = Array.isArray(entries) ? entries : []
+  list.forEach((row) => {
+    const id = String(row?.question_id || '').toLowerCase()
+    if (!id) return
+    if (!byId.has(id)) byId.set(id, row)
+  })
+
+  const getAnswer = (id) => byId.get(id)?.answer_text || ''
+  const safe = (value) => (value && String(value).trim() ? String(value).trim() : 'Non disponible')
+
+  const n11Ranking = safe(getAnswer('niveau11_domain_ranking'))
+  const n11Top3 = safe(getAnswer('niveau11_top3'))
+  const n12Job = safe(getAnswer('niveau12_selected_job'))
+  const n12Studies = safe(getAnswer('niveau12_studies'))
+  const n13Pitch = safe(getAnswer('niveau13_pitch_rating'))
+  const n14Job = safe(getAnswer('niveau14_target_job'))
+  const n14Letter = safe(getAnswer('niveau14_letter_generated'))
+  const n15Pos = safe(getAnswer('niveau15_positives'))
+  const n15Neg = safe(getAnswer('niveau15_negatives'))
+  const n16Video = safe(getAnswer('niveau16_video_watched'))
+
+  const n17Target = safe(getAnswer('niveau17_target_job'))
+  const n17Languages = safe(getAnswer('niveau17_languages'))
+  const n17Pdf = safe(getAnswer('niveau17_cv_pdf_url'))
+
+  const n18Ranks = list
+    .filter((row) => String(row?.question_id || '').toLowerCase().startsWith('niveau18_rank_'))
+    .sort((a, b) => {
+      const ai = Number(String(a.question_id).split('_').pop()) || 0
+      const bi = Number(String(b.question_id).split('_').pop()) || 0
+      return ai - bi
+    })
+    .map((row, idx) => `${idx + 1}. ${row?.answer_text || '—'}`)
+
+  let n18Source = ''
+  const rawSource = getAnswer('niveau18_jobs_source')
+  if (rawSource) {
+    try {
+      const parsed = JSON.parse(rawSource)
+      if (Array.isArray(parsed)) n18Source = parsed.filter(Boolean).join(', ')
+    } catch {
+      n18Source = String(rawSource)
+    }
+  }
+
+  const n19Items = list
+    .filter((row) => {
+      const id = String(row?.question_id || '').toLowerCase()
+      return id.startsWith('niveau_19_') || id.startsWith('niveau19_')
+    })
+    .map((row) => `${row?.question_text || 'Point'} → ${row?.answer_text || '—'}`)
+
+  return {
+    sections: [
+      {
+        title: 'Domaines et études (N11-N12)',
+        content: `Top 3 domaines : ${n11Top3}\nClassement domaines : ${n11Ranking}\nMétier exploré : ${n12Job}\nÉtudes : ${n12Studies}`
+      },
+      {
+        title: 'Pitch (N13)',
+        content: `Auto-évaluation du pitch : ${n13Pitch}`
+      },
+      {
+        title: 'Lettre & points métier (N14-N15)',
+        content: `Métier cible : ${n14Job}\nLettre générée : ${n14Letter}\nPoints positifs : ${n15Pos}\nPoints négatifs : ${n15Neg}`
+      },
+      {
+        title: 'CV (N16-N17)',
+        content: `Vidéo CV regardée : ${n16Video}\nMétier visé : ${n17Target}\nLangues : ${n17Languages}\nPDF CV : ${n17Pdf}`
+      },
+      {
+        title: 'Classement métiers (N18)',
+        content: `${n18Source ? `Métiers proposés : ${n18Source}\n` : ''}${n18Ranks.length ? n18Ranks.join('\n') : 'Non disponible'}`
+      },
+      {
+        title: "Points d'amélioration (N19)",
+        content: n19Items.length ? n19Items.join('\n') : 'Non disponible'
+      }
+    ]
+  }
+}
+
 export default function Niveau20() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
@@ -175,11 +259,15 @@ export default function Niveau20() {
 
       const parsed = extractJson(resp?.data?.reply || '')
       const sections = Array.isArray(parsed?.sections) ? parsed.sections : []
-      setBilan({ sections })
+      if (!sections.length) {
+        setBilan(buildFallbackBilan(extraInfos))
+      } else {
+        setBilan({ sections })
+      }
     } catch (e) {
       console.error('Niveau20 bilan fetch failed', e)
-      setBilan(null)
-      setBilanError("Impossible de générer ton bilan pour le moment.")
+      setBilan(buildFallbackBilan(extraInfos))
+      setBilanError('')
     } finally {
       setBilanLoading(false)
     }

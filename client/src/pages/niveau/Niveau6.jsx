@@ -23,7 +23,7 @@ const REGIONS = [
   'La Réunion'
 ]
 
-const QUICK_SUGGESTIONS = ['Droit', 'Marketing', 'Commerce', 'Histoire', 'Science', 'Physique']
+const QUICK_SUGGESTIONS = ['Histoire', 'Philosophie', 'Math', 'Informatique', 'Politique', 'Droit']
 
 function buildAvatarFromProfile(profile, seed = 'zelia') {
   try {

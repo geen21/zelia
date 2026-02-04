@@ -160,9 +160,11 @@ export default function Niveau18() {
         setAvatarUrl(buildAvatarFromProfile(prof, user.id))
 
         const homePreference = (prof?.home_preference || '').trim()
+        const isQuestionnaire = homePreference.toLowerCase() === 'questionnaire'
         let jobs = []
 
-        if (homePreference) {
+        // Si home_preference est un métier spécifique (pas "questionnaire"), on génère des métiers similaires
+        if (homePreference && !isQuestionnaire) {
           const message =
             `Propose 5 métiers similaires au métier suivant: "${homePreference}".\n` +
             `Contraintes STRICTES :\n` +
@@ -179,17 +181,35 @@ export default function Niveau18() {
           const list = parseJobList(resp?.data?.reply || '')
           jobs = [homePreference, ...list].filter(Boolean).slice(0, 6)
         } else {
+          // Pour les utilisateurs "questionnaire", récupérer depuis user_results avec questionnaire_type = 'inscription'
           try {
-            const anal = await apiClient.get('/analysis/my-results', { headers: { 'Cache-Control': 'no-cache' }, params: { _: Date.now() } })
-            const results = anal?.data?.results || {}
-            const list = normalizeJobs(results.jobRecommendations || results.job_recommandations || [])
-            jobs = list
+            let query = supabase
+              .from('user_results')
+              .select('job_recommendations')
+              .eq('user_id', user.id)
+            
+            if (isQuestionnaire) {
+              query = query.eq('questionnaire_type', 'inscription')
+            }
+            
+            const { data: userResultsData } = await query
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single()
+            
+            if (userResultsData?.job_recommendations) {
+              let list = userResultsData.job_recommendations
+              if (typeof list === 'string') {
+                try { list = JSON.parse(list) } catch {}
+              }
+              jobs = normalizeJobs(list)
+            }
           } catch {
+            // Fallback to API
             try {
-              const latest = await apiClient.get('/results/latest', { headers: { 'Cache-Control': 'no-cache' }, params: { _: Date.now() } })
-              const simple = latest?.data?.results?.analysis || latest?.data?.results || {}
-              const list = normalizeJobs(simple.jobRecommendations || simple.job_recommandations || simple.career_matches || [])
-              jobs = list
+              const anal = await apiClient.get('/analysis/my-results', { headers: { 'Cache-Control': 'no-cache' }, params: { _: Date.now() } })
+              const results = anal?.data?.results || {}
+              jobs = normalizeJobs(results.jobRecommendations || results.job_recommandations || [])
             } catch {}
           }
           jobs = jobs.slice(0, 6)

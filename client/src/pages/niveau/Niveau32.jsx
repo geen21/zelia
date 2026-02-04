@@ -93,24 +93,32 @@ export default function Niveau32() {
         const homePreference = (prof?.home_preference || '').trim()
         let jobForProjects = homePreference
 
-        // If home_preference is "questionnaire" or empty, use job_recommendations
+        // If home_preference is "questionnaire" or empty, use job_recommendations from inscription questionnaire
         if (!homePreference || homePreference.toLowerCase() === 'questionnaire') {
           try {
-            const anal = await apiClient.get('/analysis/my-results', { 
-              headers: { 'Cache-Control': 'no-cache' }, 
-              params: { _: Date.now() } 
-            })
-            const results = anal?.data?.results || {}
-            const jobRecs = results.jobRecommendations || results.job_recommendations || []
+            // Fetch from user_results with questionnaire_type = 'inscription'
+            const { data: userResultsData } = await supabase
+              .from('user_results')
+              .select('job_recommendations, questionnaire_type')
+              .eq('user_id', user.id)
+              .eq('questionnaire_type', 'inscription')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single()
             
-            if (Array.isArray(jobRecs) && jobRecs.length > 0) {
-              // Get first or second job recommendation title
-              const firstJob = jobRecs[0]?.title || jobRecs[0]?.name || ''
-              const secondJob = jobRecs[1]?.title || jobRecs[1]?.name || ''
-              jobForProjects = firstJob || secondJob || 'un métier créatif'
+            if (userResultsData?.job_recommendations) {
+              let list = userResultsData.job_recommendations
+              if (typeof list === 'string') {
+                try { list = JSON.parse(list) } catch {}
+              }
+              if (Array.isArray(list) && list.length > 0) {
+                // Use first recommendation title
+                const title = list[0]?.title || list[0]?.intitule || (typeof list[0] === 'string' ? list[0] : '')
+                jobForProjects = title || 'un métier créatif'
+              }
             }
           } catch (e) {
-            console.warn('Could not fetch job recommendations:', e)
+            console.warn('Could not fetch job recommendations from user_results:', e)
             jobForProjects = 'un métier créatif'
           }
         }
@@ -201,6 +209,19 @@ Réponds UNIQUEMENT avec le JSON, sans texte autour.`
     if (finishing) return
     setFinishing(true)
     try {
+      // Save project ideas to extra info
+      await usersAPI.saveExtraInfo([
+        {
+          question_id: 'niveau32_projects_completed',
+          question_text: 'Mini-projets étudiants',
+          answer_text: JSON.stringify({
+            targetJob,
+            projectIdeas: projects,
+            completedAt: new Date().toISOString()
+          })
+        }
+      ]).catch(e => console.warn('saveExtraInfo N32 failed', e))
+      
       await levelUp({ minLevel: 32, xpReward: XP_PER_LEVEL })
       setShowSuccess(true)
     } catch (e) {

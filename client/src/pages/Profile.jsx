@@ -225,6 +225,17 @@ export default function Profile() {
     return typeof url === 'string' ? url.trim() : ''
   }, [extraInfos])
 
+  const cvData = useMemo(() => {
+    const entries = Array.isArray(extraInfos) ? extraInfos : []
+    const match = entries.find((row) => row?.question_id === 'niveau17_cv_data')
+    if (!match?.answer_text) return null
+    try {
+      return JSON.parse(match.answer_text)
+    } catch {
+      return null
+    }
+  }, [extraInfos])
+
   const refreshLatestAnalysis = useCallback(async () => {
     try {
       const resp = await analysisAPI.getMyResults()
@@ -666,6 +677,20 @@ export default function Profile() {
                   Télécharger
                 </a>
                 <p className="text-xs text-text-secondary break-all">{cvPdfUrl}</p>
+              </div>
+            ) : cvData ? (
+              <div className="space-y-4">
+                <div className="bg-[#f8fff0] border border-[#c1ff72] rounded-xl p-4">
+                  <p className="text-sm text-gray-700">
+                    <strong>CV généré !</strong> Les données de ton CV ont été enregistrées. 
+                    Pour obtenir le PDF, retourne au <a href="/app/niveau/17" className="text-blue-600 underline">Niveau 17</a> et clique sur "Télécharger en PDF".
+                  </p>
+                </div>
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm">
+                  <p className="font-semibold mb-2">{cvData.name || 'CV'}</p>
+                  {cvData.targetJob && <p className="text-gray-600 mb-1">Poste visé : {cvData.targetJob}</p>}
+                  {cvData.summary && <p className="text-gray-600 text-xs">{cvData.summary}</p>}
+                </div>
               </div>
             ) : (
               <div className="bg-surface border border-line rounded-xl shadow-card p-6 text-sm text-text-secondary">

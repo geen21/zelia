@@ -174,6 +174,13 @@ export default function Niveau25() {
     setShowSuccess(true)
     ;(async () => {
       try {
+        await usersAPI.saveExtraInfo([
+          {
+            question_id: 'niveau25_video_watched',
+            question_text: 'Vidéo études post-bac regardée (Niveau 25)',
+            answer_text: 'Oui'
+          }
+        ])
         await levelUp({ minLevel: 25, xpReward: XP_PER_LEVEL })
       } catch (e) {
         console.warn('Progression update failed (non-blocking):', e)

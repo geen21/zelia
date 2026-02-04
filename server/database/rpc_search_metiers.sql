@@ -37,7 +37,12 @@ RETURNS TABLE (
     dateactualisation timestamp,
     typecontrat text,
     lieutravail_libelle text,
-    entreprise_nom text
+    entreprise_nom text,
+    origineoffre_urlorigine text,
+    contact_urlpostulation text,
+    entreprise_logo text,
+    lieutravail_latitude double precision,
+    lieutravail_longitude double precision
 )
 LANGUAGE plpgsql
 AS $$
@@ -68,7 +73,12 @@ BEGIN
         m.dateactualisation,
         m.typecontrat,
         m.lieutravail_libelle,
-        m.entreprise_nom
+        m.entreprise_nom,
+        m.origineoffre_urlorigine,
+        m.contact_urlpostulation,
+        m.entreprise_logo,
+        CAST(m.lieutravail_latitude AS double precision),
+        CAST(m.lieutravail_longitude AS double precision)
     FROM metiers_france m
     WHERE
         -- Filtre temporel OBLIGATOIRE pour limiter le scan

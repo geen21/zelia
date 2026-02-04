@@ -219,6 +219,25 @@ export default function Niveau31() {
     if (finishing) return
     setFinishing(true)
     try {
+      // Save game results to extra info
+      const correctCount = results?.correct?.length || 0
+      const totalCount = results?.total || JOBS_DATA.length
+      const correctJobs = (results?.correct || []).map(j => j.name).join(', ')
+      const incorrectJobs = (results?.incorrect || []).map(j => j.name).join(', ')
+      
+      await usersAPI.saveExtraInfo([
+        {
+          question_id: 'niveau31_game_completed',
+          question_text: 'Jeu métiers et débouchés',
+          answer_text: JSON.stringify({
+            score: `${correctCount}/${totalCount}`,
+            correctJobs,
+            incorrectJobs,
+            completedAt: new Date().toISOString()
+          })
+        }
+      ]).catch(e => console.warn('saveExtraInfo N31 failed', e))
+      
       await levelUp({ minLevel: 31, xpReward: XP_PER_LEVEL })
       setShowSuccess(true)
     } catch (e) {

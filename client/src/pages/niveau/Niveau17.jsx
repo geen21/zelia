@@ -555,6 +555,22 @@ export default function Niveau17() {
     if (finishing) return
     setFinishing(true)
     try {
+      // If PDF wasn't exported yet, save CV data anyway
+      if (!pdfUrl && cvData) {
+        try {
+          // Save CV data as JSON for later retrieval
+          await usersAPI.saveExtraInfo([
+            {
+              question_id: 'niveau17_cv_data',
+              question_text: 'CV - Données JSON',
+              answer_text: JSON.stringify(cvData)
+            }
+          ])
+        } catch (e) {
+          console.warn('Failed to save CV data (non-blocking):', e)
+        }
+      }
+      
       await levelUp({ minLevel: 17, xpReward: XP_PER_LEVEL })
       navigate('/dashboard')
     } catch (err) {

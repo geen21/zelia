@@ -134,25 +134,38 @@ export default function Niveau15() {
         setProfile(prof)
         setAvatarUrl(buildAvatarFromProfile(prof, user.id))
 
-        // Fetch results to pick a recommended job if profile.home_preference is empty
+        // Fetch job_recommendations from user_results
+        // For users with home_preference = 'questionnaire', use inscription results
         try {
-          const anal = await apiClient.get('/analysis/my-results', { headers: { 'Cache-Control': 'no-cache' }, params: { _: Date.now() } })
-          const r = anal?.data?.results || {}
-          const list = r.jobRecommendations || r.job_recommandations || []
-          if (Array.isArray(list) && list.length > 0) {
-            const title = list[0]?.title || list[0]?.intitule || (typeof list[0] === 'string' ? list[0] : '')
-            setJobFromResults(title || '')
+          const homePreference = prof?.home_preference || ''
+          const isQuestionnaire = homePreference.toLowerCase() === 'questionnaire'
+          
+          let query = supabase
+            .from('user_results')
+            .select('job_recommendations, questionnaire_type')
+            .eq('user_id', user.id)
+          
+          if (isQuestionnaire) {
+            query = query.eq('questionnaire_type', 'inscription')
           }
-        } catch {
-          try {
-            const latest = await apiClient.get('/results/latest', { headers: { 'Cache-Control': 'no-cache' }, params: { _: Date.now() } })
-            const simple = latest?.data?.results?.analysis || latest?.data?.results || {}
-            const list = simple.jobRecommendations || simple.job_recommandations || simple.career_matches || []
+          
+          const { data: userResultsData } = await query
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single()
+          
+          if (userResultsData?.job_recommendations) {
+            let list = userResultsData.job_recommendations
+            if (typeof list === 'string') {
+              try { list = JSON.parse(list) } catch {}
+            }
             if (Array.isArray(list) && list.length > 0) {
               const title = list[0]?.title || list[0]?.intitule || (typeof list[0] === 'string' ? list[0] : '')
               setJobFromResults(title || '')
             }
-          } catch {}
+          }
+        } catch (e) {
+          console.warn('Failed to fetch job_recommendations from user_results', e)
         }
       } catch (e) {
         console.error('Niveau15 load error', e)

@@ -86,6 +86,152 @@ const LEVELS_SUMMARY = [
   { level: 39, title: 'Retours utilisateurs', type: 'feedback' }
 ]
 
+function buildFallbackBilan(entries) {
+  if (!entries || entries.length === 0) {
+    return { sections: [{ title: 'Bilan', content: 'Aucune donnée disponible pour ce bilan.' }] }
+  }
+
+  const sections = []
+
+  // --- Section 1: Marché du travail (N31) ---
+  const n31 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau31'))
+  if (n31) {
+    try {
+      const data = JSON.parse(n31.answer_text || '{}')
+      sections.push({
+        title: 'Marché du travail et débouchés',
+        content: `Score obtenu : ${data.score || 'N/A'}. ${data.correctJobs ? `Métiers bien classés : ${data.correctJobs}.` : ''}`
+      })
+    } catch {
+      sections.push({ title: 'Marché du travail et débouchés', content: 'Niveau complété.' })
+    }
+  }
+
+  // --- Section 2: Mini-projets (N32) ---
+  const n32 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau32'))
+  if (n32) {
+    try {
+      const data = JSON.parse(n32.answer_text || '{}')
+      const projectsList = Array.isArray(data.projectIdeas) ? data.projectIdeas.join(', ') : ''
+      sections.push({
+        title: 'Mini-projets étudiants',
+        content: `Métier ciblé : ${data.targetJob || 'N/A'}. ${projectsList ? `Idées de projets : ${projectsList}.` : ''}`
+      })
+    } catch {
+      sections.push({ title: 'Mini-projets étudiants', content: 'Niveau complété.' })
+    }
+  }
+
+  // --- Section 3: Lettre à soi-même (N33) ---
+  const n33 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau33'))
+  if (n33) {
+    try {
+      const data = JSON.parse(n33.answer_text || '{}')
+      sections.push({
+        title: 'Lettre à soi-même',
+        content: data.didWriteLetter ? `Lettre écrite et programmée pour envoi.` : 'Niveau complété sans écrire de lettre.'
+      })
+    } catch {
+      sections.push({ title: 'Lettre à soi-même', content: 'Niveau complété.' })
+    }
+  }
+
+  // --- Section 4: Gestion du stress (N34) ---
+  const n34 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau34'))
+  if (n34) {
+    try {
+      const data = JSON.parse(n34.answer_text || '{}')
+      sections.push({
+        title: 'Gestion du stress',
+        content: `Profil identifié : ${data.profileTitle || data.profile || 'N/A'}.`
+      })
+    } catch {
+      sections.push({ title: 'Gestion du stress', content: 'Niveau complété.' })
+    }
+  }
+
+  // --- Section 5: Vidéo motivation (N35) ---
+  const n35 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau35'))
+  if (n35) {
+    try {
+      const data = JSON.parse(n35.answer_text || '{}')
+      sections.push({
+        title: 'Vidéo motivation',
+        content: `Vidéo "${data.videoTitle || 'motivation'}" regardée.`
+      })
+    } catch {
+      sections.push({ title: 'Vidéo motivation', content: 'Vidéo regardée.' })
+    }
+  }
+
+  // --- Section 6: Soft skills (N36, N37, N38) ---
+  const softSkillsContent = []
+  
+  const n36 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau36'))
+  if (n36) {
+    try {
+      const data = JSON.parse(n36.answer_text || '{}')
+      softSkillsContent.push(`Adaptabilité : ${data.situationsCompleted || 5} situations travaillées.`)
+    } catch {
+      softSkillsContent.push('Adaptabilité : niveau complété.')
+    }
+  }
+
+  const n37 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau37'))
+  if (n37) {
+    try {
+      const data = JSON.parse(n37.answer_text || '{}')
+      softSkillsContent.push(`Résolution de problème : ${data.profileTitle || data.profile || 'profil identifié'}.`)
+    } catch {
+      softSkillsContent.push('Résolution de problème : niveau complété.')
+    }
+  }
+
+  const n38 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau38'))
+  if (n38) {
+    try {
+      const data = JSON.parse(n38.answer_text || '{}')
+      softSkillsContent.push(`Résolution de problèmes (situations) : ${data.situationsCompleted || 5} situations analysées.`)
+    } catch {
+      softSkillsContent.push('Résolution de problèmes : niveau complété.')
+    }
+  }
+
+  if (softSkillsContent.length > 0) {
+    sections.push({
+      title: 'Soft skills développés',
+      content: softSkillsContent.join(' ')
+    })
+  }
+
+  // --- Section 7: Feedback (N39) ---
+  const n39Entries = entries.filter(e => (e.question_id || '').toLowerCase().includes('niveau39'))
+  if (n39Entries.length > 0) {
+    const feedbackParts = []
+    n39Entries.forEach(entry => {
+      const qid = entry.question_id || ''
+      if (qid.includes('favorite_level')) feedbackParts.push(`Niveau préféré : ${entry.answer_text || 'N/A'}`)
+      if (qid.includes('rating')) feedbackParts.push(`Note globale : ${entry.answer_text || 'N/A'}/5`)
+    })
+    if (feedbackParts.length > 0) {
+      sections.push({
+        title: 'Retours utilisateur',
+        content: feedbackParts.join('. ') + '.'
+      })
+    }
+  }
+
+  // If no sections were created, add a generic one
+  if (sections.length === 0) {
+    sections.push({
+      title: 'Parcours complété',
+      content: 'Tu as terminé les niveaux 31 à 39. Bravo pour ton parcours !'
+    })
+  }
+
+  return { sections }
+}
+
 export default function Niveau40() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
@@ -180,11 +326,20 @@ export default function Niveau40() {
 
       const parsed = extractJson(resp?.data?.reply || '')
       const sections = Array.isArray(parsed?.sections) ? parsed.sections : []
-      setBilan({ sections })
+      
+      if (sections.length === 0) {
+        // Use fallback bilan if AI parsing failed
+        setBilan(buildFallbackBilan(extraInfos))
+      } else {
+        setBilan({ sections })
+      }
     } catch (e) {
       console.error('Niveau40 bilan fetch failed', e)
-      setBilan(null)
-      setBilanError("Impossible de générer ton bilan pour le moment.")
+      // Use fallback bilan on error
+      setBilan(buildFallbackBilan(extraInfos))
+      if (extraInfos.length === 0) {
+        setBilanError("Impossible de générer ton bilan pour le moment.")
+      }
     } finally {
       setBilanLoading(false)
     }
@@ -298,28 +453,92 @@ export default function Niveau40() {
       </div>
 
       {showSuccess && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-          <div className="relative w-[92%] max-w-2xl rounded-[2.5rem] p-10 bg-gradient-to-br from-[#c1ff72] via-white to-[#a7f3d0] shadow-[0_0_80px_rgba(193,255,114,0.6)] text-center overflow-hidden">
-            <div className="absolute inset-0 opacity-30">
-              <div className="absolute -top-24 -left-24 w-64 h-64 bg-white rounded-full blur-3xl animate-pulse" />
-              <div className="absolute top-10 right-10 w-32 h-32 bg-white/70 rounded-full blur-2xl animate-pulse" />
-              <div className="absolute -bottom-20 right-0 w-72 h-72 bg-white/60 rounded-full blur-3xl animate-pulse" />
-            </div>
-            <div className="relative">
-              <div className="mx-auto mb-6 w-20 h-20 rounded-full bg-black text-white flex items-center justify-center text-2xl font-extrabold shadow-lg animate-bounce">40</div>
-              <h3 className="text-3xl md:text-4xl font-extrabold mb-3">Félicitations !</h3>
-              <p className="text-gray-800 text-base md:text-lg mb-6">Tu as terminé tout le parcours Zélia. C'est un vrai accomplissement.</p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-                <button onClick={() => navigate('/app/profile')} className="px-4 py-2 rounded-lg bg-black text-white">Voir mon profil</button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm transition-opacity duration-500">
+          <style>{`
+            @keyframes fall {
+              0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+              100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+            }
+            @keyframes scaleIn {
+              0% { transform: scale(0.9); opacity: 0; }
+              100% { transform: scale(1); opacity: 1; }
+            }
+            .confetti-piece {
+              position: fixed;
+              top: -20px;
+              z-index: 50;
+              animation: fall linear forwards;
+            }
+          `}</style>
+
+          {/* Confetti Generator (Brand Colors) */}
+          <div className="pointer-events-none fixed inset-0 overflow-hidden">
+            {[...Array(60)].map((_, i) => {
+              const left = Math.random() * 100
+              const animDuration = 3 + Math.random() * 4
+              const delay = Math.random() * 2
+              const size = 6 + Math.random() * 6
+              // Zélia Palette: Lime, Black, White, Gray
+              const colors = ['#c1ff72', '#000000', '#ffffff', '#9ca3af']
+              const color = colors[Math.floor(Math.random() * colors.length)]
+              return (
+                <div
+                  key={i}
+                  className="confetti-piece"
+                  style={{
+                    left: `${left}%`,
+                    width: `${size}px`,
+                    height: `${size}px`,
+                    backgroundColor: color,
+                    animationDuration: `${animDuration}s`,
+                    animationDelay: `${delay}s`,
+                    borderRadius: Math.random() > 0.5 ? '50%' : '0px',
+                  }}
+                />
+              )
+            })}
+          </div>
+
+          <div className="relative w-full max-w-sm mx-6 animate-[scaleIn_0.4s_ease-out_forwards]">
+            {/* Main Card - Zélia Style (White card, black text, lime accents) */}
+            <div className="bg-white rounded-[2rem] p-8 text-center shadow-2xl relative overflow-hidden">
+              
+              {/* Decorative Lime Gradient */}
+              <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#c1ff72] rounded-full blur-[60px] opacity-40 pointer-events-none"></div>
+              <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-[#c1ff72] rounded-full blur-[60px] opacity-40 pointer-events-none"></div>
+
+              {/* Avatar Display */}
+              <div className="relative mx-auto mb-6 w-24 h-24">
+                <div className="absolute inset-0 bg-[#c1ff72] rounded-full animate-ping opacity-20"></div>
+                <div className="relative w-24 h-24 rounded-full p-[3px] bg-gradient-to-tr from-[#c1ff72] to-transparent">
+                  <img 
+                    src={avatarUrl} 
+                    alt="Zelia Avatar" 
+                    className="w-full h-full rounded-full object-cover border-2 border-white bg-gray-100"
+                  />
+                </div>
+                {/* Level Badge */}
+                <div className="absolute -bottom-2 -right-2 bg-black text-[#c1ff72] text-xs font-bold px-3 py-1 rounded-full border-[3px] border-white">
+                  NIV 40
+                </div>
               </div>
-            </div>
-            <div className="pointer-events-none absolute inset-0 overflow-hidden">
-              <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-8 top-10 animate-ping" />
-              <div className="absolute w-2 h-2 bg-yellow-400 rounded-full right-10 top-12 animate-ping" />
-              <div className="absolute w-2 h-2 bg-blue-400 rounded-full left-16 bottom-12 animate-ping" />
-              <div className="absolute w-2 h-2 bg-green-400 rounded-full right-12 bottom-10 animate-ping" />
-              <div className="absolute w-3 h-3 bg-white rounded-full left-1/2 top-6 animate-ping" />
+
+              <h2 className="text-3xl font-black text-black mb-2 tracking-tight uppercase">
+                Félicitations
+              </h2>
+              <p className="text-gray-500 font-medium mb-8 leading-relaxed">
+                Tu as complété l'intégralité du parcours. Ton bilan final est prêt.
+              </p>
+
+              <button 
+                onClick={() => navigate('/app/profile')}
+                className="group w-full py-4 px-6 rounded-xl bg-black text-[#c1ff72] font-bold text-lg hover:bg-gray-900 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
+              >
+                <span>Accéder à mon Profil</span>
+                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                </svg>
+              </button>
             </div>
           </div>
         </div>

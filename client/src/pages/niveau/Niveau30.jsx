@@ -74,6 +74,79 @@ function formatExtraInfos(entries) {
     .join('\n')
 }
 
+function buildFallbackBilan(entries) {
+  const list = Array.isArray(entries) ? entries : []
+  const byLevel = new Map()
+
+  list.forEach((row) => {
+    const rawId = String(row?.question_id || '').toLowerCase()
+    const match = rawId.match(/niveau[_]?(\d+)/)
+    if (!match) return
+    const level = Number(match[1])
+    if (Number.isNaN(level) || level < 21 || level > 29) return
+    if (!byLevel.has(level)) byLevel.set(level, [])
+    byLevel.get(level).push(row)
+  })
+
+  const formatValue = (value) => {
+    if (value == null) return '—'
+    const raw = String(value).trim()
+    if (!raw) return '—'
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return parsed.map((item) => JSON.stringify(item)).join(', ')
+      if (parsed && typeof parsed === 'object') return Object.entries(parsed).map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`).join(', ')
+      return JSON.stringify(parsed)
+    } catch {
+      return raw
+    }
+  }
+
+  const formatLevel = (levels) => {
+    const rows = []
+    levels.forEach((lvl) => {
+      const items = byLevel.get(lvl) || []
+      items.forEach((row) => {
+        rows.push(`Niveau ${lvl} - ${row?.question_text || 'Question'}: ${formatValue(row?.answer_text)}`)
+      })
+    })
+    return rows.length ? rows.join('\n') : 'Non disponible'
+  }
+
+  return {
+    sections: [
+      {
+        title: 'Filières, notes & budget (N21-N22)',
+        content: formatLevel([21, 22])
+      },
+      {
+        title: 'Écoles sélectionnées (N23)',
+        content: formatLevel([23])
+      },
+      {
+        title: 'Quiz statistiques (N24)',
+        content: formatLevel([24])
+      },
+      {
+        title: 'Parcoursup & démarches (N26)',
+        content: formatLevel([26])
+      },
+      {
+        title: 'Chat communautaire (N27)',
+        content: formatLevel([27])
+      },
+      {
+        title: "Simulation d'entretien (N28)",
+        content: formatLevel([28])
+      },
+      {
+        title: 'Vidéos regardées (N25, N29)',
+        content: formatLevel([25, 29])
+      }
+    ]
+  }
+}
+
 // Resume des niveaux 21-29 (videos et jeux)
 const LEVELS_SUMMARY = [
   { level: 21, title: 'Video : Conseils Orientation', type: 'video' },
@@ -156,6 +229,12 @@ export default function Niveau30() {
     setBilanError('')
     setBilanLoading(true)
     try {
+      if (!extraInfos || extraInfos.length === 0) {
+        setBilan(buildFallbackBilan([]))
+        setBilanLoading(false)
+        return
+      }
+
       const context = extraInfos.length > 0 
         ? formatExtraInfos(extraInfos) 
         : 'Aucune donnee specifique enregistree pour les niveaux 21-29.'
@@ -186,11 +265,15 @@ export default function Niveau30() {
 
       const parsed = extractJson(resp?.data?.reply || '')
       const sections = Array.isArray(parsed?.sections) ? parsed.sections : []
-      setBilan({ sections })
+      if (!sections.length) {
+        setBilan(buildFallbackBilan(extraInfos))
+      } else {
+        setBilan({ sections })
+      }
     } catch (e) {
       console.error('Niveau30 bilan fetch failed', e)
-      setBilan(null)
-      setBilanError("Impossible de generer ton bilan pour le moment.")
+      setBilan(buildFallbackBilan(extraInfos))
+      setBilanError('')
     } finally {
       setBilanLoading(false)
     }

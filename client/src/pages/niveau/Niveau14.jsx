@@ -107,11 +107,23 @@ export default function Niveau14() {
         setAvatarUrl(buildAvatarFromProfile(prof, user.id))
 
         // Fetch job_recommendations from user_results
+        // For users with home_preference = 'questionnaire', use inscription results
         try {
-          const { data: userResultsData } = await supabase
+          const homePreference = prof?.home_preference || ''
+          const isQuestionnaire = homePreference.toLowerCase() === 'questionnaire'
+          
+          // Build query - filter by questionnaire_type if user went through questionnaire
+          let query = supabase
             .from('user_results')
-            .select('job_recommendations')
+            .select('job_recommendations, questionnaire_type')
             .eq('user_id', user.id)
+          
+          if (isQuestionnaire) {
+            // Prioritize 'inscription' results for questionnaire users
+            query = query.eq('questionnaire_type', 'inscription')
+          }
+          
+          const { data: userResultsData } = await query
             .order('created_at', { ascending: false })
             .limit(1)
             .single()
@@ -121,11 +133,8 @@ export default function Niveau14() {
             if (typeof list === 'string') {
               try { list = JSON.parse(list) } catch {}
             }
-            if (Array.isArray(list) && list.length > 1) {
-              // Use index [1] (second recommendation)
-              const title = list[1]?.title || list[1]?.intitule || (typeof list[1] === 'string' ? list[1] : '')
-              setJobFromResults(title || '')
-            } else if (Array.isArray(list) && list.length > 0) {
+            if (Array.isArray(list) && list.length > 0) {
+              // Use index [0] (first recommendation)
               const title = list[0]?.title || list[0]?.intitule || (typeof list[0] === 'string' ? list[0] : '')
               setJobFromResults(title || '')
             }

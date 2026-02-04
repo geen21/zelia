@@ -104,6 +104,7 @@ router.post('/generate-analysis', async (req, res) => {
       + `[Évaluation concise des compétences en points clés, maximum 300 mots. Présentez sous forme de liste.]\n\n`
       + `###Recommandations d'emploi###\n`
       + `OBLIGATOIRE : Fournis EXACTEMENT 6 recommandations d'emploi. Cette section ne doit JAMAIS être vide. Pour chaque recommandation, suis le format suivant :\n`
+      + `Les métiers proposés ne sont pas forcément uniquement en entreprise : cela peut être tout type de métier.\n`
       + `1. [Titre du poste]\n`
       + `   - Compétences requises: [3-4 compétences principales sous forme liste, par mots clés]\n\n`
       + `###Recommandations d'études###\n`

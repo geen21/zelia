@@ -197,6 +197,18 @@ export default function Niveau26() {
       if (finishing) return
       setFinishing(true)
       try {
+        await usersAPI.saveExtraInfo([
+          {
+            question_id: 'niveau26_parcoursup_read',
+            question_text: 'Guide Parcoursup consulté (Niveau 26)',
+            answer_text: 'Oui'
+          },
+          {
+            question_id: 'niveau26_tables_viewed',
+            question_text: 'Tableaux Parcoursup vus (Niveau 26)',
+            answer_text: `${TABLES.length} tableaux consultés`
+          }
+        ])
         await levelUp({ minLevel: 26, xpReward: XP_PER_LEVEL })
         setShowSuccess(true)
       } catch (e) {

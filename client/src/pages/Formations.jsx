@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import axios from 'axios'
+import { supabase } from '../lib/supabase'
 
 export default function Formations(){
 	const [q, setQ] = useState('')
@@ -115,16 +116,39 @@ export default function Formations(){
 		setLoading(true)
 		try{
 			const effectivePageSize = recommendedOnly ? 50 : 20
-			const { data } = await axios.get('/api/catalog/formations/search', {
-				params: { q, region: region || undefined, departement: departement || undefined, page: p, page_size: effectivePageSize },
-				headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
+			
+            // Prepare keywords like Niveau6
+            const rawKeywords = q
+                ? q.split(/[^\p{L}\p{N}]+/u).map((part) => part.trim()).filter(Boolean)
+                : []
+            const keywords = rawKeywords.length > 0 ? rawKeywords.slice(0, 10) : null
+
+			// Use the same RPC function as Level 6 (search_formations)
+			const { data, error } = await supabase.rpc('search_formations', {
+				p_keywords: keywords,
+				p_department: departement || null,
+				p_region: region || null,
+				p_limit: effectivePageSize
+                // Note: search_formations as defined in SQL (read earlier) does NOT accept p_offset. 
+                // Level 6 doesn't use offset. Infinite scroll might be limited to first page if RPC doesn't support it.
+                // Assuming the user just wants the "Level 6 experience" which might be "search results".
+                // If Formations.jsx needs pagination, the RPC needs update.
+                // Checking rpc_search_formations.sql content again... it says "p_limit int DEFAULT 20". No offset.
 			})
-			setItems(data.items)
-			setTotal(data.total)
-			setPage(p)
+
+			if (error) throw error
+
+            const items = data || []
+			setItems(items)
+			// RPC doesn't return total
+			// setTotal(data.total) 
+            setPage(p)
 			setSelected([])
 			setOpenMenuId(null)
-		} finally {
+		} catch (err) {
+            console.error('Formation search error', err)
+            setItems([])
+        } finally {
 			setLoading(false)
 		}
 	}

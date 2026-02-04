@@ -128,6 +128,19 @@ export default function Niveau33() {
     if (finishing) return
     setFinishing(true)
     try {
+      // Save letter status to extra info
+      await usersAPI.saveExtraInfo([
+        {
+          question_id: 'niveau33_letter_completed',
+          question_text: 'Lettre à soi-même',
+          answer_text: JSON.stringify({
+            didWriteLetter,
+            sendDate: futureDate.toISOString(),
+            completedAt: new Date().toISOString()
+          })
+        }
+      ]).catch(e => console.warn('saveExtraInfo N33 failed', e))
+      
       await levelUp({ minLevel: 33, xpReward: XP_PER_LEVEL })
       setShowSuccess(true)
     } catch (e) {

@@ -232,6 +232,20 @@ export default function Niveau36() {
     if (finishing) return
     setFinishing(true)
     try {
+      // Save adaptability results to extra info
+      const situationsSummary = SITUATIONS.map(s => s.title).join(', ')
+      await usersAPI.saveExtraInfo([
+        {
+          question_id: 'niveau36_adaptability_completed',
+          question_text: 'Soft skill : adaptabilité',
+          answer_text: JSON.stringify({
+            situationsCompleted: SITUATIONS.length,
+            situationsSummary,
+            completedAt: new Date().toISOString()
+          })
+        }
+      ]).catch(e => console.warn('saveExtraInfo N36 failed', e))
+      
       await levelUp({ minLevel: 36, xpReward: XP_PER_LEVEL })
       setShowSuccess(true)
     } catch (e) {
@@ -262,7 +276,7 @@ export default function Niveau36() {
   const renderOptions = () => {
     if (currentSituation.type === 'drag') {
       return (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {dragItems.map((item, index) => (
             <div
               key={item.id}
@@ -270,10 +284,10 @@ export default function Niveau36() {
               onDragStart={() => onDragStart(item.id)}
               onDragOver={onDragOver}
               onDrop={() => onDrop(item.id)}
-              className={`flex items-center gap-3 p-3 rounded-xl border ${showFeedback ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-200 cursor-move hover:border-[#c1ff72]'}`}
+              className={`flex items-center gap-2 p-2 md:p-3 rounded-lg border ${showFeedback ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-200 cursor-move hover:border-[#c1ff72]'}`}
             >
-              <span className="w-7 h-7 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold">{index + 1}</span>
-              <span className="text-sm text-gray-800">{item.text}</span>
+              <span className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold flex-shrink-0">{index + 1}</span>
+              <span className="text-xs md:text-sm text-gray-800">{item.text}</span>
             </div>
           ))}
           {!showFeedback && (
@@ -286,13 +300,13 @@ export default function Niveau36() {
     }
 
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         {currentSituation.options.map((opt, idx) => (
           <button
             key={`${currentSituation.id}-${idx}`}
             onClick={() => handleSelect(idx)}
             disabled={showFeedback}
-            className={`text-left p-4 rounded-xl border transition-all ${showFeedback ? 'border-gray-200 bg-gray-50' : 'border-gray-200 hover:border-[#c1ff72] hover:bg-[#f8fff0]'}`}
+            className={`text-left p-2 md:p-3 rounded-lg border transition-all text-sm ${showFeedback ? 'border-gray-200 bg-gray-50' : 'border-gray-200 hover:border-[#c1ff72] hover:bg-[#f8fff0]'}`}
           >
             {opt}
           </button>
@@ -343,11 +357,6 @@ export default function Niveau36() {
                     {dialogueIdx < dialogues.length - 1 ? 'Suivant' : 'Commencer'}
                   </button>
                 )}
-                {phase === 'game' && showFeedback && (
-                  <button onClick={handleContinue} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">
-                    {currentIndex < SITUATIONS.length - 1 ? 'Situation suivante' : 'Voir le résultat'}
-                  </button>
-                )}
                 {phase === 'result' && (
                   <button onClick={finishLevel} disabled={finishing} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto disabled:opacity-50">
                     Terminer le niveau
@@ -382,6 +391,13 @@ export default function Niveau36() {
                 {renderOptions()}
               </div>
               {renderFeedback()}
+              {showFeedback && (
+                <div className="pt-4 border-t border-gray-200">
+                  <button onClick={handleContinue} className="w-full px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 font-medium hover:bg-[#b8f566] transition-colors">
+                    {currentIndex < SITUATIONS.length - 1 ? 'Situation suivante' : 'Voir le résultat'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

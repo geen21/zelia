@@ -243,6 +243,20 @@ export default function Niveau24() {
       if (finishing) return
       setFinishing(true)
       try {
+        // Sauvegarder les résultats du quiz
+        const correctCount = answers.filter(a => a.correct).length + (selectedAnswer === currentQuizData.correct ? 1 : 0)
+        await usersAPI.saveExtraInfo([
+          {
+            question_id: 'niveau24_quiz_score',
+            question_text: 'Score quiz orientation (Niveau 24)',
+            answer_text: `${correctCount}/${QUIZ_DATA.length} bonnes réponses`
+          },
+          {
+            question_id: 'niveau24_quiz_completed',
+            question_text: 'Quiz statistiques complété (Niveau 24)',
+            answer_text: 'Oui'
+          }
+        ])
         await levelUp({ minLevel: 24, xpReward: XP_PER_LEVEL })
         setShowSuccess(true)
       } catch (e) {

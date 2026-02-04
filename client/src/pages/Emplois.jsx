@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import axios from 'axios'
 import { jwtDecode } from 'jwt-decode'
+import { supabase } from '../lib/supabase'
 
 export default function Emplois(){
 	const [q, setQ] = useState('')
@@ -61,24 +62,34 @@ export default function Emplois(){
 
 	async function load(p = page){
 		const effectivePageSize = recommendedOnly ? 50 : 20
-		// Avoid sending empty filters; some backends treat empty strings awkwardly
-		const params = { page: p, page_size: effectivePageSize }
-        if (q) params.q = q
-		if (typecontrat) params.typecontrat = typecontrat
-		if (alternance) params.alternance = alternance === 'true'
 		setLoading(true)
 		try {
-			const { data } = await axios.get('/api/catalog/metiers/search', {
-				params,
-				headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
+			// Use the same RPC function as Level 9 (search_metiers)
+			const { data, error } = await supabase.rpc('search_metiers', {
+				search_term: q || null,
+				p_typecontrat: typecontrat || null,
+				p_alternance: alternance === 'true' ? true : (alternance === 'false' ? false : null),
+				p_location: null, // Emplois.jsx doesn't seem to have a location filter input in the state shown
+				p_limit: effectivePageSize,
+				p_offset: (p - 1) * effectivePageSize
 			})
-			setItems(data.items)
-			setHasMore(!!data.has_more)
-			if (typeof data.total === 'number') setTotal(data.total)
+
+			if (error) throw error
+
+			const items = data || []
+			setItems(items)
+			// RPC doesn't return total/has_more, but we can infer hasMore if full page returned
+			setHasMore(items.length === effectivePageSize)
+			if (p === 1 && items.length < effectivePageSize) setTotal(items.length) // partial guess
+			// Note: 'total' count is not returned by optimal RPC. 
+			// We can preserve old total if we have it, or set to a placeholder if needed.
 			setPage(p)
 			setSelected([])
 			setOpenMenuId(null)
-		} finally {
+		} catch (err) {
+            console.error('Job search error', err)
+            setItems([])
+        } finally {
 			setLoading(false)
 		}
 	}

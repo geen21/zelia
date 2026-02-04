@@ -173,6 +173,19 @@ export default function Niveau35() {
     setShowSuccess(true)
     ;(async () => {
       try {
+        // Save video watched to extra info
+        await usersAPI.saveExtraInfo([
+          {
+            question_id: 'niveau35_video_completed',
+            question_text: 'Vidéo motivation',
+            answer_text: JSON.stringify({
+              videoId: VIDEO_ID,
+              videoTitle: VIDEO_TITLE,
+              completedAt: new Date().toISOString()
+            })
+          }
+        ]).catch(e => console.warn('saveExtraInfo N35 failed', e))
+        
         await levelUp({ minLevel: 35, xpReward: XP_PER_LEVEL })
       } catch (e) {
         console.warn('Progression update failed (non-blocking):', e)

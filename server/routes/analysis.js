@@ -1112,6 +1112,13 @@ router.get('/my-results', authenticateToken, async (req, res) => {
     const mbti = findByType('mbti') || null
     const inscription = findByType('inscription') || null
 
+    // Debug: log available questionnaire types
+    const availableTypes = rows.map(r => r.questionnaire_type)
+    console.log(`[my-results] User ${userId} has ${rows.length} result row(s) with types: ${JSON.stringify(availableTypes)}`)
+    if (!mbti && !inscription) {
+      console.warn(`[my-results] Neither 'mbti' nor 'inscription' found for user ${userId}, using fallback`)
+    }
+
     const mapRow = (row) => {
       if (!row) return null
       let personalityType = null
@@ -1119,6 +1126,14 @@ router.get('/my-results', authenticateToken, async (req, res) => {
       let skillsAssessment = row.skills_assessment || null
       let jobRecommendations = row.job_recommendations || null
       let studyRecommendations = row.study_recommendations || null
+
+      // Handle case where JSON columns are stored as strings
+      if (typeof jobRecommendations === 'string') {
+        try { jobRecommendations = JSON.parse(jobRecommendations) } catch { jobRecommendations = null }
+      }
+      if (typeof studyRecommendations === 'string') {
+        try { studyRecommendations = JSON.parse(studyRecommendations) } catch { studyRecommendations = null }
+      }
 
       if (!personalityAnalysis && !skillsAssessment && !jobRecommendations && !studyRecommendations && row.skills_data) {
         const sd = row.skills_data
@@ -1154,6 +1169,9 @@ router.get('/my-results', authenticateToken, async (req, res) => {
 
     const mbtiMapped = mapRow(mbti)
     const inscriptionMapped = mapRow(inscription)
+    // Fallback: if neither mbti nor inscription found, use the first available row
+    const fallbackRow = (!mbti && !inscription && rows.length > 0) ? rows[0] : null
+    const fallbackMapped = mapRow(fallbackRow)
 
     // Fetch avatar data
     const { data: profile, error: profileErr } = await db
@@ -1166,7 +1184,7 @@ router.get('/my-results', authenticateToken, async (req, res) => {
       console.warn('Could not fetch profile for avatar:', profileErr)
     }
 
-    const primary = mbtiMapped || inscriptionMapped || {}
+    const primary = mbtiMapped || inscriptionMapped || fallbackMapped || {}
     res.json({
       results: {
         personalityType: primary.personalityType || null,

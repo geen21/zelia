@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { FaBriefcase, FaBookOpen, FaTrophy, FaClipboardList, FaMoneyBillWave, FaGraduationCap } from 'react-icons/fa6'
 import apiClient, { usersAPI, chatAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
@@ -95,9 +96,11 @@ export default function Niveau1() {
 	const [error, setError] = useState('')
 
 	// Flow states
-	const [phase, setPhase] = useState('intro') // intro -> ask_fit -> await_input -> generating -> fiche -> post_fiche -> conversation -> success
+	const [phase, setPhase] = useState('intro') // intro -> ask_fit -> choose_job -> await_input -> generating -> fiche -> post_fiche -> conversation -> success
 	const [userInput, setUserInput] = useState('')
 	const [ficheText, setFicheText] = useState('')
+	const [selectedJob, setSelectedJob] = useState(null) // track which job title was selected
+	const [usedJobs, setUsedJobs] = useState([]) // track already explored jobs
 	const [busy, setBusy] = useState(false)
 	const [postIdx, setPostIdx] = useState(0)
 	const [postAnswers, setPostAnswers] = useState({})
@@ -165,8 +168,6 @@ export default function Niveau1() {
 	const introMessages = useMemo(() => ([
 		{ text: 'Bienvenue sur Zélia', durationMs: 500},
 		{ text: 'On va t\'expliquer comment on peut t\'aider à mieux te connaitre et trouver ta voie professionnelle', durationMs: 2000},
-		{ text: 'On va faire tout ça ensemble, en te donnant des conseils et des idées tout au long du parcours', durationMs: 2000 },
-		{ text: 'Commençons', durationMs: 100 },
 	]), [])
 	const [introIdx, setIntroIdx] = useState(0)
 	const currentIntro = introMessages[introIdx] || { text: '', durationMs: 1500 }
@@ -189,10 +190,12 @@ export default function Niveau1() {
 		return () => window.removeEventListener('niv1-typing', onTypingEvent)
 	}, [])
 
-	const firstJobTitle = analysis?.jobRecommendations?.[0]?.title || ''
-	const secondJobTitle = analysis?.jobRecommendations?.[1]?.title || ''
+	const allJobs = analysis?.jobRecommendations || []
+	const firstJobTitle = allJobs[0]?.title || ''
+	const secondJobTitle = allJobs[1]?.title || ''
 
 	const askFit = phase === 'ask_fit'
+	const choosingJob = phase === 'choose_job'
 	const awaitingInput = phase === 'await_input'
 
 	const handleIntroNext = () => {
@@ -241,9 +244,9 @@ Contraintes de sortie OBLIGATOIRES:
 - AUCUN gras ni markdown (n'utilise jamais **, #, ##, etc.).
 
 Structure EXACTE et dans cet ordre:
-1) Description du métier (150-200 mots)
+1) Description du métier (100-130 mots)
 2) Salaire en France (débutant et médian)
-3) Écoles/études pour y arriver (3 à 5 exemples précis)
+3) Écoles/études pour y arriver (3 exemples précis)
 
 Format: titres courts en clair (pas de markdown), listes à puces simples '-' quand pertinent.`
 
@@ -269,13 +272,18 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 
 	const onChoice = async (choice) => {
 		if (choice === 'oui') {
-			// "Super continuons" then generate for first job
-			await new Promise(r => setTimeout(r, 250))
-			await generateFiche(firstJobTitle || 'Métier')
+			// Let user choose which job to explore
+			setPhase('choose_job')
 		} else {
 			// mitigé or non => ask for dream job input
 			setPhase('await_input')
 		}
+	}
+
+	const onJobSelect = async (jobTitle) => {
+		setSelectedJob(jobTitle)
+		setUsedJobs(prev => [...prev, jobTitle])
+		await generateFiche(jobTitle)
 	}
 
 	const onSubmitDream = async () => {
@@ -303,18 +311,17 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 		setConvAnswers({ ...convAnswers, [step.id]: opt })
 		// Special branching: propose another fiche
 		if (step.id === 'explore_another' && opt === 'Oui') {
-			if (secondJobTitle) {
-				if (ficheCount < 2) {
-					// Mark that we should skip discussing the second fiche,
-					// and resume conversation just after this step.
-					setSkipPostFiche(true)
-					if (exploreAnotherIdx >= 0) {
-						setResumeConvIdx(exploreAnotherIdx + 1)
-					}
-					generateFiche(secondJobTitle)
-					// After second fiche is shown, user will press "Continuer" to proceed
-					return
+			const remainingJobs = allJobs.filter(j => !usedJobs.includes(j.title))
+			if (remainingJobs.length > 0 && ficheCount < 2) {
+				// Mark that we should skip discussing the second fiche,
+				// and resume conversation just after this step.
+				setSkipPostFiche(true)
+				if (exploreAnotherIdx >= 0) {
+					setResumeConvIdx(exploreAnotherIdx + 1)
 				}
+				// Let user choose again from remaining jobs
+				setPhase('choose_job')
+				return
 			}
 		}
 		handleConvNext()
@@ -390,6 +397,8 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 										<>{introTyped}</>
 									) : askFit ? (
 										'Est-ce que ces métiers te semblent intéressants et pertinents ?'
+									) : choosingJob ? (
+										'Choisis le métier pour lequel tu souhaites générer une fiche métier :'
 									) : awaitingInput ? (
 										'Peux-tu nous dire le métier de tes rêves ?'
 									) : phase === 'generating' ? (
@@ -448,6 +457,23 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 								</div>
 							)}
 
+							{choosingJob && (
+								<div className="mt-4 flex flex-col gap-2 w-full">
+									{allJobs
+										.filter(j => !usedJobs.includes(j.title))
+										.map((job, idx) => (
+										<button
+											key={idx}
+											onClick={() => onJobSelect(job.title)}
+											disabled={busy}
+											className="px-4 py-3 rounded-lg bg-white text-gray-900 border border-gray-300 text-left hover:bg-orange-50 hover:border-orange-400 transition-colors disabled:opacity-50 w-full"
+										>
+											{job.title}
+										</button>
+									))}
+								</div>
+							)}
+
 							{awaitingInput && (
 								<div className="mt-4 flex flex-col sm:flex-row gap-3 w-full">
 									<input type="text" value={userInput} onChange={(e) => setUserInput(e.target.value)}
@@ -494,8 +520,8 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 										</div>
 									)}
 									{postQuestions[postIdx]?.type === 'input' && (
-										<div className="flex flex-col sm:flex-row gap-3 w-full">
-											<input type="text" placeholder={postQuestions[postIdx].placeholder || ''} className="flex-1 px-4 py-3 border border-gray-300 rounded-lg w-full text-base sm:text-lg"
+										<div className="flex flex-col gap-3 w-full">
+											<input type="text" placeholder={postQuestions[postIdx].placeholder || ''} className="px-4 py-3 border border-gray-300 rounded-lg w-full text-base sm:text-lg"
 													value={postAnswers[postQuestions[postIdx].id] || ''}
 													onChange={(e) => setPostAnswers({ ...postAnswers, [postQuestions[postIdx].id]: e.target.value })}
 											/>
@@ -587,10 +613,10 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 
 				{/* Right: Recommendations or Fiche */}
 				<div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-					{phase === 'ask_fit' && (
+					{(phase === 'ask_fit' || phase === 'choose_job') && (
 						<>
 							<div className="flex items-center gap-3 mb-4">
-								<div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white">💼</div>
+								<div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white"><FaBriefcase className="w-5 h-5" /></div>
 								<h2 className="text-xl font-bold">Recommandations d'emploi</h2>
 							</div>
 							{analysis?.jobRecommendations?.length ? (
@@ -618,11 +644,16 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 					{(phase === 'fiche' || phase === 'post_fiche' || phase === 'conversation' || phase === 'generating') && (
 						<div>
 							<div className="flex items-center gap-3 mb-4">
-								<div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">📘</div>
+								<div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaBookOpen className="w-5 h-5" /></div>
 								<h2 className="text-xl font-bold">Fiche métier</h2>
 							</div>
-							{busy && <div className="text-sm text-text-secondary">Génération…</div>}
-							<div className="prose max-w-none whitespace-pre-wrap text-gray-800">{ficheText}</div>
+							{busy && (
+								<div className="flex items-center gap-2 text-sm text-text-secondary">
+									<div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+									Génération en cours…
+								</div>
+							)}
+							<FicheMetierCard text={ficheText} jobTitle={selectedJob} />
 						</div>
 					)}
 				</div>
@@ -632,7 +663,7 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 			{showSuccess && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
 					<div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-						<div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+						<div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
 						<h3 className="text-2xl font-extrabold mb-2">Niveau 1 réussi !</h3>
 						<p className="text-text-secondary mb-4">Bravo, tu as terminé l'introduction et exploré tes premières pistes.</p>
 						<div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -649,6 +680,97 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 					</div>
 				</div>
 			)}
+		</div>
+	)
+}
+
+// Component to render the fiche métier with visual structure
+function FicheMetierCard({ text, jobTitle }) {
+	if (!text) return null
+
+	// Parse the raw text into 3 sections
+	function parseFiche(raw) {
+		const lines = raw.split('\n').map(l => l.trim()).filter(Boolean)
+		const sections = []
+		let current = null
+
+		// Heuristics to detect section headers
+		const sectionPatterns = [
+			{ key: 'description', pattern: /^\d*\)?\s*(description|pr[ée]sentation|le m[ée]tier|en quoi consiste)/i, icon: 'description', label: 'Description du métier', color: 'blue' },
+			{ key: 'salary', pattern: /^\d*\)?\s*(salaire|r[ée]mun[ée]ration|revenus)/i, icon: 'salary', label: 'Salaire', color: 'green' },
+			{ key: 'studies', pattern: /^\d*\)?\s*([ée]coles|[ée]tudes|formations?|parcours|dipl[ôo]mes?|pour y arriver|comment y acc)/i, icon: 'studies', label: 'Études & Formations', color: 'purple' },
+		]
+
+		for (const line of lines) {
+			let matched = false
+			for (const sp of sectionPatterns) {
+				if (sp.pattern.test(line)) {
+					current = { ...sp, content: [] }
+					sections.push(current)
+					matched = true
+					break
+				}
+			}
+			if (!matched && current) {
+				current.content.push(line)
+			} else if (!matched && !current) {
+				// Text before first section -> treat as description
+				current = { key: 'description', icon: 'description', label: 'Description du métier', color: 'blue', content: [line] }
+				sections.push(current)
+			}
+		}
+
+		// If no sections detected at all, return everything as description
+		if (sections.length === 0) {
+			return [{ key: 'description', icon: 'description', label: 'Description du métier', color: 'blue', content: lines }]
+		}
+		return sections
+	}
+
+	const colorMap = {
+		blue: { bg: 'bg-blue-50', border: 'border-blue-200', icon: 'bg-blue-100 text-blue-700', bullet: 'text-blue-500' },
+		green: { bg: 'bg-green-50', border: 'border-green-200', icon: 'bg-green-100 text-green-700', bullet: 'text-green-500' },
+		purple: { bg: 'bg-purple-50', border: 'border-purple-200', icon: 'bg-purple-100 text-purple-700', bullet: 'text-purple-500' },
+	}
+
+	const sections = parseFiche(text)
+
+	return (
+		<div className="space-y-4">
+			{jobTitle && (
+				<div className="text-center pb-3 border-b border-gray-100">
+					<h3 className="text-lg font-bold text-gray-900">{jobTitle}</h3>
+				</div>
+			)}
+			{sections.map((sec, idx) => {
+				const colors = colorMap[sec.color] || colorMap.blue
+				return (
+					<div key={idx} className={`${colors.bg} ${colors.border} border rounded-xl p-4`}>
+						<div className="flex items-center gap-2 mb-2">
+							<span className={`w-8 h-8 rounded-lg flex items-center justify-center ${colors.icon}`}>
+								{sec.icon === 'description' && <FaClipboardList className="w-4 h-4" />}
+								{sec.icon === 'salary' && <FaMoneyBillWave className="w-4 h-4" />}
+								{sec.icon === 'studies' && <FaGraduationCap className="w-4 h-4" />}
+							</span>
+							<span className="font-semibold text-gray-900">{sec.label}</span>
+						</div>
+						<div className="text-gray-700 text-sm leading-relaxed space-y-1">
+							{sec.content.map((line, li) => {
+								const isBullet = /^[-•–]/.test(line)
+								if (isBullet) {
+									return (
+										<div key={li} className="flex items-start gap-2 pl-1">
+											<span className={`mt-1.5 w-1.5 h-1.5 rounded-full ${colors.bullet.replace('text-', 'bg-')} flex-shrink-0`} />
+											<span>{line.replace(/^[-•–]\s*/, '')}</span>
+										</div>
+									)
+								}
+								return <p key={li}>{line}</p>
+							})}
+						</div>
+					</div>
+				)
+			})}
 		</div>
 	)
 }

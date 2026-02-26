@@ -6,8 +6,7 @@ export const blogPosts = [
     category: 'Méthodologie',
     readingTime: '6 min',
     publishedAt: 'Décembre 2025',
-    dateIso: '2025-12-10T10:00:00+01:00',
-    accent: '#f97316',
+    dateIso: '2025-12-10T10:00:00+01:00',    image: '/assets/images/logo-dark.png',    accent: '#f97316',
     accentSoft: '#ffedd5'
   },
   {
@@ -17,8 +16,7 @@ export const blogPosts = [
     category: 'Orientation',
     readingTime: '6 min',
     publishedAt: 'Décembre 2025',
-    dateIso: '2025-12-05T10:00:00+01:00',
-    accent: '#6366f1',
+    dateIso: '2025-12-05T10:00:00+01:00',    image: '/assets/images/logo-dark.png',    accent: '#6366f1',
     accentSoft: '#e0e7ff'
   },
   {
@@ -28,8 +26,7 @@ export const blogPosts = [
     category: 'Méthodologie',
     readingTime: '9 min',
     publishedAt: 'Décembre 2025',
-    dateIso: '2025-12-01T10:00:00+01:00',
-    accent: '#0ea5e9',
+    dateIso: '2025-12-01T10:00:00+01:00',    image: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=1200&h=630&fit=crop',    accent: '#0ea5e9',
     accentSoft: '#e0f2fe'
   },
   {
@@ -39,8 +36,7 @@ export const blogPosts = [
     category: 'Futur du travail',
     readingTime: '6 min',
     publishedAt: 'Novembre 2025',
-    dateIso: '2025-11-20T10:00:00+01:00',
-    accent: '#0ea5e9',
+    dateIso: '2025-11-20T10:00:00+01:00',    image: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=1200&h=630&fit=crop',    accent: '#0ea5e9',
     accentSoft: '#e0f2fe'
   },
   {
@@ -50,8 +46,7 @@ export const blogPosts = [
     category: 'Orientation',
     readingTime: '5 min',
     publishedAt: 'Novembre 2025',
-    dateIso: '2025-11-15T10:00:00+01:00',
-    accent: '#6366f1',
+    dateIso: '2025-11-15T10:00:00+01:00',    image: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1200&h=630&fit=crop',    accent: '#6366f1',
     accentSoft: '#e0e7ff'
   },
   {
@@ -62,6 +57,7 @@ export const blogPosts = [
     readingTime: '5 min',
     publishedAt: 'Août 2025',
     dateIso: '2025-08-01T10:00:00+01:00',
+    image: '/assets/images/logo-dark.png',
     accent: '#f97316',
     accentSoft: '#ffedd5'
   }

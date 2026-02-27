@@ -5,6 +5,7 @@ import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 import { generateZeliaShareImage } from '../../lib/shareImage'
+import { FaFaceGrinWide, FaTrophy, FaXmark } from 'react-icons/fa6'
 
 let jsPdfFactoryPromise = null
 async function loadJsPdf() {
@@ -585,7 +586,7 @@ export default function Niveau4() {
                             Et voilà le tour est joué, ton analyse de personnalité est prête !
                             <br />
                             <br />
-                            Tu devrais partager tes résultats d’orientation et de personnalité sur TikTok ou Insta ou directement à tes potes pour voir comment ils réagissent 😅
+                            Tu devrais partager tes résultats d’orientation et de personnalité sur TikTok ou Insta ou directement à tes potes pour voir comment ils réagissent <FaFaceGrinWide className="inline w-4 h-4" />
                             <br />
                             <br />
                             Tu peux me mentionner aussi : <strong>@zelia_orientation</strong> pour que je reposte !
@@ -749,7 +750,7 @@ export default function Niveau4() {
       {phase === 'success' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 4 réussi !</h3>
             <p className="text-text-secondary mb-4">Bravo, tu as complété le test Zélia et découvert ton profil.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -779,9 +780,7 @@ export default function Niveau4() {
               onClick={() => setShareOpen(false)}
               aria-label="Fermer"
               className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black text-white flex items-center justify-center shadow-sm hover:opacity-90"
-            >
-              ✕
-            </button>
+            ><FaXmark className="w-3 h-3" /></button>
 
             <h3 className="text-lg font-bold pr-8">Prévisualisation à partager</h3>
 

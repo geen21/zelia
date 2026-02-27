@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import supabase from '../../lib/supabase'
 import { analysisAPI, usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
+import { FaTrophy } from 'react-icons/fa6'
 
 const DIALOGUE_STEPS = [
   {
@@ -481,7 +482,7 @@ export default function Niveau7() {
       {completed && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 7 réussi !</h3>
             <p className="text-text-secondary mb-4">Tu as affronté le verdict de Zélia. Direction le prochain niveau !</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

@@ -4,6 +4,7 @@ import apiClient, { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
+import { FaThumbsUp, FaFaceMeh, FaLightbulb } from 'react-icons/fa6'
 
 function useTypewriter(message, durationMs) {
   const [text, setText] = useState('')
@@ -279,13 +280,13 @@ Réponds UNIQUEMENT avec le JSON, sans texte autour.`
                       onClick={() => handleAnswer(true)} 
                       className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 flex-1"
                     >
-                      Oui 👍
+                      Oui <FaThumbsUp className="inline w-4 h-4" />
                     </button>
                     <button 
                       onClick={() => handleAnswer(false)} 
                       className="px-4 py-2 rounded-lg bg-white text-black border border-gray-200 flex-1"
                     >
-                      Non 🤷
+                      Non <FaFaceMeh className="inline w-4 h-4" />
                     </button>
                   </div>
                 )}
@@ -341,7 +342,7 @@ Réponds UNIQUEMENT avec le JSON, sans texte autour.`
               {/* Tips section */}
               <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
                 <p className="text-sm text-blue-800">
-                  <strong>💡 Astuce :</strong> Réaliser des mini-projets te permet de découvrir concrètement un métier et d'enrichir ton CV !
+                  <strong><FaLightbulb className="inline w-4 h-4" /> Astuce :</strong> Réaliser des mini-projets te permet de découvrir concrètement un métier et d'enrichir ton CV !
                 </p>
               </div>
             </div>

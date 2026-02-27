@@ -18,6 +18,7 @@ import { CSS } from '@dnd-kit/utilities'
 import supabase from '../../lib/supabase'
 import { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
+import { FaPuzzlePiece, FaTrophy } from 'react-icons/fa6'
 
 const DIALOGUE = [
   { text: 'on va classer ensemble 16 domaines d’activités', durationMs: 1500 },
@@ -102,13 +103,13 @@ function SortableItem({ id, label, index }) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`touch-none flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm ${isDragging ? 'opacity-70' : ''}`}
+      className={`touch-none flex items-center gap-2 sm:gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2 sm:px-4 sm:py-3 shadow-sm ${isDragging ? 'opacity-70' : ''}`}
       onTouchStart={(e) => e.preventDefault()}
       {...attributes}
       {...listeners}
     >
-      <div className="w-7 h-7 rounded-full bg-black text-white flex items-center justify-center text-xs font-semibold">{index + 1}</div>
-      <div className="flex-1 font-medium text-gray-900">{label}</div>
+      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-black text-white flex items-center justify-center text-[10px] sm:text-xs font-semibold">{index + 1}</div>
+      <div className="flex-1 font-medium text-gray-900 text-sm sm:text-base leading-tight">{label}</div>
       <div className="text-gray-400 text-sm">⇅</div>
     </div>
   )
@@ -274,7 +275,7 @@ export default function Niveau11() {
 
       <div className="mt-6 bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">🧩</div>
+          <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaPuzzlePiece className="w-5 h-5" /></div>
           <h2 className="text-xl font-bold">Classement des domaines</h2>
         </div>
 
@@ -285,7 +286,7 @@ export default function Niveau11() {
         {started && (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={items.map((it) => it.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-3 touch-none">
+              <div className="space-y-2 touch-none">
                 {items.map((item, idx) => (
                   <SortableItem key={item.id} id={item.id} label={item.label} index={idx} />
                 ))}
@@ -299,7 +300,7 @@ export default function Niveau11() {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 11 réussi !</h3>
             <p className="text-text-secondary mb-4">Ton classement est validé.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

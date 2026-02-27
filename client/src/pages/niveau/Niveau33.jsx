@@ -4,6 +4,7 @@ import apiClient, { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
+import { FaFaceSmile } from 'react-icons/fa6'
 
 function useTypewriter(message, durationMs) {
   const [text, setText] = useState('')
@@ -251,7 +252,7 @@ export default function Niveau33() {
           )}
 
           {phase === 'decision' && (
-            <div className="text-text-secondary text-center py-8">Dis-moi si tu veux écrire ta lettre 😊</div>
+            <div className="text-text-secondary text-center py-8">Dis-moi si tu veux écrire ta lettre <FaFaceSmile className="inline w-4 h-4" /></div>
           )}
 
           {(phase === 'write' || phase === 'sending') && (

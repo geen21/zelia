@@ -4,6 +4,7 @@ import supabase from '../../lib/supabase'
 import apiClient, { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
+import { FaEuroSign, FaHandHoldingDollar, FaTrophy } from 'react-icons/fa6'
 
 const INTRO_DIALOGUES = [
   {
@@ -408,7 +409,7 @@ export default function Niveau22() {
 
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">💶</div>
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaEuroSign className="w-5 h-5" /></div>
             <h2 className="text-xl font-bold">Budgetise tes études</h2>
           </div>
 
@@ -533,6 +534,38 @@ export default function Niveau22() {
                   <p className="mt-2 text-sm text-gray-700">{estimate.message}</p>
                 )}
               </div>
+
+              {/* Encart aides financières */}
+              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <FaHandHoldingDollar className="w-5 h-5 text-blue-600" />
+                  <h3 className="font-semibold text-blue-900">Aides disponibles pour financer tes études</h3>
+                </div>
+                <ul className="space-y-2 text-sm text-blue-800">
+                  <li className="flex items-start gap-2">
+                    <span className="font-bold mt-0.5">•</span>
+                    <div><span className="font-semibold">Bourse CROUS</span> — Aide financière selon tes revenus familiaux. Fais ta demande via le DSE (Dossier Social Étudiant) entre janvier et mai.</div>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-bold mt-0.5">•</span>
+                    <div><span className="font-semibold">Prêt étudiant garanti par l'État</span> — Jusqu'à 20 000 € sans caution parentale, remboursable après les études.</div>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-bold mt-0.5">•</span>
+                    <div><span className="font-semibold">APL / ALS (CAF)</span> — Aide au logement si tu prends un appartement. Fais ta demande sur caf.fr dès ton emménagement.</div>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-bold mt-0.5">•</span>
+                    <div><span className="font-semibold">Alternance / Apprentissage</span> — Tes études sont financées par l'entreprise et tu es rémunéré(e) chaque mois.</div>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-bold mt-0.5">•</span>
+                    <div><span className="font-semibold">Aides régionales</span> — Chaque région propose des aides spécifiques (transport, équipement, mobilité). Renseigne-toi sur le site de ta région.</div>
+                  </li>
+                </ul>
+                <p className="mt-3 text-xs text-blue-600">Pense à faire tes demandes le plus tôt possible, les délais sont souvent serrés !</p>
+              </div>
+
               <button
                 type="button"
                 onClick={onValidate}
@@ -565,7 +598,7 @@ export default function Niveau22() {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 22 réussi !</h3>
             <p className="text-text-secondary mb-4">Ton budget est estimé.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

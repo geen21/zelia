@@ -4,13 +4,14 @@ import { usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 import { buildAvatarFromProfile } from '../../lib/avatar'
+import { FaCalendarDays, FaBullseye, FaEnvelope, FaClipboardList, FaFileLines, FaTrophy } from 'react-icons/fa6'
 
 // Table data from Parcoursup 2026 synthesis
 const TABLES = [
   {
     id: 1,
     title: 'Calendrier Chronologique',
-    icon: '📅',
+    icon: <FaCalendarDays className="w-5 h-5" />,
     headers: ['Phase', 'Dates Clés', 'Ce que tu dois faire'],
     rows: [
       ['1. Information', 'Décembre - Janvier', "Explore le moteur de recherche. Regarde les critères d'examen des vœux."],
@@ -23,7 +24,7 @@ const TABLES = [
   {
     id: 2,
     title: 'Structure des Choix',
-    icon: '🎯',
+    icon: <FaBullseye className="w-5 h-5" />,
     headers: ['Concept', 'Limite / Règle', 'Détail Stratégique'],
     rows: [
       ['Vœux', '10 maximum', 'Ils ne sont pas classés par préférence (ordre secret).'],
@@ -35,7 +36,7 @@ const TABLES = [
   {
     id: 3,
     title: 'Comprendre les Réponses',
-    icon: '📬',
+    icon: <FaEnvelope className="w-5 h-5" />,
     headers: ['Réponse Reçue', 'Signification', 'Action à entreprendre'],
     rows: [
       ['OUI', 'Admis sans réserve', 'Accepter (définitivement ou en attendant mieux).'],
@@ -47,7 +48,7 @@ const TABLES = [
   {
     id: 4,
     title: 'Dossier de Candidature',
-    icon: '📋',
+    icon: <FaClipboardList className="w-5 h-5" />,
     headers: ['Élément du Dossier', "Ce que c'est", 'Le "Petit Plus"'],
     rows: [
       ['Projet Motivé', 'Lettre de motivation', 'Prouver que tu as lu le programme (citer une matière).'],
@@ -275,7 +276,7 @@ export default function Niveau26() {
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white text-xl">
-              {dialogueFinished ? currentTable.icon : '📄'}
+              {dialogueFinished ? currentTable.icon : <FaFileLines className="w-5 h-5" />}
             </div>
             <h2 className="text-xl font-bold">
               {dialogueFinished ? currentTable.title : 'Fiche Parcoursup 2026'}
@@ -321,7 +322,7 @@ export default function Niveau26() {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 26 réussi !</h3>
             <p className="text-text-secondary mb-4">Tu connais maintenant les bases de Parcoursup 2026.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

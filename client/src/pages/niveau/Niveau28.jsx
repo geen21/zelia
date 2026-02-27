@@ -5,6 +5,7 @@ import apiClient from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 import { buildAvatarFromProfile } from '../../lib/avatar'
+import { FaUserTie, FaTrophy } from 'react-icons/fa6'
 
 function useTypewriter(message, durationMs) {
   const [text, setText] = useState('')
@@ -270,7 +271,7 @@ export default function Niveau28() {
           <div ref={listRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-white">
             {!dialogueFinished ? (
               <div className="h-full flex flex-col items-center justify-center text-text-secondary opacity-50">
-                <div className="text-4xl mb-2">👔</div>
+                <div className="text-4xl mb-2"><FaUserTie className="w-8 h-8" /></div>
                 <p>En attente du candidat...</p>
               </div>
             ) : (
@@ -330,7 +331,7 @@ export default function Niveau28() {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 28 réussi !</h3>
             <p className="text-text-secondary mb-4">Tu as survécu à l'entretien. Bravo pour ton sang-froid !</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

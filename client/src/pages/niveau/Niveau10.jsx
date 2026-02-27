@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import supabase from '../../lib/supabase'
 import { analysisAPI, usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
+import { FaClipboardList, FaTrophy, FaStar, FaRocket } from 'react-icons/fa6'
 
 function buildAvatarFromProfile(profile, seed = 'zelia') {
   try {
@@ -146,10 +147,10 @@ export default function Niveau10() {
   }, [navigate])
 
   const bubble = useMemo(() => {
-    if (phase === STEP_INTRO) return { text: "C'est le moment de faire un premier bilan", durationMs: 1400 }
-    if (phase === STEP_Q1) return { text: "As t-on réélement réussi à te donner des idées sur ton futur métier", durationMs: 1200 }
-    if (phase === STEP_Q2) return { text: "On va passer au niveau suivant mais on aimerait bien savoir si tu aimes bien l'application ?", durationMs: 1400 }
-    return { text: 'Ok voici ton bilan', durationMs: 800 }
+    if (phase === STEP_INTRO) return { text: "Avant d'obtenir ton bilan, on aimerait avoir ton avis :", durationMs: 1400 }
+    if (phase === STEP_Q1) return { text: "As-tu obtenu des idées intéressantes pour ton parcours pro grâce à moi ?", durationMs: 1600 }
+    if (phase === STEP_Q2) return { text: "Tu recommanderais l'application à tes amis ?", durationMs: 1200 }
+    return { text: 'Voici ton bilan', durationMs: 800 }
   }, [phase])
 
   const { text: typed, done: typedDone, skip } = useTypewriter(bubble.text, bubble.durationMs)
@@ -176,12 +177,12 @@ export default function Niveau10() {
     const entries = [
       {
         question_id: 'niv10_career_ideas',
-        question_text: "As t-on réélement réussi à te donner des idées sur ton futur métier (Oui / non / Je ne sais pas )",
+        question_text: "As-tu obtenu des idées intéressantes pour ton parcours pro grâce à moi ? (Oui / Non / Je ne sais pas)",
         answer_text: nextAnswers.careerIdeas
       },
       {
         question_id: 'niv10_like_app',
-        question_text: "On va passer au niveau suivant mais on aimerait bien savoir si tu aimes bien l'application ? (Oui/ non / Je ne sais pas)",
+        question_text: "Tu recommanderais l'application à tes amis ? (Oui / Non / Je ne sais pas)",
         answer_text: nextAnswers.likeApp
       }
     ]
@@ -357,7 +358,7 @@ export default function Niveau10() {
 
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">📋</div>
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaClipboardList className="w-5 h-5" /></div>
             <h2 className="text-xl font-bold">Bilan</h2>
           </div>
 
@@ -416,7 +417,7 @@ export default function Niveau10() {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 10 réussi !</h3>
             <p className="text-text-secondary mb-4">Tu as terminé cette étape avec succès.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -1248,7 +1249,7 @@ function Niveau10Legacy_DISABLED() {
               <span className="text-2xl">×</span>
             </button>
             <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-[#c1ff72] text-2xl shadow-lg animate-bounce">
-              🎉
+              <FaStar className="w-6 h-6 text-yellow-500" />
             </div>
             <img
               src={avatarUrl || '/assets/images/logo-dark.png'}
@@ -1291,7 +1292,7 @@ function Niveau10Legacy_DISABLED() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="relative w-full max-w-md rounded-3xl border border-gray-200 bg-white p-8 text-center shadow-2xl">
             <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-[#c1ff72] text-2xl shadow-lg">
-              🚀
+              <FaRocket className="w-6 h-6 text-white" />
             </div>
             <h3 className="mt-4 text-2xl font-extrabold text-gray-900">Niveau 10 validé !</h3>
             <p className="mt-2 text-gray-500">Tu peux maintenant passer au niveau 11 et poursuivre ton parcours premium.</p>

@@ -4,6 +4,7 @@ import apiClient, { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
+import { FaClipboardList, FaTrophy } from 'react-icons/fa6'
 
 const STEP_INTRO = 'intro'
 const STEP_BILAN = 'bilan'
@@ -360,7 +361,7 @@ export default function Niveau20() {
 
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">📋</div>
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaClipboardList className="w-5 h-5" /></div>
             <h2 className="text-xl font-bold">Bilan</h2>
           </div>
 
@@ -394,7 +395,7 @@ export default function Niveau20() {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 20 réussi !</h3>
             <p className="text-text-secondary mb-4">Tu as terminé cette étape avec succès.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

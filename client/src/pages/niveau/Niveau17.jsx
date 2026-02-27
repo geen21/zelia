@@ -5,6 +5,7 @@ import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 import html2canvas from 'html2canvas'
+import { FaXmark } from 'react-icons/fa6'
 
 let jsPdfFactoryPromise = null
 async function loadJsPdf() {
@@ -186,9 +187,7 @@ function EditableList({ items, onChange, className }) {
               className="text-red-400 hover:text-red-600 text-sm px-1 print:hidden"
               data-html2canvas-ignore="true"
               title="Supprimer"
-            >
-              ✕
-            </button>
+            ><FaXmark className="w-3 h-3" /></button>
           )}
         </li>
       ))}
@@ -212,6 +211,7 @@ export default function Niveau17() {
   const [education, setEducation] = useState([''])
   const [qualities, setQualities] = useState([''])
   const [skills, setSkills] = useState([''])
+  const [skillSuggestions, setSkillSuggestions] = useState([])
   const [languagesInput, setLanguagesInput] = useState('')
   const [savingInfo, setSavingInfo] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -248,6 +248,30 @@ export default function Niveau17() {
         const avatar = buildAvatarFromProfile(prof, user.id)
         setAvatarUrl(avatar)
         setPhotoUrl(avatar)
+
+        // Fetch skills_assessment from user_results for suggestion bubbles
+        try {
+          const { data: userResultsData } = await supabase
+            .from('user_results')
+            .select('skills_assessment')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single()
+
+          if (userResultsData?.skills_assessment) {
+            const raw = String(userResultsData.skills_assessment)
+            const suggestions = raw
+              .split(/\r?\n/)
+              .map((line) => line.replace(/^[\s*•-]+/, '').trim())
+              .filter((line) => line.includes(':'))
+              .map((line) => line.split(':')[0].replace(/\*/g, '').trim())
+              .filter(Boolean)
+            if (mounted) setSkillSuggestions(suggestions)
+          }
+        } catch (e) {
+          console.warn('Failed to load skill suggestions for Niveau17', e)
+        }
       } catch (err) {
         console.error('Niveau17 load error', err)
         if (!mounted) return
@@ -677,9 +701,7 @@ export default function Niveau17() {
                     onClick={() => removeExperienceLine(idx)}
                     aria-label="Supprimer cette expérience"
                     className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-700 hover:bg-gray-50"
-                  >
-                    ✕
-                  </button>
+                  ><FaXmark className="w-3 h-3" /></button>
                   <div>
                     <label className="text-sm text-text-secondary">Entreprise</label>
                     <input
@@ -753,9 +775,7 @@ export default function Niveau17() {
                     onClick={() => removeLine(setEducation, idx)}
                     aria-label="Supprimer cette ligne"
                     className="absolute top-1/2 -translate-y-1/2 right-2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-700 hover:bg-gray-50"
-                  >
-                    ✕
-                  </button>
+                  ><FaXmark className="w-3 h-3" /></button>
                   <input
                     type="text"
                     className="w-full border border-gray-300 rounded-lg pl-3 pr-12 py-2 outline-none"
@@ -794,9 +814,7 @@ export default function Niveau17() {
                     onClick={() => removeLine(setQualities, idx)}
                     aria-label="Supprimer cette ligne"
                     className="absolute top-1/2 -translate-y-1/2 right-2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-700 hover:bg-gray-50"
-                  >
-                    ✕
-                  </button>
+                  ><FaXmark className="w-3 h-3" /></button>
                   <input
                     type="text"
                     className="w-full border border-gray-300 rounded-lg pl-3 pr-12 py-2 outline-none"
@@ -828,6 +846,38 @@ export default function Niveau17() {
           {current?.type === 'form' && current?.key === 'skills' && (
             <div className="space-y-3">
               <h3 className="text-lg font-semibold">Compétences particulières</h3>
+
+              {/* Suggestion bubbles from skills_assessment */}
+              {skillSuggestions.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Suggestions basées sur ton profil</p>
+                  <div className="flex flex-wrap gap-2">
+                    {skillSuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => {
+                          setSkills((prev) => {
+                            const hasEmpty = prev.some((s) => !s.trim())
+                            if (hasEmpty) {
+                              const idx = prev.findIndex((s) => !s.trim())
+                              const next = [...prev]
+                              next[idx] = suggestion
+                              return next
+                            }
+                            return [...prev, suggestion]
+                          })
+                          setSkillSuggestions((prev) => prev.filter((s) => s !== suggestion))
+                        }}
+                        className="rounded-full border border-gray-200 bg-white px-3 py-1 text-sm font-medium text-gray-700 transition hover:border-black hover:bg-gray-50"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {skills.map((item, idx) => (
                 <div key={`skill-${idx}`} className="relative">
                   <button
@@ -835,9 +885,7 @@ export default function Niveau17() {
                     onClick={() => removeLine(setSkills, idx)}
                     aria-label="Supprimer cette ligne"
                     className="absolute top-1/2 -translate-y-1/2 right-2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-700 hover:bg-gray-50"
-                  >
-                    ✕
-                  </button>
+                  ><FaXmark className="w-3 h-3" /></button>
                   <input
                     type="text"
                     className="w-full border border-gray-300 rounded-lg pl-3 pr-12 py-2 outline-none"

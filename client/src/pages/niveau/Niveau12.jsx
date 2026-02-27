@@ -4,6 +4,7 @@ import supabase from '../../lib/supabase'
 import apiClient, { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
+import { FaMagnifyingGlass, FaGraduationCap, FaTrophy } from 'react-icons/fa6'
 
 function useTypewriter(message, durationMs) {
   const [text, setText] = useState('')
@@ -81,6 +82,9 @@ export default function Niveau12() {
   const [showSuccess, setShowSuccess] = useState(false)
   const [finishing, setFinishing] = useState(false)
 
+  // Dynamic job suggestions from user profile
+  const [jobSuggestions, setJobSuggestions] = useState([])
+
   useEffect(() => {
     let mounted = true
     ;(async () => {
@@ -95,6 +99,46 @@ export default function Niveau12() {
         const prof = pRes?.data?.profile || pRes?.data || null
         setProfile(prof)
         setAvatarUrl(buildAvatarFromProfile(prof, user.id))
+
+        // Fetch job suggestions
+        try {
+          const homePreference = (prof?.home_preference || '').trim()
+          const isQuestionnaire = homePreference.toLowerCase() === 'questionnaire'
+
+          if (!isQuestionnaire && homePreference) {
+            setJobSuggestions([homePreference])
+          } else {
+            let query = supabase
+              .from('user_results')
+              .select('job_recommendations, questionnaire_type')
+              .eq('user_id', user.id)
+
+            if (isQuestionnaire) {
+              query = query.eq('questionnaire_type', 'inscription')
+            }
+
+            const { data: userResultsData } = await query
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single()
+
+            if (userResultsData?.job_recommendations) {
+              let list = userResultsData.job_recommendations
+              if (typeof list === 'string') {
+                try { list = JSON.parse(list) } catch {}
+              }
+              if (Array.isArray(list) && list.length > 0) {
+                const suggestions = list
+                  .slice(0, 6)
+                  .map(item => item?.title || item?.intitule || (typeof item === 'string' ? item : ''))
+                  .filter(Boolean)
+                setJobSuggestions([...new Set(suggestions)])
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to load job suggestions for Niveau12', e)
+        }
       } catch (e) {
         console.error('Niveau12 load error', e)
         if (!mounted) return
@@ -116,8 +160,8 @@ export default function Niveau12() {
 
   const dialogue = useMemo(() => ([
     { text: `${greeting} tu peux choisir un métier en tapant dans la barre de recherche.`, durationMs: 1600 },
-    { text: "On va faire en sorte de te donner les études éxactes pour aboutir à ce métier.", durationMs: 1600 },
-    { text: "Il n'y a peut être pas ton métier de rêve dans cette liste, mais c'est une liste qui répertorie tous les métiers recherchés actuellement en france.", durationMs: 2000 }
+    { text: "On va te donner un chemin d'études adapté pour aboutir à ce métier.", durationMs: 1600 },
+    { text: "Il n'y a peut être pas ton métier de rêve dans cette liste, mais c'est une liste qui répertorie tous les métiers recherchés actuellement en France.", durationMs: 2000 }
   ]), [greeting])
 
   const current = dialogue[Math.min(step, dialogue.length - 1)]
@@ -186,11 +230,13 @@ export default function Niveau12() {
     setAiLoading(true)
     setStudiesLines([])
     try {
-      const message = `Donne uniquement la liste des études exactes pour réussir au métier suivant en France : "${jobTitle}".\n` +
+      const message = `Donne le parcours d'études recommandé pour aboutir au métier suivant en France : "${jobTitle}".\n` +
         `Contraintes OBLIGATOIRES :\n` +
         `- Réponds uniquement par une liste, sans phrase d'introduction ni conclusion.\n` +
         `- Chaque ligne commence par "-".\n` +
-        `- Indique les diplômes/études exacts (CAP, Bac, BTS, BUT, Licence, Master, etc.) et, si utile, les spécialités précises.\n` +
+        `- Donne un CHEMIN d'études (étape par étape, du niveau le plus bas au plus haut) plutôt que des diplômes isolés.\n` +
+        `- Par exemple : "Après le Bac → BTS/BUT → Licence Pro → Master" ou "Bac STMG → BTS Commerce → École de commerce".\n` +
+        `- Propose 2 à 3 chemins alternatifs si pertinent.\n` +
         `- Aucun autre texte.`
 
       const resp = await apiClient.post('/chat/ai', {
@@ -326,7 +372,7 @@ export default function Niveau12() {
 
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">🔎</div>
+          <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaMagnifyingGlass className="w-5 h-5" /></div>
           <h2 className="text-xl font-bold">Choisir un métier</h2>
         </div>
 
@@ -356,6 +402,25 @@ export default function Niveau12() {
               />
             </div>
 
+            {/* Suggestion bubbles from user profile */}
+            {!selectedJob && jobSuggestions.length > 0 && !query.trim() && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Suggestions basées sur ton profil</p>
+                <div className="flex flex-wrap gap-2">
+                  {jobSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => onSelectJob(suggestion)}
+                      className="rounded-full border border-gray-200 bg-white px-3 py-1 text-sm font-medium text-gray-700 transition hover:border-black hover:bg-gray-50"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {searching && (
               <div className="flex items-center gap-2 text-sm text-gray-500">
                 <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
@@ -381,7 +446,7 @@ export default function Niveau12() {
                     className="text-left px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100"
                   >
                     <div className="font-medium text-gray-900">{title}</div>
-                    <div className="text-xs text-gray-500">Voir les études exactes</div>
+                    <div className="text-xs text-gray-500">Voir le parcours d'études</div>
                   </button>
                 ))}
               </div>
@@ -393,12 +458,12 @@ export default function Niveau12() {
         {started && (
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card lg:col-span-2">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">🎓</div>
-            <h2 className="text-xl font-bold">Études exactes</h2>
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaGraduationCap className="w-5 h-5" /></div>
+            <h2 className="text-xl font-bold">Parcours d'études</h2>
           </div>
 
           {!selectedJob && (
-            <div className="text-text-secondary">Sélectionne un métier pour afficher les études exactes.</div>
+            <div className="text-text-secondary">Sélectionne un métier pour afficher le parcours d'études.</div>
           )}
 
           {selectedJob && aiLoading && (
@@ -429,7 +494,7 @@ export default function Niveau12() {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 12 réussi !</h3>
             <p className="text-text-secondary mb-4">Tu as complété ce niveau avec succès.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

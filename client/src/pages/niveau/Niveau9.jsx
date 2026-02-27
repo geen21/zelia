@@ -3,9 +3,21 @@ import { useNavigate } from 'react-router-dom'
 import supabase from '../../lib/supabase'
 import apiClient, { usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
+import { FaCheck, FaBriefcase, FaTrophy } from 'react-icons/fa6'
 
 const CONTRACT_TYPES = ['CDI', 'CDD', 'Alternance', 'Stage', 'Intérim', 'Saisonnier']
-const QUICK_JOB_SUGGESTIONS = ['Droit', 'Marketing', 'Commerce', 'Histoire', 'Science', 'Physique']
+
+// Extract 2 most meaningful words from a job title for search matching
+function extractSearchKeywords(jobTitle) {
+  if (!jobTitle) return ''
+  const stopWords = new Set(['de', 'du', 'des', 'le', 'la', 'les', 'en', 'et', 'ou', 'un', 'une', 'à', 'au', 'aux', 'pour', 'dans', 'sur', 'par', 'avec', 'd', 'l'])
+  const words = jobTitle
+    .replace(/[()\[\]/,;:.!?]/g, ' ')
+    .split(/\s+/)
+    .map(w => w.trim().toLowerCase())
+    .filter(w => w.length > 2 && !stopWords.has(w))
+  return words.slice(0, 2).join(' ')
+}
 
 function buildAvatarFromProfile(profile, seed = 'zelia') {
   try {
@@ -188,6 +200,9 @@ export default function Niveau9() {
   const [completionError, setCompletionError] = useState('')
   const [completed, setCompleted] = useState(false)
 
+  // Dynamic job suggestions from user profile
+  const [jobSuggestions, setJobSuggestions] = useState([])
+
   const introMessages = useMemo(() => ([
     { text: 'Te voilà au niveau Métiers ! On va apprendre à trouver des offres de jobs en un clin d’œil.', durationMs: 3200 },
     { text: 'Je vais te guider pour utiliser la page Emplois et repérer les opportunités qui collent à ton profil.', durationMs: 3800 },
@@ -220,6 +235,53 @@ export default function Niveau9() {
         setAvatarUrl(buildAvatarFromProfile(prof, user.id))
         const rawName = (prof?.first_name || prof?.prenom || '').trim()
         if (rawName) setFirstName(rawName.split(/\s+/)[0])
+
+        // Fetch dynamic job suggestions
+        try {
+          const homePreference = (prof?.home_preference || '').trim()
+          const isQuestionnaire = homePreference.toLowerCase() === 'questionnaire'
+
+          if (!isQuestionnaire && homePreference) {
+            // Use home_preference directly as suggestion, extract 2 keywords
+            const kw = extractSearchKeywords(homePreference)
+            setJobSuggestions(kw ? [kw] : [homePreference])
+          } else {
+            // Fetch job_recommendations from user_results
+            let query = supabase
+              .from('user_results')
+              .select('job_recommendations, questionnaire_type')
+              .eq('user_id', user.id)
+
+            if (isQuestionnaire) {
+              query = query.eq('questionnaire_type', 'inscription')
+            }
+
+            const { data: userResultsData } = await query
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single()
+
+            if (userResultsData?.job_recommendations) {
+              let list = userResultsData.job_recommendations
+              if (typeof list === 'string') {
+                try { list = JSON.parse(list) } catch {}
+              }
+              if (Array.isArray(list) && list.length > 0) {
+                const suggestions = list
+                  .slice(0, 6)
+                  .map(item => {
+                    const title = item?.title || item?.intitule || (typeof item === 'string' ? item : '')
+                    return extractSearchKeywords(title)
+                  })
+                  .filter(Boolean)
+                // Deduplicate
+                setJobSuggestions([...new Set(suggestions)])
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to load job suggestions', e)
+        }
       } catch (err) {
         console.error('Niveau9 profile load failed', err)
         if (!mounted) return
@@ -429,7 +491,7 @@ export default function Niveau9() {
                         <span
                           className={`mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${step.done ? 'bg-black text-white' : 'border border-gray-300 bg-white text-gray-400'}`}
                         >
-                          {step.done ? '✓' : index + 1}
+                          {step.done ? <FaCheck className="w-3 h-3" /> : index + 1}
                         </span>
                         <div>
                           <p className="font-medium text-gray-900">{step.title}</p>
@@ -549,11 +611,11 @@ export default function Niveau9() {
                 {searchExecuted && results.length === 0 && (
                   <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
                     <p>Aucun résultat pour ces critères. Essaie un autre mot-clé ou élargis les filtres.</p>
-                    {QUICK_JOB_SUGGESTIONS.length > 0 && (
+                    {jobSuggestions.length > 0 && (
                       <div className="mt-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Suggestions rapides</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Suggestions basées sur ton profil</p>
                         <div className="mt-2 flex flex-wrap gap-2">
-                          {QUICK_JOB_SUGGESTIONS.map((suggestion) => (
+                          {jobSuggestions.map((suggestion) => (
                             <button
                               key={`job-suggestion-${suggestion}`}
                               type="button"
@@ -632,7 +694,7 @@ export default function Niveau9() {
             </>
           ) : (
             <div className="flex h-full min-h-[420px] flex-col items-center justify-center text-center text-gray-600">
-              <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#c1ff72] text-2xl">💼</span>
+              <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#c1ff72] text-2xl"><FaBriefcase className="w-6 h-6" /></span>
               <h3 className="text-lg font-semibold text-gray-900">Lance le tutoriel pour accéder à la recherche</h3>
               <p className="mt-2 max-w-sm text-sm text-gray-500">
                 Clique sur « Commencer le tutoriel » à gauche. Les filtres et les offres apparaîtront juste ici pour t'accompagner étape par étape.
@@ -645,7 +707,7 @@ export default function Niveau9() {
       {completed && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 9 réussi !</h3>
             <p className="text-text-secondary mb-4">Tu sais maintenant filtrer et analyser les offres d'emploi.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

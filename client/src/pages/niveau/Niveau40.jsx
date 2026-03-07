@@ -70,40 +70,40 @@ function extractJson(raw) {
 
 function formatExtraInfos(entries) {
   return (entries || [])
-    .map((row) => `- [${row.question_id}] ${row.question_text || 'Question'}: ${row.answer_text || '—'}`)
+    .map((row) => `- [${row.question_id}] ${row.question_text || 'Question'}: ${row.answer_text || 'Ã¢â‚¬â€'}`)
     .join('\n')
 }
 
 const LEVELS_SUMMARY = [
-  { level: 31, title: 'Marché du travail et débouchés', type: 'jeu' },
-  { level: 32, title: 'Mini-projets étudiants', type: 'idées' },
-  { level: 33, title: 'Lettre à soi-même', type: 'écriture' },
+  { level: 31, title: 'MarchÃƒÂ© du travail et dÃƒÂ©bouchÃƒÂ©s', type: 'jeu' },
+  { level: 32, title: 'Mini-projets ÃƒÂ©tudiants', type: 'idÃƒÂ©es' },
+  { level: 33, title: 'Lettre ÃƒÂ  soi-mÃƒÂªme', type: 'ÃƒÂ©criture' },
   { level: 34, title: 'Gestion du stress', type: 'questionnaire' },
-  { level: 35, title: 'Vidéo motivation', type: 'vidéo' },
-  { level: 36, title: 'Soft skill : intelligence émotionnelle', type: 'questionnaire' },
-  { level: 37, title: 'Soft skill : résolution de problème', type: 'questionnaire' },
-  { level: 38, title: 'Soft skill : adaptabilité', type: 'questionnaire' },
+  { level: 35, title: 'VidÃƒÂ©o motivation', type: 'vidÃƒÂ©o' },
+  { level: 36, title: 'Soft skill : intelligence ÃƒÂ©motionnelle', type: 'questionnaire' },
+  { level: 37, title: 'Soft skill : rÃƒÂ©solution de problÃƒÂ¨me', type: 'questionnaire' },
+  { level: 38, title: 'Soft skill : adaptabilitÃƒÂ©', type: 'questionnaire' },
   { level: 39, title: 'Retours utilisateurs', type: 'feedback' }
 ]
 
 function buildFallbackBilan(entries) {
   if (!entries || entries.length === 0) {
-    return { sections: [{ title: 'Bilan', content: 'Aucune donnée disponible pour ce bilan.' }] }
+    return { sections: [{ title: 'Bilan', content: 'Aucune donnÃƒÂ©e disponible pour ce bilan.' }] }
   }
 
   const sections = []
 
-  // --- Section 1: Marché du travail (N31) ---
+  // --- Section 1: MarchÃƒÂ© du travail (N31) ---
   const n31 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau31'))
   if (n31) {
     try {
       const data = JSON.parse(n31.answer_text || '{}')
       sections.push({
-        title: 'Marché du travail et débouchés',
-        content: `Score obtenu : ${data.score || 'N/A'}. ${data.correctJobs ? `Métiers bien classés : ${data.correctJobs}.` : ''}`
+        title: 'MarchÃƒÂ© du travail et dÃƒÂ©bouchÃƒÂ©s',
+        content: `Score obtenu : ${data.score || 'N/A'}. ${data.correctJobs ? `MÃƒÂ©tiers bien classÃƒÂ©s : ${data.correctJobs}.` : ''}`
       })
     } catch {
-      sections.push({ title: 'Marché du travail et débouchés', content: 'Niveau complété.' })
+      sections.push({ title: 'MarchÃƒÂ© du travail et dÃƒÂ©bouchÃƒÂ©s', content: 'Niveau complÃƒÂ©tÃƒÂ©.' })
     }
   }
 
@@ -114,25 +114,25 @@ function buildFallbackBilan(entries) {
       const data = JSON.parse(n32.answer_text || '{}')
       const projectsList = Array.isArray(data.projectIdeas) ? data.projectIdeas.join(', ') : ''
       sections.push({
-        title: 'Mini-projets étudiants',
-        content: `Métier ciblé : ${data.targetJob || 'N/A'}. ${projectsList ? `Idées de projets : ${projectsList}.` : ''}`
+        title: 'Mini-projets ÃƒÂ©tudiants',
+        content: `MÃƒÂ©tier ciblÃƒÂ© : ${data.targetJob || 'N/A'}. ${projectsList ? `IdÃƒÂ©es de projets : ${projectsList}.` : ''}`
       })
     } catch {
-      sections.push({ title: 'Mini-projets étudiants', content: 'Niveau complété.' })
+      sections.push({ title: 'Mini-projets ÃƒÂ©tudiants', content: 'Niveau complÃƒÂ©tÃƒÂ©.' })
     }
   }
 
-  // --- Section 3: Lettre à soi-même (N33) ---
+  // --- Section 3: Lettre ÃƒÂ  soi-mÃƒÂªme (N33) ---
   const n33 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau33'))
   if (n33) {
     try {
       const data = JSON.parse(n33.answer_text || '{}')
       sections.push({
-        title: 'Lettre à soi-même',
-        content: data.didWriteLetter ? `Lettre écrite et programmée pour envoi.` : 'Niveau complété sans écrire de lettre.'
+        title: 'Lettre ÃƒÂ  soi-mÃƒÂªme',
+        content: data.didWriteLetter ? `Lettre ÃƒÂ©crite et programmÃƒÂ©e pour envoi.` : 'Niveau complÃƒÂ©tÃƒÂ© sans ÃƒÂ©crire de lettre.'
       })
     } catch {
-      sections.push({ title: 'Lettre à soi-même', content: 'Niveau complété.' })
+      sections.push({ title: 'Lettre ÃƒÂ  soi-mÃƒÂªme', content: 'Niveau complÃƒÂ©tÃƒÂ©.' })
     }
   }
 
@@ -143,24 +143,24 @@ function buildFallbackBilan(entries) {
       const data = JSON.parse(n34.answer_text || '{}')
       sections.push({
         title: 'Gestion du stress',
-        content: `Profil identifié : ${data.profileTitle || data.profile || 'N/A'}.`
+        content: `Profil identifiÃƒÂ© : ${data.profileTitle || data.profile || 'N/A'}.`
       })
     } catch {
-      sections.push({ title: 'Gestion du stress', content: 'Niveau complété.' })
+      sections.push({ title: 'Gestion du stress', content: 'Niveau complÃƒÂ©tÃƒÂ©.' })
     }
   }
 
-  // --- Section 5: Vidéo motivation (N35) ---
+  // --- Section 5: VidÃƒÂ©o motivation (N35) ---
   const n35 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau35'))
   if (n35) {
     try {
       const data = JSON.parse(n35.answer_text || '{}')
       sections.push({
-        title: 'Vidéo motivation',
-        content: `Vidéo "${data.videoTitle || 'motivation'}" regardée.`
+        title: 'VidÃƒÂ©o motivation',
+        content: `VidÃƒÂ©o "${data.videoTitle || 'motivation'}" regardÃƒÂ©e.`
       })
     } catch {
-      sections.push({ title: 'Vidéo motivation', content: 'Vidéo regardée.' })
+      sections.push({ title: 'VidÃƒÂ©o motivation', content: 'VidÃƒÂ©o regardÃƒÂ©e.' })
     }
   }
 
@@ -171,9 +171,9 @@ function buildFallbackBilan(entries) {
   if (n36) {
     try {
       const data = JSON.parse(n36.answer_text || '{}')
-      softSkillsContent.push(`Adaptabilité : ${data.situationsCompleted || 5} situations travaillées.`)
+      softSkillsContent.push(`AdaptabilitÃƒÂ© : ${data.situationsCompleted || 5} situations travaillÃƒÂ©es.`)
     } catch {
-      softSkillsContent.push('Adaptabilité : niveau complété.')
+      softSkillsContent.push('AdaptabilitÃƒÂ© : niveau complÃƒÂ©tÃƒÂ©.')
     }
   }
 
@@ -181,9 +181,9 @@ function buildFallbackBilan(entries) {
   if (n37) {
     try {
       const data = JSON.parse(n37.answer_text || '{}')
-      softSkillsContent.push(`Résolution de problème : ${data.profileTitle || data.profile || 'profil identifié'}.`)
+      softSkillsContent.push(`RÃƒÂ©solution de problÃƒÂ¨me : ${data.profileTitle || data.profile || 'profil identifiÃƒÂ©'}.`)
     } catch {
-      softSkillsContent.push('Résolution de problème : niveau complété.')
+      softSkillsContent.push('RÃƒÂ©solution de problÃƒÂ¨me : niveau complÃƒÂ©tÃƒÂ©.')
     }
   }
 
@@ -191,15 +191,15 @@ function buildFallbackBilan(entries) {
   if (n38) {
     try {
       const data = JSON.parse(n38.answer_text || '{}')
-      softSkillsContent.push(`Résolution de problèmes (situations) : ${data.situationsCompleted || 5} situations analysées.`)
+      softSkillsContent.push(`RÃƒÂ©solution de problÃƒÂ¨mes (situations) : ${data.situationsCompleted || 5} situations analysÃƒÂ©es.`)
     } catch {
-      softSkillsContent.push('Résolution de problèmes : niveau complété.')
+      softSkillsContent.push('RÃƒÂ©solution de problÃƒÂ¨mes : niveau complÃƒÂ©tÃƒÂ©.')
     }
   }
 
   if (softSkillsContent.length > 0) {
     sections.push({
-      title: 'Soft skills développés',
+      title: 'Soft skills dÃƒÂ©veloppÃƒÂ©s',
       content: softSkillsContent.join(' ')
     })
   }
@@ -210,7 +210,7 @@ function buildFallbackBilan(entries) {
     const feedbackParts = []
     n39Entries.forEach(entry => {
       const qid = entry.question_id || ''
-      if (qid.includes('favorite_level')) feedbackParts.push(`Niveau préféré : ${entry.answer_text || 'N/A'}`)
+      if (qid.includes('favorite_level')) feedbackParts.push(`Niveau prÃƒÂ©fÃƒÂ©rÃƒÂ© : ${entry.answer_text || 'N/A'}`)
       if (qid.includes('rating')) feedbackParts.push(`Note globale : ${entry.answer_text || 'N/A'}/5`)
     })
     if (feedbackParts.length > 0) {
@@ -224,8 +224,8 @@ function buildFallbackBilan(entries) {
   // If no sections were created, add a generic one
   if (sections.length === 0) {
     sections.push({
-      title: 'Parcours complété',
-      content: 'Tu as terminé les niveaux 31 à 39. Bravo pour ton parcours !'
+      title: 'Parcours complÃƒÂ©tÃƒÂ©',
+      content: 'Tu as terminÃƒÂ© les niveaux 31 ÃƒÂ  39. Bravo pour ton parcours !'
     })
   }
 
@@ -290,7 +290,7 @@ export default function Niveau40() {
   }, [navigate])
 
   const bubble = useMemo(() => {
-    if (phase === STEP_INTRO) return { text: 'C’est le moment du bilan final. Tu arrives au bout du parcours.', durationMs: 2200 }
+    if (phase === STEP_INTRO) return { text: 'CÃ¢â‚¬â„¢est le moment du bilan final. Tu arrives au bout du parcours.', durationMs: 2200 }
     return { text: 'Voici ton bilan complet', durationMs: 900 }
   }, [phase])
 
@@ -302,19 +302,19 @@ export default function Niveau40() {
     try {
       const context = extraInfos.length > 0
         ? formatExtraInfos(extraInfos)
-        : 'Aucune donnée spécifique enregistrée pour les niveaux 31-39.'
+        : 'Aucune donnÃƒÂ©e spÃƒÂ©cifique enregistrÃƒÂ©e pour les niveaux 31-39.'
 
       const summaryContext = LEVELS_SUMMARY.map(l => `- Niveau ${l.level}: ${l.title} (${l.type})`).join('\n')
 
       const message =
-        `Tu dois produire un bilan final du parcours Zélia pour les niveaux 31 à 39.\n` +
-        `Modules traversés:\n${summaryContext}\n\n` +
-        `Données utilisateur:\n${context}\n\n` +
-        `Réponds UNIQUEMENT en JSON valide au format:\n` +
+        `Tu dois produire un bilan final du parcours ZÃƒÂ©lia pour les niveaux 31 ÃƒÂ  39.\n` +
+        `Modules traversÃƒÂ©s:\n${summaryContext}\n\n` +
+        `DonnÃƒÂ©es utilisateur:\n${context}\n\n` +
+        `RÃƒÂ©ponds UNIQUEMENT en JSON valide au format:\n` +
         `{"sections":[{"title":"","content":""}]}` +
         `\nContraintes:\n` +
-        `- 5 sections maximum, 2 à 4 phrases par section.\n` +
-        `- Inclure: progression personnelle, soft skills, motivation, retours utilisateur, prochaines étapes.\n` +
+        `- 5 sections maximum, 2 ÃƒÂ  4 phrases par section.\n` +
+        `- Inclure: progression personnelle, soft skills, motivation, retours utilisateur, prochaines ÃƒÂ©tapes.\n` +
         `- Ton encourageant et clair.`
 
       const resp = await apiClient.post('/chat/ai', {
@@ -338,7 +338,7 @@ export default function Niveau40() {
       // Use fallback bilan on error
       setBilan(buildFallbackBilan(extraInfos))
       if (extraInfos.length === 0) {
-        setBilanError("Impossible de générer ton bilan pour le moment.")
+        setBilanError("Impossible de gÃƒÂ©nÃƒÂ©rer ton bilan pour le moment.")
       }
     } finally {
       setBilanLoading(false)
@@ -384,7 +384,7 @@ export default function Niveau40() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
@@ -393,7 +393,7 @@ export default function Niveau40() {
               <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
                   {phase === STEP_INTRO && typed}
-                  {phase === STEP_BILAN && 'Découvre ton bilan final et garde ces points pour la suite.'}
+                  {phase === STEP_BILAN && 'DÃƒÂ©couvre ton bilan final et garde ces points pour la suite.'}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
               </div>
@@ -414,14 +414,14 @@ export default function Niveau40() {
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 md:p-6 shadow-card">
+        <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">40</div>
             <h2 className="text-lg md:text-xl font-bold">Bilan final</h2>
           </div>
 
           {phase === STEP_INTRO && (
-            <div className="text-text-secondary text-center py-8">Ton bilan apparaîtra ici.</div>
+            <div className="text-text-secondary text-center py-8">Ton bilan apparaÃƒÂ®tra ici.</div>
           )}
 
           {phase === STEP_BILAN && (
@@ -429,7 +429,7 @@ export default function Niveau40() {
               {bilanLoading && (
                 <div className="text-center py-6">
                   <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                  <p className="mt-2 text-text-secondary">Génération du bilan...</p>
+                  <p className="mt-2 text-text-secondary">GÃƒÂ©nÃƒÂ©ration du bilan...</p>
                 </div>
               )}
 
@@ -478,7 +478,7 @@ export default function Niveau40() {
               const animDuration = 3 + Math.random() * 4
               const delay = Math.random() * 2
               const size = 6 + Math.random() * 6
-              // Zélia Palette: Lime, Black, White, Gray
+              // ZÃƒÂ©lia Palette: Lime, Black, White, Gray
               const colors = ['#c1ff72', '#000000', '#ffffff', '#9ca3af']
               const color = colors[Math.floor(Math.random() * colors.length)]
               return (
@@ -500,7 +500,7 @@ export default function Niveau40() {
           </div>
 
           <div className="relative w-full max-w-sm mx-6 animate-[scaleIn_0.4s_ease-out_forwards]">
-            {/* Main Card - Zélia Style (White card, black text, lime accents) */}
+            {/* Main Card - ZÃƒÂ©lia Style (White card, black text, lime accents) */}
             <div className="bg-white rounded-[2rem] p-8 text-center shadow-2xl relative overflow-hidden">
               
               {/* Decorative Lime Gradient */}
@@ -524,17 +524,17 @@ export default function Niveau40() {
               </div>
 
               <h2 className="text-3xl font-black text-black mb-2 tracking-tight uppercase">
-                Félicitations
+                FÃƒÂ©licitations
               </h2>
               <p className="text-gray-500 font-medium mb-8 leading-relaxed">
-                Tu as complété l'intégralité du parcours. Ton bilan final est prêt.
+                Tu as complÃƒÂ©tÃƒÂ© l'intÃƒÂ©gralitÃƒÂ© du parcours. Ton bilan final est prÃƒÂªt.
               </p>
 
               <button 
                 onClick={() => navigate('/app/profile')}
                 className="group w-full py-4 px-6 rounded-xl bg-black text-[#c1ff72] font-bold text-lg hover:bg-gray-900 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
               >
-                <span>Accéder à mon Profil</span>
+                <span>AccÃƒÂ©der ÃƒÂ  mon Profil</span>
                 <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
                 </svg>

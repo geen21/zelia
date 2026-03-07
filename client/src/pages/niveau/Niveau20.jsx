@@ -56,6 +56,18 @@ function sanitizeText(raw) {
     .trim()
 }
 
+function cleanBilanSummary(raw) {
+  const text = sanitizeText(raw)
+  if (!text) return ''
+
+  const cleanedLines = text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s*Ã¢â€ â€™\s*Je suis d'accord\.?\s*$/i, '').trim())
+    .filter((line) => line && !/^Je suis d'accord\.?$/i.test(line))
+
+  return cleanedLines.join('\n').trim()
+}
+
 function extractJson(raw) {
   const text = sanitizeText(raw)
   const start = text.indexOf('{')
@@ -71,11 +83,11 @@ function extractJson(raw) {
 
 function formatExtraInfos(entries) {
   return (entries || [])
-    .map((row) => `- [${row.question_id}] ${row.question_text || 'Question'}: ${row.answer_text || '—'}`)
+    .map((row) => `- [${row.question_id}] ${row.question_text || 'Question'}: ${row.answer_text || 'Ã¢â‚¬â€'}`)
     .join('\n')
 }
 
-function buildFallbackBilan(entries) {
+function buildFallbackSummary(entries) {
   const byId = new Map()
   const list = Array.isArray(entries) ? entries : []
   list.forEach((row) => {
@@ -109,7 +121,7 @@ function buildFallbackBilan(entries) {
       const bi = Number(String(b.question_id).split('_').pop()) || 0
       return ai - bi
     })
-    .map((row, idx) => `${idx + 1}. ${row?.answer_text || '—'}`)
+    .map((row, idx) => `${idx + 1}. ${row?.answer_text || 'Ã¢â‚¬â€'}`)
 
   let n18Source = ''
   const rawSource = getAnswer('niveau18_jobs_source')
@@ -127,36 +139,21 @@ function buildFallbackBilan(entries) {
       const id = String(row?.question_id || '').toLowerCase()
       return id.startsWith('niveau_19_') || id.startsWith('niveau19_')
     })
-    .map((row) => `${row?.question_text || 'Point'} → ${row?.answer_text || '—'}`)
+    .map((row) => String(row?.answer_text || '').trim())
+    .filter((value) => value && !/^je suis d'accord\.?$/i.test(value))
 
-  return {
-    sections: [
-      {
-        title: 'Domaines et études (N11-N12)',
-        content: `Top 3 domaines : ${n11Top3}\nClassement domaines : ${n11Ranking}\nMétier exploré : ${n12Job}\nÉtudes : ${n12Studies}`
-      },
-      {
-        title: 'Pitch (N13)',
-        content: `Auto-évaluation du pitch : ${n13Pitch}`
-      },
-      {
-        title: 'Lettre & points métier (N14-N15)',
-        content: `Métier cible : ${n14Job}\nLettre générée : ${n14Letter}\nPoints positifs : ${n15Pos}\nPoints négatifs : ${n15Neg}`
-      },
-      {
-        title: 'CV (N16-N17)',
-        content: `Vidéo CV regardée : ${n16Video}\nMétier visé : ${n17Target}\nLangues : ${n17Languages}\nPDF CV : ${n17Pdf}`
-      },
-      {
-        title: 'Classement métiers (N18)',
-        content: `${n18Source ? `Métiers proposés : ${n18Source}\n` : ''}${n18Ranks.length ? n18Ranks.join('\n') : 'Non disponible'}`
-      },
-      {
-        title: "Points d'amélioration (N19)",
-        content: n19Items.length ? n19Items.join('\n') : 'Non disponible'
-      }
-    ]
-  }
+  const topN18 = n18Ranks.length ? n18Ranks[0].replace(/^1\.\s*/, '') : 'Non disponible'
+  const n19First = n19Items.length ? n19Items[0] : 'Non disponible'
+
+  const summary = [
+    `Tu as surtout explorÃƒÂ© ${n11Top3} avec un focus mÃƒÂ©tier sur ${n12Job}.`,
+    `Ton pitch est ÃƒÂ©valuÃƒÂ© ÃƒÂ  ${n13Pitch}, et ta lettre cible le mÃƒÂ©tier ${n14Job}.`,
+    `CÃƒÂ´tÃƒÂ© CV, tu as travaillÃƒÂ© ${n17Target} (${n17Languages})${n17Pdf !== 'Non disponible' ? ' avec un PDF exportÃƒÂ©' : ''}.`,
+    `${n18Source ? `Dans les pistes mÃƒÂ©tiers (${n18Source}), ` : ''}ta prioritÃƒÂ© ressort sur ${topN18}.`,
+    `Prochain axe d'amÃƒÂ©lioration: ${n19First}.`
+  ].join('\n')
+
+  return { summary: cleanBilanSummary(summary) }
 }
 
 export default function Niveau20() {
@@ -218,7 +215,7 @@ export default function Niveau20() {
   }, [navigate])
 
   const bubble = useMemo(() => {
-    if (phase === STEP_INTRO) return { text: "C'est le moment de faire le bilan des niveaux 11 à 19", durationMs: 1600 }
+    if (phase === STEP_INTRO) return { text: "C'est le moment de faire le bilan des niveaux 11 ÃƒÂ  19", durationMs: 1600 }
     return { text: 'Ok voici ton bilan', durationMs: 900 }
   }, [phase])
 
@@ -228,13 +225,10 @@ export default function Niveau20() {
     setBilanError('')
     setBilanLoading(true)
     try {
-      // Si aucune donnée des niveaux 11-19, afficher un message explicite
+      // Si aucune donnÃƒÂ©e des niveaux 11-19, afficher un message explicite
       if (!extraInfos || extraInfos.length === 0) {
         setBilan({ 
-          sections: [{ 
-            title: 'Données manquantes', 
-            content: 'Aucune donnée des niveaux 11 à 19 n\'a été trouvée. Assure-toi d\'avoir complété les niveaux précédents (notamment les niveaux 17, 18 et 19) avant de revenir faire ton bilan.' 
-          }] 
+          summary: 'Aucune donnÃƒÂ©e des niveaux 11 ÃƒÂ  19 n\'a ÃƒÂ©tÃƒÂ© trouvÃƒÂ©e. Termine d\'abord les niveaux prÃƒÂ©cÃƒÂ©dents pour obtenir un bilan personnalisÃƒÂ©.'
         })
         setBilanLoading(false)
         return
@@ -242,14 +236,14 @@ export default function Niveau20() {
 
       const context = formatExtraInfos(extraInfos)
       const message =
-        `Tu dois produire un bilan clair des niveaux 11 à 19 à partir des informations ci-dessous.\n` +
-        `Réponds UNIQUEMENT en JSON valide au format suivant :\n` +
-        `{"sections":[{"title":"","content":""}]}\n` +
+        `Tu dois produire un rÃƒÂ©sumÃƒÂ© trÃƒÂ¨s court des niveaux 11 ÃƒÂ  19 ÃƒÂ  partir des informations ci-dessous.\n` +
+        `RÃƒÂ©ponds UNIQUEMENT en JSON valide au format suivant :\n` +
+        `{"summary":""}\n` +
         `Contraintes:\n` +
-        `- 6 sections maximum, chacune avec 2 à 4 phrases.\n` +
-        `- Inclure: classement métiers (N11/N18), lettre de motivation (N14), points positifs/négatifs (N15), CV (N17), points d'amélioration (N19).\n` +
-        `- Si une info manque, indique "Non disponible" dans la section concernée.\n` +
-        `Données:\n${context}`
+        `- 5 phrases maximum, style clair et concret.\n` +
+        `- Inclure briÃƒÂ¨vement: classement mÃƒÂ©tiers (N11/N18), lettre (N14), points positifs/nÃƒÂ©gatifs (N15), CV (N17), amÃƒÂ©lioration (N19).\n` +
+        `- Ne recopie pas les donnÃƒÂ©es brutes, synthÃƒÂ©tise.\n` +
+        `DonnÃƒÂ©es:\n${context}`
 
       const resp = await apiClient.post('/chat/ai', {
         mode: 'advisor',
@@ -259,15 +253,15 @@ export default function Niveau20() {
       })
 
       const parsed = extractJson(resp?.data?.reply || '')
-      const sections = Array.isArray(parsed?.sections) ? parsed.sections : []
-      if (!sections.length) {
-        setBilan(buildFallbackBilan(extraInfos))
+      const summary = cleanBilanSummary(parsed?.summary || '')
+      if (!summary) {
+        setBilan(buildFallbackSummary(extraInfos))
       } else {
-        setBilan({ sections })
+        setBilan({ summary })
       }
     } catch (e) {
       console.error('Niveau20 bilan fetch failed', e)
-      setBilan(buildFallbackBilan(extraInfos))
+      setBilan(buildFallbackSummary(extraInfos))
       setBilanError('')
     } finally {
       setBilanLoading(false)
@@ -289,7 +283,7 @@ export default function Niveau20() {
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau20 levelUp failed', e)
-      setBilanError('Impossible de valider le niveau pour le moment. Réessaie.')
+      setBilanError('Impossible de valider le niveau pour le moment. RÃƒÂ©essaie.')
     } finally {
       setFinishing(false)
     }
@@ -299,7 +293,7 @@ export default function Niveau20() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargement…</p>
+        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
       </div>
     )
   }
@@ -312,11 +306,11 @@ export default function Niveau20() {
     )
   }
 
-  const sections = Array.isArray(bilan?.sections) ? bilan.sections : []
+  const summary = cleanBilanSummary(bilan?.summary || '')
   const showBilan = phase === STEP_BILAN
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
@@ -366,27 +360,20 @@ export default function Niveau20() {
           </div>
 
           {!showBilan ? (
-            <div className="text-text-secondary">Réponds au dialogue pour voir ton bilan.</div>
+            <div className="text-text-secondary">RÃƒÂ©ponds au dialogue pour voir ton bilan.</div>
           ) : bilanLoading ? (
             <div className="text-center">
               <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-              <p className="mt-2 text-text-secondary">Génération de ton bilan…</p>
+              <p className="mt-2 text-text-secondary">GÃƒÂ©nÃƒÂ©ration de ton bilanÃ¢â‚¬Â¦</p>
             </div>
           ) : bilanError ? (
             <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">{bilanError}</div>
           ) : (
-            <div className="space-y-4">
-              {sections.map((section, idx) => (
-                <div key={`section-${idx}`} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                  <div className="font-semibold">{section?.title || `Section ${idx + 1}`}</div>
-                  <div className="mt-2 whitespace-pre-wrap text-text-secondary">
-                    {section?.content || 'Non disponible'}
-                  </div>
-                </div>
-              ))}
-              {!sections.length && (
-                <div className="text-text-secondary">Non disponible</div>
-              )}
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div className="font-semibold">RÃƒÂ©sumÃƒÂ©</div>
+              <div className="mt-2 whitespace-pre-wrap text-text-secondary">
+                {summary || 'Non disponible'}
+              </div>
             </div>
           )}
         </div>
@@ -396,10 +383,10 @@ export default function Niveau20() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 20 réussi !</h3>
-            <p className="text-text-secondary mb-4">Tu as terminé cette étape avec succès.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 20 rÃƒÂ©ussi !</h3>
+            <p className="text-text-secondary mb-4">Tu as terminÃƒÂ© cette ÃƒÂ©tape avec succÃƒÂ¨s.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
               <button onClick={() => navigate('/app/niveau/21')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

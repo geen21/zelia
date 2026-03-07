@@ -67,7 +67,7 @@ export default function Niveau21() {
   const [step, setStep] = useState(0)
   const [dialogues, setDialogues] = useState([])
 
-  // Filières
+  // FiliÃƒÂ¨res
   const [filieres, setFilieres] = useState([])
   const [selectedFilieres, setSelectedFilieres] = useState([])
   const [filieresReady, setFilieresReady] = useState(false)
@@ -76,7 +76,7 @@ export default function Niveau21() {
   const [notes, setNotes] = useState([{ subject: '', grade: '' }])
   const [notesSubmitted, setNotesSubmitted] = useState(false)
 
-  // Faisabilité
+  // FaisabilitÃƒÂ©
   const [faisabilite, setFaisabilite] = useState(null)
   const [faisabiliteLoading, setFaisabiliteLoading] = useState(false)
 
@@ -100,18 +100,18 @@ export default function Niveau21() {
 
         const name = prof?.first_name || 'toi'
 
-        // Load filières based on home_preference or study_recommendations
+        // Load filiÃƒÂ¨res based on home_preference or study_recommendations
         const homePreference = (prof?.home_preference || '').trim()
         let filieresData = []
 
         if (homePreference) {
-          // Generate filières via Gemini based on home_preference
-          const message = `L'élève souhaite devenir "${homePreference}".
-Propose 6 types de filières d'études (formations) qui permettent d'accéder à ce métier ou à des métiers similaires.
-Réponds en JSON strict : un tableau d'objets avec "type" (type d'étude courte) et "degree" (intitulé du diplôme).
+          // Generate filiÃƒÂ¨res via Gemini based on home_preference
+          const message = `L'ÃƒÂ©lÃƒÂ¨ve souhaite devenir "${homePreference}".
+Propose 6 types de filiÃƒÂ¨res d'ÃƒÂ©tudes (formations) qui permettent d'accÃƒÂ©der ÃƒÂ  ce mÃƒÂ©tier ou ÃƒÂ  des mÃƒÂ©tiers similaires.
+RÃƒÂ©ponds en JSON strict : un tableau d'objets avec "type" (type d'ÃƒÂ©tude courte) et "degree" (intitulÃƒÂ© du diplÃƒÂ´me).
 Exemple de format:
-[{"type":"Master universitaire","degree":"Master en Intelligence Artificielle"},{"type":"École d'ingénieurs","degree":"Diplôme d'Ingénieur en Robotique"}]
-Réponds UNIQUEMENT avec le JSON, sans texte autour.`
+[{"type":"Master universitaire","degree":"Master en Intelligence Artificielle"},{"type":"Ãƒâ€°cole d'ingÃƒÂ©nieurs","degree":"DiplÃƒÂ´me d'IngÃƒÂ©nieur en Robotique"}]
+RÃƒÂ©ponds UNIQUEMENT avec le JSON, sans texte autour.`
 
           const resp = await apiClient.post('/chat/ai', {
             mode: 'advisor',
@@ -146,12 +146,12 @@ Réponds UNIQUEMENT avec le JSON, sans texte autour.`
           }
         }
 
-        // If still empty, generate generic filières
+        // If still empty, generate generic filiÃƒÂ¨res
         if (filieresData.length === 0) {
-          const fallbackMessage = `Propose 6 types de filières d'études variées pour un lycéen en France.
-Réponds en JSON strict : un tableau d'objets avec "type" (type d'étude) et "degree" (intitulé du diplôme).
+          const fallbackMessage = `Propose 6 types de filiÃƒÂ¨res d'ÃƒÂ©tudes variÃƒÂ©es pour un lycÃƒÂ©en en France.
+RÃƒÂ©ponds en JSON strict : un tableau d'objets avec "type" (type d'ÃƒÂ©tude) et "degree" (intitulÃƒÂ© du diplÃƒÂ´me).
 Exemple: [{"type":"BTS","degree":"BTS Commerce International"},{"type":"Licence","degree":"Licence en Droit"}]
-Réponds UNIQUEMENT avec le JSON.`
+RÃƒÂ©ponds UNIQUEMENT avec le JSON.`
 
           const resp = await apiClient.post('/chat/ai', {
             mode: 'advisor',
@@ -172,8 +172,8 @@ Réponds UNIQUEMENT avec le JSON.`
               { type: 'BTS', degree: 'BTS Commerce International' },
               { type: 'DUT/BUT', degree: 'BUT Techniques de Commercialisation' },
               { type: 'Licence', degree: 'Licence en Droit' },
-              { type: 'École de Commerce', degree: 'Programme Grande École' },
-              { type: 'École d\'Ingénieurs', degree: 'Diplôme d\'Ingénieur Généraliste' },
+              { type: 'Ãƒâ€°cole de Commerce', degree: 'Programme Grande Ãƒâ€°cole' },
+              { type: 'Ãƒâ€°cole d\'IngÃƒÂ©nieurs', degree: 'DiplÃƒÂ´me d\'IngÃƒÂ©nieur GÃƒÂ©nÃƒÂ©raliste' },
               { type: 'Master', degree: 'Master en Management' }
             ]
           }
@@ -183,8 +183,8 @@ Réponds UNIQUEMENT avec le JSON.`
 
         // Build dialogues
         setDialogues([
-          { text: `T'as plutôt bien avancé ${name}`, durationMs: 1200 },
-          { text: `En vue de tes métiers que tu aimerais faire je vais te proposer plusieurs types de filières.`, durationMs: 2000 },
+          { text: `T'as plutÃƒÂ´t bien avancÃƒÂ© ${name}`, durationMs: 1200 },
+          { text: `En vue de tes mÃƒÂ©tiers que tu aimerais faire je vais te proposer plusieurs types de filiÃƒÂ¨res.`, durationMs: 2000 },
         ])
 
       } catch (e) {
@@ -204,12 +204,12 @@ Réponds UNIQUEMENT avec le JSON.`
   const filieresStep = step >= dialogues.length && !filieresReady
   const confirmationStep = filieresReady && !notesSubmitted
 
-  // Second round of dialogues after filières selection
+  // Second round of dialogues after filiÃƒÂ¨res selection
   const [confirmDialogueIndex, setConfirmDialogueIndex] = useState(0)
   const confirmDialogues = [
-    { text: `Super alors on avance comme ça ${firstName}, on va vraiment appuyer sur ces filières là durant la suite de ton parcours.`, durationMs: 2200 },
-    { text: `Est-ce que tu peux m'indiquer tes notes aujourd'hui par matière ? Je te dirai honnêtement si ces notes sont envisageables pour toi.`, durationMs: 2500 },
-    { text: `Tu n'es pas obligé de mettre toutes les matières mais les plus importantes.`, durationMs: 1800 }
+    { text: `Super alors on avance comme ÃƒÂ§a ${firstName}, on va vraiment appuyer sur ces filiÃƒÂ¨res lÃƒÂ  durant la suite de ton parcours.`, durationMs: 2200 },
+    { text: `Est-ce que tu peux m'indiquer tes notes aujourd'hui par matiÃƒÂ¨re ? Je te dirai honnÃƒÂªtement si ces notes sont envisageables pour toi.`, durationMs: 2500 },
+    { text: `Tu n'es pas obligÃƒÂ© de mettre toutes les matiÃƒÂ¨res mais les plus importantes.`, durationMs: 1800 }
   ]
   const currentConfirm = confirmDialogues[Math.min(confirmDialogueIndex, confirmDialogues.length - 1)]
   const { text: typedConfirm, done: typedConfirmDone, skip: skipConfirm } = useTypewriter(
@@ -275,14 +275,14 @@ Réponds UNIQUEMENT avec le JSON.`
       const selectedFilieresNames = selectedFilieres.map(i => filieres[i]).map(f => `${f.type}: ${f.degree}`).join(', ')
       const notesText = validNotes.map(n => `${n.subject}: ${n.grade}`).join(', ')
 
-      const message = `L'élève a choisi les filières suivantes: ${selectedFilieresNames}.
+      const message = `L'ÃƒÂ©lÃƒÂ¨ve a choisi les filiÃƒÂ¨res suivantes: ${selectedFilieresNames}.
 Ses notes actuelles sont: ${notesText}.
-Évalue de manière honnête et bienveillante si ces filières sont réalistes pour l'élève avec ces notes.
-Réponds avec un JSON strict: {"ok": true/false, "message": "texte court de 1-2 phrases maximum"}
-IMPORTANT: Tutoie l'élève dans le message (utilise "tu", "tes", "toi").
-Si les notes sont bonnes ou moyennes pour ces filières, réponds ok:true avec un message encourageant.
-Si les notes sont insuffisantes, réponds ok:false avec un conseil constructif.
-Réponds UNIQUEMENT avec le JSON.`
+Ãƒâ€°value de maniÃƒÂ¨re honnÃƒÂªte et bienveillante si ces filiÃƒÂ¨res sont rÃƒÂ©alistes pour l'ÃƒÂ©lÃƒÂ¨ve avec ces notes.
+RÃƒÂ©ponds avec un JSON strict: {"ok": true/false, "message": "texte court de 1-2 phrases maximum"}
+IMPORTANT: Tutoie l'ÃƒÂ©lÃƒÂ¨ve dans le message (utilise "tu", "tes", "toi").
+Si les notes sont bonnes ou moyennes pour ces filiÃƒÂ¨res, rÃƒÂ©ponds ok:true avec un message encourageant.
+Si les notes sont insuffisantes, rÃƒÂ©ponds ok:false avec un conseil constructif.
+RÃƒÂ©ponds UNIQUEMENT avec le JSON.`
 
       const resp = await apiClient.post('/chat/ai', {
         mode: 'advisor',
@@ -298,17 +298,17 @@ Réponds UNIQUEMENT avec le JSON.`
           const result = JSON.parse(jsonMatch[0])
           setFaisabilite({
             ok: !!result.ok,
-            message: sanitizeText(result.message || (result.ok ? 'Ces filières sont accessibles avec ton profil !' : 'Il faudra peut-être travailler certaines matières.'))
+            message: sanitizeText(result.message || (result.ok ? 'Ces filiÃƒÂ¨res sont accessibles avec ton profil !' : 'Il faudra peut-ÃƒÂªtre travailler certaines matiÃƒÂ¨res.'))
           })
         } else {
-          setFaisabilite({ ok: true, message: 'Tes filières semblent accessibles avec de la motivation !' })
+          setFaisabilite({ ok: true, message: 'Tes filiÃƒÂ¨res semblent accessibles avec de la motivation !' })
         }
       } catch {
-        setFaisabilite({ ok: true, message: 'Continue comme ça, tu es sur la bonne voie !' })
+        setFaisabilite({ ok: true, message: 'Continue comme ÃƒÂ§a, tu es sur la bonne voie !' })
       }
     } catch (err) {
       console.error('Notes submission error', err)
-      setFaisabilite({ ok: true, message: 'Évaluation enregistrée.' })
+      setFaisabilite({ ok: true, message: 'Ãƒâ€°valuation enregistrÃƒÂ©e.' })
     } finally {
       setFaisabiliteLoading(false)
     }
@@ -324,17 +324,17 @@ Réponds UNIQUEMENT avec le JSON.`
       const entries = [
         {
           question_id: 'niveau21_filieres',
-          question_text: 'Filières sélectionnées (Niveau 21)',
+          question_text: 'FiliÃƒÂ¨res sÃƒÂ©lectionnÃƒÂ©es (Niveau 21)',
           answer_text: JSON.stringify(selectedFilieresData)
         },
         {
           question_id: 'niveau21_notes',
-          question_text: 'Notes par matière (Niveau 21)',
+          question_text: 'Notes par matiÃƒÂ¨re (Niveau 21)',
           answer_text: JSON.stringify(validNotes)
         },
         {
           question_id: 'niveau21_faisabilite',
-          question_text: 'Évaluation faisabilité (Niveau 21)',
+          question_text: 'Ãƒâ€°valuation faisabilitÃƒÂ© (Niveau 21)',
           answer_text: JSON.stringify(faisabilite)
         }
       ]
@@ -355,7 +355,7 @@ Réponds UNIQUEMENT avec le JSON.`
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargement…</p>
+        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
       </div>
     )
   }
@@ -369,7 +369,7 @@ Réponds UNIQUEMENT avec le JSON.`
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Avatar & Dialogue */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
@@ -396,7 +396,7 @@ Réponds UNIQUEMENT avec le JSON.`
                   onClick={onNext}
                   className="mt-4 px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200"
                 >
-                  {step < dialogues.length - 1 ? 'Suivant' : 'Voir les filières'}
+                  {step < dialogues.length - 1 ? 'Suivant' : 'Voir les filiÃƒÂ¨res'}
                 </button>
               )}
 
@@ -418,13 +418,13 @@ Réponds UNIQUEMENT avec le JSON.`
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaGraduationCap className="w-5 h-5" /></div>
-            <h2 className="text-xl font-bold">Choix de la filière</h2>
+            <h2 className="text-xl font-bold">Choix de la filiÃƒÂ¨re</h2>
           </div>
 
-          {/* Step 1: Show filières to select */}
+          {/* Step 1: Show filiÃƒÂ¨res to select */}
           {filieresStep && (
             <>
-              <p className="text-text-secondary mb-4">Coche les filières que tu aimerais faire :</p>
+              <p className="text-text-secondary mb-4">Coche les filiÃƒÂ¨res que tu aimerais faire :</p>
               <div className="space-y-3 max-h-[400px] overflow-y-auto">
                 {filieres.map((f, idx) => (
                   <label
@@ -454,7 +454,7 @@ Réponds UNIQUEMENT avec le JSON.`
                 disabled={selectedFilieres.length === 0}
                 className="mt-4 w-full px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-50"
               >
-                Valider mes filières ({selectedFilieres.length} sélectionnée{selectedFilieres.length > 1 ? 's' : ''})
+                Valider mes filiÃƒÂ¨res ({selectedFilieres.length} sÃƒÂ©lectionnÃƒÂ©e{selectedFilieres.length > 1 ? 's' : ''})
               </button>
             </>
           )}
@@ -462,13 +462,13 @@ Réponds UNIQUEMENT avec le JSON.`
           {/* Step 2: Show notes input */}
           {confirmationStep && showNotesInput && (
             <>
-              <p className="text-text-secondary mb-4">Indique tes notes par matière :</p>
+              <p className="text-text-secondary mb-4">Indique tes notes par matiÃƒÂ¨re :</p>
               <div className="space-y-3 max-h-[300px] overflow-y-auto">
                 {notes.map((n, idx) => (
                   <div key={idx} className="flex items-center gap-2">
                     <input
                       type="text"
-                      placeholder="Matière (ex: Maths)"
+                      placeholder="MatiÃƒÂ¨re (ex: Maths)"
                       value={n.subject}
                       onChange={(e) => updateNote(idx, 'subject', e.target.value)}
                       className="w-28 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c1ff72]"
@@ -495,7 +495,7 @@ Réponds UNIQUEMENT avec le JSON.`
                 onClick={addNote}
                 className="mt-2 text-sm text-gray-600 hover:text-black"
               >
-                + Ajouter une matière
+                + Ajouter une matiÃƒÂ¨re
               </button>
               <button
                 type="button"
@@ -514,7 +514,7 @@ Réponds UNIQUEMENT avec le JSON.`
               {faisabiliteLoading ? (
                 <div className="text-center py-8">
                   <div className="inline-block w-8 h-8 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                  <p className="mt-2 text-text-secondary">Analyse en cours…</p>
+                  <p className="mt-2 text-text-secondary">Analyse en coursÃ¢â‚¬Â¦</p>
                 </div>
               ) : faisabilite ? (
                 <>
@@ -527,13 +527,13 @@ Réponds UNIQUEMENT avec le JSON.`
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-xl">{faisabilite.ok ? <FaCircleCheck className="w-5 h-5 text-green-500" /> : <FaTriangleExclamation className="w-5 h-5 text-amber-500" />}</span>
-                      <span className="font-semibold">{faisabilite.ok ? 'C\'est faisable !' : 'À améliorer'}</span>
+                      <span className="font-semibold">{faisabilite.ok ? 'C\'est faisable !' : 'Ãƒâ‚¬ amÃƒÂ©liorer'}</span>
                     </div>
                     <p>{faisabilite.message}</p>
                   </div>
 
                   <div className="mt-4 p-4 bg-gray-50 rounded-xl">
-                    <h3 className="font-semibold mb-2">Tes filières sélectionnées :</h3>
+                    <h3 className="font-semibold mb-2">Tes filiÃƒÂ¨res sÃƒÂ©lectionnÃƒÂ©es :</h3>
                     <ul className="space-y-1 text-sm">
                       {selectedFilieres.map(i => (
                         <li key={i} className="flex items-center gap-2">
@@ -550,7 +550,7 @@ Réponds UNIQUEMENT avec le JSON.`
                     disabled={saving}
                     className="mt-4 w-full px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
                   >
-                    {saving ? 'Validation…' : 'Continuer'}
+                    {saving ? 'ValidationÃ¢â‚¬Â¦' : 'Continuer'}
                   </button>
                 </>
               ) : null}
@@ -563,7 +563,7 @@ Réponds UNIQUEMENT avec le JSON.`
           )}
 
           {!filieresStep && !confirmationStep && !notesSubmitted && step < dialogues.length && (
-            <div className="text-text-secondary">Lis le dialogue pour découvrir les filières.</div>
+            <div className="text-text-secondary">Lis le dialogue pour dÃƒÂ©couvrir les filiÃƒÂ¨res.</div>
           )}
         </div>
       </div>
@@ -573,10 +573,10 @@ Réponds UNIQUEMENT avec le JSON.`
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 21 réussi !</h3>
-            <p className="text-text-secondary mb-4">Tes filières et tes notes sont enregistrées.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 21 rÃƒÂ©ussi !</h3>
+            <p className="text-text-secondary mb-4">Tes filiÃƒÂ¨res et tes notes sont enregistrÃƒÂ©es.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
               <button onClick={() => navigate('/app/niveau/22')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

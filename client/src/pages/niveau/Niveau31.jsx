@@ -228,7 +228,7 @@ export default function Niveau31() {
       await usersAPI.saveExtraInfo([
         {
           question_id: 'niveau31_game_completed',
-          question_text: 'Jeu métiers et débouchés',
+          question_text: 'Jeu mÃƒÂ©tiers et dÃƒÂ©bouchÃƒÂ©s',
           answer_text: JSON.stringify({
             score: `${correctCount}/${totalCount}`,
             correctJobs,
@@ -266,7 +266,7 @@ export default function Niveau31() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Left: Avatar + Dialogue */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
@@ -304,7 +304,7 @@ export default function Niveau31() {
         </div>
 
         {/* Right: Game Area */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 md:p-6 shadow-card">
+        <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">31</div>
             <h2 className="text-lg md:text-xl font-bold">Metiers et debouches</h2>
@@ -341,13 +341,13 @@ export default function Niveau31() {
                         draggable
                         onDragStart={(e) => onDragStart(e, job)}
                         onTouchStart={(e) => onTouchStartJob(job, e)}
-                        className={`px-3 py-2 rounded-lg border-2 cursor-grab active:cursor-grabbing select-none transition-all ${
+                        className={`px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg border-2 cursor-grab active:cursor-grabbing select-none transition-all ${
                           draggedJob?.id === job.id 
                             ? 'border-black bg-gray-100 opacity-50' 
                             : 'border-gray-300 bg-white hover:border-gray-400'
                         }`}
                       >
-                        <span className="text-sm font-medium">{job.name}</span>
+                        <span className="text-xs sm:text-sm font-medium">{job.name}</span>
                       </div>
                     ))}
                   </div>
@@ -369,11 +369,11 @@ export default function Niveau31() {
                   onDragOver={onDragOver}
                   onDrop={() => onDropInZone(ZONE_OPPORTUNITIES)}
                   onTouchEnd={() => draggedJob && onTouchEndZone(ZONE_OPPORTUNITIES)}
-                  className={`min-h-[140px] p-3 rounded-xl border-2 border-dashed transition-colors ${
+                  className={`min-h-[110px] sm:min-h-[140px] p-2 sm:p-3 rounded-xl border-2 border-dashed transition-colors ${
                     draggedJob ? 'border-green-400 bg-green-50' : 'border-gray-300 bg-gray-50'
                   }`}
                 >
-                  <div className="text-sm font-semibold text-green-700 mb-2 text-center">Beaucoup de debouches</div>
+                  <div className="text-xs sm:text-sm font-semibold text-green-700 mb-1 sm:mb-2 text-center">Beaucoup de debouches</div>
                   <div className="flex flex-wrap gap-1">
                     {placedJobs[ZONE_OPPORTUNITIES].map(job => (
                       <span key={job.id} className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded border border-green-200">{job.name}</span>
@@ -389,11 +389,11 @@ export default function Niveau31() {
                   onDragOver={onDragOver}
                   onDrop={() => onDropInZone(ZONE_NO_OPPORTUNITIES)}
                   onTouchEnd={() => draggedJob && onTouchEndZone(ZONE_NO_OPPORTUNITIES)}
-                  className={`min-h-[140px] p-3 rounded-xl border-2 border-dashed transition-colors ${
+                  className={`min-h-[110px] sm:min-h-[140px] p-2 sm:p-3 rounded-xl border-2 border-dashed transition-colors ${
                     draggedJob ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-gray-50'
                   }`}
                 >
-                  <div className="text-sm font-semibold text-red-700 mb-2 text-center">Peu de debouches</div>
+                  <div className="text-xs sm:text-sm font-semibold text-red-700 mb-1 sm:mb-2 text-center">Peu de debouches</div>
                   <div className="flex flex-wrap gap-1">
                     {placedJobs[ZONE_NO_OPPORTUNITIES].map(job => (
                       <span key={job.id} className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded border border-red-200">{job.name}</span>

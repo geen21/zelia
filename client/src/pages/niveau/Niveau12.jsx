@@ -56,7 +56,7 @@ function sanitizeAiLines(raw) {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => line.replace(/^[-•*\d.\)\s]+/, '').trim())
+    .map((line) => line.replace(/^[-Ã¢â‚¬Â¢*\d.\)\s]+/, '').trim())
     .filter(Boolean)
   return lines.length ? lines : cleaned ? [cleaned] : []
 }
@@ -159,9 +159,9 @@ export default function Niveau12() {
   const greeting = firstName ? `Ok ${firstName},` : 'Ok,'
 
   const dialogue = useMemo(() => ([
-    { text: `${greeting} tu peux choisir un métier en tapant dans la barre de recherche.`, durationMs: 1600 },
-    { text: "On va te donner un chemin d'études adapté pour aboutir à ce métier.", durationMs: 1600 },
-    { text: "Il n'y a peut être pas ton métier de rêve dans cette liste, mais c'est une liste qui répertorie tous les métiers recherchés actuellement en France.", durationMs: 2000 }
+    { text: `${greeting} tu peux choisir un mÃƒÂ©tier en tapant dans la barre de recherche.`, durationMs: 1600 },
+    { text: "On va te donner un chemin d'ÃƒÂ©tudes adaptÃƒÂ© pour aboutir ÃƒÂ  ce mÃƒÂ©tier.", durationMs: 1600 },
+    { text: "Il n'y a peut ÃƒÂªtre pas ton mÃƒÂ©tier de rÃƒÂªve dans cette liste, mais c'est une liste qui rÃƒÂ©pertorie tous les mÃƒÂ©tiers recherchÃƒÂ©s actuellement en France.", durationMs: 2000 }
   ]), [greeting])
 
   const current = dialogue[Math.min(step, dialogue.length - 1)]
@@ -195,7 +195,7 @@ export default function Niveau12() {
       try {
         const { data } = await apiClient.get('/catalog/metiers/search', {
           params: { q: term, page: 1, page_size: 60 },
-          timeout: 25000 // 25 secondes pour gérer les 230k entrées
+          timeout: 25000 // 25 secondes pour gÃƒÂ©rer les 230k entrÃƒÂ©es
         })
         const items = Array.isArray(data?.items) ? data.items : []
         const seen = new Set()
@@ -212,7 +212,7 @@ export default function Niveau12() {
         if (!cancelled) setResults(unique)
       } catch (e) {
         console.error('Niveau12 search error', e)
-        if (!cancelled) setSearchError('Impossible de charger les métiers. Réessaie.')
+        if (!cancelled) setSearchError('Impossible de charger les mÃƒÂ©tiers. RÃƒÂ©essaie.')
       } finally {
         if (!cancelled) setSearching(false)
       }
@@ -230,13 +230,13 @@ export default function Niveau12() {
     setAiLoading(true)
     setStudiesLines([])
     try {
-      const message = `Donne le parcours d'études recommandé pour aboutir au métier suivant en France : "${jobTitle}".\n` +
+      const message = `Donne le parcours d'ÃƒÂ©tudes recommandÃƒÂ© pour aboutir au mÃƒÂ©tier suivant en France : "${jobTitle}".\n` +
         `Contraintes OBLIGATOIRES :\n` +
-        `- Réponds uniquement par une liste, sans phrase d'introduction ni conclusion.\n` +
+        `- RÃƒÂ©ponds uniquement par une liste, sans phrase d'introduction ni conclusion.\n` +
         `- Chaque ligne commence par "-".\n` +
-        `- Donne un CHEMIN d'études (étape par étape, du niveau le plus bas au plus haut) plutôt que des diplômes isolés.\n` +
-        `- Par exemple : "Après le Bac → BTS/BUT → Licence Pro → Master" ou "Bac STMG → BTS Commerce → École de commerce".\n` +
-        `- Propose 2 à 3 chemins alternatifs si pertinent.\n` +
+        `- Donne un CHEMIN d'ÃƒÂ©tudes (ÃƒÂ©tape par ÃƒÂ©tape, du niveau le plus bas au plus haut) plutÃƒÂ´t que des diplÃƒÂ´mes isolÃƒÂ©s.\n` +
+        `- Par exemple : "AprÃƒÂ¨s le Bac Ã¢â€ â€™ BTS/BUT Ã¢â€ â€™ Licence Pro Ã¢â€ â€™ Master" ou "Bac STMG Ã¢â€ â€™ BTS Commerce Ã¢â€ â€™ Ãƒâ€°cole de commerce".\n` +
+        `- Propose 2 ÃƒÂ  3 chemins alternatifs si pertinent.\n` +
         `- Aucun autre texte.`
 
       const resp = await apiClient.post('/chat/ai', {
@@ -247,11 +247,11 @@ export default function Niveau12() {
       })
       const reply = resp?.data?.reply || ''
       const lines = sanitizeAiLines(reply)
-      if (!lines.length) throw new Error('Réponse IA vide')
+      if (!lines.length) throw new Error('RÃƒÂ©ponse IA vide')
       setStudiesLines(lines)
     } catch (e) {
       console.error('Niveau12 Gemini error', e)
-      const message = e?.response?.data?.error || "Impossible de consulter Gemini pour ce métier. Réessaie dans un instant."
+      const message = e?.response?.data?.error || "Impossible de consulter Gemini pour ce mÃƒÂ©tier. RÃƒÂ©essaie dans un instant."
       setAiError(message)
     } finally {
       setAiLoading(false)
@@ -277,17 +277,17 @@ export default function Niveau12() {
     if (finishing) return
     setFinishing(true)
     try {
-      // Sauvegarder les données du niveau 12
+      // Sauvegarder les donnÃƒÂ©es du niveau 12
       if (selectedJob && studiesLines.length > 0) {
         await usersAPI.saveExtraInfo([
           {
             question_id: 'niveau12_selected_job',
-            question_text: 'Métier exploré au niveau 12',
+            question_text: 'MÃƒÂ©tier explorÃƒÂ© au niveau 12',
             answer_text: selectedJob
           },
           {
             question_id: 'niveau12_studies',
-            question_text: 'Études pour ce métier',
+            question_text: 'Ãƒâ€°tudes pour ce mÃƒÂ©tier',
             answer_text: studiesLines.slice(0, 5).join(' | ')
           }
         ])
@@ -296,7 +296,7 @@ export default function Niveau12() {
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau12 levelUp failed', e)
-      setAiError('Impossible de valider le niveau pour le moment. Réessaie.')
+      setAiError('Impossible de valider le niveau pour le moment. RÃƒÂ©essaie.')
     } finally {
       setFinishing(false)
     }
@@ -306,7 +306,7 @@ export default function Niveau12() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargement…</p>
+        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
       </div>
     )
   }
@@ -320,7 +320,7 @@ export default function Niveau12() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
@@ -362,7 +362,7 @@ export default function Niveau12() {
                     onClick={onReset}
                     className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto"
                   >
-                    Sélectionner un autre métier
+                    SÃƒÂ©lectionner un autre mÃƒÂ©tier
                   </button>
                 </div>
               )}
@@ -373,7 +373,7 @@ export default function Niveau12() {
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaMagnifyingGlass className="w-5 h-5" /></div>
-          <h2 className="text-xl font-bold">Choisir un métier</h2>
+          <h2 className="text-xl font-bold">Choisir un mÃƒÂ©tier</h2>
         </div>
 
         {!started && (
@@ -397,7 +397,7 @@ export default function Niveau12() {
                     setStudiesLines([])
                   }
                 }}
-                placeholder="Ex: Data analyst, infirmier, UX designer…"
+                placeholder="Ex: Data analyst, infirmier, UX designerÃ¢â‚¬Â¦"
                 className="w-full rounded-xl border border-gray-300 px-4 py-3 text-base text-gray-900 shadow-sm focus:border-black focus:outline-none focus:ring-2 focus:ring-black/10"
               />
             </div>
@@ -405,7 +405,7 @@ export default function Niveau12() {
             {/* Suggestion bubbles from user profile */}
             {!selectedJob && jobSuggestions.length > 0 && !query.trim() && (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Suggestions basées sur ton profil</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Suggestions basÃƒÂ©es sur ton profil</p>
                 <div className="flex flex-wrap gap-2">
                   {jobSuggestions.map((suggestion) => (
                     <button
@@ -424,7 +424,7 @@ export default function Niveau12() {
             {searching && (
               <div className="flex items-center gap-2 text-sm text-gray-500">
                 <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-                <span>Recherche en cours…</span>
+                <span>Recherche en coursÃ¢â‚¬Â¦</span>
               </div>
             )}
 
@@ -433,7 +433,7 @@ export default function Niveau12() {
             )}
 
             {!selectedJob && query.trim().length >= 2 && !searching && !results.length && !searchError && (
-              <div className="text-text-secondary">Aucun métier trouvé. Essaie un autre mot-clé.</div>
+              <div className="text-text-secondary">Aucun mÃƒÂ©tier trouvÃƒÂ©. Essaie un autre mot-clÃƒÂ©.</div>
             )}
 
             {!selectedJob && results.length > 0 && (
@@ -446,7 +446,7 @@ export default function Niveau12() {
                     className="text-left px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100"
                   >
                     <div className="font-medium text-gray-900">{title}</div>
-                    <div className="text-xs text-gray-500">Voir le parcours d'études</div>
+                    <div className="text-xs text-gray-500">Voir le parcours d'ÃƒÂ©tudes</div>
                   </button>
                 ))}
               </div>
@@ -459,17 +459,17 @@ export default function Niveau12() {
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card lg:col-span-2">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaGraduationCap className="w-5 h-5" /></div>
-            <h2 className="text-xl font-bold">Parcours d'études</h2>
+            <h2 className="text-xl font-bold">Parcours d'ÃƒÂ©tudes</h2>
           </div>
 
           {!selectedJob && (
-            <div className="text-text-secondary">Sélectionne un métier pour afficher le parcours d'études.</div>
+            <div className="text-text-secondary">SÃƒÂ©lectionne un mÃƒÂ©tier pour afficher le parcours d'ÃƒÂ©tudes.</div>
           )}
 
           {selectedJob && aiLoading && (
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-              <span>Génération des études…</span>
+              <span>GÃƒÂ©nÃƒÂ©ration des ÃƒÂ©tudesÃ¢â‚¬Â¦</span>
             </div>
           )}
 
@@ -479,7 +479,7 @@ export default function Niveau12() {
 
           {selectedJob && !aiLoading && !aiError && studiesLines.length > 0 && (
             <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <div className="text-sm text-gray-500 mb-2">Métier sélectionné : <span className="font-semibold text-gray-900">{selectedJob}</span></div>
+              <div className="text-sm text-gray-500 mb-2">MÃƒÂ©tier sÃƒÂ©lectionnÃƒÂ© : <span className="font-semibold text-gray-900">{selectedJob}</span></div>
               <ul className="list-disc pl-5 text-text-secondary space-y-1">
                 {studiesLines.map((line, idx) => (
                   <li key={`${line}-${idx}`}>{line}</li>
@@ -495,10 +495,10 @@ export default function Niveau12() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 12 réussi !</h3>
-            <p className="text-text-secondary mb-4">Tu as complété ce niveau avec succès.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 12 rÃƒÂ©ussi !</h3>
+            <p className="text-text-secondary mb-4">Tu as complÃƒÂ©tÃƒÂ© ce niveau avec succÃƒÂ¨s.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
               <button onClick={() => navigate('/app/niveau/13')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

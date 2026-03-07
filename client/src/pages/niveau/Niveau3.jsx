@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
-import { FaBrain, FaTrophy } from 'react-icons/fa6'
 
 function buildAvatarFromProfile(profile, seed = 'zelia') {
   try {
@@ -125,8 +124,8 @@ export default function Niveau3() {
     const prenom = (profile?.first_name || '').trim()
     const namePart = prenom ? ` ${prenom}` : ''
     return [
-      { text: `Re${namePart}, on va déconstruire ensemble des idées reçues du monde du travail (niveau 3).`, durationMs: 2800 },
-      { text: 'Je te laisse avec les questions…', durationMs: 1600 },
+      { text: `Re${namePart}, on va dÃƒÂ©construire ensemble des idÃƒÂ©es reÃƒÂ§ues du monde du travail (niveau 3).`, durationMs: 2800 },
+      { text: 'Je te laisse avec les questionsÃ¢â‚¬Â¦', durationMs: 1600 },
     ]
   }, [profile])
 
@@ -139,57 +138,57 @@ export default function Niveau3() {
         'B. Un technicien de maintenance industrielle (Bac +2)'
       ],
       correctIndex: 1,
-      explanation: "Réponse : B. Le technicien de maintenance. Pourquoi ? Le secteur de l'industrie souffre d'une pénurie chronique de techniciens. Ils sont souvent embauchés avant même la fin de leur diplôme. À l'inverse, le secteur de la communication est saturé, et les Bac+5 enchaînent souvent stages et CDD avant le premier CDI."
+      explanation: "RÃƒÂ©ponse : B. Le technicien de maintenance. Pourquoi ? Le secteur de l'industrie souffre d'une pÃƒÂ©nurie chronique de techniciens. Ils sont souvent embauchÃƒÂ©s avant mÃƒÂªme la fin de leur diplÃƒÂ´me. Ãƒâ‚¬ l'inverse, le secteur de la communication est saturÃƒÂ©, et les Bac+5 enchaÃƒÂ®nent souvent stages et CDD avant le premier CDI."
     },
     {
       id: 'q2',
-      text: 'Quel métier est statistiquement le plus mortel en France (accidents du travail) ?',
+      text: 'Quel mÃƒÂ©tier est statistiquement le plus mortel en France (accidents du travail) ?',
       options: [
         'A. Policier',
-        'B. Marin-pêcheur / Bûcheron'
+        'B. Marin-pÃƒÂªcheur / BÃƒÂ»cheron'
       ],
       correctIndex: 1,
-      explanation: "Réponse : B. Marin-pêcheur / Bûcheron. Pourquoi ? C'est très contre-intuitif à cause des films et des infos. En réalité, le taux de mortalité et d'accidents graves est infiniment plus élevé dans la manipulation d'arbres ou en haute mer que lors d'interventions de police. Le danger \"physique\" bat le danger \"agressif\"."
+      explanation: "RÃƒÂ©ponse : B. Marin-pÃƒÂªcheur / BÃƒÂ»cheron. Pourquoi ? C'est trÃƒÂ¨s contre-intuitif ÃƒÂ  cause des films et des infos. En rÃƒÂ©alitÃƒÂ©, le taux de mortalitÃƒÂ© et d'accidents graves est infiniment plus ÃƒÂ©levÃƒÂ© dans la manipulation d'arbres ou en haute mer que lors d'interventions de police. Le danger \"physique\" bat le danger \"agressif\"."
     },
     {
       id: 'q3',
-      text: 'Quel pourcentage de "Créateurs de contenu" (Influenceurs, YouTubeurs, Streamers) parvient à générer l’équivalent d’un SMIC ?',
+      text: 'Quel pourcentage de "CrÃƒÂ©ateurs de contenu" (Influenceurs, YouTubeurs, Streamers) parvient ÃƒÂ  gÃƒÂ©nÃƒÂ©rer lÃ¢â‚¬â„¢ÃƒÂ©quivalent dÃ¢â‚¬â„¢un SMIC ?',
       options: [
         'A. Environ 15%',
         'B. Moins de 4%'
       ],
       correctIndex: 1,
-      explanation: "Réponse : B. Moins de 4% (et souvent moins de 1%). Pourquoi ? C'est l'économie la plus inégalitaire qui soit. Sur Twitch ou YouTube, le top 0.1% capte 90% des revenus. S'orienter vers ces métiers sans plan B, c'est statistiquement comme jouer sa carrière au Loto. Un bon technicien clim gagne mieux sa vie que 99% des influenceurs."
+      explanation: "RÃƒÂ©ponse : B. Moins de 4% (et souvent moins de 1%). Pourquoi ? C'est l'ÃƒÂ©conomie la plus inÃƒÂ©galitaire qui soit. Sur Twitch ou YouTube, le top 0.1% capte 90% des revenus. S'orienter vers ces mÃƒÂ©tiers sans plan B, c'est statistiquement comme jouer sa carriÃƒÂ¨re au Loto. Un bon technicien clim gagne mieux sa vie que 99% des influenceurs."
     },
     {
       id: 'q4',
-      text: 'Qui a le meilleur salaire en moyenne en France (en début de carrière) ?',
+      text: 'Qui a le meilleur salaire en moyenne en France (en dÃƒÂ©but de carriÃƒÂ¨re) ?',
       options: [
         'A. Architecte',
         'B. Grutier'
       ],
       correctIndex: 1,
-      explanation: "Réponse : B. Grutier. Pourquoi ? Le grutier gagne souvent mieux sa vie en début de carrière (primes incluses) qu'un architecte salarié débutant. Les métiers techniques/tension (responsabilité, horaires, sécurité) sont parfois mieux valorisés que des métiers perçus comme \"prestigieux\"."
+      explanation: "RÃƒÂ©ponse : B. Grutier. Pourquoi ? Le grutier gagne souvent mieux sa vie en dÃƒÂ©but de carriÃƒÂ¨re (primes incluses) qu'un architecte salariÃƒÂ© dÃƒÂ©butant. Les mÃƒÂ©tiers techniques/tension (responsabilitÃƒÂ©, horaires, sÃƒÂ©curitÃƒÂ©) sont parfois mieux valorisÃƒÂ©s que des mÃƒÂ©tiers perÃƒÂ§us comme \"prestigieux\"."
     },
     {
       id: 'q5',
-      text: 'Dans beaucoup de métiers, qu’est-ce qui fait le plus grimper ton salaire à court terme ?',
+      text: 'Dans beaucoup de mÃƒÂ©tiers, quÃ¢â‚¬â„¢est-ce qui fait le plus grimper ton salaire ÃƒÂ  court terme ?',
       options: [
-        'A. Rester 4 ans dans la même entreprise',
-        'B. Changer d’entreprise au bon moment'
+        'A. Rester 4 ans dans la mÃƒÂªme entreprise',
+        'B. Changer dÃ¢â‚¬â„¢entreprise au bon moment'
       ],
       correctIndex: 1,
-      explanation: "Réponse : B. Changer d’entreprise au bon moment. Pourquoi ? Les augmentations internes sont souvent plus lentes que les hausses obtenues à l’embauche. Sans bouger tous les 6 mois, une mobilité bien choisie (après avoir acquis des compétences concrètes) peut accélérer la progression salariale."
+      explanation: "RÃƒÂ©ponse : B. Changer dÃ¢â‚¬â„¢entreprise au bon moment. Pourquoi ? Les augmentations internes sont souvent plus lentes que les hausses obtenues ÃƒÂ  lÃ¢â‚¬â„¢embauche. Sans bouger tous les 6 mois, une mobilitÃƒÂ© bien choisie (aprÃƒÂ¨s avoir acquis des compÃƒÂ©tences concrÃƒÂ¨tes) peut accÃƒÂ©lÃƒÂ©rer la progression salariale."
     },
     {
       id: 'q6',
       text: 'Quel profil trouve souvent le plus facilement un job rapidement ?',
       options: [
-        'A. Quelqu’un avec un CV “parfait” mais très théorique',
-        'B. Quelqu’un avec des preuves concrètes (stages, alternance, projets, missions)'
+        'A. QuelquÃ¢â‚¬â„¢un avec un CV Ã¢â‚¬Å“parfaitÃ¢â‚¬Â mais trÃƒÂ¨s thÃƒÂ©orique',
+        'B. QuelquÃ¢â‚¬â„¢un avec des preuves concrÃƒÂ¨tes (stages, alternance, projets, missions)'
       ],
       correctIndex: 1,
-      explanation: "Réponse : B. Pourquoi ? Les recruteurs cherchent des signaux de fiabilité: expérience terrain, réalisations, contraintes réelles (délais, clients, équipe). Même de petits projets concrets peuvent peser plus lourd qu’un CV \"parfait\" mais sans preuves d’exécution."
+      explanation: "RÃƒÂ©ponse : B. Pourquoi ? Les recruteurs cherchent des signaux de fiabilitÃƒÂ©: expÃƒÂ©rience terrain, rÃƒÂ©alisations, contraintes rÃƒÂ©elles (dÃƒÂ©lais, clients, ÃƒÂ©quipe). MÃƒÂªme de petits projets concrets peuvent peser plus lourd quÃ¢â‚¬â„¢un CV \"parfait\" mais sans preuves dÃ¢â‚¬â„¢exÃƒÂ©cution."
     },
   ]), [])
 
@@ -282,7 +281,7 @@ export default function Niveau3() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargement…</p>
+        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
       </div>
     )
   }
@@ -296,7 +295,7 @@ export default function Niveau3() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
@@ -312,7 +311,7 @@ export default function Niveau3() {
                     <>{typedIntro}</>
                   ) : (
                     <>
-                      <div className="text-white/70 text-sm mb-2">Niveau 3 · Question {qIdx + 1}/{questions.length}</div>
+                      <div className="text-white/70 text-sm mb-2">Niveau 3 Ã‚Â· Question {qIdx + 1}/{questions.length}</div>
                       <div className="font-semibold">{currentQuestion?.text}</div>
                       {revealed && (
                         <div className="mt-3 text-white/90">
@@ -341,13 +340,13 @@ export default function Niveau3() {
 
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaBrain className="w-5 h-5" /></div>
-            <h2 className="text-xl font-bold">Idées reçues · Niveau 3</h2>
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">Ã°Å¸Â§Â </div>
+            <h2 className="text-xl font-bold">IdÃƒÂ©es reÃƒÂ§ues Ã‚Â· Niveau 3</h2>
           </div>
 
           {phase === 'intro' ? (
             <div className="text-text-secondary text-sm">
-              Clique sur « Commencer » quand tu es prêt(e).
+              Clique sur Ã‚Â« Commencer Ã‚Â» quand tu es prÃƒÂªt(e).
             </div>
           ) : (
             <>
@@ -381,7 +380,7 @@ export default function Niveau3() {
               {revealed && (
                 <div className="mt-5 flex flex-col sm:flex-row items-center gap-3">
                   <div className={`text-sm font-semibold ${isCorrect ? 'text-emerald-700' : 'text-gray-600'}`}>
-                    {isCorrect ? 'Bonne réponse.' : 'Réponse enregistrée.'}
+                    {isCorrect ? 'Bonne rÃƒÂ©ponse.' : 'RÃƒÂ©ponse enregistrÃƒÂ©e.'}
                   </div>
                   <button
                     type="button"
@@ -400,15 +399,15 @@ export default function Niveau3() {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 3 réussi !</h3>
-            <p className="text-text-secondary mb-4">Bien joué. Tu as déconstruit 6 idées reçues du monde du travail.</p>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">Ã°Å¸Ââ€ </div>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 3 rÃƒÂ©ussi !</h3>
+            <p className="text-text-secondary mb-4">Bien jouÃƒÂ©. Tu as dÃƒÂ©construit 6 idÃƒÂ©es reÃƒÂ§ues du monde du travail.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 onClick={() => navigate('/app/activites')}
                 className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200"
               >
-                Retour aux activités
+                Retour aux activitÃƒÂ©s
               </button>
               <button
                 onClick={() => navigate('/app/niveau/4')}
@@ -416,13 +415,6 @@ export default function Niveau3() {
               >
                 Passer au niveau suivant
               </button>
-            </div>
-            {/* Subtle confetti dots */}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden">
-              <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />
-              <div className="absolute w-2 h-2 bg-yellow-400 rounded-full right-8 top-10 animate-ping" />
-              <div className="absolute w-2 h-2 bg-blue-400 rounded-full left-10 bottom-8 animate-ping" />
-              <div className="absolute w-2 h-2 bg-green-400 rounded-full right-6 bottom-10 animate-ping" />
             </div>
           </div>
         </div>

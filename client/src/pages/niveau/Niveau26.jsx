@@ -12,49 +12,49 @@ const TABLES = [
     id: 1,
     title: 'Calendrier Chronologique',
     icon: <FaCalendarDays className="w-5 h-5" />,
-    headers: ['Phase', 'Dates Clés', 'Ce que tu dois faire'],
+    headers: ['Phase', 'Dates ClÃƒÂ©s', 'Ce que tu dois faire'],
     rows: [
-      ['1. Information', 'Décembre - Janvier', "Explore le moteur de recherche. Regarde les critères d'examen des vœux."],
-      ['2. Inscription', '20 Janvier - Mi-Mars', 'Crée ton dossier. Saisis tes 10 vœux (max) sans les classer.'],
-      ['3. Finalisation', 'Mi-Mars - Début Avril', 'Deadline fatidique. Complète tes dossiers et confirme chaque vœu.'],
-      ['4. Résultats', 'Début Juin - Mi-Juillet', 'Reçois les réponses. Réponds aux propositions dans les délais impartis.'],
-      ['5. Complémentaire', 'Mi-Juin - Septembre', "Pour ceux qui n'ont pas de proposition : postule sur les places restantes."],
+      ['1. Information', 'DÃƒÂ©cembre - Janvier', "Explore le moteur de recherche. Regarde les critÃƒÂ¨res d'examen des vÃ…â€œux."],
+      ['2. Inscription', '20 Janvier - Mi-Mars', 'CrÃƒÂ©e ton dossier. Saisis tes 10 vÃ…â€œux (max) sans les classer.'],
+      ['3. Finalisation', 'Mi-Mars - DÃƒÂ©but Avril', 'Deadline fatidique. ComplÃƒÂ¨te tes dossiers et confirme chaque vÃ…â€œu.'],
+      ['4. RÃƒÂ©sultats', 'DÃƒÂ©but Juin - Mi-Juillet', 'ReÃƒÂ§ois les rÃƒÂ©ponses. RÃƒÂ©ponds aux propositions dans les dÃƒÂ©lais impartis.'],
+      ['5. ComplÃƒÂ©mentaire', 'Mi-Juin - Septembre', "Pour ceux qui n'ont pas de proposition : postule sur les places restantes."],
     ],
   },
   {
     id: 2,
     title: 'Structure des Choix',
     icon: <FaBullseye className="w-5 h-5" />,
-    headers: ['Concept', 'Limite / Règle', 'Détail Stratégique'],
+    headers: ['Concept', 'Limite / RÃƒÂ¨gle', 'DÃƒÂ©tail StratÃƒÂ©gique'],
     rows: [
-      ['Vœux', '10 maximum', 'Ils ne sont pas classés par préférence (ordre secret).'],
-      ['Sous-vœux', '20 au total', 'Pour les vœux multiples (ex: plusieurs lycées pour 1 BTS).'],
-      ['Apprentissage', '10 vœux en plus', 'Les vœux en alternance comptent pour une liste séparée.'],
-      ['Sélectivité', '2 types de filières', 'Les licences (non-sélectif) vs BTS/Prépa/Écoles (sélectif).'],
+      ['VÃ…â€œux', '10 maximum', 'Ils ne sont pas classÃƒÂ©s par prÃƒÂ©fÃƒÂ©rence (ordre secret).'],
+      ['Sous-vÃ…â€œux', '20 au total', 'Pour les vÃ…â€œux multiples (ex: plusieurs lycÃƒÂ©es pour 1 BTS).'],
+      ['Apprentissage', '10 vÃ…â€œux en plus', 'Les vÃ…â€œux en alternance comptent pour une liste sÃƒÂ©parÃƒÂ©e.'],
+      ['SÃƒÂ©lectivitÃƒÂ©', '2 types de filiÃƒÂ¨res', 'Les licences (non-sÃƒÂ©lectif) vs BTS/PrÃƒÂ©pa/Ãƒâ€°coles (sÃƒÂ©lectif).'],
     ],
   },
   {
     id: 3,
-    title: 'Comprendre les Réponses',
+    title: 'Comprendre les RÃƒÂ©ponses',
     icon: <FaEnvelope className="w-5 h-5" />,
-    headers: ['Réponse Reçue', 'Signification', 'Action à entreprendre'],
+    headers: ['RÃƒÂ©ponse ReÃƒÂ§ue', 'Signification', 'Action ÃƒÂ  entreprendre'],
     rows: [
-      ['OUI', 'Admis sans réserve', 'Accepter (définitivement ou en attendant mieux).'],
-      ['OUI-SI', 'Admis avec soutien', "Accepter et s'engager à suivre une remise à niveau."],
+      ['OUI', 'Admis sans rÃƒÂ©serve', 'Accepter (dÃƒÂ©finitivement ou en attendant mieux).'],
+      ['OUI-SI', 'Admis avec soutien', "Accepter et s'engager ÃƒÂ  suivre une remise ÃƒÂ  niveau."],
       ['EN ATTENTE', "Liste d'attente", 'Surveiller son rang de classement tous les matins.'],
-      ['NON', 'Refus (sélectif)', "Pas d'action possible, se concentrer sur les autres vœux."],
+      ['NON', 'Refus (sÃƒÂ©lectif)', "Pas d'action possible, se concentrer sur les autres vÃ…â€œux."],
     ],
   },
   {
     id: 4,
     title: 'Dossier de Candidature',
     icon: <FaClipboardList className="w-5 h-5" />,
-    headers: ['Élément du Dossier', "Ce que c'est", 'Le "Petit Plus"'],
+    headers: ['Ãƒâ€°lÃƒÂ©ment du Dossier', "Ce que c'est", 'Le "Petit Plus"'],
     rows: [
-      ['Projet Motivé', 'Lettre de motivation', 'Prouver que tu as lu le programme (citer une matière).'],
-      ['Fiche Avenir', 'Avis des professeurs', 'Tes notes comptent, mais ton sérieux et ton assiduité aussi.'],
-      ['Activités', 'CV extra-scolaire', 'Valoriser le sport, le bénévolat ou le baby-sitting.'],
-      ['Préférences', 'Tes vœux de cœur', 'Expliquer ton projet pro global (lu seulement par le CAES).'],
+      ['Projet MotivÃƒÂ©', 'Lettre de motivation', 'Prouver que tu as lu le programme (citer une matiÃƒÂ¨re).'],
+      ['Fiche Avenir', 'Avis des professeurs', 'Tes notes comptent, mais ton sÃƒÂ©rieux et ton assiduitÃƒÂ© aussi.'],
+      ['ActivitÃƒÂ©s', 'CV extra-scolaire', 'Valoriser le sport, le bÃƒÂ©nÃƒÂ©volat ou le baby-sitting.'],
+      ['PrÃƒÂ©fÃƒÂ©rences', 'Tes vÃ…â€œux de cÃ…â€œur', 'Expliquer ton projet pro global (lu seulement par le CAES).'],
     ],
   },
 ]
@@ -152,7 +152,7 @@ export default function Niveau26() {
 
   // Dialogue messages
   const dialogues = useMemo(() => [
-    { text: `Re ${firstName}, je t'ai fait un petit pdf que tu pourras suivre`, durationMs: 2000 },
+    { text: `Re ${firstName}, je t'ai fait un petit PDF spÃƒÂ©cial lycÃƒÂ©ens que tu pourras suivre`, durationMs: 2200 },
     { text: 'Voici le plan !', durationMs: 1000 },
   ], [firstName])
 
@@ -190,34 +190,45 @@ export default function Niveau26() {
     setDialogueStep((prev) => prev + 1)
   }
 
+  const completeLevel = async (mode = 'full') => {
+    if (finishing) return
+    setFinishing(true)
+    try {
+      await usersAPI.saveExtraInfo([
+        {
+          question_id: 'niveau26_parcoursup_read',
+          question_text: 'Guide Parcoursup consultÃƒÂ© (Niveau 26)',
+          answer_text: mode === 'skip' ? 'PassÃƒÂ© via dialogue' : 'Oui'
+        },
+        {
+          question_id: 'niveau26_tables_viewed',
+          question_text: 'Tableaux Parcoursup vus (Niveau 26)',
+          answer_text: mode === 'skip' ? 'Niveau passÃƒÂ© sans lecture complÃƒÂ¨te' : `${TABLES.length} tableaux consultÃƒÂ©s`
+        }
+      ])
+      await levelUp({ minLevel: 26, xpReward: XP_PER_LEVEL })
+      setShowSuccess(true)
+    } catch (e) {
+      console.error('Niveau26 levelUp failed', e)
+      setError('Impossible de valider le niveau pour le moment.')
+    } finally {
+      setFinishing(false)
+    }
+  }
+
+  const onSkipLevel = async () => {
+    if (!typedDone) {
+      skip()
+      return
+    }
+    await completeLevel('skip')
+  }
+
   const onTableNext = async () => {
     if (tableStep < TABLES.length - 1) {
       setTableStep((prev) => prev + 1)
     } else {
-      // Finish level
-      if (finishing) return
-      setFinishing(true)
-      try {
-        await usersAPI.saveExtraInfo([
-          {
-            question_id: 'niveau26_parcoursup_read',
-            question_text: 'Guide Parcoursup consulté (Niveau 26)',
-            answer_text: 'Oui'
-          },
-          {
-            question_id: 'niveau26_tables_viewed',
-            question_text: 'Tableaux Parcoursup vus (Niveau 26)',
-            answer_text: `${TABLES.length} tableaux consultés`
-          }
-        ])
-        await levelUp({ minLevel: 26, xpReward: XP_PER_LEVEL })
-        setShowSuccess(true)
-      } catch (e) {
-        console.error('Niveau26 levelUp failed', e)
-        setError('Impossible de valider le niveau pour le moment.')
-      } finally {
-        setFinishing(false)
-      }
+      await completeLevel('full')
     }
   }
 
@@ -228,7 +239,7 @@ export default function Niveau26() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargement…</p>
+        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
       </div>
     )
   }
@@ -242,7 +253,7 @@ export default function Niveau26() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Left: Avatar + Dialogue */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
@@ -252,19 +263,27 @@ export default function Niveau26() {
               <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
                   {!dialogueFinished ? typed : (
-                    <>Fiche de synthèse Parcoursup 2026 - {currentTable.title}</>
+                    <>Fiche de synthÃƒÂ¨se Parcoursup 2026 - {currentTable.title}</>
                   )}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
               </div>
 
               {!dialogueFinished && (
-                <div className="mt-4">
+                <div className="mt-4 flex flex-col sm:flex-row gap-2">
                   <button
                     onClick={onDialogueNext}
-                    className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200"
+                    disabled={finishing}
+                    className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
                   >
                     {dialogueStep < dialogues.length - 1 ? 'Suivant' : 'Voir le plan'}
+                  </button>
+                  <button
+                    onClick={onSkipLevel}
+                    disabled={finishing}
+                    className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 disabled:opacity-60"
+                  >
+                    {finishing ? 'ValidationÃ¢â‚¬Â¦' : 'Passer le niveau'}
                   </button>
                 </div>
               )}
@@ -290,7 +309,7 @@ export default function Niveau26() {
 
           {!dialogueFinished ? (
             <div className="text-text-secondary text-center py-8">
-              Réponds au dialogue pour découvrir la fiche de synthèse.
+              RÃƒÂ©ponds au dialogue pour dÃƒÂ©couvrir la fiche de synthÃƒÂ¨se.
             </div>
           ) : (
             <div className="space-y-4">
@@ -323,10 +342,10 @@ export default function Niveau26() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 26 réussi !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 26 rÃƒÂ©ussi !</h3>
             <p className="text-text-secondary mb-4">Tu connais maintenant les bases de Parcoursup 2026.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
               <button onClick={() => navigate('/app/niveau/27')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

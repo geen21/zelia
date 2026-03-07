@@ -151,7 +151,7 @@ export default function Niveau1() {
 				} else if (rRes?.response?.status === 404) {
 					setAnalysis(null)
 				} else if (rRes instanceof Error) {
-					setError('Erreur lors du chargement des résultats')
+					setError('Erreur lors du chargement des rÃƒÂ©sultats')
 				}
 			} catch (e) {
 				console.error(e)
@@ -166,8 +166,8 @@ export default function Niveau1() {
 
 	// Intro dialogue (no auto-advance; use Next button like Niveau2)
 	const introMessages = useMemo(() => ([
-		{ text: 'Bienvenue sur Zélia', durationMs: 500},
-		{ text: 'On va t\'expliquer comment on peut t\'aider à mieux te connaitre et trouver ta voie professionnelle', durationMs: 2000},
+		{ text: 'Bienvenue sur ZÃƒÂ©lia', durationMs: 500},
+		{ text: 'On va t\'expliquer comment on peut t\'aider ÃƒÂ  mieux te connaitre et trouver ta voie professionnelle', durationMs: 2000},
 	]), [])
 	const [introIdx, setIntroIdx] = useState(0)
 	const currentIntro = introMessages[introIdx] || { text: '', durationMs: 1500 }
@@ -219,13 +219,13 @@ export default function Niveau1() {
 	}, [baseAvatarUrl, shouldAnimateMouth, mouthAlt])
 
 	const postQuestions = [
-		{ id: 'salary_expectation', type: 'buttons', text: "Est-ce que tu t'attendais à ce salaire là ?", options: ['Oui', 'Non', 'Je ne sais pas'] },
-		{ id: 'good_salary', type: 'input', text: "C’est quoi pour toi un bon salaire, en euros par mois ?", placeholder: 'Ex: 2500€ net/mois' },
-		{ id: 'motivation_salary', type: 'buttons', text: 'Est-ce que tu cherches un métier pour le salaire ?', options: ['Oui', 'Non', 'Partiellement'] },
+		{ id: 'salary_expectation', type: 'buttons', text: "Est-ce que tu t'attendais ÃƒÂ  ce salaire lÃƒÂ  ?", options: ['Oui', 'Non', 'Je ne sais pas'] },
+		{ id: 'good_salary', type: 'input', text: "CÃ¢â‚¬â„¢est quoi pour toi un bon salaire, en euros par mois ?", placeholder: 'Ex: 2500Ã¢â€šÂ¬ net/mois' },
+		{ id: 'motivation_salary', type: 'buttons', text: 'Est-ce que tu cherches un mÃƒÂ©tier pour le salaire ?', options: ['Oui', 'Non', 'Partiellement'] },
 	]
 
 	const convSteps = useMemo(() => ([
-		{ id: 'explore_another', type: 'buttons', text: 'Veux-tu explorer une autre fiche métier ?', options: ['Oui', 'Non'] },
+		{ id: 'explore_another', type: 'buttons', text: 'Veux-tu explorer une autre fiche mÃƒÂ©tier ?', options: ['Oui', 'Non'] },
 	]), [])
 
 	// Helper: find index of a conversation step by id (used to resume after second fiche)
@@ -236,23 +236,23 @@ export default function Niveau1() {
 		setFicheText('')
 		setPhase('generating')
 		try {
-			const message = `FICHE MÉTIER pour "${jobTitle}".
+			const message = `FICHE MÃƒâ€°TIER pour "${jobTitle}".
 Contraintes de sortie OBLIGATOIRES:
-- Réponds uniquement en français, en tutoyant (utilise "tu").
-- AUCUNE salutation, introduction ou phrase d'ouverture (n'écris pas Bonjour, pas de phrase avant la section 1).
-- AUCUN séparateur ou décoration (pas de '---', pas de tables, pas de code).
+- RÃƒÂ©ponds uniquement en franÃƒÂ§ais, en tutoyant (utilise "tu").
+- AUCUNE salutation, introduction ou phrase d'ouverture (n'ÃƒÂ©cris pas Bonjour, pas de phrase avant la section 1).
+- AUCUN sÃƒÂ©parateur ou dÃƒÂ©coration (pas de '---', pas de tables, pas de code).
 - AUCUN gras ni markdown (n'utilise jamais **, #, ##, etc.).
 
 Structure EXACTE et dans cet ordre:
-1) Description du métier (100-130 mots)
-2) Salaire en France (débutant et médian)
-3) Écoles/études pour y arriver (3 exemples précis)
+1) Description du mÃƒÂ©tier (100-130 mots)
+2) Salaire en France (dÃƒÂ©butant et mÃƒÂ©dian)
+3) Ãƒâ€°coles/ÃƒÂ©tudes pour y arriver (3 exemples prÃƒÂ©cis)
 
-Format: titres courts en clair (pas de markdown), listes à puces simples '-' quand pertinent.`
+Format: titres courts en clair (pas de markdown), listes ÃƒÂ  puces simples '-' quand pertinent.`
 
 			const resp = await chatAPI.aiChat({ mode: 'advisor', message, history: [], jobTitles: [jobTitle], advisorType: 'fiche-metier' })
 			let reply = resp?.data?.reply || ''
-			// Nettoyage minimal: enlever le gras si l'IA en met quand même
+			// Nettoyage minimal: enlever le gras si l'IA en met quand mÃƒÂªme
 			reply = reply.replace(/\*\*/g, '')
 			setFicheText(reply)
 			// Increase fiche count first so render can react accordingly
@@ -263,7 +263,7 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 			setPhase('fiche')
 		} catch (e) {
 			console.error('AI fiche error', e)
-			setFicheText('Une erreur est survenue lors de la génération de la fiche métier.')
+			setFicheText('Une erreur est survenue lors de la gÃƒÂ©nÃƒÂ©ration de la fiche mÃƒÂ©tier.')
 			setPhase('fiche')
 		} finally {
 			setBusy(false)
@@ -275,7 +275,7 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 			// Let user choose which job to explore
 			setPhase('choose_job')
 		} else {
-			// mitigé or non => ask for dream job input
+			// mitigÃƒÂ© or non => ask for dream job input
 			setPhase('await_input')
 		}
 	}
@@ -370,7 +370,7 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 		return (
 			<div className="p-6 text-center">
 				<div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-				<p className="mt-2 text-text-secondary">Chargement…</p>
+				<p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
 			</div>
 		)
 	}
@@ -384,7 +384,7 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 	}
 
 	return (
-		<div className="p-4 md:p-6">
+		<div className="p-2 md:p-6">
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 				{/* Left: Avatar + Dialogue */}
 				<div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
@@ -396,27 +396,27 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 									{phase === 'intro' ? (
 										<>{introTyped}</>
 									) : askFit ? (
-										'Est-ce que ces métiers te semblent intéressants et pertinents ?'
+										'Est-ce que ces mÃƒÂ©tiers te semblent intÃƒÂ©ressants et pertinents ?'
 									) : choosingJob ? (
-										'Choisis le métier pour lequel tu souhaites générer une fiche métier :'
+										'Choisis le mÃƒÂ©tier pour lequel tu souhaites gÃƒÂ©nÃƒÂ©rer une fiche mÃƒÂ©tier :'
 									) : awaitingInput ? (
-										'Peux-tu nous dire le métier de tes rêves ?'
+										'Peux-tu nous dire le mÃƒÂ©tier de tes rÃƒÂªves ?'
 									) : phase === 'generating' ? (
-										"Je suis en train de rechercher les infomations du métier qui te concerne..."
+										"Je suis en train de rechercher les infomations du mÃƒÂ©tier qui te concerne..."
 									) : phase === 'fiche' ? (
 										<>
 											{!skipPostFiche ? (
 												<>
 													<div>Super, continuons.</div>
 													{userInput ? (
-														<div>Très bien je vois que tu es ambitieux ! « {userInput} » est un beau métier.</div>
+														<div>TrÃƒÂ¨s bien je vois que tu es ambitieux ! Ã‚Â« {userInput} Ã‚Â» est un beau mÃƒÂ©tier.</div>
 													) : null}
-													<div>Tu peux lire la fiche, puis on en discute 👇</div>
+													<div>Tu peux lire la fiche, puis on en discute Ã°Å¸â€˜â€¡</div>
 												</>
 											) : (
 												<>
 													<div>Voici une seconde fiche pour t'offrir un autre angle.</div>
-													<div>Lis-la si tu veux, puis on passe directement à la suite.</div>
+													<div>Lis-la si tu veux, puis on passe directement ÃƒÂ  la suite.</div>
 												</>
 											)}
 										</>
@@ -452,7 +452,7 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 								<div className="mt-4 flex flex-wrap gap-3">
 									<button onClick={() => onChoice('oui')} disabled={!firstJobTitle}
 											className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-50 w-full sm:w-auto">Oui</button>
-									<button onClick={() => onChoice('mitige')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto">Mitigé</button>
+									<button onClick={() => onChoice('mitige')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto">MitigÃƒÂ©</button>
 									<button onClick={() => onChoice('non')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto">Non</button>
 								</div>
 							)}
@@ -477,7 +477,7 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 							{awaitingInput && (
 								<div className="mt-4 flex flex-col sm:flex-row gap-3 w-full">
 									<input type="text" value={userInput} onChange={(e) => setUserInput(e.target.value)}
-											 placeholder="Ton métier de rêve"
+											 placeholder="Ton mÃƒÂ©tier de rÃƒÂªve"
 											 className="flex-1 px-4 py-3 border border-gray-300 rounded-lg w-full text-base sm:text-lg" />
 									<button onClick={onSubmitDream} disabled={busy || !userInput.trim()} className="px-4 py-2 rounded-lg bg-black text-white disabled:opacity-50 w-full sm:w-auto">Valider</button>
 								</div>
@@ -626,7 +626,7 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 											<h3 className="font-semibold text-orange-900 mb-2">{job.title}</h3>
 											{(job.skills?.length ? (
 												<div className="text-sm text-orange-700">
-													<div className="font-medium">Compétences requises:</div>
+													<div className="font-medium">CompÃƒÂ©tences requises:</div>
 													<ul className="mt-1 list-disc list-inside">
 														{job.skills.map((s, i) => <li key={i}>{s}</li>)}
 													</ul>
@@ -645,12 +645,12 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 						<div>
 							<div className="flex items-center gap-3 mb-4">
 								<div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaBookOpen className="w-5 h-5" /></div>
-								<h2 className="text-xl font-bold">Fiche métier</h2>
+								<h2 className="text-xl font-bold">Fiche mÃƒÂ©tier</h2>
 							</div>
 							{busy && (
 								<div className="flex items-center gap-2 text-sm text-text-secondary">
 									<div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-									Génération en cours…
+									GÃƒÂ©nÃƒÂ©ration en coursÃ¢â‚¬Â¦
 								</div>
 							)}
 							<FicheMetierCard text={ficheText} jobTitle={selectedJob} />
@@ -664,10 +664,10 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
 					<div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
 						<div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-						<h3 className="text-2xl font-extrabold mb-2">Niveau 1 réussi !</h3>
-						<p className="text-text-secondary mb-4">Bravo, tu as terminé l'introduction et exploré tes premières pistes.</p>
+						<h3 className="text-2xl font-extrabold mb-2">Niveau 1 rÃƒÂ©ussi !</h3>
+						<p className="text-text-secondary mb-4">Bravo, tu as terminÃƒÂ© l'introduction et explorÃƒÂ© tes premiÃƒÂ¨res pistes.</p>
 						<div className="flex flex-col sm:flex-row gap-3 justify-center">
-							<button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
+							<button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
 							<button onClick={() => navigate('/app/niveau/2')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
 						</div>
 						{/* Subtle confetti dots */}
@@ -684,7 +684,7 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 	)
 }
 
-// Component to render the fiche métier with visual structure
+// Component to render the fiche mÃƒÂ©tier with visual structure
 function FicheMetierCard({ text, jobTitle }) {
 	if (!text) return null
 
@@ -696,9 +696,9 @@ function FicheMetierCard({ text, jobTitle }) {
 
 		// Heuristics to detect section headers
 		const sectionPatterns = [
-			{ key: 'description', pattern: /^\d*\)?\s*(description|pr[ée]sentation|le m[ée]tier|en quoi consiste)/i, icon: 'description', label: 'Description du métier', color: 'blue' },
-			{ key: 'salary', pattern: /^\d*\)?\s*(salaire|r[ée]mun[ée]ration|revenus)/i, icon: 'salary', label: 'Salaire', color: 'green' },
-			{ key: 'studies', pattern: /^\d*\)?\s*([ée]coles|[ée]tudes|formations?|parcours|dipl[ôo]mes?|pour y arriver|comment y acc)/i, icon: 'studies', label: 'Études & Formations', color: 'purple' },
+			{ key: 'description', pattern: /^\d*\)?\s*(description|pr[ÃƒÂ©e]sentation|le m[ÃƒÂ©e]tier|en quoi consiste)/i, icon: 'description', label: 'Description du mÃƒÂ©tier', color: 'blue' },
+			{ key: 'salary', pattern: /^\d*\)?\s*(salaire|r[ÃƒÂ©e]mun[ÃƒÂ©e]ration|revenus)/i, icon: 'salary', label: 'Salaire', color: 'green' },
+			{ key: 'studies', pattern: /^\d*\)?\s*([ÃƒÂ©e]coles|[ÃƒÂ©e]tudes|formations?|parcours|dipl[ÃƒÂ´o]mes?|pour y arriver|comment y acc)/i, icon: 'studies', label: 'Ãƒâ€°tudes & Formations', color: 'purple' },
 		]
 
 		for (const line of lines) {
@@ -715,14 +715,14 @@ function FicheMetierCard({ text, jobTitle }) {
 				current.content.push(line)
 			} else if (!matched && !current) {
 				// Text before first section -> treat as description
-				current = { key: 'description', icon: 'description', label: 'Description du métier', color: 'blue', content: [line] }
+				current = { key: 'description', icon: 'description', label: 'Description du mÃƒÂ©tier', color: 'blue', content: [line] }
 				sections.push(current)
 			}
 		}
 
 		// If no sections detected at all, return everything as description
 		if (sections.length === 0) {
-			return [{ key: 'description', icon: 'description', label: 'Description du métier', color: 'blue', content: lines }]
+			return [{ key: 'description', icon: 'description', label: 'Description du mÃƒÂ©tier', color: 'blue', content: lines }]
 		}
 		return sections
 	}
@@ -756,12 +756,12 @@ function FicheMetierCard({ text, jobTitle }) {
 						</div>
 						<div className="text-gray-700 text-sm leading-relaxed space-y-1">
 							{sec.content.map((line, li) => {
-								const isBullet = /^[-•–]/.test(line)
+								const isBullet = /^[-Ã¢â‚¬Â¢Ã¢â‚¬â€œ]/.test(line)
 								if (isBullet) {
 									return (
 										<div key={li} className="flex items-start gap-2 pl-1">
 											<span className={`mt-1.5 w-1.5 h-1.5 rounded-full ${colors.bullet.replace('text-', 'bg-')} flex-shrink-0`} />
-											<span>{line.replace(/^[-•–]\s*/, '')}</span>
+											<span>{line.replace(/^[-Ã¢â‚¬Â¢Ã¢â‚¬â€œ]\s*/, '')}</span>
 										</div>
 									)
 								}

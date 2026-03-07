@@ -8,39 +8,39 @@ import { FaEuroSign, FaHandHoldingDollar, FaTrophy } from 'react-icons/fa6'
 
 const INTRO_DIALOGUES = [
   {
-    text: "Dit m'en un peu plus sur tes projections futures, on va essayer de budgétiser tes futurs études.",
+    text: "Dit m'en un peu plus sur tes projections futures, on va essayer de budgÃƒÂ©tiser tes futurs ÃƒÂ©tudes.",
     durationMs: 2200
   },
   {
-    text: "Je vais te donner quelques pistes pour choisir si tu préférerais le privé.",
+    text: "Je vais te donner quelques pistes pour choisir si tu prÃƒÂ©fÃƒÂ©rerais le privÃƒÂ©.",
     durationMs: 2000
   }
 ]
 
 const PRIVATE_PROS = [
-  'Réseau : Accès puissant aux entreprises et aux anciens élèves.',
-  "Carrière : Très axé sur l'emploi, les stages et l'alternance.",
+  'RÃƒÂ©seau : AccÃƒÂ¨s puissant aux entreprises et aux anciens ÃƒÂ©lÃƒÂ¨ves.',
+  "CarriÃƒÂ¨re : TrÃƒÂ¨s axÃƒÂ© sur l'emploi, les stages et l'alternance.",
   'Suivi : Petites classes, coaching et accompagnement proche.',
   'Cadre : Campus modernes et vie associative riche.'
 ]
 
 const PRIVATE_CONS = [
-  'Prix : Très cher (de 5 000€ à 15 000€+ par an).',
-  'Pièges : Qualité très variable (attention aux diplômes non reconnus).',
-  'Niveau : Parfois moins sélectif académiquement ("payer pour avoir").'
+  'Prix : TrÃƒÂ¨s cher (de 5 000Ã¢â€šÂ¬ ÃƒÂ  15 000Ã¢â€šÂ¬+ par an).',
+  'PiÃƒÂ¨ges : QualitÃƒÂ© trÃƒÂ¨s variable (attention aux diplÃƒÂ´mes non reconnus).',
+  'Niveau : Parfois moins sÃƒÂ©lectif acadÃƒÂ©miquement ("payer pour avoir").'
 ]
 
 const PUBLIC_PROS = [
-  'Coût : Quasi gratuit (frais d\'inscription faibles).',
-  "Diplôme : Valeur sûre, reconnue officiellement par l'État.",
-  'Indépendance : Apprend la débrouillardise et l\'autonomie.',
-  'Niveau : Excellence théorique et recherche.'
+  'CoÃƒÂ»t : Quasi gratuit (frais d\'inscription faibles).',
+  "DiplÃƒÂ´me : Valeur sÃƒÂ»re, reconnue officiellement par l'Ãƒâ€°tat.",
+  'IndÃƒÂ©pendance : Apprend la dÃƒÂ©brouillardise et l\'autonomie.',
+  'Niveau : Excellence thÃƒÂ©orique et recherche.'
 ]
 
 const PUBLIC_CONS = [
-  "Encadrement : Très faible, vous êtes livré à vous-même.",
-  'Pratique : Souvent trop théorique, moins connecté au marché.',
-  'Moyens : Locaux parfois vétustes, amphis bondés.'
+  "Encadrement : TrÃƒÂ¨s faible, vous ÃƒÂªtes livrÃƒÂ© ÃƒÂ  vous-mÃƒÂªme.",
+  'Pratique : Souvent trop thÃƒÂ©orique, moins connectÃƒÂ© au marchÃƒÂ©.',
+  'Moyens : Locaux parfois vÃƒÂ©tustes, amphis bondÃƒÂ©s.'
 ]
 
 const STUDY_LEVELS = ['Bac +2', 'Bac +3', 'Bac +5', 'Bac +8', 'Bac +8 ou plus']
@@ -149,15 +149,15 @@ export default function Niveau22() {
 
   const dialogueText = (() => {
     if (phase === 'intro') return typedIntro
-    if (phase === 'private') return "Voici les avantages et inconvénients du privé."
+    if (phase === 'private') return "Voici les avantages et inconvÃƒÂ©nients du privÃƒÂ©."
     if (phase === 'public') return "Passons maintenant au public."
-    if (phase === 'choice') return "Alors est-ce que tu préfères t'orienter dans le public ou plutôt dans le privé ?"
-    if (phase === 'confirm') return `Ok très bien ${firstName}, tu fais le bon choix.`
-    if (phase === 'near') return "Tu penses faire tes études proche de chez toi ?"
-    if (phase === 'city') return "Dans quelle ville souhaiterais-tu faire tes études ?"
-    if (phase === 'housing') return "Alors tu penses prendre un logement pour cela ? Cela va m'aider à te donner une fourchette de prix."
-    if (phase === 'level') return "Tu souhaites aller jusqu'à quel niveau d'études ?"
-    if (phase === 'estimate') return "Ok merci, je vais te donner une estimation sur les prochaines années, patiente 10s."
+    if (phase === 'choice') return "Alors est-ce que tu prÃƒÂ©fÃƒÂ¨res t'orienter dans le public ou plutÃƒÂ´t dans le privÃƒÂ© ?"
+    if (phase === 'confirm') return `Ok trÃƒÂ¨s bien ${firstName}, tu fais le bon choix.`
+    if (phase === 'near') return "Tu penses faire tes ÃƒÂ©tudes proche de chez toi ?"
+    if (phase === 'city') return "Dans quelle ville souhaiterais-tu faire tes ÃƒÂ©tudes ?"
+    if (phase === 'housing') return "Alors tu penses prendre un logement pour cela ? Cela va m'aider ÃƒÂ  te donner une fourchette de prix."
+    if (phase === 'level') return "Tu souhaites aller jusqu'ÃƒÂ  quel niveau d'ÃƒÂ©tudes ?"
+    if (phase === 'estimate') return "Ok merci, je vais te donner une estimation sur les prochaines annÃƒÂ©es, patiente 10s."
     if (phase === 'result') return 'Voici ton estimation.'
     return ''
   })()
@@ -179,14 +179,14 @@ export default function Niveau22() {
     setEstimateLoading(true)
     try {
       const context = [
-        `Préférence: ${preference || 'non renseigné'}`,
-        `Proche de chez soi: ${nearHome === null ? 'non renseigné' : nearHome ? 'oui' : 'non'}`,
-        `Ville: ${city ? city : 'non renseignée'}`,
-        `Logement: ${needsHousing === null ? 'non renseigné' : needsHousing ? 'oui' : 'non'}`,
-        `Niveau d'études: ${studyLevel || 'non renseigné'}`
+        `PrÃƒÂ©fÃƒÂ©rence: ${preference || 'non renseignÃƒÂ©'}`,
+        `Proche de chez soi: ${nearHome === null ? 'non renseignÃƒÂ©' : nearHome ? 'oui' : 'non'}`,
+        `Ville: ${city ? city : 'non renseignÃƒÂ©e'}`,
+        `Logement: ${needsHousing === null ? 'non renseignÃƒÂ©' : needsHousing ? 'oui' : 'non'}`,
+        `Niveau d'ÃƒÂ©tudes: ${studyLevel || 'non renseignÃƒÂ©'}`
       ].join('\n')
 
-      const message = `Tu es un conseiller d'orientation. Voici le contexte de l'élève:\n${context}\n\nDonne une estimation de budget total pour les prochaines années d'études en France selon ces informations.\nRéponds en JSON strict avec min, max et un court message: {"min": 0, "max": 0, "message": "texte court"}.\nRéponds UNIQUEMENT avec le JSON.`
+      const message = `Tu es un conseiller d'orientation. Voici le contexte de l'ÃƒÂ©lÃƒÂ¨ve:\n${context}\n\nDonne une estimation de budget total pour les prochaines annÃƒÂ©es d'ÃƒÂ©tudes en France selon ces informations.\nRÃƒÂ©ponds en JSON strict avec min, max et un court message: {"min": 0, "max": 0, "message": "texte court"}.\nRÃƒÂ©ponds UNIQUEMENT avec le JSON.`
 
       const resp = await apiClient.post('/chat/ai', {
         mode: 'advisor',
@@ -234,17 +234,17 @@ export default function Niveau22() {
       const entries = [
         {
           question_id: 'niveau22_preference',
-          question_text: 'Préférence public/privé (Niveau 22)',
+          question_text: 'PrÃƒÂ©fÃƒÂ©rence public/privÃƒÂ© (Niveau 22)',
           answer_text: preference || ''
         },
         {
           question_id: 'niveau22_near_home',
-          question_text: 'Études proches de chez soi (Niveau 22)',
+          question_text: 'Ãƒâ€°tudes proches de chez soi (Niveau 22)',
           answer_text: nearHome === null ? '' : nearHome ? 'Oui' : 'Non'
         },
         {
           question_id: 'niveau22_city',
-          question_text: 'Ville d\'études (Niveau 22)',
+          question_text: 'Ville d\'ÃƒÂ©tudes (Niveau 22)',
           answer_text: city || ''
         },
         {
@@ -254,7 +254,7 @@ export default function Niveau22() {
         },
         {
           question_id: 'niveau22_level',
-          question_text: "Niveau d'études visé (Niveau 22)",
+          question_text: "Niveau d'ÃƒÂ©tudes visÃƒÂ© (Niveau 22)",
           answer_text: studyLevel || ''
         },
         {
@@ -278,7 +278,7 @@ export default function Niveau22() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargement…</p>
+        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
       </div>
     )
   }
@@ -292,7 +292,7 @@ export default function Niveau22() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
@@ -334,12 +334,12 @@ export default function Niveau22() {
                   <button
                     type="button"
                     onClick={() => {
-                      setPreference('Privé')
+                      setPreference('PrivÃƒÂ©')
                       setPhase('confirm')
                     }}
                     className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200"
                   >
-                    Privé
+                    PrivÃƒÂ©
                   </button>
                 </div>
               )}
@@ -410,7 +410,7 @@ export default function Niveau22() {
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaEuroSign className="w-5 h-5" /></div>
-            <h2 className="text-xl font-bold">Budgetise tes études</h2>
+            <h2 className="text-xl font-bold">Budgetise tes ÃƒÂ©tudes</h2>
           </div>
 
           {phase === 'private' && (
@@ -420,7 +420,7 @@ export default function Niveau22() {
                   <h3 className="font-semibold mb-2">Les Pour</h3>
                   <ul className="space-y-2 text-sm">
                     {PRIVATE_PROS.map((item) => (
-                      <li key={item}>• {item}</li>
+                      <li key={item}>Ã¢â‚¬Â¢ {item}</li>
                     ))}
                   </ul>
                 </div>
@@ -428,7 +428,7 @@ export default function Niveau22() {
                   <h3 className="font-semibold mb-2">Les Contre</h3>
                   <ul className="space-y-2 text-sm">
                     {PRIVATE_CONS.map((item) => (
-                      <li key={item}>• {item}</li>
+                      <li key={item}>Ã¢â‚¬Â¢ {item}</li>
                     ))}
                   </ul>
                 </div>
@@ -450,7 +450,7 @@ export default function Niveau22() {
                   <h3 className="font-semibold mb-2">Les Pour</h3>
                   <ul className="space-y-2 text-sm">
                     {PUBLIC_PROS.map((item) => (
-                      <li key={item}>• {item}</li>
+                      <li key={item}>Ã¢â‚¬Â¢ {item}</li>
                     ))}
                   </ul>
                 </div>
@@ -458,7 +458,7 @@ export default function Niveau22() {
                   <h3 className="font-semibold mb-2">Les Contre</h3>
                   <ul className="space-y-2 text-sm">
                     {PUBLIC_CONS.map((item) => (
-                      <li key={item}>• {item}</li>
+                      <li key={item}>Ã¢â‚¬Â¢ {item}</li>
                     ))}
                   </ul>
                 </div>
@@ -475,7 +475,7 @@ export default function Niveau22() {
 
           {phase === 'city' && (
             <>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Ville d'études</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Ville d'ÃƒÂ©tudes</label>
               <input
                 type="text"
                 value={city}
@@ -517,7 +517,7 @@ export default function Niveau22() {
           {phase === 'estimate' && (
             <div className="text-center py-8">
               <div className="inline-block w-8 h-8 border-2 border-black border-t-transparent rounded-full animate-spin" />
-              <p className="mt-2 text-text-secondary">Analyse en cours…</p>
+              <p className="mt-2 text-text-secondary">Analyse en coursÃ¢â‚¬Â¦</p>
             </div>
           )}
 
@@ -527,43 +527,43 @@ export default function Niveau22() {
                 <div className="text-sm text-text-secondary">Estimation</div>
                 <div className="text-2xl font-bold text-gray-900">
                   {estimate?.min != null && estimate?.max != null
-                    ? `${estimate.min}€ - ${estimate.max}€`
-                    : 'À affiner'}
+                    ? `${estimate.min}Ã¢â€šÂ¬ - ${estimate.max}Ã¢â€šÂ¬`
+                    : 'Ãƒâ‚¬ affiner'}
                 </div>
                 {estimate?.message && (
                   <p className="mt-2 text-sm text-gray-700">{estimate.message}</p>
                 )}
               </div>
 
-              {/* Encart aides financières */}
+              {/* Encart aides financiÃƒÂ¨res */}
               <div className="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <FaHandHoldingDollar className="w-5 h-5 text-blue-600" />
-                  <h3 className="font-semibold text-blue-900">Aides disponibles pour financer tes études</h3>
+                  <h3 className="font-semibold text-blue-900">Aides disponibles pour financer tes ÃƒÂ©tudes</h3>
                 </div>
                 <ul className="space-y-2 text-sm text-blue-800">
                   <li className="flex items-start gap-2">
-                    <span className="font-bold mt-0.5">•</span>
-                    <div><span className="font-semibold">Bourse CROUS</span> — Aide financière selon tes revenus familiaux. Fais ta demande via le DSE (Dossier Social Étudiant) entre janvier et mai.</div>
+                    <span className="font-bold mt-0.5">Ã¢â‚¬Â¢</span>
+                    <div><span className="font-semibold">Bourse CROUS</span> Ã¢â‚¬â€ Aide financiÃƒÂ¨re selon tes revenus familiaux. Fais ta demande via le DSE (Dossier Social Ãƒâ€°tudiant) entre janvier et mai.</div>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="font-bold mt-0.5">•</span>
-                    <div><span className="font-semibold">Prêt étudiant garanti par l'État</span> — Jusqu'à 20 000 € sans caution parentale, remboursable après les études.</div>
+                    <span className="font-bold mt-0.5">Ã¢â‚¬Â¢</span>
+                    <div><span className="font-semibold">PrÃƒÂªt ÃƒÂ©tudiant garanti par l'Ãƒâ€°tat</span> Ã¢â‚¬â€ Jusqu'ÃƒÂ  20 000 Ã¢â€šÂ¬ sans caution parentale, remboursable aprÃƒÂ¨s les ÃƒÂ©tudes.</div>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="font-bold mt-0.5">•</span>
-                    <div><span className="font-semibold">APL / ALS (CAF)</span> — Aide au logement si tu prends un appartement. Fais ta demande sur caf.fr dès ton emménagement.</div>
+                    <span className="font-bold mt-0.5">Ã¢â‚¬Â¢</span>
+                    <div><span className="font-semibold">APL / ALS (CAF)</span> Ã¢â‚¬â€ Aide au logement si tu prends un appartement. Fais ta demande sur caf.fr dÃƒÂ¨s ton emmÃƒÂ©nagement.</div>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="font-bold mt-0.5">•</span>
-                    <div><span className="font-semibold">Alternance / Apprentissage</span> — Tes études sont financées par l'entreprise et tu es rémunéré(e) chaque mois.</div>
+                    <span className="font-bold mt-0.5">Ã¢â‚¬Â¢</span>
+                    <div><span className="font-semibold">Alternance / Apprentissage</span> Ã¢â‚¬â€ Tes ÃƒÂ©tudes sont financÃƒÂ©es par l'entreprise et tu es rÃƒÂ©munÃƒÂ©rÃƒÂ©(e) chaque mois.</div>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="font-bold mt-0.5">•</span>
-                    <div><span className="font-semibold">Aides régionales</span> — Chaque région propose des aides spécifiques (transport, équipement, mobilité). Renseigne-toi sur le site de ta région.</div>
+                    <span className="font-bold mt-0.5">Ã¢â‚¬Â¢</span>
+                    <div><span className="font-semibold">Aides rÃƒÂ©gionales</span> Ã¢â‚¬â€ Chaque rÃƒÂ©gion propose des aides spÃƒÂ©cifiques (transport, ÃƒÂ©quipement, mobilitÃƒÂ©). Renseigne-toi sur le site de ta rÃƒÂ©gion.</div>
                   </li>
                 </ul>
-                <p className="mt-3 text-xs text-blue-600">Pense à faire tes demandes le plus tôt possible, les délais sont souvent serrés !</p>
+                <p className="mt-3 text-xs text-blue-600">Pense ÃƒÂ  faire tes demandes le plus tÃƒÂ´t possible, les dÃƒÂ©lais sont souvent serrÃƒÂ©s !</p>
               </div>
 
               <button
@@ -572,7 +572,7 @@ export default function Niveau22() {
                 disabled={saving}
                 className="mt-4 w-full px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
               >
-                {saving ? 'Validation…' : 'Continuer'}
+                {saving ? 'ValidationÃ¢â‚¬Â¦' : 'Continuer'}
               </button>
             </>
           )}
@@ -586,11 +586,11 @@ export default function Niveau22() {
           )}
 
           {phase === 'near' && (
-            <div className="text-text-secondary">Réponds dans le dialogue.</div>
+            <div className="text-text-secondary">RÃƒÂ©ponds dans le dialogue.</div>
           )}
 
           {phase === 'housing' && (
-            <div className="text-text-secondary">Réponds dans le dialogue.</div>
+            <div className="text-text-secondary">RÃƒÂ©ponds dans le dialogue.</div>
           )}
         </div>
       </div>
@@ -599,10 +599,10 @@ export default function Niveau22() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 22 réussi !</h3>
-            <p className="text-text-secondary mb-4">Ton budget est estimé.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 22 rÃƒÂ©ussi !</h3>
+            <p className="text-text-secondary mb-4">Ton budget est estimÃƒÂ©.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
               <button onClick={() => navigate('/app/niveau/23')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

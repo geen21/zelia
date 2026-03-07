@@ -57,16 +57,16 @@ function parseList(raw) {
   const cleaned = sanitizeText(raw)
   const lines = cleaned
     .split(/\r?\n/)
-    .map((line) => line.replace(/^[-•*\d.)\s]+/, '').trim())
+    .map((line) => line.replace(/^[-Ã¢â‚¬Â¢*\d.)\s]+/, '').trim())
     .filter(Boolean)
     // Filtrer les lignes d'introduction/conclusion (contenant "voici", ":", etc.)
     .filter((line) => {
       const lower = line.toLowerCase()
-      // Exclure les lignes qui ressemblent à des introductions
+      // Exclure les lignes qui ressemblent ÃƒÂ  des introductions
       if (lower.startsWith('voici')) return false
-      if (lower.includes("points d'amélioration") && lower.includes(':')) return false
-      if (lower.match(/^\d+\s*points?\s*(d['']amélioration)?/i)) return false
-      // Exclure les lignes trop courtes (< 10 caractères) qui ne sont probablement pas des points
+      if (lower.includes("points d'amÃƒÂ©lioration") && lower.includes(':')) return false
+      if (lower.match(/^\d+\s*points?\s*(d['']amÃƒÂ©lioration)?/i)) return false
+      // Exclure les lignes trop courtes (< 10 caractÃƒÂ¨res) qui ne sont probablement pas des points
       if (line.length < 10) return false
       return true
     })
@@ -80,12 +80,12 @@ function formatProfileContext(profile) {
     if (value == null || value === '') return
     rows.push(`${label}: ${value}`)
   }
-  add('Prénom', profile.first_name || profile.prenom)
+  add('PrÃƒÂ©nom', profile.first_name || profile.prenom)
   add('Nom', profile.last_name || profile.nom)
-  add('Âge', profile.age)
+  add('Ãƒâ€šge', profile.age)
   add('Genre', profile.gender || profile.genre)
-  add('Département', profile.department || profile.departement)
-  add('École/Formation', profile.school || profile.ecole)
+  add('DÃƒÂ©partement', profile.department || profile.departement)
+  add('Ãƒâ€°cole/Formation', profile.school || profile.ecole)
   return rows.join('\n')
 }
 
@@ -176,20 +176,20 @@ export default function Niveau19() {
   const buildContext = () => {
     const profileBlock = formatProfileContext(profile)
     const responseBlock = (responses || [])
-      .map((r) => `- [${r.questionnaire_type || 'questionnaire'} #${r.question_id}] ${r.response || '—'}`)
+      .map((r) => `- [${r.questionnaire_type || 'questionnaire'} #${r.question_id}] ${r.response || 'Ã¢â‚¬â€'}`)
       .join('\n')
     const personalityBlock = analysis
       ? [
         analysis.personalityType ? `Type: ${analysis.personalityType}` : '',
         analysis.personalityAnalysis ? `Analyse: ${analysis.personalityAnalysis}` : '',
-        analysis.skillsAssessment ? `Compétences: ${analysis.skillsAssessment}` : ''
+        analysis.skillsAssessment ? `CompÃƒÂ©tences: ${analysis.skillsAssessment}` : ''
       ].filter(Boolean).join('\n')
       : ''
 
     return [
       profileBlock ? `Profil:\n${profileBlock}` : 'Profil: (inconnu)',
-      responseBlock ? `\nRéponses (niveau 4):\n${responseBlock}` : '\nRéponses (niveau 4): (aucune)',
-      personalityBlock ? `\nRésultats personnalité:\n${personalityBlock}` : '\nRésultats personnalité: (aucun)'
+      responseBlock ? `\nRÃƒÂ©ponses (niveau 4):\n${responseBlock}` : '\nRÃƒÂ©ponses (niveau 4): (aucune)',
+      personalityBlock ? `\nRÃƒÂ©sultats personnalitÃƒÂ©:\n${personalityBlock}` : '\nRÃƒÂ©sultats personnalitÃƒÂ©: (aucun)'
     ].join('\n')
   }
 
@@ -200,13 +200,13 @@ export default function Niveau19() {
     try {
       const context = buildContext()
       const message =
-        `Tu es un coach d'orientation qui s'adresse à un jeune de moins de 40 ans. Tutoie-le, sois direct, bienveillant et naturel (pas de ton corporate ou scolaire).\n` +
-        `À partir du contexte suivant, propose 5 points d'amélioration concrets liés à sa personnalité.\n` +
+        `Tu es un coach d'orientation qui s'adresse ÃƒÂ  un jeune de moins de 40 ans. Tutoie-le, sois direct, bienveillant et naturel (pas de ton corporate ou scolaire).\n` +
+        `Ãƒâ‚¬ partir du contexte suivant, propose 5 points d'amÃƒÂ©lioration concrets liÃƒÂ©s ÃƒÂ  sa personnalitÃƒÂ©.\n` +
         `${context}\n\n` +
         `Contraintes STRICTES :\n` +
-        `- Réponds uniquement par une liste de 5 points, un par ligne.\n` +
-        `- Utilise un ton direct, encourageant et adapté à un public jeune (pas de jargon RH).\n` +
-        `- Formule chaque point comme un conseil concret, pas un défaut brut.\n` +
+        `- RÃƒÂ©ponds uniquement par une liste de 5 points, un par ligne.\n` +
+        `- Utilise un ton direct, encourageant et adaptÃƒÂ© ÃƒÂ  un public jeune (pas de jargon RH).\n` +
+        `- Formule chaque point comme un conseil concret, pas un dÃƒÂ©faut brut.\n` +
         `- Pas d'introduction ni de conclusion.`
 
       const resp = await apiClient.post('/chat/ai', {
@@ -225,7 +225,7 @@ export default function Niveau19() {
       setAnswers(new Array(5).fill(''))
     } catch (e) {
       console.error('Niveau19 generation error', e)
-      setGenerateError('Impossible de générer les points. Réessaie.')
+      setGenerateError('Impossible de gÃƒÂ©nÃƒÂ©rer les points. RÃƒÂ©essaie.')
     } finally {
       setGenerating(false)
     }
@@ -262,7 +262,7 @@ export default function Niveau19() {
       const entries = improvements.map((text, idx) => ({
         question_id: `niveau_19_${idx + 1}`,
         question_text: text,
-        answer_text: nextAnswers[idx] || '—'
+        answer_text: nextAnswers[idx] || 'Ã¢â‚¬â€'
       }))
       await usersAPI.saveExtraInfo(entries)
       await levelUp({ minLevel: 19, xpReward: XP_PER_LEVEL })
@@ -278,7 +278,7 @@ export default function Niveau19() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargement…</p>
+        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
       </div>
     )
   }
@@ -294,7 +294,7 @@ export default function Niveau19() {
   const currentPoint = improvements[currentIdx]
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
@@ -327,17 +327,17 @@ export default function Niveau19() {
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaBrain className="w-5 h-5" /></div>
-            <h2 className="text-xl font-bold">Points d'amélioration</h2>
+            <h2 className="text-xl font-bold">Points d'amÃƒÂ©lioration</h2>
           </div>
 
           {!started && (
-            <div className="text-text-secondary">Lis le dialogue puis découvre les points d'amélioration.</div>
+            <div className="text-text-secondary">Lis le dialogue puis dÃƒÂ©couvre les points d'amÃƒÂ©lioration.</div>
           )}
 
           {started && (
             <div className="space-y-4">
               {generating && (
-                <div className="text-text-secondary">Génération des points…</div>
+                <div className="text-text-secondary">GÃƒÂ©nÃƒÂ©ration des pointsÃ¢â‚¬Â¦</div>
               )}
 
               {generateError && (
@@ -380,10 +380,10 @@ export default function Niveau19() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 19 réussi !</h3>
-            <p className="text-text-secondary mb-4">Tes réponses sont enregistrées.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 19 rÃƒÂ©ussi !</h3>
+            <p className="text-text-secondary mb-4">Tes rÃƒÂ©ponses sont enregistrÃƒÂ©es.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
               <button onClick={() => navigate('/app/niveau/20')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

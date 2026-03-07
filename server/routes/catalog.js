@@ -92,8 +92,14 @@ router.get('/metiers/search', optionalAuth, async (req, res) => {
 
     if (error) {
       console.warn('Catalog metiers RPC search error:', error.message)
-      // Fallback to direct query if RPC not found
-      if (error.message.includes('does not exist') || error.code === '42883') {
+      // Fallback to direct query if RPC not found OR on timeout/cancellation
+      const shouldFallback =
+        error.message.includes('does not exist') ||
+        error.message.includes('statement timeout') ||
+        error.message.includes('canceling statement') ||
+        error.code === '42883' ||
+        error.code === '57014'
+      if (shouldFallback) {
         return fallbackMetiersSearch(req, res, normalizedQuery, typecontrat, alternance, location, page, pageSize, from)
       }
       return res.status(400).json({ error: error.message })
@@ -131,7 +137,7 @@ async function fallbackMetiersSearch(req, res, normalizedQuery, typecontrat, alt
 
   if (normalizedQuery) {
     query = query.ilike('intitule', likePattern)
-    const days = shortQuery ? 60 : 90
+    const days = shortQuery ? 30 : 60
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
     query = query.gte('dateactualisation', since)
   }

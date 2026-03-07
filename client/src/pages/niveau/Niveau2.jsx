@@ -122,12 +122,12 @@ export default function Niveau2() {
   }, [navigate])
 
   const messages = useMemo(() => ([
-    { text: "Bon t'es passé au niveau 2, c'était assez simple mais ça se corsera plus tard, pour l'instant on a besoin de comprendre à qui on a affaire et t'expliquer tous les futurs niveaux", durationMs: 4000 },
-    { text: "On va te faire rencontrer une personne qui était plus ou moins dans ton cas", durationMs: 3000 },
-    { text: "C'est Nicolas, le fondateur de la plateforme Zélia qui a fait une vidéo pour toi", durationMs: 3000 },
-    { text: "Le but c'est de t'expliquer les bases de l'orientation, de pourquoi c'est important, même si tu le sais probablement déjà", durationMs: 6500 },
-    { text: "Il va te parler de l’importance de l’orientation pro et de tes choix de carrière, même si tu es encore jeune et que ce n’est pas simple", durationMs: 4000 },
-    { text: "Bon faut vraiment que j'arrête de parler moi", durationMs: 1500 },
+    { text: "Bon t'es passÃƒÂ© au niveau 2, c'ÃƒÂ©tait assez simple mais ÃƒÂ§a se corsera plus tard, pour l'instant on a besoin de comprendre ÃƒÂ  qui on a affaire et t'expliquer tous les futurs niveaux", durationMs: 4000 },
+    { text: "On va te faire rencontrer une personne qui ÃƒÂ©tait plus ou moins dans ton cas", durationMs: 3000 },
+    { text: "C'est Nicolas, le fondateur de la plateforme ZÃƒÂ©lia qui a fait une vidÃƒÂ©o pour toi", durationMs: 3000 },
+    { text: "Le but c'est de t'expliquer les bases de l'orientation, de pourquoi c'est important, mÃƒÂªme si tu le sais probablement dÃƒÂ©jÃƒÂ ", durationMs: 6500 },
+    { text: "Il va te parler de lÃ¢â‚¬â„¢importance de lÃ¢â‚¬â„¢orientation pro et de tes choix de carriÃƒÂ¨re, mÃƒÂªme si tu es encore jeune et que ce nÃ¢â‚¬â„¢est pas simple", durationMs: 4000 },
+    { text: "Bon faut vraiment que j'arrÃƒÂªte de parler moi", durationMs: 1500 },
   ]), [])
 
   const current = messages[idx] || { text: '', durationMs: 1500 }
@@ -286,7 +286,7 @@ export default function Niveau2() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargement…</p>
+        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
       </div>
     )
   }
@@ -300,7 +300,7 @@ export default function Niveau2() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Left: Avatar + Dialogue */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
@@ -312,7 +312,7 @@ export default function Niveau2() {
                   {phase === 'intro' ? (
                     <>{typed}</>
                   ) : phase === 'watch' ? (
-                    <>Regarde la vidéo à droite, puis on continue.</>
+                    <>Regarde la vidÃƒÂ©o ÃƒÂ  droite, puis on continue.</>
                   ) : null}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
@@ -321,7 +321,7 @@ export default function Niveau2() {
               {phase === 'intro' && (
                 <div className="mt-4">
                   <button onClick={next} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">
-                    {idx === messages.length - 1 ? 'Oui laisse moi voir la vidéo' : 'Suivant'}
+                    {idx === messages.length - 1 ? 'Oui laisse moi voir la vidÃƒÂ©o' : 'Suivant'}
                   </button>
                 </div>
               )}
@@ -333,10 +333,10 @@ export default function Niveau2() {
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaClapperboard className="w-5 h-5" /></div>
-            <h2 className="text-xl font-bold">Vidéo</h2>
+            <h2 className="text-xl font-bold">VidÃƒÂ©o</h2>
           </div>
           {phase !== 'watch' ? (
-            <div className="text-text-secondary">La vidéo apparaîtra ici.</div>
+            <div className="text-text-secondary">La vidÃƒÂ©o apparaÃƒÂ®tra ici.</div>
           ) : (
             <div>
               {/* API-rendered player for end detection */}
@@ -357,7 +357,7 @@ export default function Niveau2() {
                 />
               </noscript>
               <div className="mt-4">
-                <button onClick={finishLevel} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto">J'ai terminé la vidéo</button>
+                <button onClick={finishLevel} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto">J'ai terminÃƒÂ© la vidÃƒÂ©o</button>
               </div>
             </div>
           )}
@@ -369,10 +369,10 @@ export default function Niveau2() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 2 réussi !</h3>
-            <p className="text-text-secondary mb-4">Bravo, tu as regardé la vidéo d'introduction à l'orientation.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 2 rÃƒÂ©ussi !</h3>
+            <p className="text-text-secondary mb-4">Bravo, tu as regardÃƒÂ© la vidÃƒÂ©o d'introduction ÃƒÂ  l'orientation.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
               <button onClick={() => navigate('/app/niveau/3')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

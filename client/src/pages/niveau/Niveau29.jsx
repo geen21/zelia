@@ -86,9 +86,9 @@ export default function Niveau29() {
   }, [navigate])
 
   const messages = useMemo(() => ([
-    { text: `C'est l'avant-dernière vidéo du module ${firstName} !`, durationMs: 2000 },
-    { text: "On va t'aider à te vendre auprès des entreprises ou des écoles.", durationMs: 2200 },
-    { text: "Nico t'a fait un module vidéo dédié !", durationMs: 1800 },
+    { text: `C'est l'avant-derniÃƒÂ¨re vidÃƒÂ©o du module ${firstName} !`, durationMs: 2000 },
+    { text: "On va t'aider ÃƒÂ  te vendre auprÃƒÂ¨s des entreprises ou des ÃƒÂ©coles.", durationMs: 2200 },
+    { text: "Nico t'a fait un module vidÃƒÂ©o dÃƒÂ©diÃƒÂ© !", durationMs: 1800 },
   ]), [firstName])
 
   const current = messages[idx] || { text: '', durationMs: 1500 }
@@ -179,7 +179,7 @@ export default function Niveau29() {
       await usersAPI.saveExtraInfo([
         {
           question_id: 'niveau29_video_watched',
-          question_text: 'Vidéo "comment se vendre" regardée (Niveau 29)',
+          question_text: 'VidÃƒÂ©o "comment se vendre" regardÃƒÂ©e (Niveau 29)',
           answer_text: 'Oui'
         }
       ])
@@ -197,7 +197,7 @@ export default function Niveau29() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargement…</p>
+        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
       </div>
     )
   }
@@ -211,7 +211,7 @@ export default function Niveau29() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Left: Avatar + Dialogue */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
@@ -223,7 +223,7 @@ export default function Niveau29() {
                   {phase === 'intro' ? (
                     <>{typed}</>
                   ) : phase === 'watch' ? (
-                    <>Regarde la vidéo à droite. Quand tu as terminé, clique sur le bouton.</>
+                    <>Regarde la vidÃƒÂ©o ÃƒÂ  droite. Quand tu as terminÃƒÂ©, clique sur le bouton.</>
                   ) : null}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
@@ -232,7 +232,7 @@ export default function Niveau29() {
               {phase === 'intro' && (
                 <div className="mt-4">
                   <button onClick={next} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">
-                    {idx === messages.length - 1 ? 'Voir la vidéo' : 'Suivant'}
+                    {idx === messages.length - 1 ? 'Voir la vidÃƒÂ©o' : 'Suivant'}
                   </button>
                 </div>
               )}
@@ -247,7 +247,7 @@ export default function Niveau29() {
             <h2 className="text-xl font-bold">Comment se vendre</h2>
           </div>
           {phase !== 'watch' ? (
-            <div className="text-text-secondary">La vidéo apparaîtra ici après le dialogue.</div>
+            <div className="text-text-secondary">La vidÃƒÂ©o apparaÃƒÂ®tra ici aprÃƒÂ¨s le dialogue.</div>
           ) : (
             <div>
               {/* API-rendered player for end detection */}
@@ -261,7 +261,7 @@ export default function Niveau29() {
                   disabled={finishing}
                   className="w-full px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 font-medium hover:bg-[#b8f566] transition-colors disabled:opacity-50"
                 >
-                  {finishing ? 'Validation...' : <>J'ai terminé la vidéo <FaCheck className="inline w-3 h-3" /></>}
+                  {finishing ? 'Validation...' : <>J'ai terminÃƒÂ© la vidÃƒÂ©o <FaCheck className="inline w-3 h-3" /></>}
                 </button>
               </div>
             </div>
@@ -274,10 +274,10 @@ export default function Niveau29() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaVideo className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 29 réussi !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 29 rÃƒÂ©ussi !</h3>
             <p className="text-text-secondary mb-4">Tu sais maintenant comment te vendre. Plus qu'un niveau !</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
               <button onClick={() => navigate('/app/niveau/30')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Dernier niveau !</button>
             </div>
             {/* Subtle confetti dots */}

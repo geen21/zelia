@@ -48,19 +48,21 @@ function useTypewriter(message, durationMs) {
 }
 
 const SYSTEM_PROMPT = `
-INSTRUCTION STRICTE : Tu es un Recruteur Senior impitoyable et exigeant.
-Tu fais passer un entretien d'embauche au candidat.
+INSTRUCTION STRICTE : Tu es un Coach d'admission en ÃƒÂ©tudes supÃƒÂ©rieures impitoyable et exigeant.
+Tu fais passer un entretien d'admission orientÃƒÂ© ÃƒÂ©tudes (pas un entretien mÃƒÂ©tier).
 Ton attitude :
-- Froid, distant, professionnel mais très critique.
-- Tu ne supportes pas la médiocrité ni les réponses toutes faites.
-- Tu cherches à déstabiliser le candidat pour tester sa résistance.
+- Froid, distant, professionnel mais trÃƒÂ¨s critique.
+- Tu ne supportes pas la mÃƒÂ©diocritÃƒÂ© ni les rÃƒÂ©ponses toutes faites.
+- Tu cherches ÃƒÂ  dÃƒÂ©stabiliser le candidat pour tester sa rÃƒÂ©sistance.
 - Tes questions sont pointues.
-- Si le candidat répond vaguement, attaque-le là-dessus.
-- Ne sois jamais gentil ou encourageant. Tu es là pour sélectionner le meilleur, pas pour faire du social.
-- Fais des réponses courtes (max 2-3 phrases).
-- Pose une seule question à la fois.
+- Si le candidat rÃƒÂ©pond vaguement, attaque-le lÃƒÂ -dessus.
+- Ne sois jamais gentil ou encourageant. Tu es lÃƒÂ  pour sÃƒÂ©lectionner le meilleur, pas pour faire du social.
+- Fais des rÃƒÂ©ponses courtes (max 2-3 phrases).
+- Pose une seule question ÃƒÂ  la fois.
 Reste dans ton personnage quoi qu'il arrive.
 `
+
+const MAX_INTERACTIONS = 5
 
 export default function Niveau28() {
   const navigate = useNavigate()
@@ -75,19 +77,22 @@ export default function Niveau28() {
 
   // Chat state
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: "Bonjour. Asseyez-vous. J'ai parcouru votre dossier... Présentez-vous rapidement, et tâchez d'être intéressant." }
+    { role: 'assistant', content: "Bonjour. J'ai parcouru votre dossier d'ÃƒÂ©tudes. PrÃƒÂ©sentez-vous rapidement, et tÃƒÂ¢chez d'ÃƒÂªtre convaincant." }
   ])
   const [input, setInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
+  const [studySuggestions, setStudySuggestions] = useState([])
   const listRef = useRef(null)
+  const userInteractions = messages.filter((m) => m.role === 'user').length
+  const interactionLimitReached = userInteractions >= MAX_INTERACTIONS
 
   const firstName = profile?.first_name || 'toi'
   const dialogueFinished = dialogueStep >= 3
 
   const dialogues = useMemo(() => [
-    { text: `Bon ${firstName}, fini de jouer. On va passer aux choses sérieuses.`, durationMs: 2000 },
-    { text: "Je t'ai préparé une simulation d'entretien d'embauche avec une IA.", durationMs: 2000 },
-    { text: "Attention : ce recruteur a été programmé pour être sans pitié. Il va tester tes limites.", durationMs: 2500 },
+    { text: `Bon ${firstName}, fini de jouer. On va passer aux choses sÃƒÂ©rieuses.`, durationMs: 2000 },
+    { text: "Je t'ai prÃƒÂ©parÃƒÂ© une simulation d'entretien d'admission en ÃƒÂ©tudes avec une IA.", durationMs: 2300 },
+    { text: "Attention : ce coach a ÃƒÂ©tÃƒÂ© programmÃƒÂ© pour ÃƒÂªtre sans pitiÃƒÂ©. Il va tester tes limites.", durationMs: 2500 },
   ], [firstName])
 
   const currentDialogue = dialogues[dialogueStep] || { text: '', durationMs: 1000 }
@@ -108,6 +113,40 @@ export default function Niveau28() {
         const prof = pRes?.data?.profile || pRes?.data || null
         setProfile(prof)
         setAvatarUrl(buildAvatarFromProfile(prof, user.id))
+
+        try {
+          const extraRes = await usersAPI.getExtraInfo().catch(() => null)
+          if (!mounted) return
+          const entries = Array.isArray(extraRes?.data?.entries) ? extraRes.data.entries : []
+          const rawFilieres = entries.find((row) => String(row?.question_id || '').toLowerCase() === 'niveau21_filieres')?.answer_text || ''
+
+          let parsed = []
+          try {
+            const j = JSON.parse(rawFilieres)
+            if (Array.isArray(j)) parsed = j
+            else if (typeof j === 'string') parsed = [j]
+          } catch {
+            parsed = String(rawFilieres || '')
+              .split(/\r?\n|,|;/)
+              .map((line) => line.replace(/^[\s\-*Ã¢â‚¬Â¢\d.)]+/, '').trim())
+              .filter(Boolean)
+          }
+
+          const suggestions = [...new Set(
+            parsed
+              .map((v) => {
+                if (typeof v === 'string') return v.trim()
+                if (v && typeof v === 'object') {
+                  return String(v.title || v.name || v.label || v.intitule || '').trim()
+                }
+                return ''
+              })
+              .filter(Boolean)
+          )].slice(0, 8)
+          setStudySuggestions(suggestions)
+        } catch (ctxErr) {
+          console.warn('Failed to load niveau21_filieres suggestions', ctxErr)
+        }
       } catch (e) {
         console.error(e)
         if (!mounted) return
@@ -133,7 +172,7 @@ export default function Niveau28() {
 
   const handleSend = async () => {
     const text = input.trim()
-    if (!text || aiLoading) return
+    if (!text || aiLoading || interactionLimitReached) return
 
     const newMessages = [...messages, { role: 'user', content: text }]
     setMessages(newMessages)
@@ -150,9 +189,14 @@ export default function Niveau28() {
       // but usually the proxy handles it or we can hint it.
       // Let's try to pass it via the 'message' field context or history.
       
+      const studiesContext = studySuggestions.length
+        ? `Contexte ÃƒÂ©tudes (source: informations_complementaires, question_id=niveau21_filieres): ${studySuggestions.join(', ')}`
+        : 'Contexte ÃƒÂ©tudes: non disponible.'
+
       const historyForAi = [
         { role: 'user', content: SYSTEM_PROMPT },
-        { role: 'assistant', content: "Entendu. Je suis le recruteur impitoyable. Je suis prêt." },
+        { role: 'user', content: studiesContext },
+        { role: 'assistant', content: "Entendu. Je suis le coach d'admission impitoyable. Je suis prÃƒÂªt." },
         ...newMessages
       ]
 
@@ -181,13 +225,13 @@ export default function Niveau28() {
       await usersAPI.saveExtraInfo([
         {
           question_id: 'niveau28_interview_done',
-          question_text: 'Simulation entretien complétée (Niveau 28)',
+          question_text: 'Simulation entretien complÃƒÂ©tÃƒÂ©e (Niveau 28)',
           answer_text: 'Oui'
         },
         {
           question_id: 'niveau28_messages_exchanged',
-          question_text: 'Échanges avec le recruteur (Niveau 28)',
-          answer_text: `${messages.filter(m => m.role === 'user').length} réponse(s) donnée(s)`
+          question_text: 'Ãƒâ€°changes avec le recruteur (Niveau 28)',
+          answer_text: `${messages.filter(m => m.role === 'user').length} rÃƒÂ©ponse(s) donnÃƒÂ©e(s)`
         }
       ])
       await levelUp({ minLevel: 28, xpReward: XP_PER_LEVEL })
@@ -204,7 +248,7 @@ export default function Niveau28() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargement…</p>
+        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
       </div>
     )
   }
@@ -218,18 +262,18 @@ export default function Niveau28() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Left: Avatar + Dialogue */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
             <img src={avatarUrl} alt="Avatar" className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-52 lg:h-52 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto md:mx-0" />
             <div className="flex-1 w-full">
-              <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
+              <div className="relative bg-white text-gray-900 rounded-2xl p-4 md:p-5 w-full border border-gray-200 shadow-sm">
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
-                  {!dialogueFinished ? typed : 'Bon courage pour l\'entretien. Ne te laisse pas démonter !'}
+                  {!dialogueFinished ? typed : "Bon courage pour l'entretien d'admission. Ne te laisse pas dÃƒÂ©monter !"}
                 </div>
-                <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
+                <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-white" />
               </div>
 
               <div className="mt-4 flex flex-col sm:flex-row gap-2">
@@ -246,7 +290,7 @@ export default function Niveau28() {
                     disabled={finishing}
                     className="px-4 py-2 rounded-lg bg-red-100 text-red-900 border border-red-200 hover:bg-red-200 transition-colors w-full sm:w-auto"
                   >
-                    Arrêter le supplice (Terminer)
+                    ArrÃƒÂªter le supplice (Terminer)
                   </button>
                 )}
               </div>
@@ -258,13 +302,13 @@ export default function Niveau28() {
         <div className="bg-white border border-gray-200 rounded-2xl shadow-card overflow-hidden flex flex-col h-[500px]">
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center gap-4">
             <img 
-              src={`https://api.dicebear.com/9.x/avataaars/svg?seed=Recruiter&backgroundColor=b6e3f4&clothing=blazerAndShirt&eyes=surprised&eyebrows=angry&mouth=serious`} 
-              alt="Recruteur" 
+              src={`https://api.dicebear.com/9.x/avataaars/svg?seed=CoachAdmission&backgroundColor=b6e3f4&clothing=blazerAndShirt&eyes=surprised&eyebrows=angry&mouth=serious&skinColor=f2d3b1`} 
+              alt="Coach" 
               className="w-12 h-12 rounded-full border border-gray-300 bg-white"
             />
             <div>
-              <h2 className="text-lg font-bold text-gray-800">M. Le Recruteur</h2>
-              <p className="text-xs text-red-600 font-semibold uppercase tracking-wider">Mode Impitoyable</p>
+              <h2 className="text-lg font-bold text-gray-800">Coach Admission</h2>
+              <p className="text-xs text-red-600 font-semibold uppercase tracking-wider">Mode Ãƒâ€°tudes</p>
             </div>
           </div>
 
@@ -307,21 +351,24 @@ export default function Niveau28() {
               <div className="flex gap-2">
                 <input
                   className="flex-1 border border-gray-300 rounded-xl px-4 py-3 outline-none focus:border-black focus:ring-1 focus:ring-black transition-all"
-                  placeholder="Votre réponse..."
+                  placeholder={interactionLimitReached ? 'Limite atteinte (5 interactions)' : 'Votre rÃƒÂ©ponse...'}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSend() }}
-                  disabled={aiLoading}
+                  disabled={aiLoading || interactionLimitReached}
                   autoFocus
                 />
                 <button 
-                  disabled={aiLoading || !input.trim()} 
+                  disabled={aiLoading || !input.trim() || interactionLimitReached} 
                   className="px-6 py-3 rounded-xl bg-black text-white font-medium disabled:opacity-50 hover:bg-gray-800 transition-colors" 
                   onClick={handleSend}
                 >
                   Envoyer
                 </button>
               </div>
+              <p className="mt-2 text-xs text-gray-500">
+                Interactions: {userInteractions}/{MAX_INTERACTIONS}
+              </p>
             </div>
           )}
         </div>
@@ -332,10 +379,10 @@ export default function Niveau28() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 28 réussi !</h3>
-            <p className="text-text-secondary mb-4">Tu as survécu à l'entretien. Bravo pour ton sang-froid !</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 28 rÃƒÂ©ussi !</h3>
+            <p className="text-text-secondary mb-4">Tu as survÃƒÂ©cu ÃƒÂ  l'entretien d'admission. Bravo pour ton sang-froid !</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
               <button onClick={() => navigate('/app/niveau/29')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

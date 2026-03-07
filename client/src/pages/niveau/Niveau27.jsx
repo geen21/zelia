@@ -76,13 +76,13 @@ export default function Niveau27() {
 
   const dialogues = useMemo(() => [
     { text: 'Bon on a que des cadors ici !', durationMs: 1500 },
-    { text: 'On te propose de te présenter rapidement sur le chat global de Zélia', durationMs: 2200 },
-    { text: "Le but est de créer un espace d'échange", durationMs: 1800 },
+    { text: 'On te propose de te prÃƒÂ©senter rapidement sur le chat global de ZÃƒÂ©lia', durationMs: 2200 },
+    { text: "Le but est de crÃƒÂ©er un espace d'ÃƒÂ©change", durationMs: 1800 },
   ], [])
 
   const secondDialogues = useMemo(() => [
-    { text: "Tu peux envoyer un message pour te présenter, dire ce que tu penses, essayer de voir si d'autres aimeraient faire le même métier que toi ?", durationMs: 3500 },
-    { text: "Tu peux également discuter avec notre conseillère d'orientation virtuelle si tu veux !", durationMs: 2500 },
+    { text: "Tu peux envoyer un message pour te prÃƒÂ©senter, dire ce que tu penses, essayer de voir si d'autres aimeraient faire le mÃƒÂªme mÃƒÂ©tier que toi ?", durationMs: 3500 },
+    { text: "Tu peux ÃƒÂ©galement discuter avec notre conseillÃƒÂ¨re d'orientation virtuelle si tu veux !", durationMs: 2500 },
   ], [])
 
   const currentDialogue = dialogueStep < 3 
@@ -195,7 +195,7 @@ export default function Niveau27() {
         history: newHistory.slice(-10),
         advisorType: 'conseiller-orientation'
       }, { headers })
-      const reply = res?.data?.reply || "Je n'ai pas pu générer de réponse."
+      const reply = res?.data?.reply || "Je n'ai pas pu gÃƒÂ©nÃƒÂ©rer de rÃƒÂ©ponse."
       setAiHistory((prev) => [...prev, { role: 'assistant', content: reply }])
     } catch (e) {
       setAiHistory((prev) => [...prev, { role: 'assistant', content: 'Erreur IA: ' + (e?.response?.data?.error || e.message) }])
@@ -213,12 +213,12 @@ export default function Niveau27() {
       await usersAPI.saveExtraInfo([
         {
           question_id: 'niveau27_chat_discovered',
-          question_text: 'Découverte du chat communautaire (Niveau 27)',
+          question_text: 'DÃƒÂ©couverte du chat communautaire (Niveau 27)',
           answer_text: 'Oui'
         },
         {
           question_id: 'niveau27_messages_sent',
-          question_text: 'Messages envoyés (Niveau 27)',
+          question_text: 'Messages envoyÃƒÂ©s (Niveau 27)',
           answer_text: `${messages.filter(m => m.user_id === user?.id).length} message(s)`
         }
       ])
@@ -236,7 +236,7 @@ export default function Niveau27() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargement…</p>
+        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
       </div>
     )
   }
@@ -250,7 +250,7 @@ export default function Niveau27() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Left: Avatar + Dialogue */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
@@ -259,7 +259,7 @@ export default function Niveau27() {
             <div className="flex-1 w-full">
               <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
-                  {dialogueStep < 5 ? typed : 'Le chat est débloqué ! Tu peux y accéder à tout moment depuis le menu.'}
+                  {dialogueStep < 5 ? typed : 'Le chat est dÃƒÂ©bloquÃƒÂ© ! Tu peux y accÃƒÂ©der ÃƒÂ  tout moment depuis le menu.'}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
               </div>
@@ -303,10 +303,10 @@ export default function Niveau27() {
             <div className="p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaComments className="w-5 h-5" /></div>
-                <h2 className="text-xl font-bold">Chat Zélia</h2>
+                <h2 className="text-xl font-bold">Chat ZÃƒÂ©lia</h2>
               </div>
               <div className="text-text-secondary text-center py-8">
-                Réponds au dialogue pour débloquer le chat.
+                RÃƒÂ©ponds au dialogue pour dÃƒÂ©bloquer le chat.
               </div>
             </div>
           ) : (
@@ -316,13 +316,13 @@ export default function Niveau27() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaComments className="w-5 h-5" /></div>
-                    <h2 className="text-xl font-bold">Chat Zélia</h2>
+                    <h2 className="text-xl font-bold">Chat ZÃƒÂ©lia</h2>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       className={`px-3 py-1.5 rounded-full border text-sm ${mode==='student' ? 'bg-black text-white border-black' : 'bg-white border-gray-200'}`}
                       onClick={() => setMode('student')}
-                    >Étudiants</button>
+                    >Ãƒâ€°tudiants</button>
                     <button
                       className={`px-3 py-1.5 rounded-full border text-sm ${mode==='ai' ? 'bg-black text-white border-black' : 'bg-white border-gray-200'}`}
                       onClick={() => setMode('ai')}
@@ -335,7 +335,7 @@ export default function Niveau27() {
                 <>
                   <div ref={listRef} className="h-[40vh] overflow-y-auto p-4 space-y-3 bg-gray-50">
                     {messages.length === 0 && (
-                      <div className="text-center text-text-secondary py-8">Sois le premier à envoyer un message !</div>
+                      <div className="text-center text-text-secondary py-8">Sois le premier ÃƒÂ  envoyer un message !</div>
                     )}
                     {messages.map((m) => (
                       <div key={m.id} className={`flex ${m.user_id === user?.id ? 'justify-end' : 'justify-start'}`}>
@@ -356,7 +356,7 @@ export default function Niveau27() {
                     <div className="flex gap-2">
                       <input
                         className="flex-1 border border-gray-200 rounded-lg px-3 py-2 outline-none"
-                        placeholder="Écrire un message…"
+                        placeholder="Ãƒâ€°crire un messageÃ¢â‚¬Â¦"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleSendGlobal() }}
@@ -369,25 +369,25 @@ export default function Niveau27() {
                 <>
                   <div ref={listRef} className="h-[40vh] overflow-y-auto p-4 space-y-3 bg-gray-50">
                     {aiHistory.length === 0 && (
-                      <div className="text-center text-text-secondary py-8">Pose une question à notre conseillère d'orientation !</div>
+                      <div className="text-center text-text-secondary py-8">Pose une question ÃƒÂ  notre conseillÃƒÂ¨re d'orientation !</div>
                     )}
                     {aiHistory.map((m, i) => (
                       <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-[75%] px-3 py-2 rounded-lg border ${m.role === 'user' ? 'bg-black text-white border-black' : 'bg-white border-gray-200'}`}>
-                          <div className="text-xs mb-1 text-gray-600">{m.role === 'user' ? 'Vous' : 'Conseillère IA'}</div>
+                          <div className="text-xs mb-1 text-gray-600">{m.role === 'user' ? 'Vous' : 'ConseillÃƒÂ¨re IA'}</div>
                           <div className="whitespace-pre-wrap break-words">{m.content}</div>
                         </div>
                       </div>
                     ))}
                     {aiLoading && (
-                      <div className="text-sm text-gray-500">L'IA rédige une réponse…</div>
+                      <div className="text-sm text-gray-500">L'IA rÃƒÂ©dige une rÃƒÂ©ponseÃ¢â‚¬Â¦</div>
                     )}
                   </div>
                   <div className="p-4 border-t border-gray-200 bg-white">
                     <div className="flex gap-2">
                       <input
                         className="flex-1 border border-gray-200 rounded-lg px-3 py-2 outline-none"
-                        placeholder="Poser une question d'orientation…"
+                        placeholder="Poser une question d'orientationÃ¢â‚¬Â¦"
                         value={aiInput}
                         onChange={(e) => setAiInput(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleSendAI() }}
@@ -407,10 +407,10 @@ export default function Niveau27() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 27 réussi !</h3>
-            <p className="text-text-secondary mb-4">Le chat est maintenant débloqué dans le menu !</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 27 rÃƒÂ©ussi !</h3>
+            <p className="text-text-secondary mb-4">Le chat est maintenant dÃƒÂ©bloquÃƒÂ© dans le menu !</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
               <button onClick={() => navigate('/app/niveau/28')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

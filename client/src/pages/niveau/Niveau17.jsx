@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiClient, { analysisAPI, usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
@@ -107,34 +107,34 @@ function buildFallbackCv({ profile, targetJob, companies, roles, education, qual
   const firstName = profile?.first_name || profile?.prenom || ''
   const lastName = profile?.last_name || profile?.nom || ''
   const fullName = `${firstName} ${lastName}`.trim() || 'Ton nom'
-  const title = targetJob || 'Métier visé'
+  const title = targetJob || 'MÃ©tier visÃ©'
   const expItems = (companies.length || roles.length)
     ? Array.from({ length: Math.max(companies.length, roles.length) }).map((_, idx) => ({
       company: companies[idx] || 'Entreprise',
       role: roles[idx] || 'Fonction',
       period: '2023 - 2024',
-      details: ['Missions principales adaptées au poste', 'Résultats et compétences développées', 'Collaboration et initiatives']
+      details: ['Missions principales adaptÃ©es au poste', 'RÃ©sultats et compÃ©tences dÃ©veloppÃ©es', 'Collaboration et initiatives']
     }))
     : [{
       company: 'Projet personnel',
       role: title || 'Responsable',
       period: '2023 - 2024',
-      details: ['Mise en place d’un projet concret', 'Organisation et suivi des objectifs', 'Apprentissage rapide et autonomie']
+      details: ['Mise en place dâ€™un projet concret', 'Organisation et suivi des objectifs', 'Apprentissage rapide et autonomie']
     }]
 
   return {
     fullName,
     title,
-    summary: 'Profil motivé, orienté résultats et prêt à rejoindre une équipe dynamique.',
+    summary: 'Profil motivÃ©, orientÃ© rÃ©sultats et prÃªt Ã  rejoindre une Ã©quipe dynamique.',
     experiences: expItems,
-    education: (education.length ? education : ['Parcours scolaire à préciser']).map((item) => ({
+    education: (education.length ? education : ['Parcours scolaire Ã  prÃ©ciser']).map((item) => ({
       title: item,
       period: '2021 - 2023',
-      details: ['Spécialisation pertinente', 'Projets clés ou options suivies']
+      details: ['SpÃ©cialisation pertinente', 'Projets clÃ©s ou options suivies']
     })),
-    skills: skills.length ? skills : ['Organisation', 'Communication', 'Esprit d’équipe'],
-    qualities: qualities.length ? qualities : ['Rigueur', 'Créativité', 'Autonomie'],
-    languages: languages.length ? languages : ['Français'],
+    skills: skills.length ? skills : ['Organisation', 'Communication', 'Esprit dâ€™Ã©quipe'],
+    qualities: qualities.length ? qualities : ['Rigueur', 'CrÃ©ativitÃ©', 'Autonomie'],
+    languages: languages.length ? languages : ['FranÃ§ais'],
     interests: ['Innovation', 'Design', 'Tech']
   }
 }
@@ -177,7 +177,7 @@ function EditableList({ items, onChange, className }) {
               onChange={(val) => handleChange(idx, val)}
               className="outline-none"
               tag="span"
-              placeholder="Tâche"
+              placeholder="TÃ¢che"
             />
           </span>
           {items.length > 1 && (
@@ -212,7 +212,7 @@ export default function Niveau17() {
   const [qualities, setQualities] = useState([''])
   const [skills, setSkills] = useState([''])
   const [skillSuggestions, setSkillSuggestions] = useState([])
-  const [languagesInput, setLanguagesInput] = useState('')
+  const [languages, setLanguages] = useState([''])
   const [savingInfo, setSavingInfo] = useState(false)
   const [saveError, setSaveError] = useState('')
 
@@ -226,6 +226,8 @@ export default function Niveau17() {
   const [uploadingPdf, setUploadingPdf] = useState(false)
   const [finishing, setFinishing] = useState(false)
   const cvRef = useRef(null)
+  const cvWrapperRef = useRef(null)
+  const [cvScale, setCvScale] = useState(1)
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -255,18 +257,20 @@ export default function Niveau17() {
             .from('user_results')
             .select('skills_assessment')
             .eq('user_id', user.id)
+            .eq('questionnaire_type', 'inscription')
             .order('created_at', { ascending: false })
             .limit(1)
-            .single()
+            .maybeSingle()
 
           if (userResultsData?.skills_assessment) {
             const raw = String(userResultsData.skills_assessment)
             const suggestions = raw
               .split(/\r?\n/)
-              .map((line) => line.replace(/^[\s*•-]+/, '').trim())
+              .map((line) => line.replace(/^[\s*â€¢-]+/, '').trim())
               .filter((line) => line.includes(':'))
               .map((line) => line.split(':')[0].replace(/\*/g, '').trim())
               .filter(Boolean)
+              .filter((s) => !/Ã©valuation|compÃ©tences clÃ©s|voici/i.test(s))
             if (mounted) setSkillSuggestions(suggestions)
           }
         } catch (e) {
@@ -290,13 +294,13 @@ export default function Niveau17() {
   const steps = useMemo(() => ([
     { type: 'text', text: `On rentre dans le dur ${firstName}, c'est surement l'un des niveaux les plus long`, durationMs: 2600 },
     { type: 'text', text: "On va faire ton CV, bon c'est moi qui vais le faire mais il faut que tu m'aides!", durationMs: 2600 },
-    { type: 'form', key: 'experience', text: 'Dit moi tes expériences professionnelles passées (stage, alternance, job etc..)', durationMs: 2200 },
-    { type: 'form', key: 'target', text: 'Pour quel métier souhaite tu postuler ?', durationMs: 1800 },
+    { type: 'form', key: 'experience', text: 'Dit moi tes expÃ©riences professionnelles passÃ©es (stage, alternance, job etc..)', durationMs: 2200 },
+    { type: 'form', key: 'target', text: 'Pour quel mÃ©tier souhaite tu postuler ?', durationMs: 1800 },
     { type: 'form', key: 'education', text: 'Donne moi maintenant ton parcours scolaire', durationMs: 2000 },
-    { type: 'form', key: 'qualities', text: 'Donne moi tes qualités principales', durationMs: 1800 },
-    { type: 'form', key: 'skills', text: "Si tu as des compétences particulières, liste les moi ici (gestion d'un logiciel par exemple)", durationMs: 2200 },
-    { type: 'form', key: 'languages', text: 'Langues maitrisées', durationMs: 1800 },
-    { type: 'final', key: 'final', text: 'Merci, je génère ton cv ! Clique sur le bouton : Générer mon CV.', durationMs: 2000 }
+    { type: 'form', key: 'qualities', text: 'Donne moi tes qualitÃ©s principales', durationMs: 1800 },
+    { type: 'form', key: 'skills', text: "Si tu as des compÃ©tences particuliÃ¨res, liste les moi ici (gestion d'un logiciel par exemple)", durationMs: 2200 },
+    { type: 'form', key: 'languages', text: 'Langues maitrisÃ©es', durationMs: 1800 },
+    { type: 'final', key: 'final', text: 'Merci, je gÃ©nÃ¨re ton cv ! Clique sur le bouton : GÃ©nÃ©rer mon CV.', durationMs: 2000 }
   ]), [firstName])
 
   const current = steps[Math.min(step, steps.length - 1)]
@@ -348,7 +352,7 @@ export default function Niveau17() {
       await usersAPI.saveExtraInfo(entries)
     } catch (err) {
       console.warn('Extra info save failed', err)
-      setSaveError('Impossible de sauvegarder les réponses. Réessaie plus tard.')
+      setSaveError('Impossible de sauvegarder les rÃ©ponses. RÃ©essaie plus tard.')
     } finally {
       setSavingInfo(false)
     }
@@ -368,14 +372,14 @@ export default function Niveau17() {
       cleanCompanies.forEach((answer, idx) => {
         entries.push({
           question_id: `niveau17_experience_company_${idx + 1}`,
-          question_text: 'Expérience professionnelle - Entreprise',
+          question_text: 'ExpÃ©rience professionnelle - Entreprise',
           answer_text: answer
         })
       })
       cleanRoles.forEach((answer, idx) => {
         entries.push({
           question_id: `niveau17_experience_role_${idx + 1}`,
-          question_text: 'Expérience professionnelle - Fonction exercée',
+          question_text: 'ExpÃ©rience professionnelle - Fonction exercÃ©e',
           answer_text: answer
         })
       })
@@ -385,7 +389,7 @@ export default function Niveau17() {
       if (targetJob.trim()) {
         entries.push({
           question_id: 'niveau17_target_job',
-          question_text: 'Métier visé',
+          question_text: 'MÃ©tier visÃ©',
           answer_text: targetJob.trim()
         })
       }
@@ -405,7 +409,7 @@ export default function Niveau17() {
       qualities.map((item) => item.trim()).filter(Boolean).forEach((answer, idx) => {
         entries.push({
           question_id: `niveau17_qualities_${idx + 1}`,
-          question_text: 'Qualités principales',
+          question_text: 'QualitÃ©s principales',
           answer_text: answer
         })
       })
@@ -415,20 +419,20 @@ export default function Niveau17() {
       skills.map((item) => item.trim()).filter(Boolean).forEach((answer, idx) => {
         entries.push({
           question_id: `niveau17_skills_${idx + 1}`,
-          question_text: 'Compétences particulières',
+          question_text: 'CompÃ©tences particuliÃ¨res',
           answer_text: answer
         })
       })
     }
 
     if (key === 'languages') {
-      if (languagesInput.trim()) {
+      languages.map((item) => item.trim()).filter(Boolean).forEach((answer, idx) => {
         entries.push({
-          question_id: 'niveau17_languages',
-          question_text: 'Langues maitrisées',
-          answer_text: languagesInput.trim()
+          question_id: `niveau17_languages_${idx + 1}`,
+          question_text: 'Langues maitrisÃ©es',
+          answer_text: answer
         })
-      }
+      })
     }
 
     await saveExtraInfo(entries)
@@ -445,7 +449,7 @@ export default function Niveau17() {
       const cleanEducation = education.map((e) => e.trim()).filter(Boolean)
       const cleanQualities = qualities.map((q) => q.trim()).filter(Boolean)
       const cleanSkills = skills.map((s) => s.trim()).filter(Boolean)
-      const cleanLanguages = toListFromInput(languagesInput)
+      const cleanLanguages = languages.map((l) => l.trim()).filter(Boolean)
 
       const payload = {
         name: `${profile?.first_name || profile?.prenom || ''} ${profile?.last_name || profile?.nom || ''}`.trim(),
@@ -464,15 +468,15 @@ export default function Niveau17() {
       }
 
       const message =
-        `Tu es un expert RH. Génère un CV complet en français, avec des expériences enrichies (tâches, résultats) et un résumé professionnel.\n` +
+        `Tu es un expert RH. GÃ©nÃ¨re un CV complet en franÃ§ais, avec des expÃ©riences enrichies (tÃ¢ches, rÃ©sultats) et un rÃ©sumÃ© professionnel.\n` +
         `Informations utilisateur:\n${JSON.stringify(payload, null, 2)}\n\n` +
         `Contraintes STRICTES :\n` +
-        `- Réponds UNIQUEMENT en JSON valide (sans Markdown).\n` +
+        `- RÃ©ponds UNIQUEMENT en JSON valide (sans Markdown).\n` +
         `- Structure attendue : {"fullName":"","title":"","summary":"","experiences":[{"company":"","role":"","period":"","details":["","","..."]}],"education":[{"title":"","period":"","details":["",""]}],"skills":[""],"qualities":[""],"languages":[""],"interests":[""]}\n` +
-        `- IMPORTANT : Chaque élément de "details" doit faire MAXIMUM 60 caractères. Sois concis et percutant.\n` +
-        `- Maximum 3 tâches par expérience, 2 détails par formation.\n` +
-        `- Ajoute des détails concrets pour remplir une page A4, sans inventer d'entreprise si aucune n'est fournie (utilise "Projet personnel").\n` +
-        `- Sois concis, professionnel, et évite toute phrase d'introduction ou de conclusion.`
+        `- IMPORTANT : Chaque Ã©lÃ©ment de "details" doit faire MAXIMUM 60 caractÃ¨res. Sois concis et percutant.\n` +
+        `- Maximum 3 tÃ¢ches par expÃ©rience, 2 dÃ©tails par formation.\n` +
+        `- Ajoute des dÃ©tails concrets pour remplir une page A4, sans inventer d'entreprise si aucune n'est fournie (utilise "Projet personnel").\n` +
+        `- Sois concis, professionnel, et Ã©vite toute phrase d'introduction ou de conclusion.`
 
       const resp = await apiClient.post('/chat/ai', {
         mode: 'advisor',
@@ -509,11 +513,24 @@ export default function Niveau17() {
       setCvData(cv)
     } catch (err) {
       console.error('CV generation error', err)
-      setGenerateError('Impossible de générer le CV. Réessaie.')
+      setGenerateError('Impossible de gÃ©nÃ©rer le CV. RÃ©essaie.')
     } finally {
       setGenerating(false)
     }
   }
+
+  // Keep the CV scaled to fit its container regardless of browser zoom
+  useEffect(() => {
+    const wrapper = cvWrapperRef.current
+    if (!wrapper) return
+    const observer = new ResizeObserver(() => {
+      const wrapperWidth = wrapper.clientWidth
+      const CV_FIXED_WIDTH = 794
+      setCvScale(Math.min(1, wrapperWidth / CV_FIXED_WIDTH))
+    })
+    observer.observe(wrapper)
+    return () => observer.disconnect()
+  }, [cvData])
 
   const onPhotoChange = (event) => {
     const file = event.target.files?.[0]
@@ -531,11 +548,36 @@ export default function Niveau17() {
     setPdfUrl('')
     try {
       document.activeElement?.blur?.()
-      const canvas = await html2canvas(cvRef.current, {
-        scale: 2,
+
+      // Temporarily remove scale transform so html2canvas captures at full resolution
+      const el = cvRef.current
+      const savedTransform = el.style.transform
+      const savedTransformOrigin = el.style.transformOrigin
+      const wrapper = cvWrapperRef.current
+      const savedOverflow = wrapper ? wrapper.style.overflow : ''
+      const savedHeight = wrapper ? wrapper.style.height : ''
+      el.style.transform = 'none'
+      el.style.transformOrigin = ''
+      if (wrapper) {
+        wrapper.style.overflow = 'visible'
+        wrapper.style.height = 'auto'
+      }
+
+      const canvas = await html2canvas(el, {
+        scale: 3,
         useCORS: true,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        width: 794,
+        height: 1123
       })
+
+      // Restore scale transform
+      el.style.transform = savedTransform
+      el.style.transformOrigin = savedTransformOrigin
+      if (wrapper) {
+        wrapper.style.overflow = savedOverflow
+        wrapper.style.height = savedHeight
+      }
       const imgData = canvas.toDataURL('image/png', 1.0)
 
       const JsPDF = await loadJsPdf()
@@ -609,7 +651,7 @@ export default function Niveau17() {
           await usersAPI.saveExtraInfo([
             {
               question_id: 'niveau17_cv_data',
-              question_text: 'CV - Données JSON',
+              question_text: 'CV - DonnÃ©es JSON',
               answer_text: JSON.stringify(cvData)
             }
           ])
@@ -631,7 +673,7 @@ export default function Niveau17() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargement…</p>
+        <p className="mt-2 text-text-secondary">Chargementâ€¦</p>
       </div>
     )
   }
@@ -646,17 +688,18 @@ export default function Niveau17() {
 
   const phone = profile?.phone_number || profile?.numero_telephone || profile?.numeroTelephone || ''
   const location = profile?.department || profile?.departement || profile?.city || ''
+  const singleColumnAfterGeneration = Boolean(cvData)
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-6 items-start">
+    <div className="p-2 md:p-6">
+      <div className={`grid grid-cols-1 ${singleColumnAfterGeneration ? '' : 'xl:grid-cols-[1fr_1.4fr]'} gap-6 items-start`}>
         {/* Left: Avatar + Dialogue */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+          <div className={`flex flex-col ${singleColumnAfterGeneration ? '' : 'xl:flex-row xl:items-start'} items-center gap-6`}>
             <img
               src={avatarUrl}
               alt="Avatar"
-              className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-52 lg:h-52 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto md:mx-0"
+              className={`w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 ${singleColumnAfterGeneration ? '' : 'xl:w-52 xl:h-52 xl:mx-0'} rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto`}
             />
             <div className="flex-1 w-full">
               <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
@@ -693,13 +736,13 @@ export default function Niveau17() {
 
           {current?.type === 'form' && current?.key === 'experience' && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Expérience professionnelle</h3>
+              <h3 className="text-lg font-semibold">ExpÃ©rience professionnelle</h3>
               {companies.map((company, idx) => (
                 <div key={`exp-${idx}`} className="relative grid grid-cols-1 md:grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => removeExperienceLine(idx)}
-                    aria-label="Supprimer cette expérience"
+                    aria-label="Supprimer cette expÃ©rience"
                     className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-700 hover:bg-gray-50"
                   ><FaXmark className="w-3 h-3" /></button>
                   <div>
@@ -713,7 +756,7 @@ export default function Niveau17() {
                     />
                   </div>
                   <div>
-                    <label className="text-sm text-text-secondary">Fonction exercée</label>
+                    <label className="text-sm text-text-secondary">Fonction exercÃ©e</label>
                     <input
                       type="text"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
@@ -738,20 +781,20 @@ export default function Niveau17() {
                 className="w-full mt-2 px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
                 disabled={savingInfo}
               >
-                {savingInfo ? 'Validation…' : 'Valider'}
+                {savingInfo ? 'Validationâ€¦' : 'Valider'}
               </button>
             </div>
           )}
 
           {current?.type === 'form' && current?.key === 'target' && (
             <div className="space-y-3">
-              <label className="text-sm text-text-secondary">Métier souhaité</label>
+              <label className="text-sm text-text-secondary">MÃ©tier souhaitÃ©</label>
               <input
                 type="text"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
                 value={targetJob}
                 onChange={(e) => setTargetJob(e.target.value)}
-                placeholder="Ex: Chargé(e) de projet"
+                placeholder="Ex: ChargÃ©(e) de projet"
               />
 
               <button
@@ -760,7 +803,7 @@ export default function Niveau17() {
                 className="w-full mt-2 px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
                 disabled={savingInfo}
               >
-                {savingInfo ? 'Validation…' : 'Valider'}
+                {savingInfo ? 'Validationâ€¦' : 'Valider'}
               </button>
             </div>
           )}
@@ -781,7 +824,7 @@ export default function Niveau17() {
                     className="w-full border border-gray-300 rounded-lg pl-3 pr-12 py-2 outline-none"
                     value={item}
                     onChange={(e) => updateList(setEducation, idx, e.target.value)}
-                    placeholder="Ex: BTS Communication, Lycée..."
+                    placeholder="Ex: BTS Communication, LycÃ©e..."
                   />
                 </div>
               ))}
@@ -799,65 +842,26 @@ export default function Niveau17() {
                 className="w-full mt-2 px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
                 disabled={savingInfo}
               >
-                {savingInfo ? 'Validation…' : 'Valider'}
+                {savingInfo ? 'Validationâ€¦' : 'Valider'}
               </button>
             </div>
           )}
 
           {current?.type === 'form' && current?.key === 'qualities' && (
             <div className="space-y-3">
-              <h3 className="text-lg font-semibold">Qualités principales</h3>
-              {qualities.map((item, idx) => (
-                <div key={`qual-${idx}`} className="relative">
-                  <button
-                    type="button"
-                    onClick={() => removeLine(setQualities, idx)}
-                    aria-label="Supprimer cette ligne"
-                    className="absolute top-1/2 -translate-y-1/2 right-2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-700 hover:bg-gray-50"
-                  ><FaXmark className="w-3 h-3" /></button>
-                  <input
-                    type="text"
-                    className="w-full border border-gray-300 rounded-lg pl-3 pr-12 py-2 outline-none"
-                    value={item}
-                    onChange={(e) => updateList(setQualities, idx, e.target.value)}
-                    placeholder="Ex: Organisé(e), créatif(ve)"
-                  />
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => addLine(setQualities)}
-                className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300"
-              >
-                Ajouter une ligne
-              </button>
-
-              <button
-                type="button"
-                onClick={onValidateForm}
-                className="w-full mt-2 px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
-                disabled={savingInfo}
-              >
-                {savingInfo ? 'Validation…' : 'Valider'}
-              </button>
-            </div>
-          )}
-
-          {current?.type === 'form' && current?.key === 'skills' && (
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold">Compétences particulières</h3>
+              <h3 className="text-lg font-semibold">QualitÃ©s principales</h3>
 
               {/* Suggestion bubbles from skills_assessment */}
               {skillSuggestions.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Suggestions basées sur ton profil</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Suggestions basÃ©es sur ton profil</p>
                   <div className="flex flex-wrap gap-2">
                     {skillSuggestions.map((suggestion) => (
                       <button
                         key={suggestion}
                         type="button"
                         onClick={() => {
-                          setSkills((prev) => {
+                          setQualities((prev) => {
                             const hasEmpty = prev.some((s) => !s.trim())
                             if (hasEmpty) {
                               const idx = prev.findIndex((s) => !s.trim())
@@ -877,6 +881,46 @@ export default function Niveau17() {
                   </div>
                 </div>
               )}
+
+              {qualities.map((item, idx) => (
+                <div key={`qual-${idx}`} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => removeLine(setQualities, idx)}
+                    aria-label="Supprimer cette ligne"
+                    className="absolute top-1/2 -translate-y-1/2 right-2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-700 hover:bg-gray-50"
+                  ><FaXmark className="w-3 h-3" /></button>
+                  <input
+                    type="text"
+                    className="w-full border border-gray-300 rounded-lg pl-3 pr-12 py-2 outline-none"
+                    value={item}
+                    onChange={(e) => updateList(setQualities, idx, e.target.value)}
+                    placeholder="Ex: OrganisÃ©(e), crÃ©atif(ve)"
+                  />
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => addLine(setQualities)}
+                className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300"
+              >
+                Ajouter une ligne
+              </button>
+
+              <button
+                type="button"
+                onClick={onValidateForm}
+                className="w-full mt-2 px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
+                disabled={savingInfo}
+              >
+                {savingInfo ? 'Validationâ€¦' : 'Valider'}
+              </button>
+            </div>
+          )}
+
+          {current?.type === 'form' && current?.key === 'skills' && (
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold">CompÃ©tences particuliÃ¨res</h3>
 
               {skills.map((item, idx) => (
                 <div key={`skill-${idx}`} className="relative">
@@ -909,21 +953,38 @@ export default function Niveau17() {
                 className="w-full mt-2 px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
                 disabled={savingInfo}
               >
-                {savingInfo ? 'Validation…' : 'Valider'}
+                {savingInfo ? 'Validationâ€¦' : 'Valider'}
               </button>
             </div>
           )}
 
           {current?.type === 'form' && current?.key === 'languages' && (
             <div className="space-y-3">
-              <label className="text-sm text-text-secondary">Langues maitrisées</label>
-              <input
-                type="text"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
-                value={languagesInput}
-                onChange={(e) => setLanguagesInput(e.target.value)}
-                placeholder="Ex: Français, Anglais B2"
-              />
+              <h3 className="text-lg font-semibold">Langues maitrisÃ©es</h3>
+              {languages.map((item, idx) => (
+                <div key={`lang-${idx}`} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => removeLine(setLanguages, idx)}
+                    aria-label="Supprimer cette ligne"
+                    className="absolute top-1/2 -translate-y-1/2 right-2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-700 hover:bg-gray-50"
+                  ><FaXmark className="w-3 h-3" /></button>
+                  <input
+                    type="text"
+                    className="w-full border border-gray-300 rounded-lg pl-3 pr-12 py-2 outline-none"
+                    value={item}
+                    onChange={(e) => updateList(setLanguages, idx, e.target.value)}
+                    placeholder="Ex: FranÃ§ais C2, Anglais B2"
+                  />
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => addLine(setLanguages)}
+                className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300"
+              >
+                Ajouter une ligne
+              </button>
 
               <button
                 type="button"
@@ -931,7 +992,7 @@ export default function Niveau17() {
                 className="w-full mt-2 px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
                 disabled={savingInfo}
               >
-                {savingInfo ? 'Validation…' : 'Valider'}
+                {savingInfo ? 'Validationâ€¦' : 'Valider'}
               </button>
             </div>
           )}
@@ -973,7 +1034,7 @@ export default function Niveau17() {
                 className="w-full px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200"
                 disabled={generating}
               >
-                {generating ? 'Génération…' : 'Générer mon CV'}
+                {generating ? 'GÃ©nÃ©rationâ€¦' : 'GÃ©nÃ©rer mon CV'}
               </button>
 
               {generateError && (
@@ -991,7 +1052,7 @@ export default function Niveau17() {
                   className="px-4 py-2 rounded-lg bg-black text-white"
                   disabled={exporting}
                 >
-                  {exporting ? 'Création du PDF…' : 'Télécharger en PDF'}
+                  {exporting ? 'CrÃ©ation du PDFâ€¦' : 'TÃ©lÃ©charger en PDF'}
                 </button>
                 <button
                   type="button"
@@ -999,9 +1060,9 @@ export default function Niveau17() {
                   className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300"
                   disabled={finishing}
                 >
-                  {finishing ? 'Validation…' : 'Terminer le niveau'}
+                  {finishing ? 'Validationâ€¦' : 'Terminer le niveau'}
                 </button>
-                {uploadingPdf && <span className="text-sm text-text-secondary">Upload Cloudinary…</span>}
+                {uploadingPdf && <span className="text-sm text-text-secondary">Upload Cloudinaryâ€¦</span>}
                 {pdfUrl && (
                   <a href={pdfUrl} target="_blank" rel="noreferrer" className="text-sm text-blue-600 underline">
                     Voir le PDF en ligne
@@ -1009,11 +1070,11 @@ export default function Niveau17() {
                 )}
               </div>
 
-              <div className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <div ref={cvWrapperRef} className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm" style={{ height: 1123 * cvScale }}>
                 <div
                   ref={cvRef}
-                  className="w-full aspect-[210/297] bg-white text-gray-900"
-                  style={{ fontFamily: '"Bricolage Grotesque", "Inter", "Segoe UI", Arial, sans-serif' }}
+                  className="bg-white text-gray-900"
+                  style={{ width: 794, height: 1123, fontFamily: '"Bricolage Grotesque", "Inter", "Segoe UI", Arial, sans-serif', transform: `scale(${cvScale})`, transformOrigin: 'top left' }}
                 >
                   <div className="grid grid-cols-[1fr_1.6fr] h-full">
                     <div className="h-full p-6 flex flex-col gap-6" style={{ background: accentSoft }}>
@@ -1033,14 +1094,14 @@ export default function Niveau17() {
                             onChange={(val) => setCvData((prev) => ({ ...prev, fullName: val }))}
                             className="text-xl font-bold"
                             tag="div"
-                            placeholder="Nom Prénom"
+                            placeholder="Nom PrÃ©nom"
                           />
                           <EditableText
                             value={cvData.title}
                             onChange={(val) => setCvData((prev) => ({ ...prev, title: val }))}
                             className="text-sm uppercase tracking-wide"
                             tag="div"
-                            placeholder="Métier visé"
+                            placeholder="MÃ©tier visÃ©"
                           />
                         </div>
                       </div>
@@ -1048,14 +1109,14 @@ export default function Niveau17() {
                       <div className="space-y-3">
                         <h4 className="text-xs font-bold uppercase" style={{ color: accentColor }}>Contact</h4>
                         <div className="text-xs space-y-1">
-                          <div>{phone || 'Téléphone'}</div>
+                          <div>{phone || 'TÃ©lÃ©phone'}</div>
                           <div>{userEmail || 'Email'}</div>
                           <div>{location || 'Localisation'}</div>
                         </div>
                       </div>
 
                       <div className="space-y-3">
-                        <h4 className="text-xs font-bold uppercase" style={{ color: accentColor }}>Compétences</h4>
+                        <h4 className="text-xs font-bold uppercase" style={{ color: accentColor }}>CompÃ©tences</h4>
                         <div className="flex flex-wrap gap-2">
                           {cvData.skills.map((skill, idx) => (
                             <EditableText
@@ -1068,13 +1129,13 @@ export default function Niveau17() {
                               })}
                               className="text-xs px-2 py-1 rounded-full border border-white"
                               tag="span"
-                              placeholder="Compétence"
+                              placeholder="CompÃ©tence"
                             />
                           ))}
                         </div>
                         <button
                           type="button"
-                          onClick={() => setCvData((prev) => ({ ...prev, skills: [...prev.skills, 'Nouvelle compétence'] }))}
+                          onClick={() => setCvData((prev) => ({ ...prev, skills: [...prev.skills, 'Nouvelle compÃ©tence'] }))}
                           className="text-xs underline"
                           data-html2canvas-ignore="true"
                         >
@@ -1083,7 +1144,7 @@ export default function Niveau17() {
                       </div>
 
                       <div className="space-y-3">
-                        <h4 className="text-xs font-bold uppercase" style={{ color: accentColor }}>Qualités</h4>
+                        <h4 className="text-xs font-bold uppercase" style={{ color: accentColor }}>QualitÃ©s</h4>
                         <EditableList
                           items={cvData.qualities}
                           onChange={(next) => setCvData((prev) => ({ ...prev, qualities: next }))}
@@ -1091,7 +1152,7 @@ export default function Niveau17() {
                         />
                         <button
                           type="button"
-                          onClick={() => setCvData((prev) => ({ ...prev, qualities: [...prev.qualities, 'Nouvelle qualité'] }))}
+                          onClick={() => setCvData((prev) => ({ ...prev, qualities: [...prev.qualities, 'Nouvelle qualitÃ©'] }))}
                           className="text-xs underline"
                           data-html2canvas-ignore="true"
                         >
@@ -1125,12 +1186,12 @@ export default function Niveau17() {
                           onChange={(val) => setCvData((prev) => ({ ...prev, summary: val }))}
                           className="text-sm mt-2 leading-relaxed"
                           tag="p"
-                          placeholder="Résumé professionnel"
+                          placeholder="RÃ©sumÃ© professionnel"
                         />
                       </div>
 
                       <div>
-                        <h2 className="text-lg font-bold" style={{ color: accentColor }}>Expérience professionnelle</h2>
+                        <h2 className="text-lg font-bold" style={{ color: accentColor }}>ExpÃ©rience professionnelle</h2>
                         <div className="space-y-4 mt-3">
                           {cvData.experiences.map((exp, idx) => (
                             <div key={`exp-${idx}`} className="space-y-1">
@@ -1212,7 +1273,7 @@ export default function Niveau17() {
                                   })}
                                   className="font-semibold"
                                   tag="span"
-                                  placeholder="Diplôme"
+                                  placeholder="DiplÃ´me"
                                 />
                                 <EditableText
                                   value={edu.period}
@@ -1240,14 +1301,14 @@ export default function Niveau17() {
                                 onClick={() => setCvData((prev) => {
                                   const next = [...prev.education]
                                   const details = Array.isArray(next[idx].details) ? [...next[idx].details] : []
-                                  details.push('Nouvel élément')
+                                  details.push('Nouvel Ã©lÃ©ment')
                                   next[idx] = { ...next[idx], details }
                                   return { ...prev, education: next }
                                 })}
                                 className="text-xs underline"
                                 data-html2canvas-ignore="true"
                               >
-                                Ajouter un détail
+                                Ajouter un dÃ©tail
                               </button>
                             </div>
                           ))}
@@ -1255,7 +1316,7 @@ export default function Niveau17() {
                       </div>
 
                       <div>
-                        <h2 className="text-lg font-bold" style={{ color: accentColor }}>Centres d'intérêt</h2>
+                        <h2 className="text-lg font-bold" style={{ color: accentColor }}>Centres d'intÃ©rÃªt</h2>
                         <div className="flex flex-wrap gap-2 mt-2">
                           {cvData.interests.map((interest, idx) => (
                             <EditableText
@@ -1268,13 +1329,13 @@ export default function Niveau17() {
                               })}
                               className="text-xs px-2 py-1 rounded-full border border-gray-200"
                               tag="span"
-                              placeholder="Intérêt"
+                              placeholder="IntÃ©rÃªt"
                             />
                           ))}
                         </div>
                         <button
                           type="button"
-                          onClick={() => setCvData((prev) => ({ ...prev, interests: [...prev.interests, 'Nouvel intérêt'] }))}
+                          onClick={() => setCvData((prev) => ({ ...prev, interests: [...prev.interests, 'Nouvel intÃ©rÃªt'] }))}
                           className="text-xs underline"
                           data-html2canvas-ignore="true"
                         >

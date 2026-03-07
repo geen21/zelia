@@ -131,8 +131,8 @@ export default function Niveau8() {
 
   const messages = useMemo(() => ([
     { text: "Welcome back ! Tu avances super bien. Si tu aimes le parcours et que tu apprends des choses, fais en profiter tes potes :)", durationMs: 2500 },
-    { text: "Tu peux leur partager directement le lien si tu penses que c'est intéressant et utile pour eux", durationMs: 2000 },
-    { text: "Reprenons avec cette petite vidéo sur la diversité des métiers. Tu as bientôt terminé le 1er bloc, bravo !", durationMs: 2500 }
+    { text: "Tu peux leur partager directement le lien si tu penses que c'est intÃƒÂ©ressant et utile pour eux", durationMs: 2000 },
+    { text: "Reprenons avec cette petite vidÃƒÂ©o sur la diversitÃƒÂ© des mÃƒÂ©tiers. Tu as bientÃƒÂ´t terminÃƒÂ© le 1er bloc, bravo !", durationMs: 2500 }
   ]), [])
 
   const current = messages[idx] || { text: '', durationMs: 1500 }
@@ -291,7 +291,7 @@ export default function Niveau8() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargement…</p>
+        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
       </div>
     )
   }
@@ -305,7 +305,7 @@ export default function Niveau8() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Left: Avatar + Dialogue */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
@@ -317,7 +317,7 @@ export default function Niveau8() {
                   {phase === 'intro' ? (
                     <>{typed}</>
                   ) : phase === 'watch' ? (
-                    <>Regarde la vidéo à droite, puis on continue.</>
+                    <>Regarde la vidÃƒÂ©o ÃƒÂ  droite, puis on continue.</>
                   ) : null}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
@@ -331,20 +331,12 @@ export default function Niveau8() {
                         onClick={handleCopyLink}
                         className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto text-center"
                       >
-                        {linkCopied ? 'Lien copié !' : 'Copier le lien'}
+                        {linkCopied ? 'Lien copiÃƒÂ© !' : 'Copier le lien'}
                       </button>
-                      <a
-                        href="https://zelia.io/register"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto text-center inline-block"
-                      >
-                        Créer un avatar
-                      </a>
                     </>
                   )}
                   <button onClick={next} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">
-                    {idx === messages.length - 1 ? 'Voir la vidéo' : 'Suivant'}
+                    {idx === messages.length - 1 ? 'Voir la vidÃƒÂ©o' : 'Suivant'}
                   </button>
                 </div>
               )}
@@ -356,10 +348,10 @@ export default function Niveau8() {
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaClapperboard className="w-5 h-5" /></div>
-            <h2 className="text-xl font-bold">Vidéo</h2>
+            <h2 className="text-xl font-bold">VidÃƒÂ©o</h2>
           </div>
           {phase !== 'watch' ? (
-            <div className="text-text-secondary">La vidéo apparaîtra ici.</div>
+            <div className="text-text-secondary">La vidÃƒÂ©o apparaÃƒÂ®tra ici.</div>
           ) : (
             <div>
               {/* API-rendered player for end detection */}
@@ -380,7 +372,7 @@ export default function Niveau8() {
                 />
               </noscript>
               <div className="mt-4">
-                <button onClick={finishLevel} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto">J'ai terminé la vidéo</button>
+                <button onClick={finishLevel} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto">J'ai terminÃƒÂ© la vidÃƒÂ©o</button>
               </div>
             </div>
           )}
@@ -392,10 +384,10 @@ export default function Niveau8() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 8 réussi !</h3>
-            <p className="text-text-secondary mb-4">Bravo, tu as regardé la vidéo sur la réalité de l’orientation.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 8 rÃƒÂ©ussi !</h3>
+            <p className="text-text-secondary mb-4">Bravo, tu as regardÃƒÂ© la vidÃƒÂ©o sur la rÃƒÂ©alitÃƒÂ© de lÃ¢â‚¬â„¢orientation.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
               <button onClick={() => navigate('/app/niveau/9')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

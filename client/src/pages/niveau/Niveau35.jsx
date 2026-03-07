@@ -86,8 +86,8 @@ export default function Niveau35() {
   }, [navigate])
 
   const messages = useMemo(() => ([
-    { text: `On va t'aider à te motiver, Nicolas de Zélia va te donner quelques conseils !`, durationMs: 2600 },
-    { text: `Je te laisse avec la vidéo : ${VIDEO_TITLE}, ça t'aidera peut-être.`, durationMs: 2400 },
+    { text: `On va t'aider ÃƒÂ  te motiver, Nicolas de ZÃƒÂ©lia va te donner quelques conseils !`, durationMs: 2600 },
+    { text: `Je te laisse avec la vidÃƒÂ©o : ${VIDEO_TITLE}, ÃƒÂ§a t'aidera peut-ÃƒÂªtre.`, durationMs: 2400 },
   ]), [])
 
   const current = messages[idx] || { text: '', durationMs: 1500 }
@@ -177,7 +177,7 @@ export default function Niveau35() {
         await usersAPI.saveExtraInfo([
           {
             question_id: 'niveau35_video_completed',
-            question_text: 'Vidéo motivation',
+            question_text: 'VidÃƒÂ©o motivation',
             answer_text: JSON.stringify({
               videoId: VIDEO_ID,
               videoTitle: VIDEO_TITLE,
@@ -197,7 +197,7 @@ export default function Niveau35() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargement…</p>
+        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
       </div>
     )
   }
@@ -211,7 +211,7 @@ export default function Niveau35() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
@@ -219,7 +219,7 @@ export default function Niveau35() {
             <div className="flex-1 w-full">
               <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
-                  {phase === 'intro' ? typed : phase === 'watch' ? 'Regarde la vidéo à droite, puis termine le niveau.' : null}
+                  {phase === 'intro' ? typed : phase === 'watch' ? 'Regarde la vidÃƒÂ©o ÃƒÂ  droite, puis termine le niveau.' : null}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
               </div>
@@ -227,7 +227,7 @@ export default function Niveau35() {
               {phase === 'intro' && (
                 <div className="mt-4">
                   <button onClick={next} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">
-                    {idx === messages.length - 1 ? 'Voir la vidéo' : 'Suivant'}
+                    {idx === messages.length - 1 ? 'Voir la vidÃƒÂ©o' : 'Suivant'}
                   </button>
                 </div>
               )}
@@ -238,10 +238,10 @@ export default function Niveau35() {
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">35</div>
-            <h2 className="text-xl font-bold">Vidéo</h2>
+            <h2 className="text-xl font-bold">VidÃƒÂ©o</h2>
           </div>
           {phase !== 'watch' ? (
-            <div className="text-text-secondary">La vidéo apparaîtra ici.</div>
+            <div className="text-text-secondary">La vidÃƒÂ©o apparaÃƒÂ®tra ici.</div>
           ) : (
             <div>
               <div className="relative w-full overflow-hidden rounded-xl" style={{ paddingTop: '56.25%' }}>
@@ -260,7 +260,7 @@ export default function Niveau35() {
                 />
               </noscript>
               <div className="mt-4">
-                <button onClick={finishLevel} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto">J'ai terminé la vidéo</button>
+                <button onClick={finishLevel} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto">J'ai terminÃƒÂ© la vidÃƒÂ©o</button>
               </div>
             </div>
           )}
@@ -271,10 +271,10 @@ export default function Niveau35() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce font-bold">35</div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 35 terminé !</h3>
-            <p className="text-text-secondary mb-4">Bravo, tu as regardé la vidéo.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 35 terminÃƒÂ© !</h3>
+            <p className="text-text-secondary mb-4">Bravo, tu as regardÃƒÂ© la vidÃƒÂ©o.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
               <button onClick={() => navigate('/app/niveau/36')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Niveau suivant</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

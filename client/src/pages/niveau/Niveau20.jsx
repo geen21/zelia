@@ -83,7 +83,7 @@ function extractJson(raw) {
 
 function formatExtraInfos(entries) {
   return (entries || [])
-    .map((row) => `- [${row.question_id}] ${row.question_text || 'Question'}: ${row.answer_text || 'Ã¢â‚¬â€'}`)
+    .map((row) => `- [${row.question_id}] ${row.question_text || 'Question'}: ${row.answer_text || '—'}`)
     .join('\n')
 }
 
@@ -121,7 +121,7 @@ function buildFallbackSummary(entries) {
       const bi = Number(String(b.question_id).split('_').pop()) || 0
       return ai - bi
     })
-    .map((row, idx) => `${idx + 1}. ${row?.answer_text || 'Ã¢â‚¬â€'}`)
+    .map((row, idx) => `${idx + 1}. ${row?.answer_text || '—'}`)
 
   let n18Source = ''
   const rawSource = getAnswer('niveau18_jobs_source')
@@ -146,11 +146,11 @@ function buildFallbackSummary(entries) {
   const n19First = n19Items.length ? n19Items[0] : 'Non disponible'
 
   const summary = [
-    `Tu as surtout explorÃƒÂ© ${n11Top3} avec un focus mÃƒÂ©tier sur ${n12Job}.`,
-    `Ton pitch est ÃƒÂ©valuÃƒÂ© ÃƒÂ  ${n13Pitch}, et ta lettre cible le mÃƒÂ©tier ${n14Job}.`,
-    `CÃƒÂ´tÃƒÂ© CV, tu as travaillÃƒÂ© ${n17Target} (${n17Languages})${n17Pdf !== 'Non disponible' ? ' avec un PDF exportÃƒÂ©' : ''}.`,
-    `${n18Source ? `Dans les pistes mÃƒÂ©tiers (${n18Source}), ` : ''}ta prioritÃƒÂ© ressort sur ${topN18}.`,
-    `Prochain axe d'amÃƒÂ©lioration: ${n19First}.`
+    `Tu as surtout exploré ${n11Top3} avec un focus métier sur ${n12Job}.`,
+    `Ton pitch est évalué à ${n13Pitch}, et ta lettre cible le métier ${n14Job}.`,
+    `Côté CV, tu as travaillé ${n17Target} (${n17Languages})${n17Pdf !== 'Non disponible' ? ' avec un PDF exporté' : ''}.`,
+    `${n18Source ? `Dans les pistes métiers (${n18Source}), ` : ''}ta priorité ressort sur ${topN18}.`,
+    `Prochain axe d'amélioration: ${n19First}.`
   ].join('\n')
 
   return { summary: cleanBilanSummary(summary) }
@@ -215,7 +215,7 @@ export default function Niveau20() {
   }, [navigate])
 
   const bubble = useMemo(() => {
-    if (phase === STEP_INTRO) return { text: "C'est le moment de faire le bilan des niveaux 11 ÃƒÂ  19", durationMs: 1600 }
+    if (phase === STEP_INTRO) return { text: "C'est le moment de faire le bilan des niveaux 11 à 19", durationMs: 1600 }
     return { text: 'Ok voici ton bilan', durationMs: 900 }
   }, [phase])
 
@@ -225,10 +225,10 @@ export default function Niveau20() {
     setBilanError('')
     setBilanLoading(true)
     try {
-      // Si aucune donnÃƒÂ©e des niveaux 11-19, afficher un message explicite
+      // Si aucune donnée des niveaux 11-19, afficher un message explicite
       if (!extraInfos || extraInfos.length === 0) {
         setBilan({ 
-          summary: 'Aucune donnÃƒÂ©e des niveaux 11 ÃƒÂ  19 n\'a ÃƒÂ©tÃƒÂ© trouvÃƒÂ©e. Termine d\'abord les niveaux prÃƒÂ©cÃƒÂ©dents pour obtenir un bilan personnalisÃƒÂ©.'
+          summary: 'Aucune donnée des niveaux 11 à 19 n\'a été trouvée. Termine d\'abord les niveaux précédents pour obtenir un bilan personnalisé.'
         })
         setBilanLoading(false)
         return
@@ -236,14 +236,14 @@ export default function Niveau20() {
 
       const context = formatExtraInfos(extraInfos)
       const message =
-        `Tu dois produire un rÃƒÂ©sumÃƒÂ© trÃƒÂ¨s court des niveaux 11 ÃƒÂ  19 ÃƒÂ  partir des informations ci-dessous.\n` +
-        `RÃƒÂ©ponds UNIQUEMENT en JSON valide au format suivant :\n` +
+        `Tu dois produire un résumé très court des niveaux 11 à 19 à partir des informations ci-dessous.\n` +
+        `Réponds UNIQUEMENT en JSON valide au format suivant :\n` +
         `{"summary":""}\n` +
         `Contraintes:\n` +
         `- 5 phrases maximum, style clair et concret.\n` +
-        `- Inclure briÃƒÂ¨vement: classement mÃƒÂ©tiers (N11/N18), lettre (N14), points positifs/nÃƒÂ©gatifs (N15), CV (N17), amÃƒÂ©lioration (N19).\n` +
-        `- Ne recopie pas les donnÃƒÂ©es brutes, synthÃƒÂ©tise.\n` +
-        `DonnÃƒÂ©es:\n${context}`
+        `- Inclure brièvement: classement métiers (N11/N18), lettre (N14), points positifs/négatifs (N15), CV (N17), amélioration (N19).\n` +
+        `- Ne recopie pas les données brutes, synthétise.\n` +
+        `Données:\n${context}`
 
       const resp = await apiClient.post('/chat/ai', {
         mode: 'advisor',
@@ -283,7 +283,7 @@ export default function Niveau20() {
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau20 levelUp failed', e)
-      setBilanError('Impossible de valider le niveau pour le moment. RÃƒÂ©essaie.')
+      setBilanError('Impossible de valider le niveau pour le moment. Réessaie.')
     } finally {
       setFinishing(false)
     }
@@ -293,7 +293,7 @@ export default function Niveau20() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
+        <p className="mt-2 text-text-secondary">Chargement…</p>
       </div>
     )
   }
@@ -360,17 +360,17 @@ export default function Niveau20() {
           </div>
 
           {!showBilan ? (
-            <div className="text-text-secondary">RÃƒÂ©ponds au dialogue pour voir ton bilan.</div>
+            <div className="text-text-secondary">Réponds au dialogue pour voir ton bilan.</div>
           ) : bilanLoading ? (
             <div className="text-center">
               <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-              <p className="mt-2 text-text-secondary">GÃƒÂ©nÃƒÂ©ration de ton bilanÃ¢â‚¬Â¦</p>
+              <p className="mt-2 text-text-secondary">Génération de ton bilan…</p>
             </div>
           ) : bilanError ? (
             <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">{bilanError}</div>
           ) : (
             <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <div className="font-semibold">RÃƒÂ©sumÃƒÂ©</div>
+              <div className="font-semibold">Résumé</div>
               <div className="mt-2 whitespace-pre-wrap text-text-secondary">
                 {summary || 'Non disponible'}
               </div>
@@ -383,10 +383,10 @@ export default function Niveau20() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 20 rÃƒÂ©ussi !</h3>
-            <p className="text-text-secondary mb-4">Tu as terminÃƒÂ© cette ÃƒÂ©tape avec succÃƒÂ¨s.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 20 réussi !</h3>
+            <p className="text-text-secondary mb-4">Tu as terminé cette étape avec succès.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/21')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

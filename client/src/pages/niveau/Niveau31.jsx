@@ -228,7 +228,7 @@ export default function Niveau31() {
       await usersAPI.saveExtraInfo([
         {
           question_id: 'niveau31_game_completed',
-          question_text: 'Jeu mÃƒÂ©tiers et dÃƒÂ©bouchÃƒÂ©s',
+          question_text: 'Jeu métiers et débouchés',
           answer_text: JSON.stringify({
             score: `${correctCount}/${totalCount}`,
             correctJobs,

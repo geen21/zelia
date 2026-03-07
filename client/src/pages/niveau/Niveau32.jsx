@@ -65,9 +65,9 @@ export default function Niveau32() {
   const firstName = profile?.first_name || 'toi'
 
   const dialogues = useMemo(() => [
-    { text: `${firstName}, on va dÃƒÂ©velopper quelques idÃƒÂ©es de projets ensemble.`, durationMs: 2200 },
-    { text: `C'est super important pour apprendre et te dÃƒÂ©marquer !`, durationMs: 2000 },
-    { text: `Voici une petite liste de projets qui pourraient t'intÃƒÂ©resser...`, durationMs: 2000 },
+    { text: `${firstName}, on va développer quelques idées de projets ensemble.`, durationMs: 2200 },
+    { text: `C'est super important pour apprendre et te démarquer !`, durationMs: 2000 },
+    { text: `Voici une petite liste de projets qui pourraient t'intéresser...`, durationMs: 2000 },
   ], [firstName])
 
   const currentDialogue = dialogues[dialogueIdx] || { text: '', durationMs: 1500 }
@@ -115,12 +115,12 @@ export default function Niveau32() {
               if (Array.isArray(list) && list.length > 0) {
                 // Use first recommendation title
                 const title = list[0]?.title || list[0]?.intitule || (typeof list[0] === 'string' ? list[0] : '')
-                jobForProjects = title || 'un mÃƒÂ©tier crÃƒÂ©atif'
+                jobForProjects = title || 'un métier créatif'
               }
             }
           } catch (e) {
             console.warn('Could not fetch job recommendations from user_results:', e)
-            jobForProjects = 'un mÃƒÂ©tier crÃƒÂ©atif'
+            jobForProjects = 'un métier créatif'
           }
         }
 
@@ -147,13 +147,13 @@ export default function Niveau32() {
   const generateProjects = async () => {
     setLoadingProjects(true)
     try {
-      const prompt = `L'ÃƒÂ©lÃƒÂ¨ve souhaite devenir "${targetJob}".
-Propose 3 idÃƒÂ©es de mini-projets ÃƒÂ©tudiants simples et rÃƒÂ©alisables pour dÃƒÂ©couvrir ce mÃƒÂ©tier.
-Chaque idÃƒÂ©e doit ÃƒÂªtre trÃƒÂ¨s courte (5 mots maximum).
+      const prompt = `L'élève souhaite devenir "${targetJob}".
+Propose 3 idées de mini-projets étudiants simples et réalisables pour découvrir ce métier.
+Chaque idée doit être très courte (5 mots maximum).
 
-RÃƒÂ©ponds en JSON strict : un tableau de 3 strings.
-Exemple pour dÃƒÂ©veloppeur web: ["CrÃƒÂ©er un site web", "Coder un jeu Snake", "Faire une app mobile"]
-RÃƒÂ©ponds UNIQUEMENT avec le JSON, sans texte autour.`
+Réponds en JSON strict : un tableau de 3 strings.
+Exemple pour développeur web: ["Créer un site web", "Coder un jeu Snake", "Faire une app mobile"]
+Réponds UNIQUEMENT avec le JSON, sans texte autour.`
 
       const resp = await apiClient.post('/chat/ai', {
         mode: 'advisor',
@@ -175,14 +175,14 @@ RÃƒÂ©ponds UNIQUEMENT avec le JSON, sans texte autour.`
       
       // Fallback projects
       setProjects([
-        'CrÃƒÂ©er un portfolio personnel',
+        'Créer un portfolio personnel',
         'Faire un mini prototype',
         'Observer un professionnel'
       ])
     } catch (e) {
       console.error('Project generation error:', e)
       setProjects([
-        'CrÃƒÂ©er un portfolio personnel',
+        'Créer un portfolio personnel',
         'Faire un mini prototype',
         'Observer un professionnel'
       ])
@@ -214,7 +214,7 @@ RÃƒÂ©ponds UNIQUEMENT avec le JSON, sans texte autour.`
       await usersAPI.saveExtraInfo([
         {
           question_id: 'niveau32_projects_completed',
-          question_text: 'Mini-projets ÃƒÂ©tudiants',
+          question_text: 'Mini-projets étudiants',
           answer_text: JSON.stringify({
             targetJob,
             projectIdeas: projects,
@@ -261,9 +261,9 @@ RÃƒÂ©ponds UNIQUEMENT avec le JSON, sans texte autour.`
               <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
                   {phase === 'intro' && typed}
-                  {phase === 'projects' && !loadingProjects && `Est-ce que ÃƒÂ§a t'a donnÃƒÂ© des idÃƒÂ©es ?`}
-                  {phase === 'projects' && loadingProjects && 'Je rÃƒÂ©flÃƒÂ©chis ÃƒÂ  des idÃƒÂ©es pour toi...'}
-                  {phase === 'finishing' && 'Super ! Continue comme ÃƒÂ§a !'}
+                  {phase === 'projects' && !loadingProjects && `Est-ce que ça t'a donné des idées ?`}
+                  {phase === 'projects' && loadingProjects && 'Je réfléchis à des idées pour toi...'}
+                  {phase === 'finishing' && 'Super ! Continue comme ça !'}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
               </div>
@@ -299,18 +299,18 @@ RÃƒÂ©ponds UNIQUEMENT avec le JSON, sans texte autour.`
         <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">32</div>
-            <h2 className="text-lg md:text-xl font-bold">DÃƒÂ©velopper des mini projets</h2>
+            <h2 className="text-lg md:text-xl font-bold">Développer des mini projets</h2>
           </div>
 
           {phase === 'intro' && (
-            <div className="text-text-secondary text-center py-8">Les idÃƒÂ©es de projets apparaÃƒÂ®tront aprÃƒÂ¨s le dialogue.</div>
+            <div className="text-text-secondary text-center py-8">Les idées de projets apparaîtront après le dialogue.</div>
           )}
 
           {(phase === 'projects' || phase === 'finishing') && (
             <div className="space-y-4">
               {/* Target job display */}
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                <p className="text-sm text-text-secondary mb-1">MÃƒÂ©tier ciblÃƒÂ© :</p>
+                <p className="text-sm text-text-secondary mb-1">Métier ciblé :</p>
                 <p className="font-semibold text-lg">{targetJob}</p>
               </div>
 
@@ -318,11 +318,11 @@ RÃƒÂ©ponds UNIQUEMENT avec le JSON, sans texte autour.`
               {loadingProjects ? (
                 <div className="py-8 text-center">
                   <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                  <p className="mt-2 text-text-secondary">GÃƒÂ©nÃƒÂ©ration des idÃƒÂ©es...</p>
+                  <p className="mt-2 text-text-secondary">Génération des idées...</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-sm font-medium text-text-secondary">Projets suggÃƒÂ©rÃƒÂ©s :</p>
+                  <p className="text-sm font-medium text-text-secondary">Projets suggérés :</p>
                   <ul className="space-y-2">
                     {projects.map((project, idx) => (
                       <li 
@@ -342,7 +342,7 @@ RÃƒÂ©ponds UNIQUEMENT avec le JSON, sans texte autour.`
               {/* Tips section */}
               <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
                 <p className="text-sm text-blue-800">
-                  <strong><FaLightbulb className="inline w-4 h-4" /> Astuce :</strong> RÃƒÂ©aliser des mini-projets te permet de dÃƒÂ©couvrir concrÃƒÂ¨tement un mÃƒÂ©tier et d'enrichir ton CV !
+                  <strong><FaLightbulb className="inline w-4 h-4" /> Astuce :</strong> Réaliser des mini-projets te permet de découvrir concrètement un métier et d'enrichir ton CV !
                 </p>
               </div>
             </div>
@@ -355,10 +355,10 @@ RÃƒÂ©ponds UNIQUEMENT avec le JSON, sans texte autour.`
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce font-bold">32</div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 32 terminÃƒÂ© !</h3>
-            <p className="text-text-secondary mb-4">Tu as dÃƒÂ©couvert des idÃƒÂ©es de projets pour explorer ton futur mÃƒÂ©tier.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 32 terminé !</h3>
+            <p className="text-text-secondary mb-4">Tu as découvert des idées de projets pour explorer ton futur métier.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/33')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Niveau suivant</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

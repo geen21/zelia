@@ -22,8 +22,8 @@ import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { FaMedal, FaTrophy } from 'react-icons/fa6'
 
 const DIALOGUE = [
-  { text: 'On va peaufiner pour savoir si ton mÃƒÂ©tier qui te correspond est vraiment le bon.', durationMs: 1700 },
-  { text: 'On va classer ensemble les mÃƒÂ©tiers du meilleur au pire.', durationMs: 1500 },
+  { text: 'On va peaufiner pour savoir si ton métier qui te correspond est vraiment le bon.', durationMs: 1700 },
+  { text: 'On va classer ensemble les métiers du meilleur au pire.', durationMs: 1500 },
   { text: "C'est parti!", durationMs: 800 }
 ]
 
@@ -92,7 +92,7 @@ function SortableItem({ id, label, index }) {
     >
       <div className="w-7 h-7 rounded-full bg-black text-white flex items-center justify-center text-xs font-semibold">{index + 1}</div>
       <div className="flex-1 font-medium text-gray-900">{label}</div>
-      <div className="text-gray-400 text-sm">Ã¢â€¡â€¦</div>
+      <div className="text-gray-400 text-sm">⇅</div>
     </div>
   )
 }
@@ -108,7 +108,7 @@ function parseJobList(raw) {
   const cleaned = sanitizeText(raw)
   const lines = cleaned
     .split(/\r?\n/)
-    .map((line) => line.replace(/^[-Ã¢â‚¬Â¢*\d.)\s]+/, '').trim())
+    .map((line) => line.replace(/^[-•*\d.)\s]+/, '').trim())
     .filter(Boolean)
   return Array.from(new Set(lines))
 }
@@ -164,13 +164,13 @@ export default function Niveau18() {
         const isQuestionnaire = homePreference.toLowerCase() === 'questionnaire'
         let jobs = []
 
-        // Si home_preference est un mÃƒÂ©tier spÃƒÂ©cifique (pas "questionnaire"), on gÃƒÂ©nÃƒÂ¨re des mÃƒÂ©tiers similaires
+        // Si home_preference est un métier spécifique (pas "questionnaire"), on génère des métiers similaires
         if (homePreference && !isQuestionnaire) {
           const message =
-            `Propose 5 mÃƒÂ©tiers similaires au mÃƒÂ©tier suivant: "${homePreference}".\n` +
+            `Propose 5 métiers similaires au métier suivant: "${homePreference}".\n` +
             `Contraintes STRICTES :\n` +
-            `- RÃƒÂ©ponds uniquement par une liste de 5 mÃƒÂ©tiers, un par ligne.\n` +
-            `- Pas d'introduction, pas de numÃƒÂ©rotation si possible.`
+            `- Réponds uniquement par une liste de 5 métiers, un par ligne.\n` +
+            `- Pas d'introduction, pas de numérotation si possible.`
 
           const resp = await apiClient.post('/chat/ai', {
             mode: 'advisor',
@@ -182,7 +182,7 @@ export default function Niveau18() {
           const list = parseJobList(resp?.data?.reply || '')
           jobs = [homePreference, ...list].filter(Boolean).slice(0, 6)
         } else {
-          // Pour les utilisateurs "questionnaire", rÃƒÂ©cupÃƒÂ©rer depuis user_results avec questionnaire_type = 'inscription'
+          // Pour les utilisateurs "questionnaire", récupérer depuis user_results avec questionnaire_type = 'inscription'
           try {
             let query = supabase
               .from('user_results')
@@ -221,7 +221,7 @@ export default function Niveau18() {
           const resp = await apiClient.post('/chat/ai', {
             mode: 'advisor',
             advisorType: 'jobs-fill',
-            message: `Propose ${6 - jobs.length} mÃƒÂ©tiers liÃƒÂ©s ÃƒÂ  "${seed}". RÃƒÂ©ponds uniquement par des lignes simples.`,
+            message: `Propose ${6 - jobs.length} métiers liés à "${seed}". Réponds uniquement par des lignes simples.`,
             history: []
           })
           const list = parseJobList(resp?.data?.reply || '')
@@ -272,12 +272,12 @@ export default function Niveau18() {
       const entries = [
         {
           question_id: 'niveau18_jobs_source',
-          question_text: 'MÃƒÂ©tiers proposÃƒÂ©s (Niveau 18)',
+          question_text: 'Métiers proposés (Niveau 18)',
           answer_text: JSON.stringify(items.map((item) => item.label))
         },
         ...ranking.map((row) => ({
           question_id: `niveau18_rank_${row.position}`,
-          question_text: `Classement mÃƒÂ©tier #${row.position}`,
+          question_text: `Classement métier #${row.position}`,
           answer_text: row.title
         }))
       ]
@@ -296,7 +296,7 @@ export default function Niveau18() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
+        <p className="mt-2 text-text-secondary">Chargement…</p>
       </div>
     )
   }
@@ -343,7 +343,7 @@ export default function Niveau18() {
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaMedal className="w-5 h-5" /></div>
-            <h2 className="text-xl font-bold">Classement des mÃƒÂ©tiers</h2>
+            <h2 className="text-xl font-bold">Classement des métiers</h2>
           </div>
 
           {!started && (
@@ -367,7 +367,7 @@ export default function Niveau18() {
                 className="mt-4 w-full px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
                 disabled={saving || items.length === 0}
               >
-                {saving ? 'ValidationÃ¢â‚¬Â¦' : 'Valider mon classement'}
+                {saving ? 'Validation…' : 'Valider mon classement'}
               </button>
             </>
           )}
@@ -378,10 +378,10 @@ export default function Niveau18() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 18 rÃƒÂ©ussi !</h3>
-            <p className="text-text-secondary mb-4">Ton classement est validÃƒÂ©.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 18 réussi !</h3>
+            <p className="text-text-secondary mb-4">Ton classement est validé.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/19')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

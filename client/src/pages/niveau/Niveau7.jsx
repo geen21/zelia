@@ -8,33 +8,33 @@ import { FaTrophy } from 'react-icons/fa6'
 const DIALOGUE_STEPS = [
   {
     id: 'intro-1',
-    text: 'Te voilÃƒÂ  au niveau 7, tu avances bien !',
+    text: 'Te voilà au niveau 7, tu avances bien !',
     durationMs: 1100
   },
   {
     id: 'intro-2',
-    text: 'Je commence ÃƒÂ  bien te connaÃƒÂ®tre, merci pour tes infos !',
+    text: 'Je commence à bien te connaître, merci pour tes infos !',
     durationMs: 450
   },
   {
     id: 'intro-3',
-    text: 'Ici, on avance avec honnÃƒÂªtetÃƒÂ© pour viser juste.',
+    text: 'Ici, on avance avec honnêteté pour viser juste.',
     durationMs: 800
   },
   {
     id: 'intro-4',
-    text: 'Je ne connais pas encore tes notes, mais je peux dÃƒÂ©jÃƒÂ  estimer si un mÃƒÂ©tier te correspond.',
+    text: 'Je ne connais pas encore tes notes, mais je peux déjà estimer si un métier te correspond.',
     durationMs: 1200
   },
   {
     id: 'job-prompt',
-    text: 'Donne-moi un mÃƒÂ©tier et je te dirai sÃ¢â‚¬â„¢il te correspond.',
+    text: 'Donne-moi un métier et je te dirai s’il te correspond.',
     durationMs: 950,
     requiresEvaluation: true
   },
   {
     id: 'closing',
-    text: "Au niveau 14, tu pourras aller plus loin avec plusieurs mÃƒÂ©tiers. Je resterai aussi honnÃƒÂªte qu'exigeante.",
+    text: "Au niveau 14, tu pourras aller plus loin avec plusieurs métiers. Je resterai aussi honnête qu'exigeante.",
     durationMs: 1700,
     closing: true
   }
@@ -152,7 +152,7 @@ function clampExplanation(text, maxWords = 100) {
   if (!text) return ''
   const words = text.trim().split(/\s+/)
   if (words.length <= maxWords) return text.trim()
-  return `${words.slice(0, maxWords).join(' ')}Ã¢â‚¬Â¦`
+  return `${words.slice(0, maxWords).join(' ')}…`
 }
 
 function normalizeJobSuggestions(profile, rawRecommendations) {
@@ -253,7 +253,7 @@ export default function Niveau7() {
       } catch (err) {
         console.error('Niveau7 profile load failed', err)
         if (!cancelled) {
-          setError("Impossible de charger ce niveau pour le moment. RÃƒÂ©essaie plus tard.")
+          setError("Impossible de charger ce niveau pour le moment. Réessaie plus tard.")
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -325,7 +325,7 @@ export default function Niveau7() {
     }
 
     if (needsEvaluation && !analysisResult) {
-      setEvaluationError("Indique un mÃƒÂ©tier et lance l'analyse avant de continuer.")
+      setEvaluationError("Indique un métier et lance l'analyse avant de continuer.")
       focusJobInput()
       return
     }
@@ -340,7 +340,7 @@ export default function Niveau7() {
 
     const job = jobInput.trim()
     if (job.length < 3) {
-      setEvaluationError('Indique un mÃƒÂ©tier valide (3 caractÃƒÂ¨res minimum).')
+      setEvaluationError('Indique un métier valide (3 caractères minimum).')
       focusJobInput()
       return
     }
@@ -357,13 +357,13 @@ export default function Niveau7() {
       const explanation = clampExplanation(data?.explanation)
 
       if (!verdict || !explanation) {
-        throw new Error('RÃƒÂ©ponse IA invalide')
+        throw new Error('Réponse IA invalide')
       }
 
       setAnalysisResult({ verdict, explanation })
     } catch (err) {
       console.error('Level 7 evaluation failed', err)
-      const message = err?.response?.data?.error || "Impossible de consulter Gemini pour ce mÃƒÂ©tier. RÃƒÂ©essaie dans un instant."
+      const message = err?.response?.data?.error || "Impossible de consulter Gemini pour ce métier. Réessaie dans un instant."
       setEvaluationError(message)
       setAnalysisResult(null)
     } finally {
@@ -385,7 +385,7 @@ export default function Niveau7() {
       setCompleted(true)
     } catch (err) {
       console.error('Niveau7 levelUp failed', err)
-      setError("Impossible de valider le niveau pour le moment. RÃƒÂ©essaie dans un instant.")
+      setError("Impossible de valider le niveau pour le moment. Réessaie dans un instant.")
     } finally {
       setCompletionSaving(false)
     }
@@ -395,7 +395,7 @@ export default function Niveau7() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-black border-t-transparent" />
-        <p className="mt-2 text-text-secondary">Chargement du niveau 7Ã¢â‚¬Â¦</p>
+        <p className="mt-2 text-text-secondary">Chargement du niveau 7…</p>
       </div>
     )
   }
@@ -416,13 +416,13 @@ export default function Niveau7() {
   <form onSubmit={handleEvaluate} className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="job-input" className="text-sm font-semibold text-gray-700">
-              Ton mÃƒÂ©tier cible (selon ta personnalitÃƒÂ©)
+              Ton métier cible (selon ta personnalité)
             </label>
 
             {jobSuggestions.length > 0 && !jobInput.trim() && (
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Suggestions basÃƒÂ©es sur ton profil
+                  Suggestions basées sur ton profil
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {jobSuggestions.map((suggestion) => (
@@ -450,7 +450,7 @@ export default function Niveau7() {
               type="text"
               value={jobInput}
               onChange={(event) => setJobInput(event.target.value)}
-              placeholder="Ex: architecte d'intÃƒÂ©rieur, ingÃƒÂ©nieur en cybersÃƒÂ©curitÃƒÂ©Ã¢â‚¬Â¦"
+              placeholder="Ex: architecte d'intérieur, ingénieur en cybersécurité…"
               disabled={locked || evaluating}
               className="w-full rounded-xl border border-gray-300 px-4 py-3 text-base text-gray-900 shadow-sm focus:border-black focus:outline-none focus:ring-2 focus:ring-black/10 disabled:cursor-not-allowed disabled:bg-gray-100"
             />
@@ -462,7 +462,7 @@ export default function Niveau7() {
               disabled={locked || evaluating}
               className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {evaluating ? 'Analyse en coursÃ¢â‚¬Â¦' : 'Demander ÃƒÂ  ZÃƒÂ©lia'}
+              {evaluating ? 'Analyse en cours…' : 'Demander à Zélia'}
             </button>
             <button
               type="button"
@@ -481,7 +481,7 @@ export default function Niveau7() {
           {evaluating && (
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-              <span>ChargementÃ¢â‚¬Â¦ Merci de patienter quelques secondes.</span>
+              <span>Chargement… Merci de patienter quelques secondes.</span>
             </div>
           )}
 
@@ -497,7 +497,7 @@ export default function Niveau7() {
               className={`rounded-2xl border px-5 py-4 text-base font-medium shadow-inner ${analysisResult.verdict === 'Oui' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}`}
             >
               <span className="font-semibold">{analysisResult.verdict}</span>
-              <span className="ml-2 text-gray-900">Ã¢â‚¬â€ {analysisResult.explanation}</span>
+              <span className="ml-2 text-gray-900">— {analysisResult.explanation}</span>
             </div>
           ) : emptyFallback ? (
             <p>{emptyFallback}</p>
@@ -546,7 +546,7 @@ export default function Niveau7() {
                       disabled={completionSaving}
                       className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {completionSaving ? 'ValidationÃ¢â‚¬Â¦' : 'Valider le niveau 7'}
+                      {completionSaving ? 'Validation…' : 'Valider le niveau 7'}
                     </button>
                   )}
 
@@ -558,7 +558,7 @@ export default function Niveau7() {
           <aside className="flex h-full flex-col rounded-3xl border border-gray-200 bg-white p-6 shadow-card md:p-8">
             {renderEvaluationForm({
               locked: !evaluationUnlocked,
-              emptyFallback: evaluationUnlocked ? '' : "Termine d'abord le dialogue pour dÃƒÂ©bloquer cette ÃƒÂ©tape."
+              emptyFallback: evaluationUnlocked ? '' : "Termine d'abord le dialogue pour débloquer cette étape."
             })}
           </aside>
         </div>
@@ -568,10 +568,10 @@ export default function Niveau7() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 7 rÃƒÂ©ussi !</h3>
-            <p className="text-text-secondary mb-4">Tu as affrontÃƒÂ© le verdict de ZÃƒÂ©lia. Direction le prochain niveau !</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 7 réussi !</h3>
+            <p className="text-text-secondary mb-4">Tu as affronté le verdict de Zélia. Direction le prochain niveau !</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/8')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

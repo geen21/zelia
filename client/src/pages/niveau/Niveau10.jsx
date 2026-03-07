@@ -148,8 +148,8 @@ export default function Niveau10() {
 
   const bubble = useMemo(() => {
     if (phase === STEP_INTRO) return { text: "Avant d'obtenir ton bilan, on aimerait avoir ton avis :", durationMs: 1400 }
-    if (phase === STEP_Q1) return { text: "As-tu obtenu des idÃƒÂ©es intÃƒÂ©ressantes pour ton parcours pro grÃƒÂ¢ce ÃƒÂ  moi ?", durationMs: 1600 }
-    if (phase === STEP_Q2) return { text: "Tu recommanderais l'application ÃƒÂ  tes amis ?", durationMs: 1200 }
+    if (phase === STEP_Q1) return { text: "As-tu obtenu des idées intéressantes pour ton parcours pro grâce à moi ?", durationMs: 1600 }
+    if (phase === STEP_Q2) return { text: "Tu recommanderais l'application à tes amis ?", durationMs: 1200 }
     return { text: 'Voici ton bilan', durationMs: 800 }
   }, [phase])
 
@@ -177,12 +177,12 @@ export default function Niveau10() {
     const entries = [
       {
         question_id: 'niv10_career_ideas',
-        question_text: "As-tu obtenu des idÃƒÂ©es intÃƒÂ©ressantes pour ton parcours pro grÃƒÂ¢ce ÃƒÂ  moi ? (Oui / Non / Je ne sais pas)",
+        question_text: "As-tu obtenu des idées intéressantes pour ton parcours pro grâce à moi ? (Oui / Non / Je ne sais pas)",
         answer_text: nextAnswers.careerIdeas
       },
       {
         question_id: 'niv10_like_app',
-        question_text: "Tu recommanderais l'application ÃƒÂ  tes amis ? (Oui / Non / Je ne sais pas)",
+        question_text: "Tu recommanderais l'application à tes amis ? (Oui / Non / Je ne sais pas)",
         answer_text: nextAnswers.likeApp
       }
     ]
@@ -198,7 +198,7 @@ export default function Niveau10() {
     } catch (e) {
       console.error('Niveau10 bilan fetch failed', e)
       setBilan(null)
-      setBilanError("Impossible de gÃƒÂ©nÃƒÂ©rer ton bilan pour le moment.")
+      setBilanError("Impossible de générer ton bilan pour le moment.")
     } finally {
       setBilanLoading(false)
     }
@@ -239,7 +239,7 @@ export default function Niveau10() {
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau10 levelUp failed', e)
-      setBilanError('Impossible de valider le niveau pour le moment. RÃƒÂ©essaie.')
+      setBilanError('Impossible de valider le niveau pour le moment. Réessaie.')
     } finally {
       setFinishing(false)
     }
@@ -249,7 +249,7 @@ export default function Niveau10() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
+        <p className="mt-2 text-text-secondary">Chargement…</p>
       </div>
     )
   }
@@ -277,7 +277,7 @@ export default function Niveau10() {
       if (typeof s === 'string') return s
       const degree = s.degree || s.diploma || s.title || ''
       const type = s.type || s.study_type || s.label || ''
-      return [degree, type].filter(Boolean).join(' Ã¢â‚¬â€œ ') || null
+      return [degree, type].filter(Boolean).join(' —œ ') || null
     })
     .filter(Boolean)
     .slice(0, 8)
@@ -363,11 +363,11 @@ export default function Niveau10() {
           </div>
 
           {!showBilan ? (
-            <div className="text-text-secondary">RÃƒÂ©ponds aux 2 questions pour voir ton bilan.</div>
+            <div className="text-text-secondary">Réponds aux 2 questions pour voir ton bilan.</div>
           ) : bilanLoading ? (
             <div className="text-center">
               <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-              <p className="mt-2 text-text-secondary">GÃƒÂ©nÃƒÂ©ration de ton bilanÃ¢â‚¬Â¦</p>
+              <p className="mt-2 text-text-secondary">Génération de ton bilan…</p>
             </div>
           ) : bilanError ? (
             <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">{bilanError}</div>
@@ -392,17 +392,17 @@ export default function Niveau10() {
               </div>
 
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                <div className="font-semibold">RÃƒÂ©sumÃƒÂ© du test de personnalitÃƒÂ©</div>
+                <div className="font-semibold">Résumé du test de personnalité</div>
                 <div className="mt-2 whitespace-pre-wrap text-text-secondary">{personalitySummary || 'Non disponible'}</div>
               </div>
 
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                <div className="font-semibold">RÃƒÂ©sumÃƒÂ© de tes rÃƒÂ©ponses du Niveau 1</div>
+                <div className="font-semibold">Résumé de tes réponses du Niveau 1</div>
                 <div className="mt-2 whitespace-pre-wrap text-text-secondary">{niveau1Summary || 'Non disponible'}</div>
               </div>
 
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                <div className="font-semibold">Bilan des compÃƒÂ©tences</div>
+                <div className="font-semibold">Bilan des compétences</div>
                 <div className="mt-2 whitespace-pre-wrap text-text-secondary">{skillsBilan || 'Non disponible'}</div>
               </div>
 
@@ -418,10 +418,10 @@ export default function Niveau10() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 10 rÃƒÂ©ussi !</h3>
-            <p className="text-text-secondary mb-4">Tu as terminÃƒÂ© cette ÃƒÂ©tape avec succÃƒÂ¨s.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 10 réussi !</h3>
+            <p className="text-text-secondary mb-4">Tu as terminé cette étape avec succès.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/11')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}
@@ -466,27 +466,27 @@ function Niveau10Legacy_DISABLED() {
     priceId: null,
     priceAmount: null,
     priceCurrency: 'eur',
-    productName: 'ZÃƒÂ©lia+ Ã¢â‚¬â€ AccÃƒÂ¨s complet'
+    productName: 'Zélia+ — Accès complet'
   })
   const stripePromiseRef = useRef(null)
   const verifyingRef = useRef(false)
 
   const benefits = useMemo(() => ([
     {
-      title: 'Niveaux 11 ÃƒÂ  20',
-      description: "DÃƒÂ©couvre les univers mÃƒÂ©tiers, rencontre des professionnels et prÃƒÂ©pare tes immersions."
+      title: 'Niveaux 11 à 20',
+      description: "Découvre les univers métiers, rencontre des professionnels et prépare tes immersions."
     },
     {
-      title: 'Niveaux 21 ÃƒÂ  30',
-      description: 'Valorise tes compÃƒÂ©tences, construis un CV impactant et rÃƒÂ©dige ta lettre de motivation idÃƒÂ©ale.'
+      title: 'Niveaux 21 à 30',
+      description: 'Valorise tes compétences, construis un CV impactant et rédige ta lettre de motivation idéale.'
     },
     {
-      title: 'Niveaux 31 ÃƒÂ  40',
-      description: 'SÃƒÂ©curise Parcoursup, prÃƒÂ©pare tes oraux et travaille ta posture pour convaincre.'
+      title: 'Niveaux 31 à 40',
+      description: 'Sécurise Parcoursup, prépare tes oraux et travaille ta posture pour convaincre.'
     },
     {
-      title: 'Niveaux 41 ÃƒÂ  50',
-      description: 'Polis chaque dÃƒÂ©tail de ton dossier et passe en mode mentor pour inspirer les autres.'
+      title: 'Niveaux 41 à 50',
+      description: 'Polis chaque détail de ton dossier et passe en mode mentor pour inspirer les autres.'
     }
   ]), [])
 
@@ -563,7 +563,7 @@ function Niveau10Legacy_DISABLED() {
       } catch (err) {
         console.error('Niveau10 profile load error', err)
         if (!cancelled) {
-          setError("Impossible de charger ton profil. RÃƒÂ©essaie plus tard.")
+          setError("Impossible de charger ton profil. Réessaie plus tard.")
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -610,7 +610,7 @@ function Niveau10Legacy_DISABLED() {
           priceId: data?.priceId || null,
           priceAmount: typeof data?.priceAmount === 'number' ? data.priceAmount : null,
           priceCurrency: data?.priceCurrency || 'eur',
-          productName: data?.productName || 'ZÃƒÂ©lia+ Ã¢â‚¬â€ AccÃƒÂ¨s complet'
+          productName: data?.productName || 'Zélia+ — Accès complet'
         })
 
         if (data?.publishableKey) {
@@ -621,7 +621,7 @@ function Niveau10Legacy_DISABLED() {
         if (!cancelled) {
           setStatusBanner({
             tone: 'warning',
-            text: "Stripe n'est pas encore configurÃƒÂ©. Ajoute tes clÃƒÂ©s dans les variables d'environnement pour activer le paiement."
+            text: "Stripe n'est pas encore configuré. Ajoute tes clés dans les variables d'environnement pour activer le paiement."
           })
         }
       }
@@ -635,9 +635,9 @@ function Niveau10Legacy_DISABLED() {
   useEffect(() => {
     const checkout = searchParams.get('checkout')
     if (checkout === 'cancelled') {
-      setStatusBanner({ tone: 'info', text: 'Paiement annulÃƒÂ©. Tu peux rÃƒÂ©essayer quand tu seras prÃƒÂªt(e).' })
+      setStatusBanner({ tone: 'info', text: 'Paiement annulé. Tu peux réessayer quand tu seras prêt(e).' })
     } else if (checkout === 'success') {
-      setStatusBanner({ tone: 'info', text: 'Merci ! VÃƒÂ©rification de ton paiement en coursÃ¢â‚¬Â¦' })
+      setStatusBanner({ tone: 'info', text: 'Merci ! Vérification de ton paiement en cours…' })
     }
   }, [searchParams])
 
@@ -653,7 +653,7 @@ function Niveau10Legacy_DISABLED() {
 
     verifyingRef.current = true
     setCheckoutState('verifying')
-    setStatusBanner({ tone: 'info', text: 'Nous vÃƒÂ©rifions la confirmation de ton paiementÃ¢â‚¬Â¦' })
+    setStatusBanner({ tone: 'info', text: 'Nous vérifions la confirmation de ton paiement…' })
 
     ;(async () => {
       try {
@@ -661,15 +661,15 @@ function Niveau10Legacy_DISABLED() {
         if (data?.paid) {
           setHasPaid(true)
           setPhase('payment')
-          setStatusBanner({ tone: 'success', text: 'Paiement confirmÃƒÂ© ! ZÃƒÂ©lia+ est dÃƒÂ©sormais activÃƒÂ©.' })
+          setStatusBanner({ tone: 'success', text: 'Paiement confirmé ! Zélia+ est désormais activé.' })
           setShowPaymentCelebration(true)
           await refreshProfile()
         } else {
-          setStatusBanner({ tone: 'warning', text: 'Paiement en attente ou incomplet. Si le dÃƒÂ©bit apparaÃƒÂ®t, contacte-nous.' })
+          setStatusBanner({ tone: 'warning', text: 'Paiement en attente ou incomplet. Si le débit apparaît, contacte-nous.' })
         }
       } catch (err) {
         console.error('Payment verification failed', err)
-        setStatusBanner({ tone: 'error', text: 'Impossible de vÃƒÂ©rifier le paiement. Contacte le support si besoin.' })
+        setStatusBanner({ tone: 'error', text: 'Impossible de vérifier le paiement. Contacte le support si besoin.' })
       } finally {
         verifyingRef.current = false
         setCheckoutState('idle')
@@ -707,7 +707,7 @@ function Niveau10Legacy_DISABLED() {
       const results = await fetchResults()
       const orientation = results?.inscriptionResults || null
       if (!orientation) {
-        setAnalysisError('ComplÃƒÂ¨te ton questionnaire dÃ¢â‚¬â„¢orientation avant de pouvoir partager ton dossier.')
+        setAnalysisError('Complète ton questionnaire d’orientation avant de pouvoir partager ton dossier.')
         return null
       }
       const mapped = { orientation, raw: results }
@@ -722,7 +722,7 @@ function Niveau10Legacy_DISABLED() {
             const refreshed = await fetchResults()
             const orientation = refreshed?.inscriptionResults || null
             if (!orientation) {
-              setAnalysisError('Aucun rÃƒÂ©sultat dÃ¢â‚¬â„¢orientation disponible. Assure-toi dÃ¢â‚¬â„¢avoir terminÃƒÂ© le questionnaire inscription.')
+              setAnalysisError('Aucun résultat d’orientation disponible. Assure-toi d’avoir terminé le questionnaire inscription.')
               return null
             }
             const mapped = { orientation, raw: refreshed }
@@ -730,14 +730,14 @@ function Niveau10Legacy_DISABLED() {
             return mapped
           } catch (genErr) {
             console.error('Generation fallback failed', genErr)
-            setAnalysisError('Impossible de rÃƒÂ©cupÃƒÂ©rer tes rÃƒÂ©sultats pour le moment. VÃƒÂ©rifie que tu as complÃƒÂ©tÃƒÂ© ton analyse.')
+            setAnalysisError('Impossible de récupérer tes résultats pour le moment. Vérifie que tu as complété ton analyse.')
           }
         }
       } else if (err.response?.status === 401) {
-        setAnalysisError('Session expirÃƒÂ©e. Recharge la page et reconnecte-toi pour partager tes rÃƒÂ©sultats.')
+        setAnalysisError('Session expirée. Recharge la page et reconnecte-toi pour partager tes résultats.')
       } else {
         console.error('Analysis fetch failed', err)
-        setAnalysisError('Erreur lors du chargement des rÃƒÂ©sultats. RÃƒÂ©essaie dans un instant.')
+        setAnalysisError('Erreur lors du chargement des résultats. Réessaie dans un instant.')
       }
     } finally {
       setAnalysisLoading(false)
@@ -766,7 +766,7 @@ function Niveau10Legacy_DISABLED() {
       return
     }
     if (emails.includes(trimmed.toLowerCase())) {
-      setSendError("Cette adresse est dÃƒÂ©jÃƒÂ  ajoutÃƒÂ©e.")
+      setSendError("Cette adresse est déjà ajoutée.")
       return
     }
     setEmails((prev) => [...prev, trimmed.toLowerCase()])
@@ -790,7 +790,7 @@ function Niveau10Legacy_DISABLED() {
       const data = await ensureAnalysisData()
       const orientationResults = data?.orientation
       if (!orientationResults) {
-        throw new Error('RÃƒÂ©sultats dÃ¢â‚¬â„¢orientation indisponibles')
+        throw new Error('Résultats d’orientation indisponibles')
       }
       const pdf = await generateResultsPdf({ profile, results: orientationResults, benefits, priceLabel: defaultPriceLabel })
       const dataUri = pdf.output('datauristring')
@@ -799,7 +799,7 @@ function Niveau10Legacy_DISABLED() {
 
       const payload = {
         recipients: emails,
-        subject: `Voici les rÃƒÂ©sultats d'orientation de ${userFirstName}`,
+        subject: `Voici les résultats d'orientation de ${userFirstName}`,
         text: buildEmailBody({ firstName: userFirstName, benefits, price: defaultPriceLabel }),
         html: buildEmailHtml({ firstName: userFirstName, benefits, price: defaultPriceLabel }),
         attachment: {
@@ -809,11 +809,11 @@ function Niveau10Legacy_DISABLED() {
       }
 
       await shareAPI.sendResults(payload)
-      setStatusBanner({ tone: 'success', text: 'E-mail envoyÃƒÂ© ! Tu peux maintenant activer ZÃƒÂ©lia+.' })
+      setStatusBanner({ tone: 'success', text: 'E-mail envoyé ! Tu peux maintenant activer Zélia+.' })
       setPhase('payment')
     } catch (err) {
       console.error('Share results failed', err)
-      const message = err.response?.data?.error || err.message || 'Impossible dÃ¢â‚¬â„¢envoyer les rÃƒÂ©sultats.'
+      const message = err.response?.data?.error || err.message || 'Impossible d’envoyer les résultats.'
       setSendError(message)
     } finally {
       setSendingEmails(false)
@@ -827,20 +827,20 @@ function Niveau10Legacy_DISABLED() {
       const data = await ensureAnalysisData()
       const orientationResults = data?.orientation
       if (!orientationResults) {
-        throw new Error('RÃƒÂ©sultats dÃ¢â‚¬â„¢orientation indisponibles')
+        throw new Error('Résultats d’orientation indisponibles')
       }
       const pdf = await generateResultsPdf({ profile, results: orientationResults, benefits, priceLabel: defaultPriceLabel })
       const filename = `resultats-orientation-${userFirstName.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.pdf`
       pdf.save(filename)
     } catch (err) {
       console.error('Download PDF failed', err)
-      setSendError('Impossible de tÃƒÂ©lÃƒÂ©charger le PDF.')
+      setSendError('Impossible de télécharger le PDF.')
     } finally {
       setDownloadingPdf(false)
     }
   }
 
-  // Stripe checkout conservÃƒÂ© pour rÃƒÂ©fÃƒÂ©rence si on rÃƒÂ©active le paiement direct :
+  // Stripe checkout conservé pour référence si on réactive le paiement direct :
   /*
   try {
     const { data } = await paymentsAPI.createCheckout()
@@ -865,11 +865,11 @@ function Niveau10Legacy_DISABLED() {
     } else if (data?.url) {
       window.location.href = data.url
     } else {
-      throw new Error('Stripe non initialisÃƒÂ©')
+      throw new Error('Stripe non initialisé')
     }
   } catch (err) {
     console.error('Checkout initiation failed', err)
-    setError("Impossible de lancer le paiement. Merci de rÃƒÂ©essayer dans quelques instants.")
+    setError("Impossible de lancer le paiement. Merci de réessayer dans quelques instants.")
   }
   */
 
@@ -883,7 +883,7 @@ function Niveau10Legacy_DISABLED() {
       setProfile((prev) => (prev ? { ...prev, accent_color: 'Registered' } : prev))
     } catch (err) {
       console.error('Waitlist registration failed', err)
-      const message = err.response?.data?.error || "Impossible de t'inscrire sur la liste d'attente. RÃƒÂ©essaie dans un instant."
+      const message = err.response?.data?.error || "Impossible de t'inscrire sur la liste d'attente. Réessaie dans un instant."
       setError(message)
       setCheckoutState('idle')
       return
@@ -893,7 +893,7 @@ function Niveau10Legacy_DISABLED() {
       const { data } = await waitlistAPI.join({
         source: 'niveau-10',
         level: 10,
-        note: 'Inscription dÃƒÂ©clenchÃƒÂ©e depuis le CTA du niveau 10',
+        note: 'Inscription déclenchée depuis le CTA du niveau 10',
         metadata: {
           hasPaid,
           profileId: profile?.id || userId || null
@@ -905,13 +905,13 @@ function Niveau10Legacy_DISABLED() {
       setStatusBanner({
         tone: 'success',
         text: data?.alreadyJoined
-          ? 'Tu es dÃƒÂ©jÃƒÂ  sur la liste dÃ¢â‚¬â„¢attente. On revient trÃƒÂ¨s vite vers toi !'
-          : 'Inscription confirmÃƒÂ©e ! On tÃ¢â‚¬â„¢avertit dÃƒÂ¨s que ZÃƒÂ©lia+ est prÃƒÂªt.'
+          ? 'Tu es déjà sur la liste d’attente. On revient très vite vers toi !'
+          : 'Inscription confirmée ! On t’avertit dès que Zélia+ est prêt.'
       })
       setError('')
     } catch (err) {
       console.error('Waitlist join failed', err)
-      const message = err.response?.data?.error || "Impossible de t'inscrire sur la liste d'attente. RÃƒÂ©essaie dans quelques instants."
+      const message = err.response?.data?.error || "Impossible de t'inscrire sur la liste d'attente. Réessaie dans quelques instants."
       setError(message)
     } finally {
       setCheckoutState('idle')
@@ -926,7 +926,7 @@ function Niveau10Legacy_DISABLED() {
       setCompleted(true)
     } catch (err) {
       console.error('Level up failed', err)
-      setError('Impossible de valider le niveau. RÃƒÂ©essaie dans un instant.')
+      setError('Impossible de valider le niveau. Réessaie dans un instant.')
     } finally {
       setSavingProgress(false)
     }
@@ -944,7 +944,7 @@ function Niveau10Legacy_DISABLED() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-black border-t-transparent" />
-        <p className="mt-2 text-text-secondary">Chargement du niveauÃ¢â‚¬Â¦</p>
+        <p className="mt-2 text-text-secondary">Chargement du niveau…</p>
       </div>
     )
   }
@@ -978,10 +978,10 @@ function Niveau10Legacy_DISABLED() {
         <div className="rounded-3xl border border-gray-200 bg-white p-6 text-sm shadow-card md:p-8">
           <h2 className="text-xl font-bold text-gray-900">Tu as atteint le dernier niveau</h2>
           <p className="mt-3 text-gray-600">
-            Tu as atteint le dernier niveau de cette version gratuite :) Si tu souhaites continuer pour approfondir tes connaissances (rencontres mÃƒÂ©tiers, jobs, inspirations, mini exercices pour prÃƒÂ©ciser tes choix...), inscris-toi sur la liste dÃ¢â‚¬â„¢attente et on te prÃƒÂ©vient quand tout est prÃƒÂªt !
+            Tu as atteint le dernier niveau de cette version gratuite :) Si tu souhaites continuer pour approfondir tes connaissances (rencontres métiers, jobs, inspirations, mini exercices pour préciser tes choix...), inscris-toi sur la liste d’attente et on te prévient quand tout est prêt !
           </p>
           <p className="mt-3 text-gray-600">
-            Tu pourras activer ZÃƒÂ©lia+.
+            Tu pourras activer Zélia+.
           </p>
         </div>
       </div>
@@ -1001,16 +1001,16 @@ function Niveau10Legacy_DISABLED() {
             <div className="flex-1">
               <div className="relative w-full rounded-2xl bg-black px-5 py-4 text-white md:px-6 md:py-5">
                 <p className="min-h-[3.5rem] whitespace-pre-wrap text-base leading-relaxed md:text-lg">
-                  InsÃƒÂ¨re les e-mails des personnes qui peuvent te donner accÃƒÂ¨s ÃƒÂ  ZÃƒÂ©lia+. On leur envoie ton dossier en PDF.
+                  Insère les e-mails des personnes qui peuvent te donner accès à Zélia+. On leur envoie ton dossier en PDF.
                 </p>
                 <div className="absolute -left-2 top-6 h-0 w-0 border-b-8 border-r-8 border-t-8 border-b-transparent border-r-black border-t-transparent" />
               </div>
               <div className="mt-4 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
                 <p className="font-semibold text-gray-900">Contenu du dossier :</p>
                 <ul className="mt-2 list-disc space-y-1 pl-5">
-                  <li>RÃƒÂ©sultats MÃƒÂ©tiers, PersonnalitÃƒÂ©, CompÃƒÂ©tences (format MPC)</li>
-                  <li>Recommandations personnalisÃƒÂ©es et prochaines ÃƒÂ©tapes</li>
-                  <li>PrÃƒÂ©sentation de ZÃƒÂ©lia+ et de tout ce que tu vas dÃƒÂ©bloquer</li>
+                  <li>Résultats Métiers, Personnalité, Compétences (format MPC)</li>
+                  <li>Recommandations personnalisées et prochaines étapes</li>
+                  <li>Présentation de Zélia+ et de tout ce que tu vas débloquer</li>
                 </ul>
               </div>
             </div>
@@ -1018,8 +1018,8 @@ function Niveau10Legacy_DISABLED() {
         </div>
 
         <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-card md:p-8">
-          <h2 className="text-xl font-bold text-gray-900">Partager mes rÃƒÂ©sultats</h2>
-          <p className="mt-2 text-sm text-gray-600">Entre les adresses e-mail des parents, tuteurs ou rÃƒÂ©fÃƒÂ©rents qui doivent valider ton accÃƒÂ¨s ÃƒÂ  ZÃƒÂ©lia+.</p>
+          <h2 className="text-xl font-bold text-gray-900">Partager mes résultats</h2>
+          <p className="mt-2 text-sm text-gray-600">Entre les adresses e-mail des parents, tuteurs ou référents qui doivent valider ton accès à Zélia+.</p>
 
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
             <input
@@ -1079,7 +1079,7 @@ function Niveau10Legacy_DISABLED() {
               disabled={sendingEmails || downloadingPdf || analysisLoading}
               className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {sendingEmails ? 'Envoi en coursÃ¢â‚¬Â¦' : 'Envoyer mon dossier' }
+              {sendingEmails ? 'Envoi en cours…' : 'Envoyer mon dossier' }
             </button>
             <button
               type="button"
@@ -1087,7 +1087,7 @@ function Niveau10Legacy_DISABLED() {
               disabled={sendingEmails || downloadingPdf || analysisLoading}
               className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-5 py-3 text-base font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {downloadingPdf ? 'GÃƒÂ©nÃƒÂ©rationÃ¢â‚¬Â¦' : 'TÃƒÂ©lÃƒÂ©charger le PDF'}
+              {downloadingPdf ? 'Génération…' : 'Télécharger le PDF'}
             </button>
             <button
               type="button"
@@ -1099,7 +1099,7 @@ function Niveau10Legacy_DISABLED() {
           </div>
 
           <p className="mt-3 text-sm text-gray-500">
-            Nous utilisons uniquement ces e-mails pour envoyer le PDF rÃƒÂ©capitulatif de tes rÃƒÂ©sultats et prÃƒÂ©senter ZÃƒÂ©lia+. Aucun compte ne sera crÃƒÂ©ÃƒÂ© sans leur accord.
+            Nous utilisons uniquement ces e-mails pour envoyer le PDF récapitulatif de tes résultats et présenter Zélia+. Aucun compte ne sera créé sans leur accord.
           </p>
         </div>
       </div>
@@ -1115,11 +1115,11 @@ function Niveau10Legacy_DISABLED() {
               <span className="inline-flex h-6 min-w-[2rem] items-center justify-center rounded-full bg-black px-2 text-xs font-bold text-white">
                 Niv. 10
               </span>
-              ZÃƒÂ©lia+
+              Zélia+
             </div>
-            <h1 className="text-3xl font-extrabold text-gray-900">Active ZÃƒÂ©lia+ pour dÃƒÂ©bloquer la suite</h1>
+            <h1 className="text-3xl font-extrabold text-gray-900">Active Zélia+ pour débloquer la suite</h1>
             <p className="text-lg text-gray-600">
-              Nous te fÃƒÂ©licitons pour ÃƒÂªtre arrivÃƒÂ© jusquÃ¢â‚¬â„¢ici ! Pour continuer ton aventure et accÃƒÂ©der aux niveaux 11 ÃƒÂ  50, inscris-toi sur la liste dÃ¢â‚¬â„¢attente de ZÃƒÂ©lia+.
+              Nous te félicitons pour être arrivé jusqu’ici ! Pour continuer ton aventure et accéder aux niveaux 11 à 50, inscris-toi sur la liste d’attente de Zélia+.
             </p>
           </div>
 
@@ -1140,11 +1140,11 @@ function Niveau10Legacy_DISABLED() {
               <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
                 <p className="font-semibold text-gray-900">Ce que tu obtiens :</p>
                 <ul className="mt-2 list-disc space-y-1 pl-4">
-                  <li>AccÃƒÂ¨s immÃƒÂ©diat aux niveaux 11 ÃƒÂ  50</li>
+                  <li>Accès immédiat aux niveaux 11 à 50</li>
                   <li>Ateliers premium (CV, lettre, Parcoursup, oraux)</li>
-                  <li>Support prioritaire et mises ÃƒÂ  jour exclusives</li>
+                  <li>Support prioritaire et mises à jour exclusives</li>
                 </ul>
-                <p className="mt-3 text-sm text-gray-500">Tarif : {defaultPriceLabel} (paiement unique). Si tu es intÃƒÂ©ressÃƒÂ©Ã‚Â·e, inscris-toi sur la liste dÃ¢â‚¬â„¢attente.</p>
+                <p className="mt-3 text-sm text-gray-500">Tarif : {defaultPriceLabel} (paiement unique). Si tu es intéressé·e, inscris-toi sur la liste d’attente.</p>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -1155,11 +1155,11 @@ function Niveau10Legacy_DISABLED() {
                   className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {waitlistJoined
-                    ? 'DÃƒÂ©jÃƒÂ  inscritÃ‚Â·e sur la liste'
+                    ? 'Déjà inscrit·e sur la liste'
                     : checkoutState === 'processing'
-                      ? 'Inscription en coursÃ¢â‚¬Â¦'
+                      ? 'Inscription en cours…'
                       : checkoutState === 'verifying'
-                        ? 'VÃƒÂ©rificationÃ¢â‚¬Â¦'
+                        ? 'Vérification…'
                         : "S'inscrire sur la liste d'attente"}
                 </button>
                 <button
@@ -1167,19 +1167,19 @@ function Niveau10Legacy_DISABLED() {
                   onClick={() => navigate('/app/activites')}
                   className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-5 py-3 text-base font-semibold text-gray-700 transition hover:bg-gray-100"
                 >
-                  Retour aux activitÃƒÂ©s
+                  Retour aux activités
                 </button>
               </div>
 
               {waitlistJoined && (
                 <p className="text-sm text-gray-500">
-                  Inscription enregistrÃƒÂ©e{waitlistJoinDateLabel ? ` le ${waitlistJoinDateLabel}` : ''}. On te tient informÃƒÂ©Ã‚Â·e par e-mail.
+                  Inscription enregistrée{waitlistJoinDateLabel ? ` le ${waitlistJoinDateLabel}` : ''}. On te tient informé·e par e-mail.
                 </p>
               )}
 
               <p className="flex items-center gap-2 text-sm text-gray-400">
                 <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-                LÃ¢â‚¬â„¢activation restera 100% sÃƒÂ©curisÃƒÂ©e via Stripe dÃƒÂ¨s son ouverture. Les donnÃƒÂ©es bancaires ne transitent jamais par ZÃƒÂ©lia.
+                L’activation restera 100% sécurisée via Stripe dès son ouverture. Les données bancaires ne transitent jamais par Zélia.
               </p>
             </div>
           )}
@@ -1187,7 +1187,7 @@ function Niveau10Legacy_DISABLED() {
           {hasPaid && (
             <div className="mt-6 space-y-4">
               <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                Bravo ! ZÃƒÂ©lia+ est actif. Tu peux maintenant valider ce niveau et poursuivre ton parcours.
+                Bravo ! Zélia+ est actif. Tu peux maintenant valider ce niveau et poursuivre ton parcours.
               </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <button
@@ -1196,24 +1196,24 @@ function Niveau10Legacy_DISABLED() {
                   disabled={savingProgress}
                   className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {savingProgress ? 'ValidationÃ¢â‚¬Â¦' : 'Valider le niveau 10'}
+                  {savingProgress ? 'Validation…' : 'Valider le niveau 10'}
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate('/app/activites')}
                   className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-5 py-3 text-base font-semibold text-gray-700 transition hover:bg-gray-100"
                 >
-                  Retour aux activitÃƒÂ©s
+                  Retour aux activités
                 </button>
               </div>
-              <p className="text-sm text-gray-500">Une fois validÃƒÂ©, tu pourras accÃƒÂ©der directement au niveau 11 depuis la page ActivitÃƒÂ©s.</p>
+              <p className="text-sm text-gray-500">Une fois validé, tu pourras accéder directement au niveau 11 depuis la page Activités.</p>
             </div>
           )}
         </div>
 
         <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-card md:p-8">
-          <h2 className="text-xl font-bold text-gray-900">Ce que ZÃƒÂ©lia+ dÃƒÂ©bloque</h2>
-          <p className="mt-2 text-sm text-gray-500">Ton parcours devient complet et guidÃƒÂ© jusquÃ¢â‚¬â„¢aux derniers niveaux.</p>
+          <h2 className="text-xl font-bold text-gray-900">Ce que Zélia+ débloque</h2>
+          <p className="mt-2 text-sm text-gray-500">Ton parcours devient complet et guidé jusqu’aux derniers niveaux.</p>
           <ul className="mt-6 space-y-3">
             {benefits.map((benefit) => (
               <li key={benefit.title} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
@@ -1223,8 +1223,8 @@ function Niveau10Legacy_DISABLED() {
             ))}
           </ul>
           <div className="mt-6 rounded-2xl border border-dashed border-gray-300 p-4 text-sm text-gray-500">
-            <p className="font-semibold text-gray-900">Besoin dÃ¢â‚¬â„¢aide ?</p>
-            <p className="mt-1">Ãƒâ€°cris-nous via le chat ou par e-mail : <a className="font-medium text-gray-900 underline" href="mailto:support@zelia.io">support@zelia.io</a>.</p>
+            <p className="font-semibold text-gray-900">Besoin d’aide ?</p>
+            <p className="mt-1">Écris-nous via le chat ou par e-mail : <a className="font-medium text-gray-900 underline" href="mailto:support@zelia.io">support@zelia.io</a>.</p>
           </div>
         </div>
       </div>
@@ -1253,7 +1253,7 @@ function Niveau10Legacy_DISABLED() {
             </div>
             <img
               src={avatarUrl || '/assets/images/logo-dark.png'}
-              alt="Avatar ZÃƒÂ©lia"
+              alt="Avatar Zélia"
               className="mx-auto mt-6 h-32 w-32 rounded-2xl border border-gray-100 bg-white object-contain shadow-md"
             />
             <h3 className="mt-6 text-2xl font-extrabold text-gray-900">Merci pour le paiement !</h3>
@@ -1268,7 +1268,7 @@ function Niveau10Legacy_DISABLED() {
                 disabled={savingProgress}
                 className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {savingProgress ? 'ValidationÃ¢â‚¬Â¦' : 'Valider le niveau 10'}
+                {savingProgress ? 'Validation…' : 'Valider le niveau 10'}
               </button>
               <button
                 type="button"
@@ -1294,7 +1294,7 @@ function Niveau10Legacy_DISABLED() {
             <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-[#c1ff72] text-2xl shadow-lg">
               <FaRocket className="w-6 h-6 text-white" />
             </div>
-            <h3 className="mt-4 text-2xl font-extrabold text-gray-900">Niveau 10 validÃƒÂ© !</h3>
+            <h3 className="mt-4 text-2xl font-extrabold text-gray-900">Niveau 10 validé !</h3>
             <p className="mt-2 text-gray-500">Tu peux maintenant passer au niveau 11 et poursuivre ton parcours premium.</p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
               <button
@@ -1302,7 +1302,7 @@ function Niveau10Legacy_DISABLED() {
                 onClick={() => navigate('/app/activites')}
                 className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d]"
               >
-                Voir mes activitÃƒÂ©s
+                Voir mes activités
               </button>
               <button
                 type="button"

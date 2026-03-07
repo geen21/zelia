@@ -135,7 +135,7 @@ export default function Niveau5() {
     { type: 'input', id: 'listening2', placeholder: 'Your answer...' },
     { type: 'text', text: "Great listening! Now, speaking. Describe your favorite hobby in English. Be as detailed as you can.", durationMs: 1800 },
     { type: 'input', id: 'speaking1', placeholder: 'Describe your hobby in at least 20 words...' },
-    { type: 'text', text: "Nice! Reading test. Read this: 'Cats are popular pets. They are independent and playful. Many people love cats because they are cute and fun.'\n\nWhat are cats best described as?\n\nRÃƒÂ©ponds en donnant les adjectifs exacts.", durationMs: 3000 },
+    { type: 'text', text: "Nice! Reading test. Read this: 'Cats are popular pets. They are independent and playful. Many people love cats because they are cute and fun.'\n\nWhat are cats best described as?\n\nRÃ©ponds en donnant les adjectifs exacts.", durationMs: 3000 },
     { type: 'input', id: 'reading1', placeholder: 'Donne les adjectifs exacts...' },
     { type: 'text', text: "Good. Writing test. Write a short paragraph about your daily routine. Use at least 5 sentences.", durationMs: 1800 },
     { type: 'input', id: 'writing1', placeholder: 'Write your paragraph...' },
@@ -143,7 +143,7 @@ export default function Niveau5() {
     { type: 'input', id: 'vocab1', placeholder: 'a, b, or c...' },
     { type: 'text', text: "Grammar: Fill in the blank: 'I ___ to school every day.' (go, goes, going)", durationMs: 1800 },
     { type: 'input', id: 'grammar1', placeholder: 'Your answer...' },
-    { type: 'text', text: "Conversation: What do you think about learning English? Why is it important? RÃƒÂ©ponds en dÃƒÂ©taillant au moins 20 mots.", durationMs: 2000 },
+    { type: 'text', text: "Conversation: What do you think about learning English? Why is it important? RÃ©ponds en dÃ©taillant au moins 20 mots.", durationMs: 2000 },
     { type: 'input', id: 'conversation1', placeholder: 'Share your thoughts in at least 20 words...' },
     { type: 'text', text: "Thanks for participating! Now, let's calculate your English level based on your answers.", durationMs: 1800 },
     { type: 'result' },
@@ -195,11 +195,11 @@ export default function Niveau5() {
   const getInputValidation = useCallback((item) => {
     if (!item) return { ok: true }
     const value = inputs[item.id] || ''
-    if (!value.trim()) return { ok: false, message: 'RÃƒÂ©ponse requise.' }
+    if (!value.trim()) return { ok: false, message: 'RÃ©ponse requise.' }
     const wordLimitedIds = ['speaking1', 'conversation1']
     if (wordLimitedIds.includes(item.id)) {
       const count = countWords(value)
-      if (count < 20) return { ok: false, message: 'Ãƒâ€°cris au moins 20 mots.' }
+      if (count < 20) return { ok: false, message: 'Ã‰cris au moins 20 mots.' }
     }
     return { ok: true }
   }, [inputs])
@@ -231,14 +231,14 @@ export default function Niveau5() {
 
   function getLevelMessage(level) {
     const messages = {
-      A1: "Your English level is: A1 (Beginner)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires. Ãƒâ‚¬ ce niveau dÃƒÂ©butant, concentre-toi sur les bases : vocabulaire quotidien, phrases simples. Avec de la pratique rÃƒÂ©guliÃƒÂ¨re, tu progresseras rapidement vers des niveaux plus avancÃƒÂ©s qui ouvriront des opportunitÃƒÂ©s internationales.",
-      A2: "Your English level is: A2 (Elementary)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires et de la technologie. Ãƒâ‚¬ ce niveau ÃƒÂ©lÃƒÂ©mentaire, tu peux dÃƒÂ©jÃƒÂ  communiquer sur des sujets familiers. Continue ÃƒÂ  pratiquer pour atteindre B1 et amÃƒÂ©liorer ton employabilitÃƒÂ© sur le marchÃƒÂ© international.",
-      B1: "Your English level is: B1 (Intermediate)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. Ãƒâ‚¬ ce niveau intermÃƒÂ©diaire, tu peux discuter de sujets variÃƒÂ©s et comprendre des textes plus complexes. Cela te donne dÃƒÂ©jÃƒÂ  un avantage compÃƒÂ©titif ; vise B2 pour des opportunitÃƒÂ©s encore plus ÃƒÂ©levÃƒÂ©es.",
-      B2: "Your English level is: B2 (Upper Intermediate)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. Ãƒâ‚¬ ce niveau avancÃƒÂ©, tu maÃƒÂ®trises la langue couramment. Cela ouvre des portes vers des postes internationaux et des carriÃƒÂ¨res dans des entreprises multinationales. Continue ÃƒÂ  te perfectionner pour atteindre C1.",
-      C1: "Your English level is: C1 (Advanced)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. Ãƒâ‚¬ ce niveau avancÃƒÂ©, tu utilises l'anglais avec aisance et prÃƒÂ©cision. Cela te positionne pour des rÃƒÂ´les de leadership international et des opportunitÃƒÂ©s dans des secteurs de pointe. Vise C2 pour une maÃƒÂ®trise totale.",
-      C2: "Your English level is: C2 (Proficient)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. Ãƒâ‚¬ ce niveau expert, tu maÃƒÂ®trises parfaitement l'anglais. Cela te donne accÃƒÂ¨s aux meilleures opportunitÃƒÂ©s professionnelles mondiales, y compris dans des domaines spÃƒÂ©cialisÃƒÂ©s et innovants. FÃƒÂ©licitations pour ce niveau exceptionnel !"
+      A1: "Your English level is: A1 (Beginner)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires. Ã€ ce niveau dÃ©butant, concentre-toi sur les bases : vocabulaire quotidien, phrases simples. Avec de la pratique rÃ©guliÃ¨re, tu progresseras rapidement vers des niveaux plus avancÃ©s qui ouvriront des opportunitÃ©s internationales.",
+      A2: "Your English level is: A2 (Elementary)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires et de la technologie. Ã€ ce niveau Ã©lÃ©mentaire, tu peux dÃ©jÃ  communiquer sur des sujets familiers. Continue Ã  pratiquer pour atteindre B1 et amÃ©liorer ton employabilitÃ© sur le marchÃ© international.",
+      B1: "Your English level is: B1 (Intermediate)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. Ã€ ce niveau intermÃ©diaire, tu peux discuter de sujets variÃ©s et comprendre des textes plus complexes. Cela te donne dÃ©jÃ  un avantage compÃ©titif ; vise B2 pour des opportunitÃ©s encore plus Ã©levÃ©es.",
+      B2: "Your English level is: B2 (Upper Intermediate)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. Ã€ ce niveau avancÃ©, tu maÃ®trises la langue couramment. Cela ouvre des portes vers des postes internationaux et des carriÃ¨res dans des entreprises multinationales. Continue Ã  te perfectionner pour atteindre C1.",
+      C1: "Your English level is: C1 (Advanced)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. Ã€ ce niveau avancÃ©, tu utilises l'anglais avec aisance et prÃ©cision. Cela te positionne pour des rÃ´les de leadership international et des opportunitÃ©s dans des secteurs de pointe. Vise C2 pour une maÃ®trise totale.",
+      C2: "Your English level is: C2 (Proficient)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. Ã€ ce niveau expert, tu maÃ®trises parfaitement l'anglais. Cela te donne accÃ¨s aux meilleures opportunitÃ©s professionnelles mondiales, y compris dans des domaines spÃ©cialisÃ©s et innovants. FÃ©licitations pour ce niveau exceptionnel !"
     }
-    return messages[level] || "Your English level is: " + level + "\n\nL'anglais est essentiel pour ton avenir professionnel. Continue ÃƒÂ  pratiquer !"
+    return messages[level] || "Your English level is: " + level + "\n\nL'anglais est essentiel pour ton avenir professionnel. Continue Ã  pratiquer !"
   }
 
   function calculateEnglishLevel(answers) {
@@ -306,7 +306,7 @@ export default function Niveau5() {
 
     entries.push({
       question_id: 'niv5_english_level',
-      question_text: "Niveau d'anglais (CEFR) calculÃƒÂ©",
+      question_text: "Niveau d'anglais (CEFR) calculÃ©",
       answer_text: level
     })
 
@@ -341,7 +341,7 @@ export default function Niveau5() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
+        <p className="mt-2 text-text-secondary">Chargementâ€¦</p>
       </div>
     )
   }
@@ -375,7 +375,7 @@ export default function Niveau5() {
               )}
               {current.type === 'input' && (
                 <div className="space-y-3">
-                  <label className="font-medium text-text-primary block">RÃƒÂ©ponse</label>
+                  <label className="font-medium text-text-primary block">RÃ©ponse</label>
                   {(current.id === 'speaking1' || current.id === 'conversation1') && (
                     <p className="text-sm text-gray-500">20 mots minimum. ({currentWordCount} mots)</p>
                   )}
@@ -384,7 +384,7 @@ export default function Niveau5() {
                   )}
                   <textarea
                     className="w-full rounded-xl border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-black min-h-[140px]"
-                    placeholder={current.placeholder || 'Ta rÃƒÂ©ponse...'}
+                    placeholder={current.placeholder || 'Ta rÃ©ponse...'}
                     value={inputs[current.id] || ''}
                     onChange={(e) => setInputs(prev => ({ ...prev, [current.id]: e.target.value }))}
                   />
@@ -399,7 +399,7 @@ export default function Niveau5() {
                     onClick={() => speakText(current.audioText || lastAudioTextRef.current)}
                     className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300"
                   >
-                    RÃƒÂ©ÃƒÂ©couter
+                    RÃ©Ã©couter
                   </button>
                 )}
                 <button
@@ -425,11 +425,11 @@ export default function Niveau5() {
       {completed && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">Ã¯Â¿Â½</div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 5 rÃƒÂ©ussi !</h3>
-            <p className="text-text-secondary mb-4">Ton niveau d'anglais est : <strong>{englishLevel}</strong>. Continue ÃƒÂ  pratiquer pour progresser !</p>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">ï¿½</div>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 5 rÃ©ussi !</h3>
+            <p className="text-text-secondary mb-4">Ton niveau d'anglais est : <strong>{englishLevel}</strong>. Continue Ã  pratiquer pour progresser !</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃ©s</button>
               <button onClick={() => navigate('/app/niveau/6')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

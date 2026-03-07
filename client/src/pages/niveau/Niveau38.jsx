@@ -49,70 +49,70 @@ const SITUATIONS = [
     id: 'analysis',
     title: "Situation 1 : L'analyse",
     type: 'qcm',
-    context: "Tu travailles dans un cafÃƒÂ©. CÃ¢â‚¬â„¢est le coup de feu, il y a 10 personnes qui attendent, et soudain, la machine ÃƒÂ  cafÃƒÂ© tombe en panne et fuit partout.",
-    question: "Quelle est ta toute premiÃƒÂ¨re rÃƒÂ©action pour rÃƒÂ©soudre ce problÃƒÂ¨me efficacement ?",
+    context: "Tu travailles dans un café. C’est le coup de feu, il y a 10 personnes qui attendent, et soudain, la machine à café tombe en panne et fuit partout.",
+    question: "Quelle est ta toute première réaction pour résoudre ce problème efficacement ?",
     options: [
-      "Commencer ÃƒÂ  ÃƒÂ©ponger l'eau immÃƒÂ©diatement.",
-      "S'excuser auprÃƒÂ¨s des clients et appeler un rÃƒÂ©parateur.",
-      "Identifier la source de la fuite et couper l'arrivÃƒÂ©e d'eau/ÃƒÂ©lectricitÃƒÂ©.",
-      "Paniquer et demander au collÃƒÂ¨gue de gÃƒÂ©rer."
+      "Commencer à éponger l'eau immédiatement.",
+      "S'excuser auprès des clients et appeler un réparateur.",
+      "Identifier la source de la fuite et couper l'arrivée d'eau/électricité.",
+      "Paniquer et demander au collègue de gérer."
     ],
     correctIndex: 2,
-    explanation: "Avant de rÃƒÂ©parer ou de communiquer, il faut stopper l'aggravation du problÃƒÂ¨me (confinement)."
+    explanation: "Avant de réparer ou de communiquer, il faut stopper l'aggravation du problème (confinement)."
   },
   {
     id: 'priorization',
     title: "Situation 2 : Priorisation",
     type: 'drag',
-    context: "Tu es stagiaire en communication. Ton maÃƒÂ®tre de stage te confie 4 tÃƒÂ¢ches ÃƒÂ  faire en 1h avant une rÃƒÂ©union importante.",
-    question: "Classe-les de la plus prioritaire (1) ÃƒÂ  la moins urgente (4).",
+    context: "Tu es stagiaire en communication. Ton maître de stage te confie 4 tâches à faire en 1h avant une réunion importante.",
+    question: "Classe-les de la plus prioritaire (1) à la moins urgente (4).",
     options: [
-      { id: 'A', text: "Commander les pizzas pour le dÃƒÂ©jeuner de demain." },
-      { id: 'B', text: "Imprimer et agrafer les 10 dossiers pour la rÃƒÂ©union de dans 1h." },
-      { id: 'C', text: "RÃƒÂ©pondre ÃƒÂ  un commentaire sur Instagram datant d'hier." },
-      { id: 'D', text: "Corriger une faute d'orthographe sur la prÃƒÂ©sentation qui va ÃƒÂªtre projetÃƒÂ©e ÃƒÂ  la rÃƒÂ©union." }
+      { id: 'A', text: "Commander les pizzas pour le déjeuner de demain." },
+      { id: 'B', text: "Imprimer et agrafer les 10 dossiers pour la réunion de dans 1h." },
+      { id: 'C', text: "Répondre à un commentaire sur Instagram datant d'hier." },
+      { id: 'D', text: "Corriger une faute d'orthographe sur la présentation qui va être projetée à la réunion." }
     ],
     correctOrder: ['D', 'B', 'C', 'A'],
-    explanation: "L'impact immÃƒÂ©diat sur la rÃƒÂ©union est la prioritÃƒÂ© absolue (Erreur visuelle > Logistique immÃƒÂ©diate)."
+    explanation: "L'impact immédiat sur la réunion est la priorité absolue (Erreur visuelle > Logistique immédiate)."
   },
   {
     id: 'critical',
-    title: "Situation 3 : PensÃƒÂ©e critique",
+    title: "Situation 3 : Pensée critique",
     type: 'truefalse',
-    context: "On te confie une mission : Ã‚Â« Augmenter les ventes de glaces du magasin Ã‚Â». Tu remarques que les ventes baissent quand il pleut.",
-    question: "En rÃƒÂ©solution de problÃƒÂ¨me, une corrÃƒÂ©lation signifie forcÃƒÂ©ment une causalitÃƒÂ©.",
+    context: "On te confie une mission : « Augmenter les ventes de glaces du magasin ». Tu remarques que les ventes baissent quand il pleut.",
+    question: "En résolution de problème, une corrélation signifie forcément une causalité.",
     options: ['Vrai', 'Faux'],
     correctIndex: 1,
-    explanation: "Il peut y avoir d'autres causes. Il faut toujours vÃƒÂ©rifier ses hypothÃƒÂ¨ses."
+    explanation: "Il peut y avoir d'autres causes. Il faut toujours vérifier ses hypothèses."
   },
   {
     id: 'creativity',
-    title: "Situation 4 : CrÃƒÂ©ativitÃƒÂ©",
+    title: "Situation 4 : Créativité",
     type: 'qcm',
-    context: "Tu organises une soirÃƒÂ©e ÃƒÂ©tudiante. Le DJ annule ÃƒÂ  2h de l'ÃƒÂ©vÃƒÂ¨nement. Tu n'as pas de budget supplÃƒÂ©mentaire.",
-    question: "Quelle solution illustre le mieux la dÃƒÂ©brouillardise ?",
+    context: "Tu organises une soirée étudiante. Le DJ annule à 2h de l'évènement. Tu n'as pas de budget supplémentaire.",
+    question: "Quelle solution illustre le mieux la débrouillardise ?",
     options: [
-      "Annuler la soirÃƒÂ©e.",
-      "Brancher un tÃƒÂ©lÃƒÂ©phone avec une playlist collaborative oÃƒÂ¹ chaque invitÃƒÂ© peut ajouter un titre.",
+      "Annuler la soirée.",
+      "Brancher un téléphone avec une playlist collaborative où chaque invité peut ajouter un titre.",
       "Emprunter de l'argent pour payer un DJ de luxe en urgence.",
-      "Mettre la radio en espÃƒÂ©rant que ÃƒÂ§a plaise."
+      "Mettre la radio en espérant que ça plaise."
     ],
     correctIndex: 1,
-    explanation: "C'est une solution ÃƒÂ  coÃƒÂ»t zÃƒÂ©ro qui transforme un problÃƒÂ¨me en animation interactive."
+    explanation: "C'est une solution à coût zéro qui transforme un problème en animation interactive."
   },
   {
     id: 'decision',
-    title: "Situation 5 : Prise de dÃƒÂ©cision",
+    title: "Situation 5 : Prise de décision",
     type: 'qcm',
-    context: "Tu travailles en ÃƒÂ©quipe sur un projet. Un membre ne rend pas sa partie ÃƒÂ  temps, ce qui bloque tout le monde.",
+    context: "Tu travailles en équipe sur un projet. Un membre ne rend pas sa partie à temps, ce qui bloque tout le monde.",
     question: "Le chef de projet te demande qui est responsable. Que fais-tu ?",
     options: [
-      "Tu le dÃƒÂ©nonces directement pour te protÃƒÂ©ger.",
-      "Tu ignores le message et tu attends que ÃƒÂ§a passe.",
+      "Tu le dénonces directement pour te protéger.",
+      "Tu ignores le message et tu attends que ça passe.",
       "Tu proposes une solution collective sans pointer du doigt."
     ],
     correctIndex: 2,
-    explanation: "La rÃƒÂ©solution de problÃƒÂ¨me en entreprise est souvent relationnelle. L'objectif est le rÃƒÂ©sultat, pas le coupable."
+    explanation: "La résolution de problème en entreprise est souvent relationnelle. L'objectif est le résultat, pas le coupable."
   }
 ]
 
@@ -138,9 +138,9 @@ export default function Niveau38() {
   const firstName = profile?.first_name || 'toi'
 
   const dialogues = useMemo(() => [
-    { text: `${firstName}, aujourd'hui on travaille un hard skill : la rÃƒÂ©solution de problÃƒÂ¨mes.`, durationMs: 2400 },
-    { text: "Tu vas faire 5 mini-jeux avec des situations rÃƒÂ©alistes.", durationMs: 2000 },
-    { text: "RÃƒÂ©ponds vite, puis lis les explications.", durationMs: 1800 },
+    { text: `${firstName}, aujourd'hui on travaille un hard skill : la résolution de problèmes.`, durationMs: 2400 },
+    { text: "Tu vas faire 5 mini-jeux avec des situations réalistes.", durationMs: 2000 },
+    { text: "Réponds vite, puis lis les explications.", durationMs: 1800 },
   ], [firstName])
 
   const currentDialogue = dialogues[dialogueIdx] || { text: '', durationMs: 1500 }
@@ -241,7 +241,7 @@ export default function Niveau38() {
       await usersAPI.saveExtraInfo([
         {
           question_id: 'niveau38_problem_solving_completed',
-          question_text: 'RÃƒÂ©solution de problÃƒÂ¨mes (situations)',
+          question_text: 'Résolution de problèmes (situations)',
           answer_text: JSON.stringify({
             situationsCompleted: SITUATIONS.length,
             situationsSummary,
@@ -325,7 +325,7 @@ export default function Niveau38() {
       const isCorrect = JSON.stringify(dragItems.map(i => i.id)) === JSON.stringify(currentSituation.correctOrder)
       return (
         <div className={`mt-4 p-4 rounded-xl border ${isCorrect ? 'bg-[#f8fff0] border-[#c1ff72]' : 'bg-red-50 border-red-200'}`}>
-          <p className="text-sm text-gray-800"><strong>{isCorrect ? 'Correct.' : 'Ãƒâ‚¬ revoir.'}</strong> {currentSituation.explanation}</p>
+          <p className="text-sm text-gray-800"><strong>{isCorrect ? 'Correct.' : 'À revoir.'}</strong> {currentSituation.explanation}</p>
         </div>
       )
     }
@@ -334,7 +334,7 @@ export default function Niveau38() {
     const isCorrect = chosen === currentSituation.correctIndex
     return (
       <div className={`mt-4 p-4 rounded-xl border ${isCorrect ? 'bg-[#f8fff0] border-[#c1ff72]' : 'bg-red-50 border-red-200'}`}>
-        <p className="text-sm text-gray-800"><strong>{isCorrect ? 'Correct.' : 'Ãƒâ‚¬ revoir.'}</strong> {currentSituation.explanation}</p>
+        <p className="text-sm text-gray-800"><strong>{isCorrect ? 'Correct.' : 'À revoir.'}</strong> {currentSituation.explanation}</p>
       </div>
     )
   }
@@ -349,8 +349,8 @@ export default function Niveau38() {
               <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
                   {phase === 'intro' && typed}
-                  {phase === 'game' && "Lis la situation et rÃƒÂ©ponds. Tu verras l'explication juste aprÃƒÂ¨s."}
-                  {phase === 'result' && "Bravo, tu as terminÃƒÂ© les 5 mini-jeux."}
+                  {phase === 'game' && "Lis la situation et réponds. Tu verras l'explication juste après."}
+                  {phase === 'result' && "Bravo, tu as terminé les 5 mini-jeux."}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
               </div>
@@ -374,11 +374,11 @@ export default function Niveau38() {
         <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">38</div>
-            <h2 className="text-lg md:text-xl font-bold">RÃƒÂ©solution de problÃƒÂ¨mes</h2>
+            <h2 className="text-lg md:text-xl font-bold">Résolution de problèmes</h2>
           </div>
 
           {phase === 'intro' && (
-            <div className="text-text-secondary text-center py-8">Les mini-jeux apparaÃƒÂ®tront ici.</div>
+            <div className="text-text-secondary text-center py-8">Les mini-jeux apparaîtront ici.</div>
           )}
 
           {phase === 'game' && (
@@ -398,7 +398,7 @@ export default function Niveau38() {
               {showFeedback && (
                 <div className="pt-4 border-t border-gray-200">
                   <button onClick={handleContinue} className="w-full px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 font-medium hover:bg-[#b8f566] transition-colors">
-                    {currentIndex < SITUATIONS.length - 1 ? 'Situation suivante' : 'Voir le rÃƒÂ©sultat'}
+                    {currentIndex < SITUATIONS.length - 1 ? 'Situation suivante' : 'Voir le résultat'}
                   </button>
                 </div>
               )}
@@ -408,13 +408,13 @@ export default function Niveau38() {
           {phase === 'result' && (
             <div className="space-y-4">
               <div className="bg-[#f8fff0] border border-[#c1ff72] rounded-xl p-6 text-center">
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Niveau terminÃƒÂ©</h3>
-                <p className="text-gray-700">Tu as vu 5 situations clÃƒÂ©s de rÃƒÂ©solution de problÃƒÂ¨mes. Garde ces rÃƒÂ©flexes au quotidien.</p>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Niveau terminé</h3>
+                <p className="text-gray-700">Tu as vu 5 situations clés de résolution de problèmes. Garde ces réflexes au quotidien.</p>
               </div>
               <ul className="space-y-2 text-sm text-gray-700">
                 {SITUATIONS.map((s) => (
                   <li key={s.id} className="flex items-start gap-2">
-                    <span className="text-[#c1ff72] font-bold">Ã¢â‚¬Â¢</span>
+                    <span className="text-[#c1ff72] font-bold">•</span>
                     <span>{s.title}</span>
                   </li>
                 ))}
@@ -428,10 +428,10 @@ export default function Niveau38() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce font-bold">38</div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 38 terminÃƒÂ© !</h3>
-            <p className="text-text-secondary mb-4">Tu as travaillÃƒÂ© la rÃƒÂ©solution de problÃƒÂ¨mes avec 5 situations.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 38 terminé !</h3>
+            <p className="text-text-secondary mb-4">Tu as travaillé la résolution de problèmes avec 5 situations.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/39')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Niveau suivant</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

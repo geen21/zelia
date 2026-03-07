@@ -21,7 +21,7 @@ function limitWords(text, maxWords) {
   if (words.length <= maxWords) {
     return text.trim()
   }
-  return `${words.slice(0, maxWords).join(' ')}Ã¢â‚¬Â¦`
+  return `${words.slice(0, maxWords).join(' ')}…`
 }
 
 function sanitizeAnalysisPayload(raw) {
@@ -43,7 +43,7 @@ function sanitizeAnalysisPayload(raw) {
     sanitized.personalityAnalysis = ensureJobMentions(sanitized.personalityAnalysis, jobsArray)
     sanitized.personalityAnalysis = limitWords(sanitized.personalityAnalysis, 300)
   }
-  // sanitized.skillsAssessment = null // Keep skillsAssessment for "Tes qualitÃƒÂ©s"
+  // sanitized.skillsAssessment = null // Keep skillsAssessment for "Tes qualités"
   return sanitized
 }
 
@@ -85,7 +85,7 @@ function ensureJobMentions(text, jobs) {
   const additionList = formatJobList(missing.slice(0, 3))
   if (!additionList) return text
 
-  return `${text.trim()}\n\nCes points se retrouvent dans des mÃƒÂ©tiers comme ${additionList}.`
+  return `${text.trim()}\n\nCes points se retrouvent dans des métiers comme ${additionList}.`
 }
 
 // Simple typewriter
@@ -142,7 +142,7 @@ export default function Niveau4() {
 
   const ZELIA_IG_HANDLE = '@zelia_orientation' // handle officiel
 
-  const renderParagraphs = (text, emptyLabel = 'Ã¢â‚¬â€') => {
+  const renderParagraphs = (text, emptyLabel = '—') => {
     const paragraphs = splitIntoParagraphs(text)
     if (!paragraphs.length) {
       return [<p key="empty" className="whitespace-pre-wrap text-gray-800 leading-relaxed">{emptyLabel}</p>]
@@ -164,7 +164,7 @@ export default function Niveau4() {
         const prof = pRes?.data?.profile || null
         setProfile(prof)
         setAvatarUrl(buildAvatarFromProfile(prof, user.id))
-  // Load ZÃƒÂ©lia personality questions (internally typed as "mbti")
+  // Load Zélia personality questions (internally typed as "mbti")
         const qRes = await apiClient.get('/questionnaire/questions', { params: { type: 'mbti', _: Date.now() } })
         const list = Array.isArray(qRes?.data) ? qRes.data : []
         setQuestions(list)
@@ -188,15 +188,15 @@ export default function Niveau4() {
 
   const messages = useMemo(() => {
     const greeting = firstName
-      ? `Rebonjour ${firstName}, j'espÃƒÂ¨re que ÃƒÂ§a va toujours`
-      : "Rebonjour, j'espÃƒÂ¨re que ÃƒÂ§a va toujours"
+      ? `Rebonjour ${firstName}, j'espère que ça va toujours`
+      : "Rebonjour, j'espère que ça va toujours"
     const launchLine = firstName
       ? `On y va ${firstName} !`
   : "On y va, c'est parti !"
     return ([
       { text: greeting, durationMs: 2000 },
-      { text: "Je vais te poser quelques questions sur toi et je vais te donner des rÃƒÂ©sultats concrets sur qui tu es vraiment, je vais essayer d'analyser en profondeur ta personne", durationMs: 4000 },
-      { text: "On va faire ensemble un petit test de personnalitÃƒÂ© en 40 questions", durationMs: 2000 },
+      { text: "Je vais te poser quelques questions sur toi et je vais te donner des résultats concrets sur qui tu es vraiment, je vais essayer d'analyser en profondeur ta personne", durationMs: 4000 },
+      { text: "On va faire ensemble un petit test de personnalité en 40 questions", durationMs: 2000 },
       { text: "Ãƒâ€¡a te permettra de comprendre un peu mieux qui tu es, et comment tu fonctionnes", durationMs: 2000 },
       { text: launchLine, durationMs: 500 },
     ])
@@ -267,7 +267,7 @@ export default function Niveau4() {
       setPhase('results')
     } catch (e) {
       console.error('Zelia submit/analyze error', e)
-      setError("Impossible de gÃƒÂ©nÃƒÂ©rer l'analyse de personnalitÃƒÂ©")
+      setError("Impossible de générer l'analyse de personnalité")
     } finally {
       setBusy(false)
     }
@@ -348,8 +348,8 @@ export default function Niveau4() {
   const file = new File([blob], 'zelia-story.png', { type: 'image/png' })
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
-          title: analysis?.personalityType || 'Profil ZÃƒÂ©lia',
-          text: `Mon profil personnalitÃƒÂ© ZÃƒÂ©lia Ã¢â‚¬â€ ${analysis?.personalityType || ''}`.trim(),
+          title: analysis?.personalityType || 'Profil Zélia',
+          text: `Mon profil personnalité Zélia — ${analysis?.personalityType || ''}`.trim(),
           files: [file]
         })
         return
@@ -383,7 +383,7 @@ export default function Niveau4() {
       // Header
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(18)
-  const title = analysis?.personalityType ? `Profil ZÃƒÂ©lia Ã¢â‚¬â€ ${analysis.personalityType}` : 'Profil ZÃƒÂ©lia'
+  const title = analysis?.personalityType ? `Profil Zélia — ${analysis.personalityType}` : 'Profil Zélia'
       doc.text(title, margin, y)
       y += 8
       doc.setDrawColor(0)
@@ -391,11 +391,11 @@ export default function Niveau4() {
       doc.line(margin, y, pageWidth - margin, y)
       y += 6
 
-      // Section: Analyse de personnalitÃƒÂ©
+      // Section: Analyse de personnalité
       if (analysis?.personalityAnalysis) {
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(14)
-        doc.text('Analyse de personnalitÃƒÂ©', margin, y)
+        doc.text('Analyse de personnalité', margin, y)
         y += 6
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(11)
@@ -428,7 +428,7 @@ export default function Niveau4() {
           y += 6
           doc.setFont('helvetica', 'normal')
           if (Array.isArray(j?.skills) && j.skills.length) {
-            const line = `CompÃƒÂ©tences clÃƒÂ©s: ${j.skills.join(', ')}`
+            const line = `Compétences clés: ${j.skills.join(', ')}`
             const lines = doc.splitTextToSize(line, usable)
             for (const ln of lines) {
               if (y > 280) { doc.addPage(); y = margin }
@@ -443,7 +443,7 @@ export default function Niveau4() {
       // Footer
       doc.setFont('helvetica', 'italic')
       doc.setFontSize(9)
-  const footer = 'GÃƒÂ©nÃƒÂ©rÃƒÂ© par ZÃƒÂ©lia Ã¢â‚¬â€ Niveau 4 (PersonnalitÃƒÂ©s ZÃƒÂ©lia)'
+  const footer = 'Généré par Zélia — Niveau 4 (Personnalités Zélia)'
       const pageCount = doc.getNumberOfPages()
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i)
@@ -550,7 +550,7 @@ export default function Niveau4() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
+        <p className="mt-2 text-text-secondary">Chargement…</p>
       </div>
     )
   }
@@ -575,25 +575,25 @@ export default function Niveau4() {
                   {phase === 'intro' ? (
                     <>{typed}</>
                   ) : phase === 'quiz' ? (
-                    <>RÃƒÂ©ponds aux questions pour rÃƒÂ©cupÃƒÂ©rer ton analyse.</>
+                    <>Réponds aux questions pour récupérer ton analyse.</>
                   ) : phase === 'generating' ? (
-                    <>J'analyse tes rÃƒÂ©ponses, cela peut prendre jusqu'ÃƒÂ  1 minute, ne recharge pas la pageÃ¢â‚¬Â¦</>
+                    <>J'analyse tes réponses, cela peut prendre jusqu'à 1 minute, ne recharge pas la page…</>
                   ) : phase === 'results' ? (
                     <>
                       {resultsStep === 'confirm'
-                        ? "HÃƒÂ©site pas ÃƒÂ  nous taguer dans ta story pour qu'on te republie si t'as aimÃƒÂ© les rÃƒÂ©sultats"
+                        ? "Hésite pas à nous taguer dans ta story pour qu'on te republie si t'as aimé les résultats"
                         : <>
-                            Et voilÃƒÂ  le tour est jouÃƒÂ©, ton analyse de personnalitÃƒÂ© est prÃƒÂªte !
+                            Et voilà le tour est joué, ton analyse de personnalité est prête !
                             <br />
                             <br />
-                            Tu devrais partager tes rÃƒÂ©sultats dÃ¢â‚¬â„¢orientation et de personnalitÃƒÂ© sur TikTok ou Insta ou directement ÃƒÂ  tes potes pour voir comment ils rÃƒÂ©agissent <FaFaceGrinWide className="inline w-4 h-4" />
+                            Tu devrais partager tes résultats d’orientation et de personnalité sur TikTok ou Insta ou directement à tes potes pour voir comment ils réagissent <FaFaceGrinWide className="inline w-4 h-4" />
                             <br />
                             <br />
                             Tu peux me mentionner aussi : <strong>@zelia_orientation</strong> pour que je reposte !
                           </>}
                     </>
                   ) : phase === 'success' ? (
-                    <>Niveau 4 rÃƒÂ©ussi !</>
+                    <>Niveau 4 réussi !</>
                   ) : null}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
@@ -612,19 +612,19 @@ export default function Niveau4() {
                       <button onClick={onPreview} disabled={previewing} className="w-full h-12 px-3 rounded-lg bg-white text-gray-900 border border-gray-300">
                         <span className="w-full h-full flex items-center justify-center gap-2">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8S2 12 2 12Z" strokeLinecap="round" strokeLinejoin="round"/><circle cx="12" cy="12" r="3"/></svg>
-                          <span className="font-medium">{previewing ? 'PrÃƒÂ©parationÃ¢â‚¬Â¦' : 'AperÃƒÂ§u'}</span>
+                          <span className="font-medium">{previewing ? 'Préparation…' : 'Aperçu'}</span>
                         </span>
                       </button>
                       <button onClick={generatePdfReport} disabled={generatingReport} className="w-full h-12 px-3 rounded-lg bg-white text-gray-900 border border-gray-300">
                         <span className="w-full h-full flex items-center justify-center gap-2">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 14h8M8 18h5"/></svg>
-                          <span className="font-medium">{generatingReport ? 'CrÃƒÂ©ation du PDFÃ¢â‚¬Â¦' : 'PDF'}</span>
+                          <span className="font-medium">{generatingReport ? 'Création du PDF…' : 'PDF'}</span>
                         </span>
                       </button>
                       <button onClick={onShare} disabled={sharing} className="w-full h-12 px-3 rounded-lg bg-[#f68fff] text-black border border-gray-200">
                         <span className="w-full h-full flex items-center justify-center gap-2">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 16V4"/><path d="m8 8 4-4 4 4"/></svg>
-                          <span className="font-medium">{sharing ? 'PrÃƒÂ©parationÃ¢â‚¬Â¦' : 'Partager'}</span>
+                          <span className="font-medium">{sharing ? 'Préparation…' : 'Partager'}</span>
                         </span>
                       </button>
                       <button onClick={() => setResultsStep('confirm')} className="w-full h-12 px-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200">
@@ -650,7 +650,7 @@ export default function Niveau4() {
           {phase === 'quiz' && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xl font-bold">Test de personnalitÃƒÂ© ZÃƒÂ©lia</h2>
+                <h2 className="text-xl font-bold">Test de personnalité Zélia</h2>
                 {(() => {
                   const startNum = 1
                   const qLen = questions.length || 0
@@ -683,7 +683,7 @@ export default function Niveau4() {
                   onClick={() => setQIdx(i => Math.max(0, i-1))}
                   disabled={qIdx===0}
                 >
-                  PrÃƒÂ©cÃƒÂ©dent
+                  Précédent
                 </button>
                 {qIdx === questions.length - 1 && (
                   <button
@@ -692,7 +692,7 @@ export default function Niveau4() {
                     onClick={() => { setPhase('generating'); submitZeliaProfile() }}
                     disabled={!answered || busy}
                   >
-                    {busy ? 'AnalyseÃ¢â‚¬Â¦' : 'Terminer'}
+                    {busy ? 'Analyse…' : 'Terminer'}
                   </button>
                 )}
               </div>
@@ -702,12 +702,12 @@ export default function Niveau4() {
           {phase === 'results' && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-xl font-bold">Mes RÃƒÂ©sultats</h2>
-                <p className="text-text-secondary">Analyse personnalisÃƒÂ©e de ton test ZÃƒÂ©lia</p>
+                <h2 className="text-xl font-bold">Mes Résultats</h2>
+                <p className="text-text-secondary">Analyse personnalisée de ton test Zélia</p>
               </div>
 
               <section className="bg-surface border border-line rounded-xl shadow-card p-6">
-                <h3 className="text-lg font-semibold mb-2">Analyse de personnalitÃƒÂ©</h3>
+                <h3 className="text-lg font-semibold mb-2">Analyse de personnalité</h3>
                 <div className="space-y-4">
                   {renderParagraphs(analysis?.personalityAnalysis)}
                 </div>
@@ -715,7 +715,7 @@ export default function Niveau4() {
 
               {analysis?.skillsAssessment && (
                 <section className="bg-surface border border-line rounded-xl shadow-card p-6">
-                  <h3 className="text-lg font-semibold mb-2">Tes qualitÃƒÂ©s</h3>
+                  <h3 className="text-lg font-semibold mb-2">Tes qualités</h3>
                   <div className="space-y-4">
                     {renderParagraphs(analysis.skillsAssessment)}
                   </div>
@@ -740,7 +740,7 @@ export default function Niveau4() {
                 </section>
               )}
 
-              {/* Pas de recommandations d'ÃƒÂ©tudes pour ce test */}
+              {/* Pas de recommandations d'études pour ce test */}
             </div>
           )}
         </div>
@@ -751,12 +751,12 @@ export default function Niveau4() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 4 rÃƒÂ©ussi !</h3>
-            <p className="text-text-secondary mb-4">Bravo, tu as complÃƒÂ©tÃƒÂ© le test ZÃƒÂ©lia et dÃƒÂ©couvert ton profil.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 4 réussi !</h3>
+            <p className="text-text-secondary mb-4">Bravo, tu as complété le test Zélia et découvert ton profil.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/5')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
-              <button onClick={() => navigate('/app/results')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300">Voir mes rÃƒÂ©sultats</button>
+              <button onClick={() => navigate('/app/results')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300">Voir mes résultats</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />
@@ -782,12 +782,12 @@ export default function Niveau4() {
               className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black text-white flex items-center justify-center shadow-sm hover:opacity-90"
             ><FaXmark className="w-3 h-3" /></button>
 
-            <h3 className="text-lg font-bold pr-8">PrÃƒÂ©visualisation ÃƒÂ  partager</h3>
+            <h3 className="text-lg font-bold pr-8">Prévisualisation à partager</h3>
 
             {shareImgUrl ? (
-              <img src={shareImgUrl} alt="Visuel ÃƒÂ  partager ZÃƒÂ©lia" className="mt-3 w-full h-auto rounded-lg border border-gray-200" />
+              <img src={shareImgUrl} alt="Visuel à partager Zélia" className="mt-3 w-full h-auto rounded-lg border border-gray-200" />
             ) : (
-              <div className="text-center py-10">GÃƒÂ©nÃƒÂ©ration de l'imageÃ¢â‚¬Â¦</div>
+              <div className="text-center py-10">Génération de l'image…</div>
             )}
 
             <div className="flex items-center justify-center gap-6 mt-3 opacity-80">
@@ -802,14 +802,14 @@ export default function Niveau4() {
               <div className="flex flex-col sm:flex-row gap-2 justify-end">
                 <div className="flex-1 text-left">
                   {shareImgUrl && (
-                    <button onClick={() => generatePdfFromImage(shareImgUrl)} disabled={generatingPdf} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 mr-2">{generatingPdf ? 'CrÃƒÂ©ation du PDFÃ¢â‚¬Â¦' : 'TÃƒÂ©lÃƒÂ©charger PDF'}</button>
+                    <button onClick={() => generatePdfFromImage(shareImgUrl)} disabled={generatingPdf} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 mr-2">{generatingPdf ? 'Création du PDF…' : 'Télécharger PDF'}</button>
                   )}
                 </div>
                 {shareImgUrl && (
                   <a href={shareImgUrl} download="zelia-story.png" className="px-4 py-2 rounded-lg bg-black text-white border border-gray-200">Enregistrer l'image</a>
                 )}
                 {shareImgUrl && (
-                  <button onClick={async () => { try { const res = await fetch(shareImgUrl); const blob = await res.blob(); const file = new File([blob], 'zelia-story.png', { type: 'image/png' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ title: analysis?.personalityType || 'Profil ZÃƒÂ©lia', text: `Mon profil personnalitÃƒÂ© ZÃƒÂ©lia Ã¢â‚¬â€ ${analysis?.personalityType || ''}`.trim(), files: [file] }); setShareOpen(false) } else { alert('Le partage natif n\'est pas supportÃƒÂ© sur cet appareil. Vous pouvez enregistrer l\'image puis la partager manuellement.') } } catch (e) { console.warn('Share from modal failed', e) } }} className="px-4 py-2 rounded-lg bg-[#f68fff] text-black border border-gray-200">Partager</button>
+                  <button onClick={async () => { try { const res = await fetch(shareImgUrl); const blob = await res.blob(); const file = new File([blob], 'zelia-story.png', { type: 'image/png' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ title: analysis?.personalityType || 'Profil Zélia', text: `Mon profil personnalité Zélia — ${analysis?.personalityType || ''}`.trim(), files: [file] }); setShareOpen(false) } else { alert('Le partage natif n\'est pas supporté sur cet appareil. Vous pouvez enregistrer l\'image puis la partager manuellement.') } } catch (e) { console.warn('Share from modal failed', e) } }} className="px-4 py-2 rounded-lg bg-[#f68fff] text-black border border-gray-200">Partager</button>
                 )}
                 <button onClick={() => setShareOpen(false)} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300">Fermer</button>
               </div>

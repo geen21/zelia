@@ -81,7 +81,7 @@ function extractJson(raw) {
 
 function formatExtraInfos(entries) {
   return (entries || [])
-    .map((row) => `- [${row.question_id}] ${row.question_text || 'Question'}: ${row.answer_text || 'Ã¢â‚¬â€'}`)
+    .map((row) => `- [${row.question_id}] ${row.question_text || 'Question'}: ${row.answer_text || '—'}`)
     .join('\n')
 }
 
@@ -100,9 +100,9 @@ function buildFallbackSummary(entries) {
   })
 
   const formatValue = (value) => {
-    if (value == null) return 'Ã¢â‚¬â€'
+    if (value == null) return '—'
     const raw = String(value).trim()
-    if (!raw) return 'Ã¢â‚¬â€'
+    if (!raw) return '—'
     try {
       const parsed = JSON.parse(raw)
       if (Array.isArray(parsed)) return parsed.map((item) => JSON.stringify(item)).join(', ')
@@ -125,11 +125,11 @@ function buildFallbackSummary(entries) {
   }
 
   const summary = [
-    `Tu as progressÃƒÂ© sur les filiÃƒÂ¨res, le budget et la sÃƒÂ©lection d'ÃƒÂ©coles (N21-N23).`,
-    `Le quiz stats (N24) et les vidÃƒÂ©os (N25, N29) ont consolidÃƒÂ© ta vision de l'orientation.`,
-    `Tu as avancÃƒÂ© sur Parcoursup et les dÃƒÂ©marches concrÃƒÂ¨tes (N26).`,
-    `Tu as aussi travaillÃƒÂ© ta posture via le chat communautaire et la simulation d'entretien (N27-N28).`,
-    `Points marquants enregistrÃƒÂ©s: ${formatLevel([21, 22, 23, 24, 25, 26, 27, 28, 29])}.`
+    `Tu as progressé sur les filières, le budget et la sélection d'écoles (N21-N23).`,
+    `Le quiz stats (N24) et les vidéos (N25, N29) ont consolidé ta vision de l'orientation.`,
+    `Tu as avancé sur Parcoursup et les démarches concrètes (N26).`,
+    `Tu as aussi travaillé ta posture via le chat communautaire et la simulation d'entretien (N27-N28).`,
+    `Points marquants enregistrés: ${formatLevel([21, 22, 23, 24, 25, 26, 27, 28, 29])}.`
   ].join('\n')
 
   return { summary: cleanBilanSummary(summary) }
@@ -218,7 +218,7 @@ export default function Niveau30() {
     setBilanLoading(true)
     try {
       if (!extraInfos || extraInfos.length === 0) {
-        setBilan({ summary: 'Aucune donnÃƒÂ©e des niveaux 21 ÃƒÂ  29 n\'a ÃƒÂ©tÃƒÂ© trouvÃƒÂ©e. Termine d\'abord ces niveaux pour obtenir un bilan personnalisÃƒÂ©.' })
+        setBilan({ summary: 'Aucune donnée des niveaux 21 à 29 n\'a été trouvée. Termine d\'abord ces niveaux pour obtenir un bilan personnalisé.' })
         setBilanLoading(false)
         return
       }
@@ -230,16 +230,16 @@ export default function Niveau30() {
       const summaryContext = LEVELS_SUMMARY.map(l => `- Niveau ${l.level}: ${l.title} (${l.type})`).join('\n')
 
       const message =
-        `Tu dois produire un rÃƒÂ©sumÃƒÂ© trÃƒÂ¨s court et personnalisÃƒÂ© des niveaux 21 ÃƒÂ  29.\n` +
+        `Tu dois produire un résumé très court et personnalisé des niveaux 21 à 29.\n` +
         `L'utilisateur a parcouru les modules suivants:\n${summaryContext}\n\n` +
         `Donnees enregistrees de l'utilisateur:\n${context}\n\n` +
         `Reponds UNIQUEMENT en JSON valide au format suivant :\n` +
         `{"summary":""}\n` +
         `Contraintes:\n` +
         `- 5 phrases maximum, style clair et concret.\n` +
-        `- Inclure briÃƒÂ¨vement: vidÃƒÂ©os, quiz stats, Parcoursup, simulation d'entretien, prochaine ÃƒÂ©tape.\n` +
-        `- Ne recopie pas les donnÃƒÂ©es brutes, synthÃƒÂ©tise.\n` +
-        `- Sois encourageant et personnalisÃƒÂ©.`
+        `- Inclure brièvement: vidéos, quiz stats, Parcoursup, simulation d'entretien, prochaine étape.\n` +
+        `- Ne recopie pas les données brutes, synthétise.\n` +
+        `- Sois encourageant et personnalisé.`
 
       const resp = await apiClient.post('/chat/ai', {
         mode: 'advisor',
@@ -384,7 +384,7 @@ export default function Niveau30() {
 
           {showBilan && !bilanLoading && !bilanError && (
             <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <div className="font-semibold">RÃƒÂ©sumÃƒÂ©</div>
+              <div className="font-semibold">Résumé</div>
               <div className="mt-2 whitespace-pre-wrap text-text-secondary text-sm">
                 {summary || 'Bilan non disponible'}
               </div>

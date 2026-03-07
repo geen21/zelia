@@ -75,13 +75,13 @@ export default function Layout() {
 			{ match: '/app/profile', label: 'Profil' },
 			{ match: '/app/formations', label: 'Formations' },
 			{ match: '/app/emplois', label: 'Emplois' },
-			{ match: '/app/activites', label: 'ActivitÃƒÂ©s' },
+			{ match: '/app/activites', label: 'Activités' },
 			{ match: '/app/lettre', label: 'Lettre' },
 			{ match: '/app/chat', label: 'Chat' },
-			{ match: '/app/results', label: 'RÃƒÂ©sultats' },
+			{ match: '/app/results', label: 'Résultats' },
 		]
 		const found = map.find(m => loc.pathname.startsWith(m.match))
-	return ['\u200B', found?.label || 'ActivitÃƒÂ©s']
+	return ['\u200B', found?.label || 'Activités']
 	}, [loc.pathname])
 
 	function logout() {
@@ -148,7 +148,7 @@ export default function Layout() {
 						</button>
 					</div>
 					<nav className="py-4 flex-1 overflow-y-auto flex flex-col">
-					{/* ActivitÃƒÂ©s is always accessible */}
+					{/* Activités is always accessible */}
 					<SidebarLink
 						to="/app"
 						icon="ph-activity"
@@ -156,7 +156,7 @@ export default function Layout() {
 						onClick={() => setSidebarOpen(false)}
 						locked={false}
 					>
-						ActivitÃƒÂ©s
+						Activités
 					</SidebarLink>
 					{/* Formations - unlock at level 6 */}
 								<SidebarLink
@@ -224,10 +224,10 @@ export default function Layout() {
 						</div>
 
 						<div className="flex items-center justify-center gap-3">
-						<Link to="/legal/mentions-legales" className="group inline-flex h-7 w-7 items-center justify-center rounded-full border border-line transition-colors hover:border-black hover:text-black" title="Mentions lÃƒÂ©gales" aria-label="Mentions lÃƒÂ©gales">
+						<Link to="/legal/mentions-legales" className="group inline-flex h-7 w-7 items-center justify-center rounded-full border border-line transition-colors hover:border-black hover:text-black" title="Mentions légales" aria-label="Mentions légales">
 							<i className="ph ph-identification-card text-sm"></i>
 						</Link>
-						<Link to="/legal/conditions" className="group inline-flex h-7 w-7 items-center justify-center rounded-full border border-line transition-colors hover:border-black hover:text-black" title="CGU &amp; politique de confidentialitÃƒÂ©" aria-label="CGU et politique de confidentialitÃƒÂ©">
+						<Link to="/legal/conditions" className="group inline-flex h-7 w-7 items-center justify-center rounded-full border border-line transition-colors hover:border-black hover:text-black" title="CGU &amp; politique de confidentialité" aria-label="CGU et politique de confidentialité">
 							<i className="ph ph-shield-check text-sm"></i>
 						</Link>
 						</div>
@@ -250,7 +250,7 @@ export default function Layout() {
 						<div className="hidden md:flex items-center gap-2 px-3 py-2 border border-line rounded-lg w-72">
 							<i className="ph ph-magnifying-glass text-text-secondary"></i>
 							<input className="w-full outline-none text-sm bg-transparent" placeholder="Search shop" />
-							<span className="text-xs text-text-secondary">Ã¢Å’Ëœ K</span>
+							<span className="text-xs text-text-secondary">⌘ K</span>
 						</div>
 						<button className="p-2 rounded-lg hover:bg-gray-50" aria-label="Notifications">
 							<i className="ph ph-bell text-xl"></i>
@@ -270,7 +270,7 @@ export default function Layout() {
 										</Link>
 										<button onClick={logout} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2">
 											<i className="ph ph-sign-out"></i>
-											DÃƒÂ©connexion
+											Déconnexion
 										</button>
 									</div>
 								</div>
@@ -342,13 +342,13 @@ function BugModal({ open, onClose, onSubmit, title, setTitle, desc, setDesc, sen
 					</div>
 					<div>
 						<label className="block text-sm text-text-secondary mb-1">Description</label>
-						<textarea className="w-full border border-line rounded-lg px-3 py-2 min-h-[120px]" value={desc} onChange={(e)=>setDesc(e.target.value)} placeholder="DÃƒÂ©crivez briÃƒÂ¨vement le problÃƒÂ¨me rencontrÃƒÂ©"></textarea>
+						<textarea className="w-full border border-line rounded-lg px-3 py-2 min-h-[120px]" value={desc} onChange={(e)=>setDesc(e.target.value)} placeholder="Décrivez brièvement le problème rencontré"></textarea>
 					</div>
 				</div>
 				<div className="flex items-center justify-end gap-2 mt-4">
 					<button className="h-10 px-4 rounded-lg border border-line" onClick={onClose} disabled={sending}>Annuler</button>
 					<button className="h-10 px-4 rounded-lg bg-[#f68fff] text-white disabled:opacity-60" onClick={onSubmit} disabled={sending || !desc.trim()}>
-						{sending ? 'EnvoiÃ¢â‚¬Â¦' : (sent ? 'EnvoyÃƒÂ©' : 'Envoyer')}
+						{sending ? 'Envoi…' : (sent ? 'Envoyé' : 'Envoyer')}
 					</button>
 				</div>
 			</div>

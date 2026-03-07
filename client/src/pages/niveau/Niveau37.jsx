@@ -49,25 +49,25 @@ const QUESTIONS = [
     id: 1,
     text: "Tu bloques sur un exercice difficile. Tu...",
     options: [
-      { id: 'A', text: "Je tourne en rond sans mÃƒÂ©thode" },
-      { id: 'B', text: "Je dÃƒÂ©coupe le problÃƒÂ¨me en ÃƒÂ©tapes" },
+      { id: 'A', text: "Je tourne en rond sans méthode" },
+      { id: 'B', text: "Je découpe le problème en étapes" },
       { id: 'C', text: "Je cherche une solution rapide au hasard" }
     ]
   },
   {
     id: 2,
-    text: "Dans un projet de groupe, un imprÃƒÂ©vu arrive. Tu...",
+    text: "Dans un projet de groupe, un imprévu arrive. Tu...",
     options: [
       { id: 'A', text: "J'attends qu'on me dise quoi faire" },
-      { id: 'B', text: "Je propose des options concrÃƒÂ¨tes" },
-      { id: 'C', text: "Je prends une dÃƒÂ©cision sans consulter" }
+      { id: 'B', text: "Je propose des options concrètes" },
+      { id: 'C', text: "Je prends une décision sans consulter" }
     ]
   },
   {
     id: 3,
     text: "Quand une solution ne marche pas, tu...",
     options: [
-      { id: 'A', text: "Je me dÃƒÂ©courage vite" },
+      { id: 'A', text: "Je me décourage vite" },
       { id: 'B', text: "J'analyse et j'essaie une alternative" },
       { id: 'C', text: "Je change tout d'un coup" }
     ]
@@ -76,29 +76,29 @@ const QUESTIONS = [
 
 const ADVICE_PER_PROFILE = {
   A: {
-    title: "Profil : Ãƒâ‚¬ structurer",
-    text: "Tu as besoin d'un cadre simple pour rÃƒÂ©soudre efficacement.",
+    title: "Profil : À structurer",
+    text: "Tu as besoin d'un cadre simple pour résoudre efficacement.",
     tips: [
-      "Utilise une check-list : comprendre, planifier, tester, vÃƒÂ©rifier.",
+      "Utilise une check-list : comprendre, planifier, tester, vérifier.",
       "Pose-toi 3 questions : quoi, pourquoi, comment.",
-      "Note ce qui a dÃƒÂ©jÃƒÂ  ÃƒÂ©chouÃƒÂ© pour ÃƒÂ©viter les boucles."
+      "Note ce qui a déjà échoué pour éviter les boucles."
     ]
   },
   B: {
-    title: "Profil : StructurÃƒÂ©",
-    text: "Tu sais analyser et avancer ÃƒÂ©tape par ÃƒÂ©tape. C'est une compÃƒÂ©tence trÃƒÂ¨s recherchÃƒÂ©e.",
+    title: "Profil : Structuré",
+    text: "Tu sais analyser et avancer étape par étape. C'est une compétence très recherchée.",
     tips: [
-      "Garde un journal de rÃƒÂ©solution pour progresser encore.",
-      "Partage ta mÃƒÂ©thode avec les autres.",
-      "Teste une alternative avant de recommencer de zÃƒÂ©ro."
+      "Garde un journal de résolution pour progresser encore.",
+      "Partage ta méthode avec les autres.",
+      "Teste une alternative avant de recommencer de zéro."
     ]
   },
   C: {
-    title: "Profil : RÃƒÂ©actif et crÃƒÂ©atif",
-    text: "Tu rÃƒÂ©agis vite. Avec un peu de structure, tu gagneras en efficacitÃƒÂ©.",
+    title: "Profil : Réactif et créatif",
+    text: "Tu réagis vite. Avec un peu de structure, tu gagneras en efficacité.",
     tips: [
       "Avant d'agir, prends 2 minutes pour prioriser.",
-      "Choisis une seule hypothÃƒÂ¨se ÃƒÂ  la fois.",
+      "Choisis une seule hypothèse à la fois.",
       "Demande un retour rapide pour ajuster."
     ]
   }
@@ -123,8 +123,8 @@ export default function Niveau37() {
   const firstName = profile?.first_name || 'toi'
 
   const dialogues = useMemo(() => [
-    { text: `${firstName}, on va muscler ta rÃƒÂ©solution de problÃƒÂ¨me.`, durationMs: 2000 },
-    { text: "C'est une compÃƒÂ©tence clÃƒÂ© pour les ÃƒÂ©tudes et le travail.", durationMs: 2000 },
+    { text: `${firstName}, on va muscler ta résolution de problème.`, durationMs: 2000 },
+    { text: "C'est une compétence clé pour les études et le travail.", durationMs: 2000 },
     { text: "Mini diagnostic, puis conseils. Go !", durationMs: 1600 },
   ], [firstName])
 
@@ -205,7 +205,7 @@ export default function Niveau37() {
       await usersAPI.saveExtraInfo([
         {
           question_id: 'niveau37_problem_solving_profile',
-          question_text: 'Soft skill : rÃƒÂ©solution de problÃƒÂ¨me',
+          question_text: 'Soft skill : résolution de problème',
           answer_text: JSON.stringify({
             profile: resultProfile,
             profileTitle: profileData?.title || '',
@@ -252,7 +252,7 @@ export default function Niveau37() {
               <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
                   {phase === 'intro' && typed}
-                  {phase === 'quiz' && "RÃƒÂ©ponds spontanÃƒÂ©ment, pas besoin d'ÃƒÂªtre parfait."}
+                  {phase === 'quiz' && "Réponds spontanément, pas besoin d'être parfait."}
                   {phase === 'result' && "Voici ton profil et des conseils utiles."}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
@@ -277,11 +277,11 @@ export default function Niveau37() {
         <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">37</div>
-            <h2 className="text-lg md:text-xl font-bold">RÃƒÂ©solution de problÃƒÂ¨me</h2>
+            <h2 className="text-lg md:text-xl font-bold">Résolution de problème</h2>
           </div>
 
           {phase === 'intro' && (
-            <div className="text-text-secondary text-center py-8">Le mini questionnaire apparaÃƒÂ®tra ici.</div>
+            <div className="text-text-secondary text-center py-8">Le mini questionnaire apparaîtra ici.</div>
           )}
 
           {phase === 'quiz' && (
@@ -325,7 +325,7 @@ export default function Niveau37() {
                 <ul className="space-y-3">
                   {ADVICE_PER_PROFILE[resultProfile].tips.map((tip, idx) => (
                     <li key={idx} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                      <span className="text-[#c1ff72] font-bold text-lg">Ã¢â‚¬Â¢</span>
+                      <span className="text-[#c1ff72] font-bold text-lg">•</span>
                       <span className="text-sm text-gray-800">{tip}</span>
                     </li>
                   ))}
@@ -340,10 +340,10 @@ export default function Niveau37() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce font-bold">37</div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 37 terminÃƒÂ© !</h3>
-            <p className="text-text-secondary mb-4">Tu as renforcÃƒÂ© ta capacitÃƒÂ© ÃƒÂ  rÃƒÂ©soudre des problÃƒÂ¨mes.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 37 terminé !</h3>
+            <p className="text-text-secondary mb-4">Tu as renforcé ta capacité à résoudre des problèmes.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/38')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Niveau suivant</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

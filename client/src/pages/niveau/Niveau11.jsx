@@ -21,26 +21,26 @@ import { buildAvatarFromProfile } from '../../lib/avatar'
 import { FaPuzzlePiece, FaTrophy } from 'react-icons/fa6'
 
 const DIALOGUE = [
-  { text: 'on va classer ensemble 16 domaines dÃ¢â‚¬â„¢activitÃƒÂ©s', durationMs: 1500 },
-  { text: "ÃƒÂ§a va te permettre dÃ¢â‚¬â„¢y voir plus clair sur ce que tu aimes vraiment et ce que tu serais prÃƒÂªt ÃƒÂ  faire au cas oÃƒÂ¹", durationMs: 1500 },
+  { text: 'on va classer ensemble 16 domaines d’activités', durationMs: 1500 },
+  { text: "ça va te permettre d’y voir plus clair sur ce que tu aimes vraiment et ce que tu serais prêt à faire au cas où", durationMs: 1500 },
   { text: 'on commence', durationMs: 800 }
 ]
 
 const DOMAINS = [
-  'Arts & CrÃƒÂ©ation',
+  'Arts & Création',
   'Sciences & Recherche',
-  'Technologie & NumÃƒÂ©rique',
-  'SantÃƒÂ© & Bien-ÃƒÂªtre',
-  'Ãƒâ€°ducation & Formation',
+  'Technologie & Numérique',
+  'Santé & Bien-être',
+  'Éducation & Formation',
   'Commerce & Vente',
   'Marketing & Communication',
   'Finance & Gestion',
   'Droit & Justice',
-  'Environnement & DÃƒÂ©veloppement durable',
+  'Environnement & Développement durable',
   'Sport & Loisirs',
   'Transport & Logistique',
-  'BÃƒÂ¢timent & Travaux publics',
-  'Cuisine & HÃƒÂ´tellerie',
+  'Bâtiment & Travaux publics',
+  'Cuisine & Hôtellerie',
   'Social & Humanitaire',
   'Culture & Patrimoine'
 ]
@@ -110,7 +110,7 @@ function SortableItem({ id, label, index }) {
     >
       <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-black text-white flex items-center justify-center text-[10px] sm:text-xs font-semibold">{index + 1}</div>
       <div className="flex-1 font-medium text-gray-900 text-sm sm:text-base leading-tight">{label}</div>
-      <div className="text-gray-400 text-sm">Ã¢â€¡â€¦</div>
+      <div className="text-gray-400 text-sm">⇅</div>
     </div>
   )
 }
@@ -195,7 +195,7 @@ export default function Niveau11() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
+        <p className="mt-2 text-text-secondary">Chargement…</p>
       </div>
     )
   }
@@ -247,12 +247,12 @@ export default function Niveau11() {
                         await usersAPI.saveExtraInfo([
                           {
                             question_id: 'niveau11_domain_ranking',
-                            question_text: 'Classement des domaines d\'activitÃƒÂ©s',
+                            question_text: 'Classement des domaines d\'activités',
                             answer_text: ranking
                           },
                           {
                             question_id: 'niveau11_top3',
-                            question_text: 'Top 3 domaines prÃƒÂ©fÃƒÂ©rÃƒÂ©s',
+                            question_text: 'Top 3 domaines préférés',
                             answer_text: items.slice(0, 3).map((it) => it.label).join(', ')
                           }
                         ])
@@ -301,10 +301,10 @@ export default function Niveau11() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 11 rÃƒÂ©ussi !</h3>
-            <p className="text-text-secondary mb-4">Ton classement est validÃƒÂ©.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 11 réussi !</h3>
+            <p className="text-text-secondary mb-4">Ton classement est validé.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/12')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

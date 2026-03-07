@@ -85,9 +85,9 @@ export default function Niveau25() {
   }, [navigate])
 
   const messages = useMemo(() => ([
-    { text: `Nicolas a fait une vidÃƒÂ©o pour toi ${firstName}`, durationMs: 1800 },
-    { text: "Il parle des ÃƒÂ©tudes post bac, les choix, la diversitÃƒÂ© et la rÃƒÂ©alitÃƒÂ©", durationMs: 2200 },
-    { text: "Si ÃƒÂ§a t'intÃƒÂ©resse la vidÃƒÂ©o est dispo ici :", durationMs: 1500 },
+    { text: `Nicolas a fait une vidéo pour toi ${firstName}`, durationMs: 1800 },
+    { text: "Il parle des études post bac, les choix, la diversité et la réalité", durationMs: 2200 },
+    { text: "Si ça t'intéresse la vidéo est dispo ici :", durationMs: 1500 },
   ]), [firstName])
 
   const current = messages[idx] || { text: '', durationMs: 1500 }
@@ -178,7 +178,7 @@ export default function Niveau25() {
         await usersAPI.saveExtraInfo([
           {
             question_id: 'niveau25_video_watched',
-            question_text: 'VidÃƒÂ©o ÃƒÂ©tudes post-bac regardÃƒÂ©e (Niveau 25)',
+            question_text: 'Vidéo études post-bac regardée (Niveau 25)',
             answer_text: 'Oui'
           }
         ])
@@ -193,7 +193,7 @@ export default function Niveau25() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
+        <p className="mt-2 text-text-secondary">Chargement…</p>
       </div>
     )
   }
@@ -219,7 +219,7 @@ export default function Niveau25() {
                   {phase === 'intro' ? (
                     <>{typed}</>
                   ) : phase === 'watch' ? (
-                    <>Regarde la vidÃƒÂ©o ÃƒÂ  droite, puis clique sur "J'ai terminÃƒÂ© la vidÃƒÂ©o".</>
+                    <>Regarde la vidéo à droite, puis clique sur "J'ai terminé la vidéo".</>
                   ) : null}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
@@ -228,7 +228,7 @@ export default function Niveau25() {
               {phase === 'intro' && (
                 <div className="mt-4">
                   <button onClick={next} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">
-                    {idx === messages.length - 1 ? 'Voir la vidÃƒÂ©o' : 'Suivant'}
+                    {idx === messages.length - 1 ? 'Voir la vidéo' : 'Suivant'}
                   </button>
                 </div>
               )}
@@ -240,10 +240,10 @@ export default function Niveau25() {
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaClapperboard className="w-5 h-5" /></div>
-            <h2 className="text-xl font-bold">VidÃƒÂ©o</h2>
+            <h2 className="text-xl font-bold">Vidéo</h2>
           </div>
           {phase !== 'watch' ? (
-            <div className="text-text-secondary">La vidÃƒÂ©o apparaÃƒÂ®tra ici aprÃƒÂ¨s le dialogue.</div>
+            <div className="text-text-secondary">La vidéo apparaîtra ici après le dialogue.</div>
           ) : (
             <div>
               {/* API-rendered player for end detection */}
@@ -265,7 +265,7 @@ export default function Niveau25() {
               </noscript>
               <div className="mt-4">
                 <button onClick={finishLevel} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto font-medium">
-                  J'ai terminÃƒÂ© la vidÃƒÂ©o
+                  J'ai terminé la vidéo
                 </button>
               </div>
             </div>
@@ -278,10 +278,10 @@ export default function Niveau25() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 25 rÃƒÂ©ussi !</h3>
-            <p className="text-text-secondary mb-4">Bravo, tu as regardÃƒÂ© la vidÃƒÂ©o sur les ÃƒÂ©tudes post bac.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 25 réussi !</h3>
+            <p className="text-text-secondary mb-4">Bravo, tu as regardé la vidéo sur les études post bac.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/26')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

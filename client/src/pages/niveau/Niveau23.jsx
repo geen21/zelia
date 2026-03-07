@@ -62,12 +62,12 @@ export default function Niveau23() {
   const firstName = profile?.first_name || 'toi'
 
   const dialogueText = (() => {
-    if (phase === 'loading') return 'Chargement des ÃƒÂ©coles...'
-    if (phase === 'intro') return `Bon avec tout ce qu'on s'est dit ${firstName}, je peux dÃƒÂ©sormais te proposer une liste d'ÃƒÂ©coles qui te correspondent bien !`
+    if (phase === 'loading') return 'Chargement des écoles...'
+    if (phase === 'intro') return `Bon avec tout ce qu'on s'est dit ${firstName}, je peux désormais te proposer une liste d'écoles qui te correspondent bien !`
     if (phase === 'list') return 'Voici la liste :'
-    if (phase === 'selected') return 'Super, si ces ÃƒÂ©coles te plaisent, on peut te mettre directement en lien avec elles !'
-    if (phase === 'contact') return "Tu acceptes qu'on donne quelques informations ÃƒÂ  ces ÃƒÂ©coles afin qu'elles te contactent ?"
-    if (phase === 'end') return 'TrÃƒÂ¨s bien, bon on avance bien, tu as dÃƒÂ©sormais les ÃƒÂ©coles, les mÃƒÂ©tiers que tu veux faire, on avance super bien !'
+    if (phase === 'selected') return 'Super, si ces écoles te plaisent, on peut te mettre directement en lien avec elles !'
+    if (phase === 'contact') return "Tu acceptes qu'on donne quelques informations à ces écoles afin qu'elles te contactent ?"
+    if (phase === 'end') return 'Très bien, bon on avance bien, tu as désormais les écoles, les métiers que tu veux faire, on avance super bien !'
     return ''
   })()
 
@@ -103,7 +103,7 @@ export default function Niveau23() {
         // From user_fields
         userFields.forEach(f => {
           if (f.field_type || f.field_degree) {
-            contextParts.push(`FiliÃƒÂ¨re choisie: ${f.field_type || ''} - ${f.field_degree || ''}`)
+            contextParts.push(`Filière choisie: ${f.field_type || ''} - ${f.field_degree || ''}`)
           }
         })
 
@@ -120,20 +120,20 @@ export default function Niveau23() {
         const userDepartment = (prof?.department || '').trim()
 
         // Ask Gemini to generate search keywords
-        const geminiPrompt = `Tu es un expert en orientation scolaire. Voici le profil d'un ÃƒÂ©tudiant:
+        const geminiPrompt = `Tu es un expert en orientation scolaire. Voici le profil d'un étudiant:
 
 ${contextParts.join('\n')}
-DÃƒÂ©partement de l'ÃƒÂ©tudiant: ${userDepartment || 'Non renseignÃƒÂ©'}
+Département de l'étudiant: ${userDepartment || 'Non renseigné'}
 
-La base de donnÃƒÂ©es formation_france contient des ÃƒÂ©coles avec ces colonnes:
-- etab_nom: nom de l'ÃƒÂ©tablissement (ex: "Y SCHOOLS - Ecole SupÃƒÂ©rieure de Tourisme")
+La base de données formation_france contient des écoles avec ces colonnes:
+- etab_nom: nom de l'établissement (ex: "Y SCHOOLS - Ecole Supérieure de Tourisme")
 - nmc: nom court de la formation
-- tc: type de cursus (ex: "Licence", "Master", "BTS", "BUT", "Ecole d'ingÃƒÂ©nieur", "PrivÃƒÂ©s enseignement supÃƒÂ©rieur")
-- departement: dÃƒÂ©partement (ex: "Paris", "RhÃƒÂ´ne", "Aube")
+- tc: type de cursus (ex: "Licence", "Master", "BTS", "BUT", "Ecole d'ingénieur", "Privés enseignement supérieur")
+- departement: département (ex: "Paris", "Rhône", "Aube")
 
-GÃƒÂ©nÃƒÂ¨re des mots-clÃƒÂ©s pour une recherche SQL LIKE qui trouvera des ÃƒÂ©coles adaptÃƒÂ©es.
-IMPORTANT: Choisis des mots-clÃƒÂ©s PERTINENTS au domaine (commerce, informatique, tourisme, ingÃƒÂ©nieur, etc.) PAS des mots gÃƒÂ©nÃƒÂ©riques.
-Le dÃƒÂ©partement doit correspondre au dÃƒÂ©partement de l'ÃƒÂ©tudiant.
+Génère des mots-clés pour une recherche SQL LIKE qui trouvera des écoles adaptées.
+IMPORTANT: Choisis des mots-clés PERTINENTS au domaine (commerce, informatique, tourisme, ingénieur, etc.) PAS des mots génériques.
+Le département doit correspondre au département de l'étudiant.
 
 Renvoie UNIQUEMENT un JSON avec ce format exact:
 {
@@ -141,7 +141,7 @@ Renvoie UNIQUEMENT un JSON avec ce format exact:
   "department": "${userDepartment || ''}"
 }
 
-RÃƒÂ©ponds UNIQUEMENT avec le JSON, rien d'autre.`
+Réponds UNIQUEMENT avec le JSON, rien d'autre.`
 
         let keywords = []
         let searchDepartment = userDepartment
@@ -252,12 +252,12 @@ RÃƒÂ©ponds UNIQUEMENT avec le JSON, rien d'autre.`
       const entries = [
         {
           question_id: 'niveau23_schools',
-          question_text: 'Ãƒâ€°coles sÃƒÂ©lectionnÃƒÂ©es (Niveau 23)',
+          question_text: 'Écoles sélectionnées (Niveau 23)',
           answer_text: JSON.stringify(selectedSchoolsData.map(s => s.school_name))
         },
         {
           question_id: 'niveau23_contact',
-          question_text: 'Accepte contact ÃƒÂ©coles (Niveau 23)',
+          question_text: 'Accepte contact écoles (Niveau 23)',
           answer_text: contactAccepted ? 'Oui' : 'Non'
         }
       ]
@@ -276,7 +276,7 @@ RÃƒÂ©ponds UNIQUEMENT avec le JSON, rien d'autre.`
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargement des ÃƒÂ©colesÃ¢â‚¬Â¦</p>
+        <p className="mt-2 text-text-secondary">Chargement des écoles…</p>
       </div>
     )
   }
@@ -317,7 +317,7 @@ RÃƒÂ©ponds UNIQUEMENT avec le JSON, rien d'autre.`
                   onClick={onShowList}
                   className="mt-4 px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 font-medium"
                 >
-                  Voir les ÃƒÂ©coles
+                  Voir les écoles
                 </button>
               )}
 
@@ -357,23 +357,23 @@ RÃƒÂ©ponds UNIQUEMENT avec le JSON, rien d'autre.`
                   disabled={saving}
                   className="mt-4 px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 font-medium disabled:opacity-60"
                 >
-                  {saving ? 'ValidationÃ¢â‚¬Â¦' : 'Continuer'}
+                  {saving ? 'Validation…' : 'Continuer'}
                 </button>
               )}
             </div>
           </div>
         </div>
 
-        {/* Liste des ÃƒÂ©coles - col lg-6 */}
+        {/* Liste des écoles - col lg-6 */}
         {(phase === 'list' || phase === 'selected' || phase === 'contact' || phase === 'end') && (
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaSchool className="w-5 h-5" /></div>
-              <h2 className="text-xl font-bold">Ãƒâ€°coles recommandÃƒÂ©es</h2>
+              <h2 className="text-xl font-bold">Écoles recommandées</h2>
             </div>
 
             {schools.length === 0 ? (
-              <div className="text-text-secondary">Aucune ÃƒÂ©cole trouvÃƒÂ©e pour ton profil.</div>
+              <div className="text-text-secondary">Aucune école trouvée pour ton profil.</div>
             ) : (
               <>
                 <div className="space-y-3 max-h-[400px] overflow-y-auto">
@@ -427,14 +427,14 @@ RÃƒÂ©ponds UNIQUEMENT avec le JSON, rien d'autre.`
                     disabled={selectedSchools.length === 0}
                     className="mt-4 w-full px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 font-medium disabled:opacity-50"
                   >
-                    Valider ma sÃƒÂ©lection ({selectedSchools.length})
+                    Valider ma sélection ({selectedSchools.length})
                   </button>
                 )}
 
                 {phase !== 'list' && selectedSchools.length > 0 && (
                   <div className="mt-4 p-3 bg-gray-50 rounded-xl">
                     <div className="text-sm font-medium text-gray-700">
-                      {selectedSchools.length} ÃƒÂ©cole{selectedSchools.length > 1 ? 's' : ''} sÃƒÂ©lectionnÃƒÂ©e{selectedSchools.length > 1 ? 's' : ''}
+                      {selectedSchools.length} école{selectedSchools.length > 1 ? 's' : ''} sélectionnée{selectedSchools.length > 1 ? 's' : ''}
                     </div>
                   </div>
                 )}
@@ -449,10 +449,10 @@ RÃƒÂ©ponds UNIQUEMENT avec le JSON, rien d'autre.`
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 23 rÃƒÂ©ussi !</h3>
-            <p className="text-text-secondary mb-4">Tes ÃƒÂ©coles sont enregistrÃƒÂ©es.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 23 réussi !</h3>
+            <p className="text-text-secondary mb-4">Tes écoles sont enregistrées.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/24')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

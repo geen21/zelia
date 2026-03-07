@@ -47,29 +47,29 @@ function useTypewriter(message, durationMs) {
 const QUESTIONS = [
   {
     id: 1,
-    text: "Une grosse ÃƒÂ©chÃƒÂ©ance approche (examen, oral, rendu...). Comment te sens-tu ?",
+    text: "Une grosse échéance approche (examen, oral, rendu...). Comment te sens-tu ?",
     options: [
-      { id: 'A', text: "Panique ÃƒÂ  bord, je perds mes moyens" },
-      { id: 'B', text: "Un peu de pression, mais ÃƒÂ§a me motive" },
+      { id: 'A', text: "Panique à bord, je perds mes moyens" },
+      { id: 'B', text: "Un peu de pression, mais ça me motive" },
       { id: 'C', text: "Zen, je prends les choses comme elles viennent" }
     ]
   },
   {
     id: 2,
-    text: "Quand tu as trop de choses ÃƒÂ  faire en mÃƒÂªme temps...",
+    text: "Quand tu as trop de choses à faire en même temps...",
     options: [
       { id: 'A', text: "Je bloque et je proscratine" },
       { id: 'B', text: "Je fais une liste et je priorise" },
-      { id: 'C', text: "Je fonce et je fais tout ÃƒÂ  la derniÃƒÂ¨re minute" }
+      { id: 'C', text: "Je fonce et je fais tout à la dernière minute" }
     ]
   },
   {
     id: 3,
-    text: "AprÃƒÂ¨s une journÃƒÂ©e difficile, que fais-tu pour dÃƒÂ©compresser ?",
+    text: "Après une journée difficile, que fais-tu pour décompresser ?",
     options: [
       { id: 'A', text: "J'y repense en boucle, impossible de dormir" },
       { id: 'B', text: "Sport, musique ou passion pour couper" },
-      { id: 'C', text: "Ãƒâ€°crans et rÃƒÂ©seaux sociaux jusqu'ÃƒÂ  pas d'heure" }
+      { id: 'C', text: "Écrans et réseaux sociaux jusqu'à pas d'heure" }
     ]
   }
 ]
@@ -77,29 +77,29 @@ const QUESTIONS = [
 const ADVICE_PER_PROFILE = {
   'A': {
     title: "Profil : Sensible au stress",
-    text: "Tu as tendance ÃƒÂ  te laisser envahir par la pression. C'est normal, mais ÃƒÂ§a se travaille !",
+    text: "Tu as tendance à te laisser envahir par la pression. C'est normal, mais ça se travaille !",
     tips: [
-      "Pratique la respiration abdominale (cohÃƒÂ©rence cardiaque) avant les ÃƒÂ©preuves.",
-      "DÃƒÂ©coupe tes grosses tÃƒÂ¢ches en petites ÃƒÂ©tapes ridicules pour ÃƒÂ©viter le blocage.",
+      "Pratique la respiration abdominale (cohérence cardiaque) avant les épreuves.",
+      "Découpe tes grosses tâches en petites étapes ridicules pour éviter le blocage.",
       "Ne reste pas seul(e) avec tes angoisses, parles-en."
     ]
   },
   'B': {
-    title: "Profil : Ãƒâ€°quilibrÃƒÂ© & OrganisÃƒÂ©",
-    text: "Tu as de bons rÃƒÂ©flexes pour gÃƒÂ©rer la pression. C'est une super force pour ton avenir pro !",
+    title: "Profil : Équilibré & Organisé",
+    text: "Tu as de bons réflexes pour gérer la pression. C'est une super force pour ton avenir pro !",
     tips: [
-      "Continue ÃƒÂ  planifier, c'est ta force.",
-      "Pense ÃƒÂ  aider ceux qui stressent autour de toi.",
+      "Continue à planifier, c'est ta force.",
+      "Pense à aider ceux qui stressent autour de toi.",
       "N'oublie pas de garder des moments de 'rien' pour recharger les batteries."
     ]
   },
   'C': {
-    title: "Profil : Ãƒâ‚¬ l'instinct / Sous adrÃƒÂ©naline",
-    text: "Tu fonctionnes ÃƒÂ  l'ÃƒÂ©nergie, parfois au dernier moment. Ãƒâ€¡a passe... jusqu'ÃƒÂ  ce que ÃƒÂ§a casse ?",
+    title: "Profil : À l'instinct / Sous adrénaline",
+    text: "Tu fonctionnes à l'énergie, parfois au dernier moment. Ça passe... jusqu'à ce que ça casse ?",
     tips: [
       "Attention au manque de sommeil qui augmente le stress de fond.",
-      "Essaie d'anticiper un tout petit peu plus pour ÃƒÂ©viter les nuits blanches.",
-      "Trouve des activitÃƒÂ©s de dÃƒÂ©connexion sans ÃƒÂ©crans."
+      "Essaie d'anticiper un tout petit peu plus pour éviter les nuits blanches.",
+      "Trouve des activités de déconnexion sans écrans."
     ]
   }
 }
@@ -123,9 +123,9 @@ export default function Niveau34() {
   const firstName = profile?.first_name || 'toi'
 
   const dialogues = useMemo(() => [
-    { text: `Le stress fait partie de la vie, ${firstName}. Surtout pendant les ÃƒÂ©tudes !`, durationMs: 2500 },
-    { text: "L'important n'est pas de l'ÃƒÂ©liminer, mais de savoir le gÃƒÂ©rer.", durationMs: 2000 },
-    { text: "Faisons un petit point rapide sur ta faÃƒÂ§on de rÃƒÂ©agir...", durationMs: 2000 },
+    { text: `Le stress fait partie de la vie, ${firstName}. Surtout pendant les études !`, durationMs: 2500 },
+    { text: "L'important n'est pas de l'éliminer, mais de savoir le gérer.", durationMs: 2000 },
+    { text: "Faisons un petit point rapide sur ta façon de réagir...", durationMs: 2000 },
   ], [firstName])
 
   const currentDialogue = dialogues[dialogueIdx] || { text: '', durationMs: 1500 }
@@ -255,7 +255,7 @@ export default function Niveau34() {
               <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
                   {phase === 'intro' && typed}
-                  {phase === 'quiz' && "RÃƒÂ©ponds spontanÃƒÂ©ment, il n'y a pas de mauvaise rÃƒÂ©ponse !"}
+                  {phase === 'quiz' && "Réponds spontanément, il n'y a pas de mauvaise réponse !"}
                   {phase === 'result' && "Voici ce que j'en pense..."}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
@@ -281,11 +281,11 @@ export default function Niveau34() {
         <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">34</div>
-            <h2 className="text-lg md:text-xl font-bold">GÃƒÂ©rer son stress</h2>
+            <h2 className="text-lg md:text-xl font-bold">Gérer son stress</h2>
           </div>
 
           {phase === 'intro' && (
-            <div className="text-text-secondary text-center py-8">Le questionnaire apparaÃƒÂ®tra ici.</div>
+            <div className="text-text-secondary text-center py-8">Le questionnaire apparaîtra ici.</div>
           )}
 
           {phase === 'quiz' && (
@@ -329,7 +329,7 @@ export default function Niveau34() {
                 <ul className="space-y-3">
                   {ADVICE_PER_PROFILE[resultProfile].tips.map((tip, idx) => (
                     <li key={idx} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                      <span className="text-[#c1ff72] font-bold text-lg">Ã¢â‚¬Â¢</span>
+                      <span className="text-[#c1ff72] font-bold text-lg">•</span>
                       <span className="text-sm text-gray-800">{tip}</span>
                     </li>
                   ))}
@@ -345,10 +345,10 @@ export default function Niveau34() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce font-bold">34</div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 34 terminÃƒÂ© !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 34 terminé !</h3>
             <p className="text-text-secondary mb-4">Prendre soin de son mental, c'est aussi important que les notes.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/35')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Niveau suivant</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

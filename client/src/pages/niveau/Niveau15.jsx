@@ -66,7 +66,7 @@ function parsePoints(raw) {
 
   for (const line of lines) {
     const lower = line.toLowerCase()
-    if (lower.includes('negatif') || lower.includes('nÃƒÂ©gatif')) {
+    if (lower.includes('negatif') || lower.includes('négatif')) {
       section = 'neg'
       continue
     }
@@ -74,7 +74,7 @@ function parsePoints(raw) {
       section = 'pos'
       continue
     }
-    const item = line.replace(/^[-Ã¢â‚¬Â¢*\d.)\s]+/, '').trim()
+    const item = line.replace(/^[-•*\d.)\s]+/, '').trim()
     if (!item) continue
     if (section === 'neg') neg.push(item)
     else if (section === 'pos') pos.push(item)
@@ -85,15 +85,15 @@ function parsePoints(raw) {
   }
 
   const bulletItems = lines
-    .filter(line => /^[-Ã¢â‚¬Â¢*\d.)\s]+/.test(line))
-    .map(line => line.replace(/^[-Ã¢â‚¬Â¢*\d.)\s]+/, '').trim())
+    .filter(line => /^[-•*\d.)\s]+/.test(line))
+    .map(line => line.replace(/^[-•*\d.)\s]+/, '').trim())
     .filter(Boolean)
 
   if (bulletItems.length >= 6) {
     return { negatives: bulletItems.slice(0, 3), positives: bulletItems.slice(3, 6) }
   }
 
-  const fallback = lines.filter(l => !/negatif|nÃƒÂ©gatif|positif|positifs|positive|positives/i.test(l))
+  const fallback = lines.filter(l => !/negatif|négatif|positif|positifs|positive|positives/i.test(l))
   return {
     negatives: fallback.slice(0, 3),
     positives: fallback.slice(3, 6)
@@ -186,10 +186,10 @@ export default function Niveau15() {
   }, [profile, jobFromResults])
 
   const dialogue = useMemo(() => ([
-    { type: 'text', text: "Ãƒâ€¡a n'est jamais tout blanc ou tout noir, il y a des points positifs et nÃƒÂ©gatifs dans chaque mÃƒÂ©tier", durationMs: 2600 },
-    { type: 'text', text: "On a toujours tendance ÃƒÂ  entendre le positif alors je te propose qu'on voit ensemble les bons et les mauvais cÃƒÂ´tÃƒÂ©s pour un mÃƒÂ©tier donnÃƒÂ©", durationMs: 3000 },
-    { type: 'text', text: "Je vais te lister les 3 points les plus nÃƒÂ©gatifs et les 3 points les plus positifs pour chaque mÃƒÂ©tier", durationMs: 2600 },
-    { type: 'question', text: `Tu veux le faire pour ce mÃƒÂ©tier : ${suggestedJob || 'ce mÃƒÂ©tier'} ?`, durationMs: 1800 }
+    { type: 'text', text: "Ça n'est jamais tout blanc ou tout noir, il y a des points positifs et négatifs dans chaque métier", durationMs: 2600 },
+    { type: 'text', text: "On a toujours tendance à entendre le positif alors je te propose qu'on voit ensemble les bons et les mauvais côtés pour un métier donné", durationMs: 3000 },
+    { type: 'text', text: "Je vais te lister les 3 points les plus négatifs et les 3 points les plus positifs pour chaque métier", durationMs: 2600 },
+    { type: 'question', text: `Tu veux le faire pour ce métier : ${suggestedJob || 'ce métier'} ?`, durationMs: 1800 }
   ]), [suggestedJob])
 
   const current = dialogue[Math.min(step, dialogue.length - 1)]
@@ -230,11 +230,11 @@ export default function Niveau15() {
     setPositives([])
     try {
       const message =
-        `Pour le mÃƒÂ©tier suivant : "${jobTitle}", donne uniquement :\n` +
-        `NEGATIFS:\n- ... (3 points nÃƒÂ©gatifs, courts)\n` +
+        `Pour le métier suivant : "${jobTitle}", donne uniquement :\n` +
+        `NEGATIFS:\n- ... (3 points négatifs, courts)\n` +
         `POSITIFS:\n- ... (3 points positifs, courts)\n` +
         `Contraintes STRICTES :\n` +
-        `- RÃƒÂ©ponds uniquement avec ces deux sections et des listes ÃƒÂ  puces.\n` +
+        `- Réponds uniquement avec ces deux sections et des listes à puces.\n` +
         `- 3 points maximum par section.\n` +
         `- Aucune phrase d'introduction ou conclusion.`
 
@@ -246,13 +246,13 @@ export default function Niveau15() {
       })
 
       const reply = sanitizeText(resp?.data?.reply || '')
-      if (!reply) throw new Error('RÃƒÂ©ponse IA vide')
+      if (!reply) throw new Error('Réponse IA vide')
       const parsed = parsePoints(reply)
       setNegatives(parsed.negatives || [])
       setPositives(parsed.positives || [])
     } catch (e) {
       console.error('Niveau15 generation error', e)
-      const msg = e?.response?.data?.error || 'Impossible de gÃƒÂ©nÃƒÂ©rer les points. RÃƒÂ©essaie.'
+      const msg = e?.response?.data?.error || 'Impossible de générer les points. Réessaie.'
       setGenerateError(msg)
     } finally {
       setGenerating(false)
@@ -263,17 +263,17 @@ export default function Niveau15() {
     if (finishing) return
     setFinishing(true)
     try {
-      // Sauvegarder les points positifs et nÃƒÂ©gatifs
+      // Sauvegarder les points positifs et négatifs
       if (positives.length > 0 || negatives.length > 0) {
         await usersAPI.saveExtraInfo([
           {
             question_id: 'niveau15_positives',
-            question_text: 'Points positifs identifiÃƒÂ©s',
+            question_text: 'Points positifs identifiés',
             answer_text: positives.slice(0, 5).join(' | ') || 'Aucun'
           },
           {
             question_id: 'niveau15_negatives',
-            question_text: 'Points ÃƒÂ  amÃƒÂ©liorer identifiÃƒÂ©s',
+            question_text: 'Points à améliorer identifiés',
             answer_text: negatives.slice(0, 5).join(' | ') || 'Aucun'
           }
         ])
@@ -291,7 +291,7 @@ export default function Niveau15() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
+        <p className="mt-2 text-text-secondary">Chargement…</p>
       </div>
     )
   }
@@ -359,29 +359,29 @@ export default function Niveau15() {
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaScaleBalanced className="w-5 h-5" /></div>
-            <h2 className="text-xl font-bold">Points positifs / nÃƒÂ©gatifs</h2>
+            <h2 className="text-xl font-bold">Points positifs / négatifs</h2>
           </div>
 
           {isQuestionStep && typedDone && (
             <div className="mb-4">
               {choice === null && (
-                <div className="text-text-secondary">RÃƒÂ©ponds ÃƒÂ  la question ÃƒÂ  gauche pour continuer.</div>
+                <div className="text-text-secondary">Réponds à la question à gauche pour continuer.</div>
               )}
 
               {choice === 'yes' && suggestedJob && (
                 <div className="space-y-3">
-                  <div className="text-sm text-text-secondary">MÃƒÂ©tier sÃƒÂ©lectionnÃƒÂ©</div>
+                  <div className="text-sm text-text-secondary">Métier sélectionné</div>
                   <div className="font-semibold">{suggestedJob}</div>
                 </div>
               )}
 
               {(choice === 'no' || (choice === 'yes' && !suggestedJob)) && (
                 <div className="space-y-2">
-                  <label className="text-sm text-text-secondary">MÃƒÂ©tier souhaitÃƒÂ©</label>
+                  <label className="text-sm text-text-secondary">Métier souhaité</label>
                   <input
                     type="text"
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
-                    placeholder="Ex: DÃƒÂ©veloppeur web"
+                    placeholder="Ex: Développeur web"
                     value={jobInput}
                     onChange={(e) => setJobInput(e.target.value)}
                   />
@@ -397,7 +397,7 @@ export default function Niveau15() {
               disabled={generating || !effectiveJob}
               className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-50"
             >
-              {generating ? 'GÃƒÂ©nÃƒÂ©ration...' : 'Afficher les points'}
+              {generating ? 'Génération...' : 'Afficher les points'}
             </button>
             {negatives.length > 0 && positives.length > 0 && (
               <button
@@ -417,7 +417,7 @@ export default function Niveau15() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-              <div className="font-semibold text-red-800 mb-2">Points nÃƒÂ©gatifs</div>
+              <div className="font-semibold text-red-800 mb-2">Points négatifs</div>
               {negatives.length ? (
                 <ul className="list-disc pl-5 space-y-1 text-sm text-red-900">
                   {negatives.map((item, idx) => (
@@ -425,7 +425,7 @@ export default function Niveau15() {
                   ))}
                 </ul>
               ) : (
-                <div className="text-sm text-red-700">Aucun point nÃƒÂ©gatif affichÃƒÂ©.</div>
+                <div className="text-sm text-red-700">Aucun point négatif affiché.</div>
               )}
             </div>
             <div className="bg-green-50 border border-green-200 rounded-xl p-4">
@@ -437,7 +437,7 @@ export default function Niveau15() {
                   ))}
                 </ul>
               ) : (
-                <div className="text-sm text-green-700">Aucun point positif affichÃƒÂ©.</div>
+                <div className="text-sm text-green-700">Aucun point positif affiché.</div>
               )}
             </div>
           </div>
@@ -448,10 +448,10 @@ export default function Niveau15() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 15 rÃƒÂ©ussi !</h3>
-            <p className="text-text-secondary mb-4">Tu as identifiÃƒÂ© les bons et mauvais cÃƒÂ´tÃƒÂ©s du mÃƒÂ©tier.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 15 réussi !</h3>
+            <p className="text-text-secondary mb-4">Tu as identifié les bons et mauvais côtés du métier.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/16')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

@@ -60,13 +60,13 @@ function formatProfileContext(profile) {
     if (value == null || value === '') return
     rows.push(`${label}: ${value}`)
   }
-  add('PrÃƒÂ©nom', profile.first_name || profile.prenom)
+  add('Prénom', profile.first_name || profile.prenom)
   add('Nom', profile.last_name || profile.nom)
-  add('Ãƒâ€šge', profile.age)
+  add('Âge', profile.age)
   add('Genre', profile.gender || profile.genre)
-  add('DÃƒÂ©partement', profile.department || profile.departement)
-  add('Ãƒâ€°cole/Formation', profile.school || profile.ecole)
-  add('TÃƒÂ©lÃƒÂ©phone', profile.phone_number || profile.numero_telephone || profile.numeroTelephone)
+  add('Département', profile.department || profile.departement)
+  add('École/Formation', profile.school || profile.ecole)
+  add('Téléphone', profile.phone_number || profile.numero_telephone || profile.numeroTelephone)
   return rows.join('\n')
 }
 
@@ -192,15 +192,15 @@ export default function Niveau14() {
   }, [profile, jobFromResults])
 
   const dialogue = useMemo(() => {
-    const line1 = `On va te gÃƒÂ©nÃƒÂ©rer une lettre de motivation${firstName ? ` ${firstName}` : ''} !`
+    const line1 = `On va te générer une lettre de motivation${firstName ? ` ${firstName}` : ''} !`
     return ([
       { type: 'text', text: line1, durationMs: 1800 },
-      { type: 'text', text: "Avec ce qu'on s'est dit ensemble ÃƒÂ§a va m'aider pour te gÃƒÂ©nÃƒÂ©rer ta lettre de motivation parfaite", durationMs: 2600 },
-      { type: 'question', text: `Est-ce qu'on fait une lettre de motivation pour ce mÃƒÂ©tier : ${suggestedJob || 'ce mÃƒÂ©tier'} ?`, durationMs: 2000 }
+      { type: 'text', text: "Avec ce qu'on s'est dit ensemble ça va m'aider pour te générer ta lettre de motivation parfaite", durationMs: 2600 },
+      { type: 'question', text: `Est-ce qu'on fait une lettre de motivation pour ce métier : ${suggestedJob || 'ce métier'} ?`, durationMs: 2000 }
     ])
   }, [firstName, suggestedJob])
 
-  const finalMessage = "Tu peux dÃƒÂ©sormais y accÃƒÂ©der gratuitement dans le menu, c'est un outil dÃƒÂ©diÃƒÂ© pour tes lettres de motivations futurs!"
+  const finalMessage = "Tu peux désormais y accéder gratuitement dans le menu, c'est un outil dédié pour tes lettres de motivations futurs!"
 
   const current = dialogue[Math.min(step, dialogue.length - 1)]
   const activeText = showFinalMessage ? finalMessage : (current?.text || '')
@@ -237,15 +237,15 @@ export default function Niveau14() {
   const buildContext = () => {
     const profileBlock = formatProfileContext(profile)
     const responsesBlock = (userResponses || [])
-      .map((r) => `- [${r.questionnaire_type || 'questionnaire'} #${r.question_id}] ${r.response || 'Ã¢â‚¬â€'}`)
+      .map((r) => `- [${r.questionnaire_type || 'questionnaire'} #${r.question_id}] ${r.response || '—'}`)
       .join('\n')
     const extraBlock = (extraInfos || [])
-      .map((r) => `- ${r.question_text || r.question_id}: ${r.answer_text || 'Ã¢â‚¬â€'}`)
+      .map((r) => `- ${r.question_text || r.question_id}: ${r.answer_text || '—'}`)
       .join('\n')
     return [
       profileBlock ? `Profil:\n${profileBlock}` : 'Profil: (inconnu)',
-      responsesBlock ? `\nRÃƒÂ©ponses utilisateur:\n${responsesBlock}` : '\nRÃƒÂ©ponses utilisateur: (aucune)',
-      extraBlock ? `\nInformations complÃƒÂ©mentaires:\n${extraBlock}` : '\nInformations complÃƒÂ©mentaires: (aucune)'
+      responsesBlock ? `\nRéponses utilisateur:\n${responsesBlock}` : '\nRéponses utilisateur: (aucune)',
+      extraBlock ? `\nInformations complémentaires:\n${extraBlock}` : '\nInformations complémentaires: (aucune)'
     ].join('\n')
   }
 
@@ -258,13 +258,13 @@ export default function Niveau14() {
     try {
       const context = buildContext()
       const message =
-        `RÃƒÂ©dige uniquement une lettre de motivation en franÃƒÂ§ais pour le mÃƒÂ©tier suivant : "${jobTitle}".\n` +
+        `Rédige uniquement une lettre de motivation en français pour le métier suivant : "${jobTitle}".\n` +
         `Contraintes STRICTES :\n` +
-        `- RÃƒÂ©ponds uniquement par la lettre (aucune explication, aucune question, aucun commentaire).\n` +
+        `- Réponds uniquement par la lettre (aucune explication, aucune question, aucun commentaire).\n` +
         `- Commence par une formule d'appel (ex: "Madame, Monsieur,") et termine par une formule de politesse.\n` +
-        `- Ton professionnel, sincÃƒÂ¨re et adaptÃƒÂ© ÃƒÂ  un(e) ÃƒÂ©tudiant(e).\n` +
+        `- Ton professionnel, sincère et adapté à un(e) étudiant(e).\n` +
         `- 1 page maximum.\n` +
-        `- Utilise le contexte fourni, n'invente pas d'ÃƒÂ©lÃƒÂ©ments manquants.\n` +
+        `- Utilise le contexte fourni, n'invente pas d'éléments manquants.\n` +
         `- Ne mets pas de titre ni de mise en forme Markdown.\n\n` +
         `Contexte utilisateur :\n${context}`
 
@@ -276,12 +276,12 @@ export default function Niveau14() {
       })
 
       const reply = sanitizeLetter(resp?.data?.reply || '')
-      if (!reply) throw new Error('RÃƒÂ©ponse IA vide')
+      if (!reply) throw new Error('Réponse IA vide')
       setLetter(reply)
       setShowFinalMessage(true)
     } catch (e) {
       console.error('Niveau14 letter error', e)
-      const msg = e?.response?.data?.error || 'Impossible de gÃƒÂ©nÃƒÂ©rer la lettre. RÃƒÂ©essaie.'
+      const msg = e?.response?.data?.error || 'Impossible de générer la lettre. Réessaie.'
       setGenerateError(msg)
     } finally {
       setGenerating(false)
@@ -297,17 +297,17 @@ export default function Niveau14() {
     if (finishing) return
     setFinishing(true)
     try {
-      // Sauvegarder les donnÃƒÂ©es du niveau 14
+      // Sauvegarder les données du niveau 14
       if (suggestedJob || companyInput || letter) {
         await usersAPI.saveExtraInfo([
           {
             question_id: 'niveau14_target_job',
-            question_text: 'MÃƒÂ©tier ciblÃƒÂ© pour la lettre de motivation',
-            answer_text: suggestedJob || companyInput || 'Non spÃƒÂ©cifiÃƒÂ©'
+            question_text: 'Métier ciblé pour la lettre de motivation',
+            answer_text: suggestedJob || companyInput || 'Non spécifié'
           },
           {
             question_id: 'niveau14_letter_generated',
-            question_text: 'Lettre de motivation gÃƒÂ©nÃƒÂ©rÃƒÂ©e',
+            question_text: 'Lettre de motivation générée',
             answer_text: letter ? 'Oui' : 'Non'
           }
         ])
@@ -325,7 +325,7 @@ export default function Niveau14() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
+        <p className="mt-2 text-text-secondary">Chargement…</p>
       </div>
     )
   }
@@ -410,23 +410,23 @@ export default function Niveau14() {
           {isQuestionStep && typedDone && (
             <div className="mb-4">
               {choice === null && (
-                <div className="text-text-secondary">RÃƒÂ©ponds ÃƒÂ  la question ÃƒÂ  gauche pour continuer.</div>
+                <div className="text-text-secondary">Réponds à la question à gauche pour continuer.</div>
               )}
 
               {choice === 'yes' && suggestedJob && (
                 <div className="space-y-3">
-                  <div className="text-sm text-text-secondary">MÃƒÂ©tier sÃƒÂ©lectionnÃƒÂ©</div>
+                  <div className="text-sm text-text-secondary">Métier sélectionné</div>
                   <div className="font-semibold">{suggestedJob}</div>
                 </div>
               )}
 
               {(choice === 'no' || (choice === 'yes' && !suggestedJob)) && (
                 <div className="space-y-2">
-                  <label className="text-sm text-text-secondary">MÃƒÂ©tier souhaitÃƒÂ©</label>
+                  <label className="text-sm text-text-secondary">Métier souhaité</label>
                   <input
                     type="text"
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
-                    placeholder="Ex: DÃƒÂ©veloppeur web"
+                    placeholder="Ex: Développeur web"
                     value={jobInput}
                     onChange={(e) => setJobInput(e.target.value)}
                   />
@@ -443,7 +443,7 @@ export default function Niveau14() {
                 disabled={generating || !effectiveJob}
                 className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-50"
               >
-                {generating ? 'GÃƒÂ©nÃƒÂ©ration...' : 'GÃƒÂ©nÃƒÂ©rer la lettre'}
+                {generating ? 'Génération...' : 'Générer la lettre'}
               </button>
             )}
             {letter && (
@@ -467,7 +467,7 @@ export default function Niveau14() {
             </div>
           ) : (
             <div className="text-text-secondary text-sm">
-              La lettre apparaÃƒÂ®tra ici aprÃƒÂ¨s gÃƒÂ©nÃƒÂ©ration.
+              La lettre apparaîtra ici après génération.
             </div>
           )}
         </div>
@@ -477,10 +477,10 @@ export default function Niveau14() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 14 rÃƒÂ©ussi !</h3>
-            <p className="text-text-secondary mb-4">Ta lettre de motivation est prÃƒÂªte.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 14 réussi !</h3>
+            <p className="text-text-secondary mb-4">Ta lettre de motivation est prête.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/15')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

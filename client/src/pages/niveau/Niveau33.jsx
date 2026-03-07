@@ -79,10 +79,10 @@ export default function Niveau33() {
   const firstName = profile?.first_name || 'toi'
 
   const dialogues = useMemo(() => [
-    { text: `Pour te motiver ${firstName}, j'ai pensÃƒÂ© ÃƒÂ  un truc sympa.`, durationMs: 2000 },
-    { text: `Je te laisse ÃƒÂ©crire une lettre ÃƒÂ  toi mÃƒÂªme, on te l'envoie dans 5 ans ! (vraiment)`, durationMs: 2600 },
+    { text: `Pour te motiver ${firstName}, j'ai pensé à un truc sympa.`, durationMs: 2000 },
+    { text: `Je te laisse écrire une lettre à toi même, on te l'envoie dans 5 ans ! (vraiment)`, durationMs: 2600 },
     { text: `Il faudra juste que tu gardes ton adresse mail : ${authEmail || '...'}`, durationMs: 2200 },
-    { text: `Ãƒâ€°cris ce que tu veux, sur tes objectifs, n'importe quoi. Tu acceptes ?`, durationMs: 2200 }
+    { text: `Écris ce que tu veux, sur tes objectifs, n'importe quoi. Tu acceptes ?`, durationMs: 2200 }
   ], [firstName, authEmail])
 
   const currentDialogue = dialogues[dialogueIdx] || { text: '', durationMs: 1500 }
@@ -133,7 +133,7 @@ export default function Niveau33() {
       await usersAPI.saveExtraInfo([
         {
           question_id: 'niveau33_letter_completed',
-          question_text: 'Lettre ÃƒÂ  soi-mÃƒÂªme',
+          question_text: 'Lettre à soi-même',
           answer_text: JSON.stringify({
             didWriteLetter,
             sendDate: futureDate.toISOString(),
@@ -160,7 +160,7 @@ export default function Niveau33() {
 
   const handleSend = async () => {
     if (!letter.trim()) {
-      setFormError('Ãƒâ€°cris quelques mots avant dÃ¢â‚¬â„¢envoyer.')
+      setFormError('Écris quelques mots avant d’envoyer.')
       return
     }
 
@@ -177,7 +177,7 @@ export default function Niveau33() {
       await finishLevel()
     } catch (e) {
       console.error('Letter send error', e)
-      setFormError('Impossible dÃ¢â‚¬â„¢envoyer la lettre. RÃƒÂ©essaie dans un instant.')
+      setFormError('Impossible d’envoyer la lettre. Réessaie dans un instant.')
     } finally {
       setSending(false)
     }
@@ -211,9 +211,9 @@ export default function Niveau33() {
               <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
                   {phase === 'intro' && typed}
-                  {phase === 'decision' && 'Dis-moi si tu veux ÃƒÂ©crire ta lettre.'}
+                  {phase === 'decision' && 'Dis-moi si tu veux écrire ta lettre.'}
                   {phase === 'write' && `Tu recevras cette lettre le ${futureDateLabel}.`}
-                  {phase === 'sending' && 'Parfait, on sÃ¢â‚¬â„¢occupe du reste !'}
+                  {phase === 'sending' && 'Parfait, on s’occupe du reste !'}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
               </div>
@@ -244,22 +244,22 @@ export default function Niveau33() {
         <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">33</div>
-            <h2 className="text-lg md:text-xl font-bold">On tÃ¢â‚¬â„¢envoie un email dans 5 ans !</h2>
+            <h2 className="text-lg md:text-xl font-bold">On t’envoie un email dans 5 ans !</h2>
           </div>
 
           {phase === 'intro' && (
-            <div className="text-text-secondary text-center py-8">Tu pourras ÃƒÂ©crire ta lettre aprÃƒÂ¨s le dialogue.</div>
+            <div className="text-text-secondary text-center py-8">Tu pourras écrire ta lettre après le dialogue.</div>
           )}
 
           {phase === 'decision' && (
-            <div className="text-text-secondary text-center py-8">Dis-moi si tu veux ÃƒÂ©crire ta lettre <FaFaceSmile className="inline w-4 h-4" /></div>
+            <div className="text-text-secondary text-center py-8">Dis-moi si tu veux écrire ta lettre <FaFaceSmile className="inline w-4 h-4" /></div>
           )}
 
           {(phase === 'write' || phase === 'sending') && (
             <div className="space-y-4">
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                 <p className="text-sm text-text-secondary mb-1">Adresse mail :</p>
-                <p className="font-semibold">{authEmail || 'Ã¢â‚¬â€'}</p>
+                <p className="font-semibold">{authEmail || '—'}</p>
               </div>
 
               {formError && (
@@ -270,14 +270,14 @@ export default function Niveau33() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
-                  Lettre ÃƒÂ  toi mÃƒÂªme que tu recevras le {futureDateLabel}
+                  Lettre à toi même que tu recevras le {futureDateLabel}
                 </label>
                 <textarea
                   value={letter}
                   onChange={(e) => setLetter(e.target.value)}
                   rows={8}
                   className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#c1ff72]"
-                  placeholder="Ãƒâ€°cris ici ce que tu veux..."
+                  placeholder="Écris ici ce que tu veux..."
                 />
               </div>
 
@@ -296,14 +296,14 @@ export default function Niveau33() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce font-bold">33</div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 33 terminÃƒÂ© !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 33 terminé !</h3>
             <p className="text-text-secondary mb-4">
               {didWriteLetter
-                ? 'Ta lettre est bien programmÃƒÂ©e. Rendez-vous dans 5 ans !'
-                : 'Bravo pour ta progression. Tu peux revenir ÃƒÂ©crire ta lettre plus tard !'}
+                ? 'Ta lettre est bien programmée. Rendez-vous dans 5 ans !'
+                : 'Bravo pour ta progression. Tu peux revenir écrire ta lettre plus tard !'}
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/34')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Niveau suivant</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

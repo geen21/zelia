@@ -6,22 +6,22 @@ import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { FaCheck, FaBullseye, FaTrophy } from 'react-icons/fa6'
 
 const REGIONS = [
-  'ÃƒÅ½le-de-France',
-  'Auvergne-RhÃƒÂ´ne-Alpes',
+  'Ê½le-de-France',
+  'Auvergne-Rhône-Alpes',
   'Nouvelle-Aquitaine',
   'Occitanie',
   'Hauts-de-France',
-  'Provence-Alpes-CÃƒÂ´te dÃ¢â‚¬â„¢Azur',
+  'Provence-Alpes-Côte d’Azur',
   'Grand Est',
   'Pays de la Loire',
   'Bretagne',
   'Normandie',
   'Centre-Val de Loire',
-  'Bourgogne-Franche-ComtÃƒÂ©',
+  'Bourgogne-Franche-Comté',
   'Corse',
   'Martinique',
   'Guadeloupe',
-  'La RÃƒÂ©union'
+  'La Réunion'
 ]
 
 const QUICK_SUGGESTIONS = ['Histoire', 'Philosophie', 'Math', 'Informatique', 'Politique', 'Droit']
@@ -182,7 +182,7 @@ function mapFormation(item, index) {
     title: primaryTitle,
     nm: primaryTitle,
     titleVariants: nameList,
-    provider: item?.etab_nom || 'Organisme non renseignÃƒÂ©',
+    provider: item?.etab_nom || 'Organisme non renseigné',
     city: item?.commune || '',
     department: item?.departement || '',
     region: item?.region || '',
@@ -191,7 +191,7 @@ function mapFormation(item, index) {
     fiche: item?.fiche || item?.dataviz || item?.etab_url || null,
     etabUrl: item?.etab_url || null,
     tags,
-    locationSummary: locationParts.join(' Ã‚Â· '),
+    locationSummary: locationParts.join(' · '),
     searchIndex
   }
 }
@@ -231,12 +231,12 @@ export default function Niveau6() {
   }, [profile])
 
   const introMessages = useMemo(() => ([
-    { text: 'Bravo, tu viens de dÃƒÂ©bloquer le niveau Formations !', durationMs: 1200 },
+    { text: 'Bravo, tu viens de débloquer le niveau Formations !', durationMs: 1200 },
     {
-      text: "Je vais te montrer comment sÃƒÂ©lectionner les pistes dÃ¢â‚¬â„¢ÃƒÂ©tudes et formations dans les grandes familles de mÃƒÂ©tiers.\nTu verras comme cÃ¢â‚¬â„¢est riche et inspirant, ÃƒÂ§a te donnera dÃƒÂ©jÃƒÂ  plein dÃ¢â‚¬â„¢infos.",
+      text: "Je vais te montrer comment sélectionner les pistes d’études et formations dans les grandes familles de métiers.\nTu verras comme c’est riche et inspirant, ça te donnera déjà plein d’infos.",
       durationMs: 3200
     },
-    { text: "On va faire ÃƒÂ§a ensemble : tu appliques chaque ÃƒÂ©tape et je reste lÃƒÂ  si tu bloques.", durationMs: 2200 },
+    { text: "On va faire ça ensemble : tu appliques chaque étape et je reste là si tu bloques.", durationMs: 2200 },
     { text: firstName ? `On y va ${firstName} ?` : 'On y va ?', durationMs: 200 }
   ]), [firstName])
 
@@ -302,26 +302,26 @@ export default function Niveau6() {
   const steps = useMemo(() => ([
     {
       id: 'keyword',
-      title: 'Choisir un mot-clÃƒÂ©',
-      description: 'Ex: design, commerce, santÃƒÂ©Ã¢â‚¬Â¦',
+      title: 'Choisir un mot-clé',
+      description: 'Ex: design, commerce, santé…',
       done: keywordDone
     },
     {
       id: 'filters',
       title: 'Affiner avec un filtre',
-  description: 'SÃƒÂ©lectionne une rÃƒÂ©gion pour affiner ta recherche.',
+  description: 'Sélectionne une région pour affiner ta recherche.',
       done: filtersDone
     },
     {
       id: 'search',
       title: 'Lancer la recherche',
-      description: 'Clique sur Ã¢â‚¬Å“RechercherÃ¢â‚¬Â pour obtenir des rÃƒÂ©sultats.',
+      description: 'Clique sur Ã¢â‚¬Å“RechercherÃ¢â‚¬Â pour obtenir des résultats.',
       done: searchDone
     },
     {
       id: 'explore',
       title: 'Explorer une formation',
-      description: 'Ouvre la fiche dÃ¢â‚¬â„¢une formation qui tÃ¢â‚¬â„¢inspire.',
+      description: 'Ouvre la fiche d’une formation qui t’inspire.',
       done: exploreDone
     }
   ]), [keywordDone, filtersDone, searchDone, exploreDone])
@@ -331,11 +331,11 @@ export default function Niveau6() {
   const allStepsDone = steps.every((step) => step.done)
 
   const guideMessage = useMemo(() => {
-    if (!keywordDone) return 'Commence par saisir un mot-clÃƒÂ©. Pense ÃƒÂ  ce que tu veux apprendre ou au mÃƒÂ©tier visÃƒÂ©.'
-  if (!filtersDone) return 'Super. Ajoute un filtre (rÃƒÂ©gion) pour affiner la recherche.'
+    if (!keywordDone) return 'Commence par saisir un mot-clé. Pense à ce que tu veux apprendre ou au métier visé.'
+  if (!filtersDone) return 'Super. Ajoute un filtre (région) pour affiner la recherche.'
     if (!searchDone) return 'Parfait ! Lance la recherche pour voir les formations qui correspondent.'
-    if (!exploreDone) return 'Clique sur une formation pour ouvrir la fiche et note ce qui te plaÃƒÂ®t.'
-    return 'Tu maÃƒÂ®trises la recherche de formations. Tu peux valider ce niveau quand tu es prÃƒÂªtÃ‚Â·e.'
+    if (!exploreDone) return 'Clique sur une formation pour ouvrir la fiche et note ce qui te plaît.'
+    return 'Tu maîtrises la recherche de formations. Tu peux valider ce niveau quand tu es prêt·e.'
   }, [keywordDone, filtersDone, searchDone, exploreDone])
 
   const handleIntroNext = () => {
@@ -383,7 +383,7 @@ export default function Niveau6() {
       console.warn('Formation search failed', err)
       setResults([])
       setSearchExecuted(true)
-      setSearchError('Impossible de rÃƒÂ©cupÃƒÂ©rer les formations en ligne. RÃƒÂ©essaie dans un instant.')
+      setSearchError('Impossible de récupérer les formations en ligne. Réessaie dans un instant.')
     } finally {
       setSearching(false)
     }
@@ -421,7 +421,7 @@ export default function Niveau6() {
       setCompleted(true)
     } catch (err) {
       console.error('Niveau6 levelUp failed', err)
-      setCompletionError('Impossible de valider le niveau pour le moment. RÃƒÂ©essaie dans un instant.')
+      setCompletionError('Impossible de valider le niveau pour le moment. Réessaie dans un instant.')
     } finally {
       setCompletionSaving(false)
     }
@@ -431,7 +431,7 @@ export default function Niveau6() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-black border-t-transparent" />
-        <p className="mt-2 text-text-secondary">Chargement du tutoriel formationsÃ¢â‚¬Â¦</p>
+        <p className="mt-2 text-text-secondary">Chargement du tutoriel formations…</p>
       </div>
     )
   }
@@ -514,7 +514,7 @@ export default function Niveau6() {
                       disabled={!allStepsDone || completionSaving}
                       className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-[#c1ff72] px-4 py-2 text-base font-semibold text-black transition disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {completionSaving ? 'ValidationÃ¢â‚¬Â¦' : 'Valider le niveau'}
+                      {completionSaving ? 'Validation…' : 'Valider le niveau'}
                     </button>
                     <button
                       type="button"
@@ -536,7 +536,7 @@ export default function Niveau6() {
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">Rechercher une formation</h2>
-                  <p className="text-sm text-gray-500">ComplÃƒÂ¨te les champs, puis lance la recherche.</p>
+                  <p className="text-sm text-gray-500">Complète les champs, puis lance la recherche.</p>
                 </div>
                 <span className="hidden rounded-full bg-[#c1ff72] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-black md:inline-flex">
                   Tutoriel
@@ -563,25 +563,25 @@ export default function Niveau6() {
                 )}
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Mot-clÃƒÂ©</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Mot-clé</label>
                   <input
                     type="text"
                     ref={keywordInputRef}
                     value={form.keyword}
                     onChange={(event) => updateForm('keyword', event.target.value)}
-                    placeholder="Ex: design, communication, dataÃ¢â‚¬Â¦"
+                    placeholder="Ex: design, communication, data…"
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">RÃƒÂ©gion</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Région</label>
                   <select
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
                     value={form.region}
                     onChange={(event) => updateForm('region', event.target.value)}
                   >
-                    <option value="">Aucune prÃƒÂ©fÃƒÂ©rence</option>
+                    <option value="">Aucune préférence</option>
                     {REGIONS.map((region) => (
                       <option key={region} value={region}>
                         {region}
@@ -595,7 +595,7 @@ export default function Niveau6() {
                   disabled={searching}
                   className="inline-flex w-full items-center justify-center rounded-lg border border-gray-200 bg-black px-4 py-2 text-base font-semibold text-white transition hover:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {searching ? 'Recherche en coursÃ¢â‚¬Â¦' : 'Rechercher'}
+                  {searching ? 'Recherche en cours…' : 'Rechercher'}
                 </button>
               </form>
 
@@ -605,21 +605,21 @@ export default function Niveau6() {
 
               <div className="mt-6 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">RÃƒÂ©sultats</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Résultats</h3>
                   {searchExecuted && (
-                    <span className="text-sm text-gray-500">{results.length} formation(s) trouvÃƒÂ©e(s)</span>
+                    <span className="text-sm text-gray-500">{results.length} formation(s) trouvée(s)</span>
                   )}
                 </div>
 
                 {!searchExecuted && (
                   <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                    Utilise le formulaire ci-dessus pour lancer ta premiÃƒÂ¨re recherche.
+                    Utilise le formulaire ci-dessus pour lancer ta première recherche.
                   </div>
                 )}
 
                 {searchExecuted && results.length === 0 && (
                   <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
-                    <p>Aucun rÃƒÂ©sultat pour ces critÃƒÂ¨res. Essaie un autre mot-clÃƒÂ© ou ÃƒÂ©largis les filtres.</p>
+                    <p>Aucun résultat pour ces critères. Essaie un autre mot-clé ou élargis les filtres.</p>
                     {QUICK_SUGGESTIONS.length > 0 && (
                       <div className="mt-3">
                         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Suggestions rapides</p>
@@ -676,7 +676,7 @@ export default function Niveau6() {
                           )}
                           {formation.year && (
                             <div>
-                              <span className="font-medium text-gray-800">AnnÃƒÂ©e :</span> {formation.year}
+                              <span className="font-medium text-gray-800">Année :</span> {formation.year}
                             </div>
                           )}
                         </div>
@@ -701,10 +701,10 @@ export default function Niveau6() {
                   <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
                     <h4 className="text-base font-semibold text-gray-900">Ce que tu peux noter :</h4>
                     <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-600">
-                      <li>Les spÃƒÂ©cialisations proposÃƒÂ©es par la formation (thÃƒÂ©matiques officielles).</li>
-                      <li>L'ÃƒÂ©tablissement d'accueil et son type (public, privÃƒÂ©...).</li>
-                      <li>La localisation prÃƒÂ©cise (commune, dÃƒÂ©partement, rÃƒÂ©gion).</li>
-                      <li>Le lien Parcoursup pour connaÃƒÂ®tre les modalitÃƒÂ©s d'inscription.</li>
+                      <li>Les spécialisations proposées par la formation (thématiques officielles).</li>
+                      <li>L'établissement d'accueil et son type (public, privé...).</li>
+                      <li>La localisation précise (commune, département, région).</li>
+                      <li>Le lien Parcoursup pour connaître les modalités d'inscription.</li>
                     </ul>
                   </div>
                 )}
@@ -713,9 +713,9 @@ export default function Niveau6() {
           ) : (
             <div className="flex h-full min-h-[420px] flex-col items-center justify-center text-center text-gray-600">
               <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#c1ff72] text-2xl"><FaBullseye className="w-6 h-6" /></span>
-              <h3 className="text-lg font-semibold text-gray-900">Lance le tutoriel pour accÃƒÂ©der ÃƒÂ  la recherche</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Lance le tutoriel pour accéder à la recherche</h3>
               <p className="mt-2 max-w-sm text-sm text-gray-500">
-                Clique sur Ã‚Â« Commencer le tutoriel Ã‚Â» ÃƒÂ  gauche. Les filtres et les formations officielles apparaÃƒÂ®tront juste ici pour t'accompagner ÃƒÂ©tape par ÃƒÂ©tape.
+                Clique sur « Commencer le tutoriel » à gauche. Les filtres et les formations officielles apparaîtront juste ici pour t'accompagner étape par étape.
               </p>
             </div>
           )}
@@ -726,10 +726,10 @@ export default function Niveau6() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 6 rÃƒÂ©ussi !</h3>
-            <p className="text-text-secondary mb-4">Tu sais maintenant rechercher et comparer les formations qui t'intÃƒÂ©ressent.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 6 réussi !</h3>
+            <p className="text-text-secondary mb-4">Tu sais maintenant rechercher et comparer les formations qui t'intéressent.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/7')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

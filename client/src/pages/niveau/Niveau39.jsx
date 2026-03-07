@@ -66,8 +66,8 @@ export default function Niveau39() {
 
   const dialogues = useMemo(() => [
     { text: "Avant le bilan final, j'aimerais ton avis sur l'application.", durationMs: 2000 },
-    { text: "Tes retours nous aident ÃƒÂ  amÃƒÂ©liorer chaque niveau.", durationMs: 1800 },
-    { text: "Dis-moi ce que tu as prÃƒÂ©fÃƒÂ©rÃƒÂ© et ce qu'on doit revoir.", durationMs: 2000 },
+    { text: "Tes retours nous aident à améliorer chaque niveau.", durationMs: 1800 },
+    { text: "Dis-moi ce que tu as préféré et ce qu'on doit revoir.", durationMs: 2000 },
   ], [])
 
   const [dialogueIdx, setDialogueIdx] = useState(0)
@@ -126,7 +126,7 @@ export default function Niveau39() {
   const handleSubmit = async () => {
     setFormError('')
     if (!feedback.favoriteLevel.trim() || !feedback.toImprove.trim() || !feedback.rating) {
-      setFormError('Merci de complÃƒÂ©ter les champs obligatoires.')
+      setFormError('Merci de compléter les champs obligatoires.')
       return
     }
 
@@ -135,17 +135,17 @@ export default function Niveau39() {
       const entries = [
         {
           question_id: 'niveau39_favorite_level',
-          question_text: 'Niveau prÃƒÂ©fÃƒÂ©rÃƒÂ©',
+          question_text: 'Niveau préféré',
           answer_text: feedback.favoriteLevel.trim()
         },
         {
           question_id: 'niveau39_best_part',
-          question_text: 'Ce que tu as prÃƒÂ©fÃƒÂ©rÃƒÂ©',
+          question_text: 'Ce que tu as préféré',
           answer_text: feedback.bestPart.trim()
         },
         {
           question_id: 'niveau39_to_improve',
-          question_text: 'Ce que tu aimerais amÃƒÂ©liorer',
+          question_text: 'Ce que tu aimerais améliorer',
           answer_text: feedback.toImprove.trim()
         },
         {
@@ -158,7 +158,7 @@ export default function Niveau39() {
       await finishLevel()
     } catch (e) {
       console.error('Niveau39 feedback save error', e)
-      setFormError('Impossible dÃ¢â‚¬â„¢enregistrer ton retour. RÃƒÂ©essaie.')
+      setFormError('Impossible d’enregistrer ton retour. Réessaie.')
     } finally {
       setSaving(false)
     }
@@ -191,7 +191,7 @@ export default function Niveau39() {
               <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
                   {phase === 'intro' && typed}
-                  {phase === 'form' && 'Merci pour ton retour, ÃƒÂ§a compte beaucoup.'}
+                  {phase === 'form' && 'Merci pour ton retour, ça compte beaucoup.'}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
               </div>
@@ -214,7 +214,7 @@ export default function Niveau39() {
           </div>
 
           {phase === 'intro' && (
-            <div className="text-text-secondary text-center py-8">Le formulaire apparaÃƒÂ®tra ici.</div>
+            <div className="text-text-secondary text-center py-8">Le formulaire apparaîtra ici.</div>
           )}
 
           {phase === 'form' && (
@@ -224,7 +224,7 @@ export default function Niveau39() {
               )}
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Niveau prÃƒÂ©fÃƒÂ©rÃƒÂ© *</label>
+                <label className="text-sm font-medium text-gray-700">Niveau préféré *</label>
                 <input
                   value={feedback.favoriteLevel}
                   onChange={(e) => setFeedback(prev => ({ ...prev, favoriteLevel: e.target.value }))}
@@ -234,13 +234,13 @@ export default function Niveau39() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Ce que tu as prÃƒÂ©fÃƒÂ©rÃƒÂ©</label>
+                <label className="text-sm font-medium text-gray-700">Ce que tu as préféré</label>
                 <textarea
                   value={feedback.bestPart}
                   onChange={(e) => setFeedback(prev => ({ ...prev, bestPart: e.target.value }))}
                   rows={4}
                   className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#c1ff72]"
-                  placeholder="Le jeu, les vidÃƒÂ©os, le rythme..."
+                  placeholder="Le jeu, les vidéos, le rythme..."
                 />
               </div>
 
@@ -251,7 +251,7 @@ export default function Niveau39() {
                   onChange={(e) => setFeedback(prev => ({ ...prev, toImprove: e.target.value }))}
                   rows={4}
                   className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#c1ff72]"
-                  placeholder="ClartÃƒÂ©, durÃƒÂ©e, contenu..."
+                  placeholder="Clarté, durée, contenu..."
                 />
               </div>
 
@@ -262,7 +262,7 @@ export default function Niveau39() {
                   onChange={(e) => setFeedback(prev => ({ ...prev, rating: e.target.value }))}
                   className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#c1ff72]"
                 >
-                  <option value="">SÃƒÂ©lectionner</option>
+                  <option value="">Sélectionner</option>
                   <option value="1">1</option>
                   <option value="2">2</option>
                   <option value="3">3</option>
@@ -287,10 +287,10 @@ export default function Niveau39() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce font-bold">39</div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 39 terminÃƒÂ© !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 39 terminé !</h3>
             <p className="text-text-secondary mb-4">Merci pour ton retour, il nous aide beaucoup.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/40')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Niveau suivant</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

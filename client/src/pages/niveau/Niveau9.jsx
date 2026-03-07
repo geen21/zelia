@@ -5,12 +5,12 @@ import apiClient, { usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { FaCheck, FaBriefcase, FaTrophy } from 'react-icons/fa6'
 
-const CONTRACT_TYPES = ['CDI', 'CDD', 'Alternance', 'Stage', 'IntÃƒÂ©rim', 'Saisonnier']
+const CONTRACT_TYPES = ['CDI', 'CDD', 'Alternance', 'Stage', 'Intérim', 'Saisonnier']
 
 // Extract 2 most meaningful words from a job title for search matching
 function extractSearchKeywords(jobTitle) {
   if (!jobTitle) return ''
-  const stopWords = new Set(['de', 'du', 'des', 'le', 'la', 'les', 'en', 'et', 'ou', 'un', 'une', 'ÃƒÂ ', 'au', 'aux', 'pour', 'dans', 'sur', 'par', 'avec', 'd', 'l'])
+  const stopWords = new Set(['de', 'du', 'des', 'le', 'la', 'les', 'en', 'et', 'ou', 'un', 'une', 'à', 'au', 'aux', 'pour', 'dans', 'sur', 'par', 'avec', 'd', 'l'])
   const words = jobTitle
     .replace(/[()\[\]/,;:.!?]/g, ' ')
     .split(/\s+/)
@@ -155,8 +155,8 @@ function mapJob(item, index) {
 
   return {
     id: item?.id || `emploi-${index}`,
-    title: title || 'IntitulÃƒÂ© non renseignÃƒÂ©',
-    company: company || 'Entreprise non indiquÃƒÂ©e',
+    title: title || 'Intitulé non renseigné',
+    company: company || 'Entreprise non indiquée',
     contract,
     location,
     rome,
@@ -204,9 +204,9 @@ export default function Niveau9() {
   const [jobSuggestions, setJobSuggestions] = useState([])
 
   const introMessages = useMemo(() => ([
-    { text: 'Te voilÃƒÂ  au niveau MÃƒÂ©tiers ! On va apprendre ÃƒÂ  trouver des offres de jobs en un clin dÃ¢â‚¬â„¢Ã…â€œil.', durationMs: 3200 },
-    { text: 'Je vais te guider pour utiliser la page Emplois et repÃƒÂ©rer les opportunitÃƒÂ©s qui collent ÃƒÂ  ton profil.', durationMs: 3800 },
-    { text: `PrÃƒÂ©pare un mot-clÃƒÂ©, un contrat et suis-moi ÃƒÂ©tape par ÃƒÂ©tape. On y va ${firstName}?`, durationMs: 2800 }
+    { text: 'Te voilà au niveau Métiers ! On va apprendre à trouver des offres de jobs en un clin d’Ã…â€œil.', durationMs: 3200 },
+    { text: 'Je vais te guider pour utiliser la page Emplois et repérer les opportunités qui collent à ton profil.', durationMs: 3800 },
+    { text: `Prépare un mot-clé, un contrat et suis-moi étape par étape. On y va ${firstName}?`, durationMs: 2800 }
   ]), [firstName])
 
   const currentIntro = introMessages[introIdx] || { text: '', durationMs: 2000 }
@@ -285,7 +285,7 @@ export default function Niveau9() {
       } catch (err) {
         console.error('Niveau9 profile load failed', err)
         if (!mounted) return
-        setError('Impossible de charger ton profil pour le tutoriel mÃƒÂ©tiers.')
+        setError('Impossible de charger ton profil pour le tutoriel métiers.')
       } finally {
         if (mounted) setLoading(false)
       }
@@ -319,13 +319,13 @@ export default function Niveau9() {
   const steps = useMemo(() => ([
     {
       id: 'keyword',
-      title: 'Choisir un mot-clÃƒÂ©',
-      description: 'Ex: dÃƒÂ©veloppeur, vente, marketingÃ¢â‚¬Â¦',
+      title: 'Choisir un mot-clé',
+      description: 'Ex: développeur, vente, marketing…',
       done: keywordDone
     },
     {
       id: 'filters',
-      title: 'SÃƒÂ©lectionner un filtre',
+      title: 'Sélectionner un filtre',
   description: 'Choisis un type de contrat pour cibler les offres.',
       done: filtersDone
     },
@@ -338,7 +338,7 @@ export default function Niveau9() {
     {
       id: 'explore',
       title: 'Explorer une offre',
-      description: 'Ouvre la fiche ou note les infos clÃƒÂ©s.',
+      description: 'Ouvre la fiche ou note les infos clés.',
       done: exploreDone
     }
   ]), [keywordDone, filtersDone, searchDone, exploreDone])
@@ -348,11 +348,11 @@ export default function Niveau9() {
   const allStepsDone = steps.every((step) => step.done)
 
   const guideMessage = useMemo(() => {
-  if (!keywordDone) return 'Commence par saisir un mot-clÃƒÂ©. Pense au mÃƒÂ©tier ou au secteur que tu vises.'
+  if (!keywordDone) return 'Commence par saisir un mot-clé. Pense au métier ou au secteur que tu vises.'
   if (!filtersDone) return 'Top ! Choisis un type de contrat pour cibler les offres.'
     if (!searchDone) return 'Parfait, lance la recherche pour voir les offres disponibles.'
     if (!exploreDone) return 'Clique sur une offre et observe le contrat, la localisation et la date.'
-    return 'Tu maÃƒÂ®trises maintenant la recherche de jobs. Tu peux valider ce niveau quand tu veux.'
+    return 'Tu maîtrises maintenant la recherche de jobs. Tu peux valider ce niveau quand tu veux.'
   }, [keywordDone, filtersDone, searchDone, exploreDone])
 
   const handleIntroNext = () => {
@@ -396,7 +396,7 @@ export default function Niveau9() {
       console.warn('Job search failed', err)
       setResults([])
       setSearchExecuted(true)
-      setSearchError('Impossible de rÃƒÂ©cupÃƒÂ©rer les offres. RÃƒÂ©essaie dans un instant.')
+      setSearchError('Impossible de récupérer les offres. Réessaie dans un instant.')
     } finally {
       setSearching(false)
     }
@@ -419,7 +419,7 @@ export default function Niveau9() {
       setCompleted(true)
     } catch (err) {
       console.error('Niveau9 levelUp failed', err)
-      setCompletionError('Impossible de valider le niveau pour le moment. RÃƒÂ©essaie dans un instant.')
+      setCompletionError('Impossible de valider le niveau pour le moment. Réessaie dans un instant.')
     } finally {
       setCompletionSaving(false)
     }
@@ -429,7 +429,7 @@ export default function Niveau9() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-black border-t-transparent" />
-        <p className="mt-2 text-text-secondary">Chargement du tutoriel mÃƒÂ©tiersÃ¢â‚¬Â¦</p>
+        <p className="mt-2 text-text-secondary">Chargement du tutoriel métiers…</p>
       </div>
     )
   }
@@ -512,7 +512,7 @@ export default function Niveau9() {
                       disabled={!allStepsDone || completionSaving}
                       className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-[#c1ff72] px-4 py-2 text-base font-semibold text-black transition disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {completionSaving ? 'ValidationÃ¢â‚¬Â¦' : 'Valider le niveau'}
+                      {completionSaving ? 'Validation…' : 'Valider le niveau'}
                     </button>
                     <button
                       type="button"
@@ -534,7 +534,7 @@ export default function Niveau9() {
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">Rechercher un emploi</h2>
-                  <p className="text-sm text-gray-500">ComplÃƒÂ¨te les filtres, puis lance la recherche.</p>
+                  <p className="text-sm text-gray-500">Complète les filtres, puis lance la recherche.</p>
                 </div>
                 <span className="hidden rounded-full bg-[#c1ff72] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-black md:inline-flex">
                   Tutoriel
@@ -543,10 +543,10 @@ export default function Niveau9() {
 
               <form className="space-y-4" onSubmit={handleSearch}>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Mot-clÃƒÂ©</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Mot-clé</label>
                   {jobSuggestions.length > 0 && !form.keyword.trim() && (
                     <div className="mb-2">
-                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Suggestions basÃƒÂ©es sur ton profil</p>
+                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Suggestions basées sur ton profil</p>
                       <div className="flex flex-wrap gap-2">
                         {jobSuggestions.map((suggestion) => (
                           <button
@@ -565,7 +565,7 @@ export default function Niveau9() {
                     type="text"
                     value={form.keyword}
                     onChange={(event) => updateForm('keyword', event.target.value)}
-                    placeholder="Ex: dÃƒÂ©veloppeur, vendeur, marketingÃ¢â‚¬Â¦"
+                    placeholder="Ex: développeur, vendeur, marketing…"
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
                   />
                 </div>
@@ -599,7 +599,7 @@ export default function Niveau9() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Recherche en coursÃ¢â‚¬Â¦
+                      Recherche en cours…
                     </>
                   ) : (
                     'Rechercher'
@@ -613,24 +613,24 @@ export default function Niveau9() {
 
               <div className="mt-6 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">RÃƒÂ©sultats</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Résultats</h3>
                   {searchExecuted && (
-                    <span className="text-sm text-gray-500">{results.length} offre(s) trouvÃƒÂ©e(s)</span>
+                    <span className="text-sm text-gray-500">{results.length} offre(s) trouvée(s)</span>
                   )}
                 </div>
 
                 {!searchExecuted && (
                   <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                    Utilise le formulaire ci-dessus pour lancer ta premiÃƒÂ¨re recherche.
+                    Utilise le formulaire ci-dessus pour lancer ta première recherche.
                   </div>
                 )}
 
                 {searchExecuted && results.length === 0 && (
                   <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
-                    <p>Aucun rÃƒÂ©sultat pour ces critÃƒÂ¨res. Essaie un autre mot-clÃƒÂ© ou ÃƒÂ©largis les filtres.</p>
+                    <p>Aucun résultat pour ces critères. Essaie un autre mot-clé ou élargis les filtres.</p>
                     {jobSuggestions.length > 0 && (
                       <div className="mt-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Suggestions basÃƒÂ©es sur ton profil</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Suggestions basées sur ton profil</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                           {jobSuggestions.map((suggestion) => (
                             <button
@@ -683,13 +683,13 @@ export default function Niveau9() {
                           )}
                           {job.updatedAt && (
                             <div>
-                              <span className="font-medium text-gray-800">Mise ÃƒÂ  jour :</span>{' '}
+                              <span className="font-medium text-gray-800">Mise à jour :</span>{' '}
                               {formatUpdatedAt(job.updatedAt) || job.updatedAt}
                             </div>
                           )}
                         </div>
                         {job.applyUrl && (
-                          <p className="mt-3 text-sm text-gray-500 underline">Voir lÃ¢â‚¬â„¢offre officielle</p>
+                          <p className="mt-3 text-sm text-gray-500 underline">Voir l’offre officielle</p>
                         )}
                       </button>
                     ))}
@@ -700,10 +700,10 @@ export default function Niveau9() {
                   <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
                     <h4 className="text-base font-semibold text-gray-900">Ce que tu peux noter :</h4>
                     <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-600">
-                      <li>Le type de contrat et la localisation prÃƒÂ©cise.</li>
-                      <li>La localisation exacte et la date de mise ÃƒÂ  jour.</li>
-                      <li>Le code ROME pour approfondir le mÃƒÂ©tier.</li>
-                      <li>Les liens pour postuler ou contacter lÃ¢â‚¬â„¢entreprise.</li>
+                      <li>Le type de contrat et la localisation précise.</li>
+                      <li>La localisation exacte et la date de mise à jour.</li>
+                      <li>Le code ROME pour approfondir le métier.</li>
+                      <li>Les liens pour postuler ou contacter l’entreprise.</li>
                     </ul>
                   </div>
                 )}
@@ -712,9 +712,9 @@ export default function Niveau9() {
           ) : (
             <div className="flex h-full min-h-[420px] flex-col items-center justify-center text-center text-gray-600">
               <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#c1ff72] text-2xl"><FaBriefcase className="w-6 h-6" /></span>
-              <h3 className="text-lg font-semibold text-gray-900">Lance le tutoriel pour accÃƒÂ©der ÃƒÂ  la recherche</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Lance le tutoriel pour accéder à la recherche</h3>
               <p className="mt-2 max-w-sm text-sm text-gray-500">
-                Clique sur Ã‚Â« Commencer le tutoriel Ã‚Â» ÃƒÂ  gauche. Les filtres et les offres apparaÃƒÂ®tront juste ici pour t'accompagner ÃƒÂ©tape par ÃƒÂ©tape.
+                Clique sur « Commencer le tutoriel » à gauche. Les filtres et les offres apparaîtront juste ici pour t'accompagner étape par étape.
               </p>
             </div>
           )}
@@ -725,10 +725,10 @@ export default function Niveau9() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 9 rÃƒÂ©ussi !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 9 réussi !</h3>
             <p className="text-text-secondary mb-4">Tu sais maintenant filtrer et analyser les offres d'emploi.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/10')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

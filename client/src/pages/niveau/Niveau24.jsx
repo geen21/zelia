@@ -13,42 +13,42 @@ const QUIZ_DATA = [
     stat: 30,
     color: '#ef4444', // red
     source: 'superfutur.fr/reorientation-etudiant',
-    question: 'Que reprÃƒÂ©sente ce pourcentage selon toi ?',
+    question: 'Que représente ce pourcentage selon toi ?',
     options: [
-      { id: 'A', text: "Le pourcentage de personnes qui apprÃƒÂ©cient leurs ÃƒÂ©tudes" },
-      { id: 'B', text: "Le pourcentage de personnes qui abandonnent leurs ÃƒÂ©tudes la 1ÃƒÂ¨re annÃƒÂ©e" },
-      { id: 'C', text: "Le pourcentage de personnes qui n'aiment pas ZÃƒÂ©lia" }
+      { id: 'A', text: "Le pourcentage de personnes qui apprécient leurs études" },
+      { id: 'B', text: "Le pourcentage de personnes qui abandonnent leurs études la 1ère année" },
+      { id: 'C', text: "Le pourcentage de personnes qui n'aiment pas Zélia" }
     ],
     correct: 'B',
-    explanation: "30% des ÃƒÂ©tudiants ne vont pas au-delÃƒÂ  de leur 1ÃƒÂ¨re annÃƒÂ©e d'ÃƒÂ©tudes supÃƒÂ©rieures."
+    explanation: "30% des étudiants ne vont pas au-delà de leur 1ère année d'études supérieures."
   },
   {
     id: 2,
     stat: 40,
     color: '#f59e0b', // orange
     source: 'onisep.fr',
-    question: 'Et celui-ci, que reprÃƒÂ©sente-t-il ?',
+    question: 'Et celui-ci, que représente-t-il ?',
     options: [
-      { id: 'A', text: "Le pourcentage d'ÃƒÂ©tudiants qui se rÃƒÂ©orientent aprÃƒÂ¨s le bac" },
-      { id: 'B', text: "Le pourcentage d'ÃƒÂ©tudiants qui partent ÃƒÂ  l'ÃƒÂ©tranger" },
-      { id: 'C', text: "Le pourcentage d'ÃƒÂ©tudiants satisfaits de leur orientation" }
+      { id: 'A', text: "Le pourcentage d'étudiants qui se réorientent après le bac" },
+      { id: 'B', text: "Le pourcentage d'étudiants qui partent à l'étranger" },
+      { id: 'C', text: "Le pourcentage d'étudiants satisfaits de leur orientation" }
     ],
     correct: 'A',
-    explanation: "Environ 40% des ÃƒÂ©tudiants changent de filiÃƒÂ¨re ou se rÃƒÂ©orientent dans les 2 premiÃƒÂ¨res annÃƒÂ©es aprÃƒÂ¨s le bac."
+    explanation: "Environ 40% des étudiants changent de filière ou se réorientent dans les 2 premières années après le bac."
   },
   {
     id: 3,
     stat: 65,
     color: '#22c55e', // green
     source: 'cereq.fr',
-    question: 'Dernier graphique ! Que reprÃƒÂ©sente ce pourcentage ?',
+    question: 'Dernier graphique ! Que représente ce pourcentage ?',
     options: [
-      { id: 'A', text: "Le pourcentage de jeunes qui trouvent un emploi stable 3 ans aprÃƒÂ¨s leur diplÃƒÂ´me" },
-      { id: 'B', text: "Le pourcentage d'ÃƒÂ©tudiants qui font des ÃƒÂ©tudes longues" },
-      { id: 'C', text: "Le pourcentage de bacheliers qui poursuivent des ÃƒÂ©tudes supÃƒÂ©rieures" }
+      { id: 'A', text: "Le pourcentage de jeunes qui trouvent un emploi stable 3 ans après leur diplôme" },
+      { id: 'B', text: "Le pourcentage d'étudiants qui font des études longues" },
+      { id: 'C', text: "Le pourcentage de bacheliers qui poursuivent des études supérieures" }
     ],
     correct: 'C',
-    explanation: "Environ 65% des bacheliers poursuivent des ÃƒÂ©tudes dans l'enseignement supÃƒÂ©rieur."
+    explanation: "Environ 65% des bacheliers poursuivent des études dans l'enseignement supérieur."
   }
 ]
 
@@ -244,17 +244,17 @@ export default function Niveau24() {
       if (finishing) return
       setFinishing(true)
       try {
-        // Sauvegarder les rÃƒÂ©sultats du quiz
+        // Sauvegarder les résultats du quiz
         const correctCount = answers.filter(a => a.correct).length + (selectedAnswer === currentQuizData.correct ? 1 : 0)
         await usersAPI.saveExtraInfo([
           {
             question_id: 'niveau24_quiz_score',
             question_text: 'Score quiz orientation (Niveau 24)',
-            answer_text: `${correctCount}/${QUIZ_DATA.length} bonnes rÃƒÂ©ponses`
+            answer_text: `${correctCount}/${QUIZ_DATA.length} bonnes réponses`
           },
           {
             question_id: 'niveau24_quiz_completed',
-            question_text: 'Quiz statistiques complÃƒÂ©tÃƒÂ© (Niveau 24)',
+            question_text: 'Quiz statistiques complété (Niveau 24)',
             answer_text: 'Oui'
           }
         ])
@@ -276,7 +276,7 @@ export default function Niveau24() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">ChargementÃ¢â‚¬Â¦</p>
+        <p className="mt-2 text-text-secondary">Chargement…</p>
       </div>
     )
   }
@@ -305,7 +305,7 @@ export default function Niveau24() {
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
                   {!dialogueFinished ? typed : (
                     showResult ? (
-                      isCorrect ? <><FaStar className="inline w-4 h-4" /> Bonne rÃƒÂ©ponse !</> : <><FaCircleXmark className="inline w-4 h-4" /> Mauvaise rÃƒÂ©ponse, c'ÃƒÂ©tait la rÃƒÂ©ponse {currentQuizData.correct}</>
+                      isCorrect ? <><FaStar className="inline w-4 h-4" /> Bonne réponse !</> : <><FaCircleXmark className="inline w-4 h-4" /> Mauvaise réponse, c'était la réponse {currentQuizData.correct}</>
                     ) : currentQuizData.question
                   )}
                 </div>
@@ -341,7 +341,7 @@ export default function Niveau24() {
 
           {!dialogueFinished ? (
             <div className="text-text-secondary text-center py-8">
-              RÃƒÂ©ponds au dialogue pour commencer le quiz.
+              Réponds au dialogue pour commencer le quiz.
             </div>
           ) : (
             <div className="space-y-6">
@@ -417,7 +417,7 @@ export default function Niveau24() {
                     disabled={!selectedAnswer}
                     className="w-full px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 font-medium disabled:opacity-50"
                   >
-                    Valider ma rÃƒÂ©ponse
+                    Valider ma réponse
                   </button>
                 )}
 
@@ -442,12 +442,12 @@ export default function Niveau24() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 24 rÃƒÂ©ussi !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 24 réussi !</h3>
             <p className="text-text-secondary mb-4">
-              Tu as rÃƒÂ©pondu ÃƒÂ  {answers.filter(a => a.correct).length}/{QUIZ_DATA.length} questions correctement.
+              Tu as répondu à {answers.filter(a => a.correct).length}/{QUIZ_DATA.length} questions correctement.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃƒÂ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/25')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             {/* Subtle confetti dots */}

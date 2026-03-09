@@ -5,6 +5,7 @@ import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 
+
 const STEP_INTRO = 'intro'
 const STEP_BILAN = 'bilan'
 
@@ -364,6 +365,11 @@ export default function Niveau40() {
     setFinishing(true)
     try {
       await levelUp({ minLevel: 40, xpReward: XP_PER_LEVEL })
+      // Save diploma completion date
+      await usersAPI.saveExtraInfo([{
+        question_id: 'niveau40_diploma_date',
+        answer_text: new Date().toISOString()
+      }]).catch(() => {})
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau40 levelUp failed', e)
@@ -534,18 +540,27 @@ export default function Niveau40() {
                 Félicitations
               </h2>
               <p className="text-gray-500 font-medium mb-8 leading-relaxed">
-                Tu as complété l'intégralité du parcours. Ton bilan final est prêt.
+                Tu as complété l'intégralité du parcours. Ton diplôme Zélia est disponible sur ton profil !
               </p>
 
-              <button 
-                onClick={() => navigate('/app/profile')}
-                className="group w-full py-4 px-6 rounded-xl bg-black text-[#c1ff72] font-bold text-lg hover:bg-gray-900 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
-              >
-                <span>Accéder à mon Profil</span>
-                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
-                </svg>
-              </button>
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => navigate('/app/profile')}
+                  className="group w-full py-4 px-6 rounded-xl bg-black text-[#c1ff72] font-bold text-lg hover:bg-gray-900 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v3a2 2 0 002 2h14a2 2 0 002-2v-3" />
+                  </svg>
+                  <span>Télécharger mon diplôme</span>
+                </button>
+
+                <button 
+                  onClick={() => navigate('/app/activites')}
+                  className="w-full py-3 px-6 rounded-xl border border-gray-200 text-gray-600 font-medium hover:bg-gray-50 transition-all"
+                >
+                  Retour aux activités
+                </button>
+              </div>
             </div>
           </div>
         </div>

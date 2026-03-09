@@ -76,12 +76,12 @@ function formatExtraInfos(entries) {
 
 const LEVELS_SUMMARY = [
   { level: 31, title: 'Marché du travail et débouchés', type: 'jeu' },
-  { level: 32, title: 'Mini-projets étudiants', type: 'idées' },
+  { level: 32, title: 'Compétences recommandées par métier', type: 'idées' },
   { level: 33, title: 'Lettre à soi-même', type: 'écriture' },
   { level: 34, title: 'Gestion du stress', type: 'questionnaire' },
   { level: 35, title: 'Vidéo motivation', type: 'vidéo' },
   { level: 36, title: 'Soft skill : intelligence émotionnelle', type: 'questionnaire' },
-  { level: 37, title: 'Soft skill : résolution de problème', type: 'questionnaire' },
+  { level: 37, title: 'Quiz compétences', type: 'questionnaire' },
   { level: 38, title: 'Soft skill : adaptabilité', type: 'questionnaire' },
   { level: 39, title: 'Retours utilisateurs', type: 'feedback' }
 ]
@@ -107,18 +107,25 @@ function buildFallbackBilan(entries) {
     }
   }
 
-  // --- Section 2: Mini-projets (N32) ---
-  const n32 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau32'))
+  // --- Section 2: Compétences recommandées (N32) ---
+  const n32 = entries.find(e => {
+    const questionId = (e.question_id || '').toLowerCase()
+    return questionId.includes('niveau32_skills') || questionId.includes('niveau32_projects') || questionId.includes('niveau32')
+  })
   if (n32) {
     try {
       const data = JSON.parse(n32.answer_text || '{}')
-      const projectsList = Array.isArray(data.projectIdeas) ? data.projectIdeas.join(', ') : ''
+      const skillsList = Array.isArray(data.recommendedSkills)
+        ? data.recommendedSkills.join(', ')
+        : Array.isArray(data.projectIdeas)
+          ? data.projectIdeas.join(', ')
+          : ''
       sections.push({
-        title: 'Mini-projets étudiants',
-        content: `Métier ciblé : ${data.targetJob || 'N/A'}. ${projectsList ? `Idées de projets : ${projectsList}.` : ''}`
+        title: 'Compétences recommandées par métier',
+        content: `Métier ciblé : ${data.targetJob || 'N/A'}. ${skillsList ? `Compétences suggérées : ${skillsList}.` : ''}`
       })
     } catch {
-      sections.push({ title: 'Mini-projets étudiants', content: 'Niveau complété.' })
+      sections.push({ title: 'Compétences recommandées par métier', content: 'Niveau complété.' })
     }
   }
 
@@ -181,9 +188,9 @@ function buildFallbackBilan(entries) {
   if (n37) {
     try {
       const data = JSON.parse(n37.answer_text || '{}')
-      softSkillsContent.push(`Résolution de problème : ${data.profileTitle || data.profile || 'profil identifié'}.`)
+      softSkillsContent.push(`Quiz compétences : score ${data.score || 'complété'}.`)
     } catch {
-      softSkillsContent.push('Résolution de problème : niveau complété.')
+      softSkillsContent.push('Quiz compétences : niveau complété.')
     }
   }
 

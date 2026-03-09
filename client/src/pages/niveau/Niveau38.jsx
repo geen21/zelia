@@ -199,6 +199,7 @@ export default function Niveau38() {
       setCurrentIndex(prev => prev + 1)
       if (currentSituation.type === 'drag') {
         setDragItems(SITUATIONS[1].options)
+        setDraggingId(null)
       }
     } else {
       setPhase('result')
@@ -213,6 +214,16 @@ export default function Niveau38() {
     e.preventDefault()
   }
 
+  const onTouchStartItem = (id) => {
+    if (showFeedback) return
+    setDraggingId(id)
+  }
+
+  const onTouchMoveList = (e) => {
+    if (!draggingId) return
+    e.preventDefault()
+  }
+
   const onDrop = (id) => {
     if (!draggingId || draggingId === id) return
     const next = [...dragItems]
@@ -222,6 +233,10 @@ export default function Niveau38() {
     const [moved] = next.splice(fromIndex, 1)
     next.splice(toIndex, 0, moved)
     setDragItems(next)
+    setDraggingId(null)
+  }
+
+  const cancelTouchDrag = () => {
     setDraggingId(null)
   }
 
@@ -280,7 +295,13 @@ export default function Niveau38() {
   const renderOptions = () => {
     if (currentSituation.type === 'drag') {
       return (
-        <div className="space-y-2">
+        <div className="space-y-2" onTouchMove={onTouchMoveList}>
+          {draggingId && !showFeedback && (
+            <div className="lg:hidden text-center py-2 bg-gray-100 rounded-lg border border-dashed border-gray-300">
+              <span className="text-sm">Déplace : <strong>{dragItems.find((item) => item.id === draggingId)?.text || 'élément'}</strong></span>
+              <button onClick={cancelTouchDrag} className="ml-2 text-red-500 text-sm underline">Annuler</button>
+            </div>
+          )}
           {dragItems.map((item, index) => (
             <div
               key={item.id}
@@ -288,7 +309,9 @@ export default function Niveau38() {
               onDragStart={() => onDragStart(item.id)}
               onDragOver={onDragOver}
               onDrop={() => onDrop(item.id)}
-              className={`flex items-center gap-2 p-2 md:p-3 rounded-lg border ${showFeedback ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-200 cursor-move hover:border-[#c1ff72]'}`}
+              onTouchStart={() => onTouchStartItem(item.id)}
+              onTouchEnd={() => draggingId && draggingId !== item.id && onDrop(item.id)}
+              className={`flex items-center gap-2 p-2 md:p-3 rounded-lg border ${showFeedback ? 'bg-gray-50 border-gray-200' : draggingId === item.id ? 'bg-gray-100 border-black opacity-70' : 'bg-white border-gray-200 cursor-move hover:border-[#c1ff72]'}`}
             >
               <span className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold flex-shrink-0">{index + 1}</span>
               <span className="text-xs md:text-sm text-gray-800">{item.text}</span>

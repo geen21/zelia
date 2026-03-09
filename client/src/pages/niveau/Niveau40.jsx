@@ -76,7 +76,7 @@ function formatExtraInfos(entries) {
 }
 
 const LEVELS_SUMMARY = [
-  { level: 31, title: 'Marché du travail et débouchés', type: 'jeu' },
+  { level: 31, title: 'Explorer ses options : compétences', type: 'recherche' },
   { level: 32, title: 'Compétences recommandées par métier', type: 'idées' },
   { level: 33, title: 'Lettre à soi-même', type: 'écriture' },
   { level: 34, title: 'Gestion du stress', type: 'questionnaire' },
@@ -94,17 +94,17 @@ function buildFallbackBilan(entries) {
 
   const sections = []
 
-  // --- Section 1: Marché du travail (N31) ---
+  // --- Section 1: Explorer ses options (N31) ---
   const n31 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau31'))
   if (n31) {
     try {
       const data = JSON.parse(n31.answer_text || '{}')
       sections.push({
-        title: 'Marché du travail et débouchés',
-        content: `Score obtenu : ${data.score || 'N/A'}. ${data.correctJobs ? `Métiers bien classés : ${data.correctJobs}.` : ''}`
+        title: 'Explorer ses options : compétences',
+        content: `Métier ciblé : ${data.selectedJob || n31.answer_text || 'N/A'}.`
       })
     } catch {
-      sections.push({ title: 'Marché du travail et débouchés', content: 'Niveau complété.' })
+      sections.push({ title: 'Explorer ses options : compétences', content: 'Niveau complété.' })
     }
   }
 

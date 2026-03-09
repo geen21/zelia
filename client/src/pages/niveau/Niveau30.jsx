@@ -128,7 +128,7 @@ function buildFallbackSummary(entries) {
     `Tu as progressé sur les filières, le budget et la sélection d'écoles (N21-N23).`,
     `Le quiz stats (N24) et les vidéos (N25, N29) ont consolidé ta vision de l'orientation.`,
     `Tu as avancé sur Parcoursup et les démarches concrètes (N26).`,
-    `Tu as aussi travaillé ta posture via le chat communautaire et la simulation d'entretien (N27-N28).`,
+    `Tu as aussi travaillé ta posture via le pitch oral et la simulation d'entretien (N27-N28).`,
     `Points marquants enregistrés: ${formatLevel([21, 22, 23, 24, 25, 26, 27, 28, 29])}.`
   ].join('\n')
 
@@ -143,7 +143,7 @@ const LEVELS_SUMMARY = [
   { level: 24, title: 'Quiz : Statistiques orientation', type: 'quiz' },
   { level: 25, title: 'Video : Etudes post-bac', type: 'video' },
   { level: 26, title: 'Resume : Parcoursup', type: 'info' },
-  { level: 27, title: 'Decouverte : Chat communautaire', type: 'chat' },
+  { level: 27, title: 'Apprendre à se présenter (Pitch)', type: 'pitch' },
   { level: 28, title: 'Simulation : Entretien embauche', type: 'simulation' },
   { level: 29, title: 'Video : Comment se vendre', type: 'video' },
 ]

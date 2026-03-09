@@ -101,9 +101,8 @@ function buildFallbackSummary(entries) {
 
   const n11Ranking = safe(getAnswer('niveau11_domain_ranking'))
   const n11Top3 = safe(getAnswer('niveau11_top3'))
-  const n12Job = safe(getAnswer('niveau12_selected_job'))
-  const n12Studies = safe(getAnswer('niveau12_studies'))
-  const n13Pitch = safe(getAnswer('niveau13_pitch_rating'))
+  const n12Game = safe(getAnswer('niveau12_game_completed'))
+  const n13Chat = safe(getAnswer('niveau13_chat_discovered'))
   const n14Job = safe(getAnswer('niveau14_target_job'))
   const n14Letter = safe(getAnswer('niveau14_letter_generated'))
   const n15Pos = safe(getAnswer('niveau15_positives'))
@@ -146,8 +145,8 @@ function buildFallbackSummary(entries) {
   const n19First = n19Items.length ? n19Items[0] : 'Non disponible'
 
   const summary = [
-    `Tu as surtout exploré ${n11Top3} avec un focus métier sur ${n12Job}.`,
-    `Ton pitch est évalué à ${n13Pitch}, et ta lettre cible le métier ${n14Job}.`,
+    `Tu as surtout exploré ${n11Top3} et découvert les débouchés du marché du travail.`,
+    `Tu as découvert le chat communautaire, et ta lettre cible le métier ${n14Job}.`,
     `Côté CV, tu as travaillé ${n17Target} (${n17Languages})${n17Pdf !== 'Non disponible' ? ' avec un PDF exporté' : ''}.`,
     `${n18Source ? `Dans les pistes métiers (${n18Source}), ` : ''}ta priorité ressort sur ${topN18}.`,
     `Prochain axe d'amélioration: ${n19First}.`

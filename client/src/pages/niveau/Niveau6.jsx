@@ -6,7 +6,7 @@ import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { FaCheck, FaBullseye, FaTrophy } from 'react-icons/fa6'
 
 const REGIONS = [
-  'Ê½le-de-France',
+  'ʽle-de-France',
   'Auvergne-Rhône-Alpes',
   'Nouvelle-Aquitaine',
   'Occitanie',
@@ -315,7 +315,7 @@ export default function Niveau6() {
     {
       id: 'search',
       title: 'Lancer la recherche',
-      description: 'Clique sur Ã¢â‚¬Å“RechercherÃ¢â‚¬Â pour obtenir des résultats.',
+      description: 'Clique sur “Rechercher” pour obtenir des résultats.',
       done: searchDone
     },
     {

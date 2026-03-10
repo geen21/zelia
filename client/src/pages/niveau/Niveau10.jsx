@@ -503,7 +503,7 @@ function Niveau10Legacy_DISABLED() {
     }
   }, [stripeConfig.priceAmount, stripeConfig.priceCurrency])
 
-  const defaultPriceLabel = formattedPrice || '24,99Ã‚Â Ã¢â€šÂ¬'
+  const defaultPriceLabel = formattedPrice || '24,99 €'
 
   const userFirstName = useMemo(() => {
     if (!profile) return 'ton enfant'
@@ -1053,7 +1053,7 @@ function Niveau10Legacy_DISABLED() {
                 <span key={email} className="inline-flex items-center gap-2 rounded-full bg-gray-900/10 px-3 py-1 text-sm text-gray-800">
                   {email}
                   <button type="button" onClick={() => removeEmail(email)} className="text-gray-500 transition hover:text-gray-800">
-                    Ãƒâ€”
+                    ×
                   </button>
                 </span>
               ))}
@@ -1246,7 +1246,7 @@ function Niveau10Legacy_DISABLED() {
               className="absolute right-4 top-4 text-gray-400 transition hover:text-gray-600"
               aria-label="Fermer l'animation"
             >
-              <span className="text-2xl">Ãƒâ€”</span>
+              <span className="text-2xl">×</span>
             </button>
             <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-[#c1ff72] text-2xl shadow-lg animate-bounce">
               <FaStar className="w-6 h-6 text-yellow-500" />

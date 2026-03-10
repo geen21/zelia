@@ -148,12 +148,12 @@ export default function Niveau27() {
 
   const messages = useMemo(() => {
     const prenom = (profile?.first_name || '').trim()
-    const intro = `Re ! En avant pour le niveau 27${prenom ? ` ${prenom}` : ''}. On va entrer dans le vif du sujet, avec un module pour apprendre Ã  se prÃ©senter Ã  lâ€™oral.`
+    const intro = `Re ! En avant pour le niveau 27${prenom ? ` ${prenom}` : ''}. On va entrer dans le vif du sujet, avec un module pour apprendre Ã  se présenter Ã  l’oral.`
     return ([
       { text: intro, durationMs: 3200 },
-      { text: "Lâ€™idÃ©e câ€™est de pouvoir te prÃ©senter en 1 minute, ce quâ€™on appelle un â€œpitchâ€. Prends le micro et enregistre-toi jusquâ€™Ã  ce que tu aies une prÃ©sentation dont tu es fier/fiÃ¨re.", durationMs: 4200 },
-      { text: "Je sais que Ã§a peut paraÃ®tre un peu complexe ou te mettre mal Ã  l'aise. Isole-toi si c'est le cas.", durationMs: 3000 },
-      { text: "Je te donne un texte dâ€™exemple. Tu peux le rÃ©pÃ©ter tel quel ou lâ€™adapter. Tant que tu ne te donnes pas au moins 8/10, tu peux recommencer ;)", durationMs: 4000 },
+      { text: "L’idée c’est de pouvoir te présenter en 1 minute, ce qu’on appelle un “pitch”. Prends le micro et enregistre-toi jusqu’à ce que tu aies une présentation dont tu es fier/fière.", durationMs: 4200 },
+      { text: "Je sais que ça peut paraître un peu complexe ou te mettre mal à l'aise. Isole-toi si c'est le cas.", durationMs: 3000 },
+      { text: "Je te donne un texte d’exemple. Tu peux le répéter tel quel ou l’adapter. Tant que tu ne te donnes pas au moins 8/10, tu peux recommencer ;)", durationMs: 4000 },
     ])
   }, [profile])
 
@@ -224,16 +224,16 @@ export default function Niveau27() {
     const dep = profile?.department || ''
     const pref = profile?.home_preference || ''
     const jobTitle = (String(pref).toLowerCase() === 'questionnaire')
-      ? (jobTitleFromResults || 'un mÃ©tier qui me correspond')
-      : (pref || jobTitleFromResults || 'un mÃ©tier qui me correspond')
+      ? (jobTitleFromResults || 'un métier qui me correspond')
+      : (pref || jobTitleFromResults || 'un métier qui me correspond')
     return (
       `Bonjour, je m'appelle ${fn} ${ln}, j'habite actuellement dans le ${dep}. ` +
-      `Ce qui me motive profondÃ©ment dans le mÃ©tier de ${jobTitle}, câ€™est de comprendre comment les choses fonctionnent et comment les amÃ©liorer. ` +
-      `Je ne me contente jamais de la premiÃ¨re rÃ©ponse ; ma curiositÃ© me pousse Ã  explorer diffÃ©rentes perspectives avant dâ€™agir.\n\n` +
-      `J'aborde chaque nouveau dÃ©fi avec la mÃªme mÃ©thode : jâ€™Ã©coute, jâ€™apprends vite, et je connecte les idÃ©es et les gens pour construire quelque chose qui a du sens. ` +
+      `Ce qui me motive profondément dans le métier de ${jobTitle}, c’est de comprendre comment les choses fonctionnent et comment les améliorer. ` +
+      `Je ne me contente jamais de la première réponse ; ma curiosité me pousse à explorer différentes perspectives avant d’agir.\n\n` +
+      `J'aborde chaque nouveau défi avec la même méthode : j’écoute, j’apprends vite, et je connecte les idées et les gens pour construire quelque chose qui a du sens. ` +
       `Je crois fermement que les meilleures solutions naissent de la collaboration et d'une vision d'ensemble.\n\n` +
-      `Mon objectif n'est pas simplement d'accomplir des tÃ¢ches, mais d'apporter une Ã©nergie positive et une volontÃ© de faire avancer les projets. ` +
-      `Je cherche Ã  m'investir dans un environnement oÃ¹ je pourrai continuer Ã  apprendre et avoir un impact concret.`
+      `Mon objectif n'est pas simplement d'accomplir des tâches, mais d'apporter une énergie positive et une volonté de faire avancer les projets. ` +
+      `Je cherche à m'investir dans un environnement où je pourrai continuer à apprendre et avoir un impact concret.`
     )
   }, [profile, jobTitleFromResults])
 
@@ -260,7 +260,7 @@ export default function Niveau27() {
       setRecording(true)
     } catch (e) {
       console.error('Recording start failed', e)
-      alert('Impossible dâ€™accÃ©der au micro. Autorisez le micro puis rÃ©essayez.')
+      alert('Impossible d’accéder au micro. Autorisez le micro puis réessayez.')
     }
   }
 
@@ -285,7 +285,7 @@ export default function Niveau27() {
           await usersAPI.saveExtraInfo([
             {
               question_id: 'niveau27_pitch_rating',
-              question_text: 'Note auto-Ã©valuation du pitch',
+              question_text: 'Note auto-évaluation du pitch',
               answer_text: `${rating}/10`
             }
           ])
@@ -302,7 +302,7 @@ export default function Niveau27() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargementâ€¦</p>
+        <p className="mt-2 text-text-secondary">Chargement…</p>
       </div>
     )
   }
@@ -328,7 +328,7 @@ export default function Niveau27() {
                   {phase === 'intro' ? (
                     <>{typed}</>
                   ) : phase === 'practice' ? (
-                    <>Tu peux maintenant lire le texte dâ€™exemple et t'enregistrer quand tu veux.</>
+                    <>Tu peux maintenant lire le texte d’exemple et t'enregistrer quand tu veux.</>
                   ) : phase === 'rate' ? (
                     <>
                       <div className="mb-4">Alors combien tu te noterais sur 10 ?</div>
@@ -382,7 +382,7 @@ export default function Niveau27() {
                       </button>
                     </>
                   ) : showFeedback ? (
-                    <>C'est dÃ©jÃ  pas trop mal, on va essayer de le refaire, recommenÃ§ons ensemble.</>
+                    <>C'est déjà pas trop mal, on va essayer de le refaire, recommençons ensemble.</>
                   ) : null}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
@@ -413,12 +413,12 @@ export default function Niveau27() {
               <button onClick={startRecording} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">S'enregistrer</button>
             )}
             {recording && (
-              <button onClick={stopRecording} className="px-4 py-2 rounded-lg bg-red-500 text-white border border-red-600">ArrÃªter</button>
+              <button onClick={stopRecording} className="px-4 py-2 rounded-lg bg-red-500 text-white border border-red-600">Arrêter</button>
             )}
             {audioUrl && !recording && (
               <>
                 <audio controls src={audioUrl} className="w-full max-w-md" />
-                <button onClick={resetPractice} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300">RÃ©enregistrer</button>
+                <button onClick={resetPractice} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300">Réenregistrer</button>
               </>
             )}
           </div>
@@ -429,7 +429,7 @@ export default function Niveau27() {
           {phase !== 'intro' ? (
             <div className="text-text-primary whitespace-pre-wrap mb-4">{pitchText}</div>
           ) : (
-            <div className="text-text-secondary text-sm mb-4">Le texte dâ€™exemple sâ€™affichera aprÃ¨s avoir cliquÃ© sur Â« Afficher le texte Â».</div>
+            <div className="text-text-secondary text-sm mb-4">Le texte d’exemple s’affichera après avoir cliqué sur « Afficher le texte ».</div>
           )}
         </div>
       </div>
@@ -439,10 +439,10 @@ export default function Niveau27() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 27 rÃ©ussi !</h3>
-            <p className="text-text-secondary mb-4">FÃ©licitations, ton pitch est prÃªt. Tu sais te prÃ©senter efficacement.</p>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 27 réussi !</h3>
+            <p className="text-text-secondary mb-4">Félicitations, ton pitch est prêt. Tu sais te présenter efficacement.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activitÃ©s</button>
+              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/28')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

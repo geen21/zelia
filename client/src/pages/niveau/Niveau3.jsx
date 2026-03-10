@@ -184,7 +184,7 @@ export default function Niveau3() {
       id: 'q6',
       text: 'Quel profil trouve souvent le plus facilement un job rapidement ?',
       options: [
-        'A. Quelqu’un avec un CV Ã¢â‚¬Å“parfaitÃ¢â‚¬Â mais très théorique',
+        'A. Quelqu’un avec un CV “parfait” mais très théorique',
         'B. Quelqu’un avec des preuves concrètes (stages, alternance, projets, missions)'
       ],
       correctIndex: 1,
@@ -340,7 +340,7 @@ export default function Niveau3() {
 
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">Ã°Å¸Â§Â </div>
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">🧠</div>
             <h2 className="text-xl font-bold">Idées reçues · Niveau 3</h2>
           </div>
 
@@ -399,7 +399,7 @@ export default function Niveau3() {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">Ã°Å¸Ââ€ </div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 3 réussi !</h3>
             <p className="text-text-secondary mb-4">Bien joué. Tu as déconstruit 6 idées reçues du monde du travail.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

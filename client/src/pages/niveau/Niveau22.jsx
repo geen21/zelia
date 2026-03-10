@@ -25,7 +25,7 @@ const PRIVATE_PROS = [
 ]
 
 const PRIVATE_CONS = [
-  'Prix : Très cher (de 5 000Ã¢â€šÂ¬ à 15 000Ã¢â€šÂ¬+ par an).',
+  'Prix : Très cher (de 5 000€ à 15 000€+ par an).',
   'Pièges : Qualité très variable (attention aux diplômes non reconnus).',
   'Niveau : Parfois moins sélectif académiquement ("payer pour avoir").'
 ]
@@ -420,7 +420,7 @@ export default function Niveau22() {
                   <h3 className="font-semibold mb-2">Les Pour</h3>
                   <ul className="space-y-2 text-sm">
                     {PRIVATE_PROS.map((item) => (
-                      <li key={item}>Ã¢â‚¬Â¢ {item}</li>
+                      <li key={item}>• {item}</li>
                     ))}
                   </ul>
                 </div>
@@ -428,7 +428,7 @@ export default function Niveau22() {
                   <h3 className="font-semibold mb-2">Les Contre</h3>
                   <ul className="space-y-2 text-sm">
                     {PRIVATE_CONS.map((item) => (
-                      <li key={item}>Ã¢â‚¬Â¢ {item}</li>
+                      <li key={item}>• {item}</li>
                     ))}
                   </ul>
                 </div>
@@ -450,7 +450,7 @@ export default function Niveau22() {
                   <h3 className="font-semibold mb-2">Les Pour</h3>
                   <ul className="space-y-2 text-sm">
                     {PUBLIC_PROS.map((item) => (
-                      <li key={item}>Ã¢â‚¬Â¢ {item}</li>
+                      <li key={item}>• {item}</li>
                     ))}
                   </ul>
                 </div>
@@ -458,7 +458,7 @@ export default function Niveau22() {
                   <h3 className="font-semibold mb-2">Les Contre</h3>
                   <ul className="space-y-2 text-sm">
                     {PUBLIC_CONS.map((item) => (
-                      <li key={item}>Ã¢â‚¬Â¢ {item}</li>
+                      <li key={item}>• {item}</li>
                     ))}
                   </ul>
                 </div>
@@ -527,7 +527,7 @@ export default function Niveau22() {
                 <div className="text-sm text-text-secondary">Estimation</div>
                 <div className="text-2xl font-bold text-gray-900">
                   {estimate?.min != null && estimate?.max != null
-                    ? `${estimate.min}Ã¢â€šÂ¬ - ${estimate.max}Ã¢â€šÂ¬`
+                    ? `${estimate.min}€ - ${estimate.max}€`
                     : 'À affiner'}
                 </div>
                 {estimate?.message && (
@@ -543,23 +543,23 @@ export default function Niveau22() {
                 </div>
                 <ul className="space-y-2 text-sm text-blue-800">
                   <li className="flex items-start gap-2">
-                    <span className="font-bold mt-0.5">Ã¢â‚¬Â¢</span>
+                    <span className="font-bold mt-0.5">•</span>
                     <div><span className="font-semibold">Bourse CROUS</span> — Aide financière selon tes revenus familiaux. Fais ta demande via le DSE (Dossier Social Étudiant) entre janvier et mai.</div>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="font-bold mt-0.5">Ã¢â‚¬Â¢</span>
-                    <div><span className="font-semibold">Prêt étudiant garanti par l'État</span> — Jusqu'à 20 000 Ã¢â€šÂ¬ sans caution parentale, remboursable après les études.</div>
+                    <span className="font-bold mt-0.5">•</span>
+                    <div><span className="font-semibold">Prêt étudiant garanti par l'État</span> — Jusqu'à 20 000 € sans caution parentale, remboursable après les études.</div>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="font-bold mt-0.5">Ã¢â‚¬Â¢</span>
+                    <span className="font-bold mt-0.5">•</span>
                     <div><span className="font-semibold">APL / ALS (CAF)</span> — Aide au logement si tu prends un appartement. Fais ta demande sur caf.fr dès ton emménagement.</div>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="font-bold mt-0.5">Ã¢â‚¬Â¢</span>
+                    <span className="font-bold mt-0.5">•</span>
                     <div><span className="font-semibold">Alternance / Apprentissage</span> — Tes études sont financées par l'entreprise et tu es rémunéré(e) chaque mois.</div>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="font-bold mt-0.5">Ã¢â‚¬Â¢</span>
+                    <span className="font-bold mt-0.5">•</span>
                     <div><span className="font-semibold">Aides régionales</span> — Chaque région propose des aides spécifiques (transport, équipement, mobilité). Renseigne-toi sur le site de ta région.</div>
                   </li>
                 </ul>

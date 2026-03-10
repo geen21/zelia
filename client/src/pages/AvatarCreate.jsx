@@ -72,8 +72,8 @@ export default function AvatarCreate() {
 		<div className="fixed inset-0 bg-white text-text-primary flex flex-col items-center justify-center px-4 overflow-hidden">
 			<div className="w-full max-w-5xl py-2 md:py-10 h-full flex flex-col justify-center overflow-y-auto md:overflow-visible">
 				<div className="mb-2 md:mb-6 shrink-0">
-					<h1 className="text-xl md:text-2xl font-bold">CrÃ©e ton conseiller avatar</h1>
-					<p className="text-sm md:text-base text-text-secondary">Personnalise ton conseiller avatar, il te suivra tout au long de l'expÃ©rience.</p>
+					<h1 className="text-xl md:text-2xl font-bold">Crée ton conseiller avatar</h1>
+					<p className="text-sm md:text-base text-text-secondary">Personnalise ton conseiller avatar, il te suivra tout au long de l'expérience.</p>
 				</div>
 				<div className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-4 shrink-0">
 					<div className="md:col-span-5">

@@ -60,7 +60,7 @@ function cleanBilanSummary(raw) {
   if (!text) return ''
   return text
     .split(/\r?\n/)
-    .map((line) => line.replace(/\s*Ã¢â€ â€™\s*Je suis d'accord\.?\s*$/i, '').trim())
+    .map((line) => line.replace(/\s*→\s*Je suis d'accord\.?\s*$/i, '').trim())
     .filter((line) => line && !/^Je suis d'accord\.?$/i.test(line))
     .join('\n')
     .trim()

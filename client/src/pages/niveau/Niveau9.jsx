@@ -332,7 +332,7 @@ export default function Niveau9() {
     {
       id: 'search',
       title: 'Lancer la recherche',
-      description: 'Clique sur Ã¢â‚¬Å“RechercherÃ¢â‚¬Â pour afficher les offres.',
+      description: 'Clique sur “Rechercher” pour afficher les offres.',
       done: searchDone
     },
     {

@@ -197,7 +197,7 @@ export default function Niveau4() {
       { text: greeting, durationMs: 2000 },
       { text: "Je vais te poser quelques questions sur toi et je vais te donner des résultats concrets sur qui tu es vraiment, je vais essayer d'analyser en profondeur ta personne", durationMs: 4000 },
       { text: "On va faire ensemble un petit test de personnalité en 40 questions", durationMs: 2000 },
-      { text: "Ãƒâ€¡a te permettra de comprendre un peu mieux qui tu es, et comment tu fonctionnes", durationMs: 2000 },
+      { text: "Ça te permettra de comprendre un peu mieux qui tu es, et comment tu fonctionnes", durationMs: 2000 },
       { text: launchLine, durationMs: 500 },
     ])
   }, [firstName])
@@ -424,7 +424,7 @@ export default function Niveau4() {
           if (!title) continue
           if (y > 275) { doc.addPage(); y = margin }
           doc.setFont('helvetica', 'bold')
-          doc.text(`Ã¢â‚¬Â¢ ${title}`, margin, y)
+          doc.text(`• ${title}`, margin, y)
           y += 6
           doc.setFont('helvetica', 'normal')
           if (Array.isArray(j?.skills) && j.skills.length) {
@@ -658,7 +658,7 @@ export default function Niveau4() {
                   const total = (qLen >= 38 && qLen <= 40) ? 40 : Math.max(startNum - 1 + qLen, startNum)
                   const current = Math.min(total, startNum + qIdx)
                   return (
-                    <div className="text-sm text-text-secondary">{current} / {total} Ã¢â‚¬Â¢ {progress}%</div>
+                    <div className="text-sm text-text-secondary">{current} / {total} • {progress}%</div>
                   )
                 })()}
               </div>

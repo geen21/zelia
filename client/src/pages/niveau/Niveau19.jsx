@@ -57,7 +57,7 @@ function parseList(raw) {
   const cleaned = sanitizeText(raw)
   const lines = cleaned
     .split(/\r?\n/)
-    .map((line) => line.replace(/^[-Ã¢â‚¬Â¢*\d.)\s]+/, '').trim())
+    .map((line) => line.replace(/^[-•*\d.)\s]+/, '').trim())
     .filter(Boolean)
     // Filtrer les lignes d'introduction/conclusion (contenant "voici", ":", etc.)
     .filter((line) => {

@@ -148,7 +148,7 @@ export default function Niveau27() {
 
   const messages = useMemo(() => {
     const prenom = (profile?.first_name || '').trim()
-    const intro = `Re ! En avant pour le niveau 27${prenom ? ` ${prenom}` : ''}. On va entrer dans le vif du sujet, avec un module pour apprendre Ã  se présenter Ã  l’oral.`
+    const intro = `Re ! En avant pour le niveau 27${prenom ? ` ${prenom}` : ''}. On va entrer dans le vif du sujet, avec un module pour apprendre à se présenter à l’oral.`
     return ([
       { text: intro, durationMs: 3200 },
       { text: "L’idée c’est de pouvoir te présenter en 1 minute, ce qu’on appelle un “pitch”. Prends le micro et enregistre-toi jusqu’à ce que tu aies une présentation dont tu es fier/fière.", durationMs: 4200 },

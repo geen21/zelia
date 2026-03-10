@@ -204,7 +204,7 @@ export default function Niveau9() {
   const [jobSuggestions, setJobSuggestions] = useState([])
 
   const introMessages = useMemo(() => ([
-    { text: 'Te voilà au niveau Métiers ! On va apprendre à trouver des offres de jobs en un clin d’Ã…â€œil.', durationMs: 3200 },
+    { text: 'Te voilà au niveau Métiers ! On va apprendre à trouver des offres de jobs en un clin d’œil.', durationMs: 3200 },
     { text: 'Je vais te guider pour utiliser la page Emplois et repérer les opportunités qui collent à ton profil.', durationMs: 3800 },
     { text: `Prépare un mot-clé, un contrat et suis-moi étape par étape. On y va ${firstName}?`, durationMs: 2800 }
   ]), [firstName])

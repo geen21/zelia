@@ -207,7 +207,7 @@ export default function Niveau30() {
   }, [navigate])
 
   const bubble = useMemo(() => {
-    if (phase === STEP_INTRO) return { text: "Felicitations ! Tu as complete les niveaux 21 a 29. Voici ton bilan final.", durationMs: 2000 }
+    if (phase === STEP_INTRO) return { text: 'Félicitations ! Tu as complété les niveaux 21 à 29. Voici ton bilan final.', durationMs: 2000 }
     return { text: 'Voici ton bilan complet', durationMs: 900 }
   }, [phase])
 

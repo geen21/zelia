@@ -167,7 +167,7 @@ export default function Niveau1() {
 	// Intro dialogue (no auto-advance; use Next button like Niveau2)
 	const introMessages = useMemo(() => ([
 		{ text: 'Bienvenue sur Zélia', durationMs: 500},
-		{ text: 'On va t\'expliquer comment on peut t\'aider à mieux te connaitre et trouver ta voie professionnelle', durationMs: 2000},
+		{ text: 'On va t\'expliquer comment on peut t\'aider à mieux te connaître et trouver ta voie professionnelle', durationMs: 2000},
 	]), [])
 	const [introIdx, setIntroIdx] = useState(0)
 	const currentIntro = introMessages[introIdx] || { text: '', durationMs: 1500 }

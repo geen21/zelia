@@ -292,15 +292,15 @@ export default function Niveau17() {
   ), [profile])
 
   const steps = useMemo(() => ([
-    { type: 'text', text: `On rentre dans le dur ${firstName}, c'est surement l'un des niveaux les plus long`, durationMs: 2600 },
-    { type: 'text', text: "On va faire ton CV, bon c'est moi qui vais le faire mais il faut que tu m'aides!", durationMs: 2600 },
-    { type: 'form', key: 'experience', text: 'Dit moi tes expériences professionnelles passées (stage, alternance, job etc..)', durationMs: 2200 },
-    { type: 'form', key: 'target', text: 'Pour quel métier souhaite tu postuler ?', durationMs: 1800 },
-    { type: 'form', key: 'education', text: 'Donne moi maintenant ton parcours scolaire', durationMs: 2000 },
-    { type: 'form', key: 'qualities', text: 'Donne moi tes qualités principales', durationMs: 1800 },
-    { type: 'form', key: 'skills', text: "Si tu as des compétences particulières, liste les moi ici (gestion d'un logiciel par exemple)", durationMs: 2200 },
-    { type: 'form', key: 'languages', text: 'Langues maitrisées', durationMs: 1800 },
-    { type: 'final', key: 'final', text: 'Merci, je génère ton cv ! Clique sur le bouton : Générer mon CV.', durationMs: 2000 }
+    { type: 'text', text: `On rentre dans le dur ${firstName}, c'est sûrement l'un des niveaux les plus longs`, durationMs: 2600 },
+    { type: 'text', text: "On va faire ton CV, bon, c'est moi qui vais le faire, mais il faut que tu m'aides !", durationMs: 2600 },
+    { type: 'form', key: 'experience', text: 'Dis-moi tes expériences professionnelles passées (stages, alternance, jobs, etc.)', durationMs: 2200 },
+    { type: 'form', key: 'target', text: 'Pour quel métier souhaites-tu postuler ?', durationMs: 1800 },
+    { type: 'form', key: 'education', text: 'Donne-moi maintenant ton parcours scolaire', durationMs: 2000 },
+    { type: 'form', key: 'qualities', text: 'Donne-moi tes qualités principales', durationMs: 1800 },
+    { type: 'form', key: 'skills', text: "Si tu as des compétences particulières, liste-les-moi ici (gestion d'un logiciel par exemple)", durationMs: 2200 },
+    { type: 'form', key: 'languages', text: 'Langues maîtrisées', durationMs: 1800 },
+    { type: 'final', key: 'final', text: 'Merci, je génère ton CV ! Clique sur le bouton : Générer mon CV.', durationMs: 2000 }
   ]), [firstName])
 
   const current = steps[Math.min(step, steps.length - 1)]
@@ -429,7 +429,7 @@ export default function Niveau17() {
       languages.map((item) => item.trim()).filter(Boolean).forEach((answer, idx) => {
         entries.push({
           question_id: `niveau17_languages_${idx + 1}`,
-          question_text: 'Langues maitrisées',
+          question_text: 'Langues maîtrisées',
           answer_text: answer
         })
       })
@@ -960,7 +960,7 @@ export default function Niveau17() {
 
           {current?.type === 'form' && current?.key === 'languages' && (
             <div className="space-y-3">
-              <h3 className="text-lg font-semibold">Langues maitrisées</h3>
+              <h3 className="text-lg font-semibold">Langues maîtrisées</h3>
               {languages.map((item, idx) => (
                 <div key={`lang-${idx}`} className="relative">
                   <button

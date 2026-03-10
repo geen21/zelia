@@ -58,7 +58,7 @@ const QUESTIONS = [
     id: 2,
     text: "Quand tu as trop de choses à faire en même temps...",
     options: [
-      { id: 'A', text: "Je bloque et je proscratine" },
+	  { id: 'A', text: "Je bloque et je procrastine" },
       { id: 'B', text: "Je fais une liste et je priorise" },
       { id: 'C', text: "Je fonce et je fais tout à la dernière minute" }
     ]

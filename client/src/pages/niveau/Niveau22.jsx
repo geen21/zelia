@@ -8,7 +8,7 @@ import { FaEuroSign, FaHandHoldingDollar, FaTrophy } from 'react-icons/fa6'
 
 const INTRO_DIALOGUES = [
   {
-    text: "Dit m'en un peu plus sur tes projections futures, on va essayer de budgétiser tes futurs études.",
+    text: "Dis-m'en un peu plus sur tes projections futures, on va essayer de budgétiser tes futures études.",
     durationMs: 2200
   },
   {
@@ -38,7 +38,7 @@ const PUBLIC_PROS = [
 ]
 
 const PUBLIC_CONS = [
-  "Encadrement : Très faible, vous êtes livré à vous-même.",
+  "Encadrement : Très faible, tu es livré à toi-même.",
   'Pratique : Souvent trop théorique, moins connecté au marché.',
   'Moyens : Locaux parfois vétustes, amphis bondés.'
 ]

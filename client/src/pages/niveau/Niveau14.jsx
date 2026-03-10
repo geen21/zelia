@@ -200,7 +200,7 @@ export default function Niveau14() {
     ])
   }, [firstName, suggestedJob])
 
-  const finalMessage = "Tu peux désormais y accéder gratuitement dans le menu, c'est un outil dédié pour tes lettres de motivations futurs!"
+  const finalMessage = "Tu peux désormais y accéder gratuitement dans le menu, c'est un outil dédié pour tes lettres de motivation futures !"
 
   const current = dialogue[Math.min(step, dialogue.length - 1)]
   const activeText = showFinalMessage ? finalMessage : (current?.text || '')

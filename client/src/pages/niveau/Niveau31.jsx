@@ -161,7 +161,7 @@ export default function Niveau31() {
   const dialogue = useMemo(() => ([
     { text: `${greeting} tu peux choisir un métier en tapant dans la barre de recherche.`, durationMs: 1600 },
     { text: "On va te donner un chemin d'études adapté pour aboutir à ce métier.", durationMs: 1600 },
-    { text: "Il n'y a peut être pas ton métier de rêve dans cette liste, mais c'est une liste qui répertorie tous les métiers recherchés actuellement en France.", durationMs: 2000 }
+	{ text: "Il n'y a peut-être pas ton métier de rêve dans cette liste, mais c'est une liste qui répertorie tous les métiers recherchés actuellement en France.", durationMs: 2000 }
   ]), [greeting])
 
   const current = dialogue[Math.min(step, dialogue.length - 1)]

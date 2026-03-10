@@ -6,7 +6,7 @@ import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { FaCheck, FaBullseye, FaTrophy } from 'react-icons/fa6'
 
 const REGIONS = [
-  'ʽle-de-France',
+  'Île-de-France',
   'Auvergne-Rhône-Alpes',
   'Nouvelle-Aquitaine',
   'Occitanie',

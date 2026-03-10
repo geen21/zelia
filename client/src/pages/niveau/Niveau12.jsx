@@ -44,18 +44,18 @@ function useTypewriter(message, durationMs) {
   return { text, done, skip }
 }
 
-// Metiers avec beaucoup de debouches (contre-intuitif)
+// Métiers avec beaucoup de débouchés (contre-intuitif)
 const JOBS_DATA = [
-  { id: 1, name: 'Aide-soignant', hasOpportunities: true, explanation: 'Forte demande dans le secteur medical avec le vieillissement de la population.' },
-  { id: 2, name: 'Developpeur web', hasOpportunities: true, explanation: 'Transformation numerique massive, demande constante.' },
-  { id: 3, name: 'Influenceur', hasOpportunities: false, explanation: 'Marche sature, tres peu arrivent a en vivre.' },
-  { id: 4, name: 'Conducteur poids lourd', hasOpportunities: true, explanation: 'Penurie de chauffeurs, secteur en tension.' },
-  { id: 5, name: 'Avocat', hasOpportunities: false, explanation: 'Marche sature, concurrence forte, insertion difficile.' },
-  { id: 6, name: 'Plombier', hasOpportunities: true, explanation: 'Metier en forte tension, departs a la retraite massifs.' },
-  { id: 7, name: 'Architecte', hasOpportunities: false, explanation: 'Peu de postes, beaucoup de diplomes.' },
-  { id: 8, name: 'Infirmier', hasOpportunities: true, explanation: 'Demande enorme, secteur en crise de recrutement.' },
+  { id: 1, name: 'Aide-soignant', hasOpportunities: true, explanation: 'Forte demande dans le secteur médical avec le vieillissement de la population.' },
+  { id: 2, name: 'Développeur web', hasOpportunities: true, explanation: 'Transformation numérique massive, demande constante.' },
+  { id: 3, name: 'Influenceur', hasOpportunities: false, explanation: 'Marché saturé, très peu arrivent à en vivre.' },
+  { id: 4, name: 'Conducteur poids lourd', hasOpportunities: true, explanation: 'Pénurie de chauffeurs, secteur en tension.' },
+  { id: 5, name: 'Avocat', hasOpportunities: false, explanation: 'Marché saturé, concurrence forte, insertion difficile.' },
+  { id: 6, name: 'Plombier', hasOpportunities: true, explanation: 'Métier en forte tension, départs à la retraite massifs.' },
+  { id: 7, name: 'Architecte', hasOpportunities: false, explanation: 'Peu de postes, beaucoup de diplômés.' },
+  { id: 8, name: 'Infirmier', hasOpportunities: true, explanation: 'Demande énorme, secteur en crise de recrutement.' },
   { id: 9, name: 'Journaliste', hasOpportunities: false, explanation: 'Secteur en crise, suppressions de postes.' },
-  { id: 10, name: 'Electricien', hasOpportunities: true, explanation: 'Transition energetique, renovation, forte demande.' },
+  { id: 10, name: 'Électricien', hasOpportunities: true, explanation: 'Transition énergétique, rénovation, forte demande.' },
 ]
 
 const ZONE_OPPORTUNITIES = 'opportunities'
@@ -85,9 +85,9 @@ export default function Niveau12() {
   const firstName = profile?.first_name || 'toi'
 
   const dialogues = useMemo(() => [
-    { text: `${firstName}, on va tester tes connaissances sur le marche du travail.`, durationMs: 2000 },
-    { text: 'Certains metiers ont beaucoup de debouches, d\'autres non. Ca peut etre contre-intuitif !', durationMs: 2500 },
-    { text: 'Glisse chaque metier dans la bonne zone. Pret ?', durationMs: 1800 },
+    { text: `${firstName}, on va tester tes connaissances sur le marché du travail.`, durationMs: 2000 },
+    { text: 'Certains métiers ont beaucoup de débouchés, d\'autres non. Ça peut être contre-intuitif !', durationMs: 2500 },
+    { text: 'Glisse chaque métier dans la bonne zone. Prêt ?', durationMs: 1800 },
   ], [firstName])
 
   const currentDialogue = dialogues[dialogueIdx] || { text: '', durationMs: 1500 }
@@ -276,7 +276,7 @@ export default function Niveau12() {
               <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
                   {phase === 'intro' && typed}
-                  {phase === 'game' && 'Glisse les metiers dans la bonne zone !'}
+				  {phase === 'game' && 'Glisse les métiers dans la bonne zone !'}
                   {phase === 'result' && `Score : ${results?.correct.length || 0}/${results?.total || 0}`}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
@@ -290,7 +290,7 @@ export default function Niveau12() {
                 )}
                 {phase === 'game' && allPlaced && (
                   <button onClick={checkAnswers} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">
-                    Valider mes reponses
+					Valider mes réponses
                   </button>
                 )}
                 {phase === 'result' && (
@@ -307,11 +307,11 @@ export default function Niveau12() {
         <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">12</div>
-            <h2 className="text-lg md:text-xl font-bold">Metiers et debouches</h2>
+            <h2 className="text-lg md:text-xl font-bold">Métiers et débouchés</h2>
           </div>
 
           {phase === 'intro' && (
-            <div className="text-text-secondary text-center py-8">Le jeu apparaitra apres le dialogue.</div>
+            <div className="text-text-secondary text-center py-8">Le jeu apparaîtra après le dialogue.</div>
           )}
 
           {phase === 'game' && (
@@ -333,7 +333,7 @@ export default function Niveau12() {
               {/* Available jobs */}
               {availableJobs.length > 0 && (
                 <div className="mb-4">
-                  <p className="text-sm text-text-secondary mb-2">Metiers a classer ({availableJobs.length} restants) :</p>
+                  <p className="text-sm text-text-secondary mb-2">Métiers à classer ({availableJobs.length} restants) :</p>
                   <div className="flex flex-wrap gap-2">
                     {availableJobs.map(job => (
                       <div
@@ -357,7 +357,7 @@ export default function Niveau12() {
               {/* Dragged job indicator (mobile) */}
               {draggedJob && (
                 <div className="lg:hidden text-center py-2 bg-gray-100 rounded-lg border border-dashed border-gray-300">
-                  <span className="text-sm">Deplace : <strong>{draggedJob.name}</strong></span>
+                  <span className="text-sm">Déplace : <strong>{draggedJob.name}</strong></span>
                   <button onClick={cancelDrag} className="ml-2 text-red-500 text-sm underline">Annuler</button>
                 </div>
               )}
@@ -373,14 +373,14 @@ export default function Niveau12() {
                     draggedJob ? 'border-green-400 bg-green-50' : 'border-gray-300 bg-gray-50'
                   }`}
                 >
-                  <div className="text-xs sm:text-sm font-semibold text-green-700 mb-1 sm:mb-2 text-center">Beaucoup de debouches</div>
+                  <div className="text-xs sm:text-sm font-semibold text-green-700 mb-1 sm:mb-2 text-center">Beaucoup de débouchés</div>
                   <div className="flex flex-wrap gap-1">
                     {placedJobs[ZONE_OPPORTUNITIES].map(job => (
                       <span key={job.id} className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded border border-green-200">{job.name}</span>
                     ))}
                   </div>
                   {placedJobs[ZONE_OPPORTUNITIES].length === 0 && (
-                    <p className="text-xs text-gray-400 text-center mt-4">Deposer ici</p>
+                    <p className="text-xs text-gray-400 text-center mt-4">Déposer ici</p>
                   )}
                 </div>
 
@@ -393,14 +393,14 @@ export default function Niveau12() {
                     draggedJob ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-gray-50'
                   }`}
                 >
-                  <div className="text-xs sm:text-sm font-semibold text-red-700 mb-1 sm:mb-2 text-center">Peu de debouches</div>
+                  <div className="text-xs sm:text-sm font-semibold text-red-700 mb-1 sm:mb-2 text-center">Peu de débouchés</div>
                   <div className="flex flex-wrap gap-1">
                     {placedJobs[ZONE_NO_OPPORTUNITIES].map(job => (
                       <span key={job.id} className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded border border-red-200">{job.name}</span>
                     ))}
                   </div>
                   {placedJobs[ZONE_NO_OPPORTUNITIES].length === 0 && (
-                    <p className="text-xs text-gray-400 text-center mt-4">Deposer ici</p>
+                    <p className="text-xs text-gray-400 text-center mt-4">Déposer ici</p>
                   )}
                 </div>
               </div>
@@ -416,7 +416,7 @@ export default function Niveau12() {
                       : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
                   }`}
                 >
-                  {allPlaced ? 'Valider mes reponses' : `Classe tous les metiers (${JOBS_DATA.length - availableJobs.length}/${JOBS_DATA.length})`}
+                  {allPlaced ? 'Valider mes réponses' : `Classe tous les métiers (${JOBS_DATA.length - availableJobs.length}/${JOBS_DATA.length})`}
                 </button>
               </div>
             </div>
@@ -427,7 +427,7 @@ export default function Niveau12() {
               {/* Score summary */}
               <div className="text-center py-4 bg-gray-50 rounded-xl border border-gray-200">
                 <div className="text-4xl font-bold mb-1">{results.correct.length}/{results.total}</div>
-                <p className="text-text-secondary">bonnes reponses</p>
+                <p className="text-text-secondary">bonnes réponses</p>
                 <div className="flex justify-center gap-4 mt-3">
                   <span className="text-sm text-green-600 font-medium">{results.correct.length} correct{results.correct.length > 1 ? 's' : ''}</span>
                   <span className="text-sm text-red-600 font-medium">{results.incorrect.length} incorrect{results.incorrect.length > 1 ? 's' : ''}</span>
@@ -435,7 +435,7 @@ export default function Niveau12() {
               </div>
 
               {/* Legend */}
-              <div className="text-xs text-text-secondary text-center">Clique sur un metier pour voir l'explication</div>
+              <div className="text-xs text-text-secondary text-center">Clique sur un métier pour voir l'explication</div>
 
               {/* Corrections */}
               <div className="space-y-2 max-h-[300px] overflow-y-auto">
@@ -443,8 +443,8 @@ export default function Niveau12() {
                   const wasCorrect = results.correct.find(j => j.id === job.id)
                   // Find where user placed this job
                   const userPlacedInOpportunities = placedJobs[ZONE_OPPORTUNITIES].find(j => j.id === job.id)
-                  const userAnswer = userPlacedInOpportunities ? 'Debouches' : 'Sature'
-                  const correctAnswer = job.hasOpportunities ? 'Debouches' : 'Sature'
+                  const userAnswer = userPlacedInOpportunities ? 'Débouchés' : 'Saturé'
+                  const correctAnswer = job.hasOpportunities ? 'Débouchés' : 'Saturé'
                   
                   return (
                     <div
@@ -476,9 +476,9 @@ export default function Niveau12() {
                           <span className="font-medium">{job.name}</span>
                           {!wasCorrect && (
                             <div className="text-xs mt-1">
-                              <span className="text-red-600">Ta reponse : {userAnswer}</span>
+							  <span className="text-red-600">Ta réponse : {userAnswer}</span>
                               <span className="text-text-secondary"> | </span>
-                              <span className="text-green-600">Bonne reponse : {correctAnswer}</span>
+                              <span className="text-green-600">Bonne réponse : {correctAnswer}</span>
                             </div>
                           )}
                         </div>
@@ -488,7 +488,7 @@ export default function Niveau12() {
                             ? 'bg-green-100 text-green-700' 
                             : 'bg-red-100 text-red-700'
                         }`}>
-                          {job.hasOpportunities ? 'Debouches' : 'Sature'}
+                          {job.hasOpportunities ? 'Débouchés' : 'Saturé'}
                         </span>
                       </div>
                       
@@ -523,9 +523,9 @@ export default function Niveau12() {
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce font-bold">12</div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 12 terminé !</h3>
-            <p className="text-text-secondary mb-4">Tu connais maintenant mieux le marche du travail et ses surprises.</p>
+			<p className="text-text-secondary mb-4">Tu connais maintenant mieux le marché du travail et ses surprises.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activites</button>
+			  <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/13')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Niveau suivant</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

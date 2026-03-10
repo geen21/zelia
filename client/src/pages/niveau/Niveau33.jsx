@@ -80,7 +80,7 @@ export default function Niveau33() {
 
   const dialogues = useMemo(() => [
     { text: `Pour te motiver ${firstName}, j'ai pensé à un truc sympa.`, durationMs: 2000 },
-    { text: `Je te laisse écrire une lettre à toi même, on te l'envoie dans 5 ans ! (vraiment)`, durationMs: 2600 },
+	{ text: `Je te laisse écrire une lettre à toi-même, on te l'envoie dans 5 ans ! (vraiment)`, durationMs: 2600 },
     { text: `Il faudra juste que tu gardes ton adresse mail : ${authEmail || '...'}`, durationMs: 2200 },
     { text: `Écris ce que tu veux, sur tes objectifs, n'importe quoi. Tu acceptes ?`, durationMs: 2200 }
   ], [firstName, authEmail])
@@ -270,7 +270,7 @@ export default function Niveau33() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
-                  Lettre à toi même que tu recevras le {futureDateLabel}
+                  Lettre à toi-même que tu recevras le {futureDateLabel}
                 </label>
                 <textarea
                   value={letter}

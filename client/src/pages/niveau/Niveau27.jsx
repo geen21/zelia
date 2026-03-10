@@ -260,7 +260,7 @@ export default function Niveau27() {
       setRecording(true)
     } catch (e) {
       console.error('Recording start failed', e)
-      alert('Impossible d’accéder au micro. Autorisez le micro puis réessayez.')
+      alert('Impossible d'accéder au micro. Autorise le micro puis réessaie.')
     }
   }
 

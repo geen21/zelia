@@ -295,7 +295,7 @@ export default function Niveau3() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
@@ -415,13 +415,6 @@ export default function Niveau3() {
               >
                 Passer au niveau suivant
               </button>
-            </div>
-            {/* Subtle confetti dots */}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden">
-              <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />
-              <div className="absolute w-2 h-2 bg-yellow-400 rounded-full right-8 top-10 animate-ping" />
-              <div className="absolute w-2 h-2 bg-blue-400 rounded-full left-10 bottom-8 animate-ping" />
-              <div className="absolute w-2 h-2 bg-green-400 rounded-full right-6 bottom-10 animate-ping" />
             </div>
           </div>
         </div>

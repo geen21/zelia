@@ -167,7 +167,7 @@ export default function Niveau1() {
 	// Intro dialogue (no auto-advance; use Next button like Niveau2)
 	const introMessages = useMemo(() => ([
 		{ text: 'Bienvenue sur Zélia', durationMs: 500},
-		{ text: 'On va t\'expliquer comment on peut t\'aider à mieux te connaitre et trouver ta voie professionnelle', durationMs: 2000},
+		{ text: 'On va t\'expliquer comment on peut t\'aider à mieux te connaître et trouver ta voie professionnelle', durationMs: 2000},
 	]), [])
 	const [introIdx, setIntroIdx] = useState(0)
 	const currentIntro = introMessages[introIdx] || { text: '', durationMs: 1500 }
@@ -384,7 +384,7 @@ Format: titres courts en clair (pas de markdown), listes à puces simples '-' qu
 	}
 
 	return (
-		<div className="p-4 md:p-6">
+		<div className="p-2 md:p-6">
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 				{/* Left: Avatar + Dialogue */}
 				<div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">

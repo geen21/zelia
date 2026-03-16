@@ -282,7 +282,7 @@ export default function Layout() {
 
 			{/* Main content */}
 			<main className="md:pl-64">
-				<div className="px-4 sm:px-6 py-6">
+				<div className="px-2 sm:px-6 py-4">
 					<Outlet />
 				</div>
 			</main>

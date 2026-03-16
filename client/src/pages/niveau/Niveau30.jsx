@@ -55,6 +55,17 @@ function sanitizeText(raw) {
     .trim()
 }
 
+function cleanBilanSummary(raw) {
+  const text = sanitizeText(raw)
+  if (!text) return ''
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s*→\s*Je suis d'accord\.?\s*$/i, '').trim())
+    .filter((line) => line && !/^Je suis d'accord\.?$/i.test(line))
+    .join('\n')
+    .trim()
+}
+
 function extractJson(raw) {
   const text = sanitizeText(raw)
   const start = text.indexOf('{')
@@ -70,11 +81,11 @@ function extractJson(raw) {
 
 function formatExtraInfos(entries) {
   return (entries || [])
-    .map((row) => `- [${row.question_id}] ${row.question_text || 'Question'}: ${row.answer_text || '—'}`)
+    .map((row) => `- [${row.question_id}] ${row.question_text || 'Question'}: ${row.answer_text || '—'}`)
     .join('\n')
 }
 
-function buildFallbackBilan(entries) {
+function buildFallbackSummary(entries) {
   const list = Array.isArray(entries) ? entries : []
   const byLevel = new Map()
 
@@ -89,9 +100,9 @@ function buildFallbackBilan(entries) {
   })
 
   const formatValue = (value) => {
-    if (value == null) return '—'
+    if (value == null) return '—'
     const raw = String(value).trim()
-    if (!raw) return '—'
+    if (!raw) return '—'
     try {
       const parsed = JSON.parse(raw)
       if (Array.isArray(parsed)) return parsed.map((item) => JSON.stringify(item)).join(', ')
@@ -110,41 +121,18 @@ function buildFallbackBilan(entries) {
         rows.push(`Niveau ${lvl} - ${row?.question_text || 'Question'}: ${formatValue(row?.answer_text)}`)
       })
     })
-    return rows.length ? rows.join('\n') : 'Non disponible'
+    return rows.length ? rows.join(' | ') : 'Non disponible'
   }
 
-  return {
-    sections: [
-      {
-        title: 'Filières, notes & budget (N21-N22)',
-        content: formatLevel([21, 22])
-      },
-      {
-        title: 'Écoles sélectionnées (N23)',
-        content: formatLevel([23])
-      },
-      {
-        title: 'Quiz statistiques (N24)',
-        content: formatLevel([24])
-      },
-      {
-        title: 'Parcoursup & démarches (N26)',
-        content: formatLevel([26])
-      },
-      {
-        title: 'Chat communautaire (N27)',
-        content: formatLevel([27])
-      },
-      {
-        title: "Simulation d'entretien (N28)",
-        content: formatLevel([28])
-      },
-      {
-        title: 'Vidéos regardées (N25, N29)',
-        content: formatLevel([25, 29])
-      }
-    ]
-  }
+  const summary = [
+    `Tu as progressé sur les filières, le budget et la sélection d'écoles (N21-N23).`,
+    `Le quiz stats (N24) et les vidéos (N25, N29) ont consolidé ta vision de l'orientation.`,
+    `Tu as avancé sur Parcoursup et les démarches concrètes (N26).`,
+    `Tu as aussi travaillé ta posture via le pitch oral et la simulation d'entretien (N27-N28).`,
+    `Points marquants enregistrés: ${formatLevel([21, 22, 23, 24, 25, 26, 27, 28, 29])}.`
+  ].join('\n')
+
+  return { summary: cleanBilanSummary(summary) }
 }
 
 // Resume des niveaux 21-29 (videos et jeux)
@@ -155,7 +143,7 @@ const LEVELS_SUMMARY = [
   { level: 24, title: 'Quiz : Statistiques orientation', type: 'quiz' },
   { level: 25, title: 'Video : Etudes post-bac', type: 'video' },
   { level: 26, title: 'Resume : Parcoursup', type: 'info' },
-  { level: 27, title: 'Decouverte : Chat communautaire', type: 'chat' },
+  { level: 27, title: 'Apprendre à se présenter (Pitch)', type: 'pitch' },
   { level: 28, title: 'Simulation : Entretien embauche', type: 'simulation' },
   { level: 29, title: 'Video : Comment se vendre', type: 'video' },
 ]
@@ -219,7 +207,7 @@ export default function Niveau30() {
   }, [navigate])
 
   const bubble = useMemo(() => {
-    if (phase === STEP_INTRO) return { text: "Felicitations ! Tu as complete les niveaux 21 a 29. Voici ton bilan final.", durationMs: 2000 }
+    if (phase === STEP_INTRO) return { text: 'Félicitations ! Tu as complété les niveaux 21 à 29. Voici ton bilan final.', durationMs: 2000 }
     return { text: 'Voici ton bilan complet', durationMs: 900 }
   }, [phase])
 
@@ -230,7 +218,7 @@ export default function Niveau30() {
     setBilanLoading(true)
     try {
       if (!extraInfos || extraInfos.length === 0) {
-        setBilan(buildFallbackBilan([]))
+        setBilan({ summary: 'Aucune donnée des niveaux 21 à 29 n\'a été trouvée. Termine d\'abord ces niveaux pour obtenir un bilan personnalisé.' })
         setBilanLoading(false)
         return
       }
@@ -242,19 +230,16 @@ export default function Niveau30() {
       const summaryContext = LEVELS_SUMMARY.map(l => `- Niveau ${l.level}: ${l.title} (${l.type})`).join('\n')
 
       const message =
-        `Tu dois produire un bilan complet et personnalise des niveaux 21 a 29.\n` +
+        `Tu dois produire un résumé très court et personnalisé des niveaux 21 à 29.\n` +
         `L'utilisateur a parcouru les modules suivants:\n${summaryContext}\n\n` +
         `Donnees enregistrees de l'utilisateur:\n${context}\n\n` +
         `Reponds UNIQUEMENT en JSON valide au format suivant :\n` +
-        `{"sections":[{"title":"","content":""}]}\n` +
+        `{"summary":""}\n` +
         `Contraintes:\n` +
-        `- 5 sections maximum, chacune avec 2 a 4 phrases.\n` +
-        `- Section 1: Resume des videos regardees (conseils orientation, etudes, se vendre)\n` +
-        `- Section 2: Quiz statistiques (niveau 24) - ce qu'il a appris\n` +
-        `- Section 3: Parcoursup et demarches administratives\n` +
-        `- Section 4: Experience de simulation d'entretien\n` +
-        `- Section 5: Prochaines etapes recommandees\n` +
-        `- Sois encourageant et personnalise.`
+        `- 5 phrases maximum, style clair et concret.\n` +
+        `- Inclure brièvement: vidéos, quiz stats, Parcoursup, simulation d'entretien, prochaine étape.\n` +
+        `- Ne recopie pas les données brutes, synthétise.\n` +
+        `- Sois encourageant et personnalisé.`
 
       const resp = await apiClient.post('/chat/ai', {
         mode: 'advisor',
@@ -264,15 +249,15 @@ export default function Niveau30() {
       })
 
       const parsed = extractJson(resp?.data?.reply || '')
-      const sections = Array.isArray(parsed?.sections) ? parsed.sections : []
-      if (!sections.length) {
-        setBilan(buildFallbackBilan(extraInfos))
+      const summary = cleanBilanSummary(parsed?.summary || '')
+      if (!summary) {
+        setBilan(buildFallbackSummary(extraInfos))
       } else {
-        setBilan({ sections })
+        setBilan({ summary })
       }
     } catch (e) {
       console.error('Niveau30 bilan fetch failed', e)
-      setBilan(buildFallbackBilan(extraInfos))
+      setBilan(buildFallbackSummary(extraInfos))
       setBilanError('')
     } finally {
       setBilanLoading(false)
@@ -317,11 +302,11 @@ export default function Niveau30() {
     )
   }
 
-  const sections = Array.isArray(bilan?.sections) ? bilan.sections : []
+  const summary = cleanBilanSummary(bilan?.summary || '')
   const showBilan = phase === STEP_BILAN
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
@@ -398,18 +383,11 @@ export default function Niveau30() {
           )}
 
           {showBilan && !bilanLoading && !bilanError && (
-            <div className="space-y-4">
-              {sections.map((section, idx) => (
-                <div key={`section-${idx}`} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                  <div className="font-semibold">{section?.title || `Section ${idx + 1}`}</div>
-                  <div className="mt-2 whitespace-pre-wrap text-text-secondary text-sm">
-                    {section?.content || 'Non disponible'}
-                  </div>
-                </div>
-              ))}
-              {!sections.length && (
-                <div className="text-text-secondary">Bilan non disponible</div>
-              )}
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div className="font-semibold">Résumé</div>
+              <div className="mt-2 whitespace-pre-wrap text-text-secondary text-sm">
+                {summary || 'Bilan non disponible'}
+              </div>
             </div>
           )}
         </div>

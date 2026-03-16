@@ -5,6 +5,7 @@ import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 import { generateZeliaShareImage } from '../../lib/shareImage'
+import { FaFaceGrinWide, FaTrophy, FaXmark } from 'react-icons/fa6'
 
 let jsPdfFactoryPromise = null
 async function loadJsPdf() {
@@ -141,7 +142,7 @@ export default function Niveau4() {
 
   const ZELIA_IG_HANDLE = '@zelia_orientation' // handle officiel
 
-  const renderParagraphs = (text, emptyLabel = '—') => {
+  const renderParagraphs = (text, emptyLabel = '—') => {
     const paragraphs = splitIntoParagraphs(text)
     if (!paragraphs.length) {
       return [<p key="empty" className="whitespace-pre-wrap text-gray-800 leading-relaxed">{emptyLabel}</p>]
@@ -348,7 +349,7 @@ export default function Niveau4() {
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           title: analysis?.personalityType || 'Profil Zélia',
-          text: `Mon profil personnalité Zélia — ${analysis?.personalityType || ''}`.trim(),
+          text: `Mon profil personnalité Zélia — ${analysis?.personalityType || ''}`.trim(),
           files: [file]
         })
         return
@@ -382,7 +383,7 @@ export default function Niveau4() {
       // Header
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(18)
-  const title = analysis?.personalityType ? `Profil Zélia — ${analysis.personalityType}` : 'Profil Zélia'
+  const title = analysis?.personalityType ? `Profil Zélia — ${analysis.personalityType}` : 'Profil Zélia'
       doc.text(title, margin, y)
       y += 8
       doc.setDrawColor(0)
@@ -442,7 +443,7 @@ export default function Niveau4() {
       // Footer
       doc.setFont('helvetica', 'italic')
       doc.setFontSize(9)
-  const footer = 'Généré par Zélia — Niveau 4 (Personnalités Zélia)'
+  const footer = 'Généré par Zélia — Niveau 4 (Personnalités Zélia)'
       const pageCount = doc.getNumberOfPages()
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i)
@@ -562,7 +563,7 @@ export default function Niveau4() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Left: Avatar + Dialogue / Controls */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
@@ -585,7 +586,7 @@ export default function Niveau4() {
                             Et voilà le tour est joué, ton analyse de personnalité est prête !
                             <br />
                             <br />
-                            Tu devrais partager tes résultats d’orientation et de personnalité sur TikTok ou Insta ou directement à tes potes pour voir comment ils réagissent 😅
+                            Tu devrais partager tes résultats d’orientation et de personnalité sur TikTok ou Insta ou directement à tes potes pour voir comment ils réagissent <FaFaceGrinWide className="inline w-4 h-4" />
                             <br />
                             <br />
                             Tu peux me mentionner aussi : <strong>@zelia_orientation</strong> pour que je reposte !
@@ -749,7 +750,7 @@ export default function Niveau4() {
       {phase === 'success' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 4 réussi !</h3>
             <p className="text-text-secondary mb-4">Bravo, tu as complété le test Zélia et découvert ton profil.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -779,9 +780,7 @@ export default function Niveau4() {
               onClick={() => setShareOpen(false)}
               aria-label="Fermer"
               className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black text-white flex items-center justify-center shadow-sm hover:opacity-90"
-            >
-              ✕
-            </button>
+            ><FaXmark className="w-3 h-3" /></button>
 
             <h3 className="text-lg font-bold pr-8">Prévisualisation à partager</h3>
 
@@ -810,7 +809,7 @@ export default function Niveau4() {
                   <a href={shareImgUrl} download="zelia-story.png" className="px-4 py-2 rounded-lg bg-black text-white border border-gray-200">Enregistrer l'image</a>
                 )}
                 {shareImgUrl && (
-                  <button onClick={async () => { try { const res = await fetch(shareImgUrl); const blob = await res.blob(); const file = new File([blob], 'zelia-story.png', { type: 'image/png' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ title: analysis?.personalityType || 'Profil Zélia', text: `Mon profil personnalité Zélia — ${analysis?.personalityType || ''}`.trim(), files: [file] }); setShareOpen(false) } else { alert('Le partage natif n\'est pas supporté sur cet appareil. Vous pouvez enregistrer l\'image puis la partager manuellement.') } } catch (e) { console.warn('Share from modal failed', e) } }} className="px-4 py-2 rounded-lg bg-[#f68fff] text-black border border-gray-200">Partager</button>
+  				  <button onClick={async () => { try { const res = await fetch(shareImgUrl); const blob = await res.blob(); const file = new File([blob], 'zelia-story.png', { type: 'image/png' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ title: analysis?.personalityType || 'Profil Zélia', text: `Mon profil personnalité Zélia - ${analysis?.personalityType || ''}`.trim(), files: [file] }); setShareOpen(false) } else { alert('Le partage natif n\'est pas supporté sur cet appareil. Tu peux enregistrer l\'image puis la partager manuellement.') } } catch (e) { console.warn('Share from modal failed', e) } }} className="px-4 py-2 rounded-lg bg-[#f68fff] text-black border border-gray-200">Partager</button>
                 )}
                 <button onClick={() => setShareOpen(false)} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300">Fermer</button>
               </div>

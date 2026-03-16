@@ -4,6 +4,52 @@ import { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
+import { FaStar, FaCircleXmark, FaChartColumn, FaCheck, FaXmark, FaTrophy } from 'react-icons/fa6'
+
+const QUIZ_DATA = [
+  {
+    id: 1,
+    stat: 78,
+    color: '#22c55e',
+    source: 'linkedin.com / talent insights',
+    question: 'Que représente ce pourcentage selon toi ?',
+    options: [
+      { id: 'A', text: 'La part des recruteurs qui regardent aussi les soft skills au-delà du diplôme.' },
+      { id: 'B', text: 'La part des élèves qui changent de lycée.' },
+      { id: 'C', text: 'La part des métiers sans travail en équipe.' }
+    ],
+    correct: 'A',
+    explanation: 'Les compétences comportementales comme la communication, l\'organisation ou l\'adaptabilité comptent fortement dans le recrutement.'
+  },
+  {
+    id: 2,
+    stat: 44,
+    color: '#f59e0b',
+    source: 'worldeconomicforum.org',
+    question: 'Et celui-ci, à quoi correspond-il ?',
+    options: [
+      { id: 'A', text: 'La part de ton temps de sommeil en terminale.' },
+      { id: 'B', text: 'Le pourcentage de compétences qui devraient évoluer dans de nombreux métiers dans les prochaines années.' },
+      { id: 'C', text: 'Le pourcentage de notes au-dessus de 15.' }
+    ],
+    correct: 'B',
+    explanation: 'Les métiers évoluent vite. Développer ses compétences transférables aide à rester à l\'aise face aux changements.'
+  },
+  {
+    id: 3,
+    stat: 69,
+    color: '#3b82f6',
+    source: 'coursera.org / job skills reports',
+    question: 'Dernier graphique : que peut représenter ce chiffre ?',
+    options: [
+      { id: 'A', text: 'La part des recruteurs qui valorisent les preuves concrètes de compétence : projets, expériences, réalisations.' },
+      { id: 'B', text: 'La part des étudiants qui détestent apprendre.' },
+      { id: 'C', text: 'La part des métiers sans outils numériques.' }
+    ],
+    correct: 'A',
+    explanation: 'Une compétence a plus de valeur quand tu peux la montrer avec une expérience concrète, même petite.'
+  }
+]
 
 function useTypewriter(message, durationMs) {
   const [text, setText] = useState('')
@@ -44,65 +90,47 @@ function useTypewriter(message, durationMs) {
   return { text, done, skip }
 }
 
-const QUESTIONS = [
-  {
-    id: 1,
-    text: "Tu bloques sur un exercice difficile. Tu...",
-    options: [
-      { id: 'A', text: "Je tourne en rond sans méthode" },
-      { id: 'B', text: "Je découpe le problème en étapes" },
-      { id: 'C', text: "Je cherche une solution rapide au hasard" }
-    ]
-  },
-  {
-    id: 2,
-    text: "Dans un projet de groupe, un imprévu arrive. Tu...",
-    options: [
-      { id: 'A', text: "J'attends qu'on me dise quoi faire" },
-      { id: 'B', text: "Je propose des options concrètes" },
-      { id: 'C', text: "Je prends une décision sans consulter" }
-    ]
-  },
-  {
-    id: 3,
-    text: "Quand une solution ne marche pas, tu...",
-    options: [
-      { id: 'A', text: "Je me décourage vite" },
-      { id: 'B', text: "J'analyse et j'essaie une alternative" },
-      { id: 'C', text: "Je change tout d'un coup" }
-    ]
-  }
-]
+function PieChart({ percentage, color }) {
+  const radius = 80
+  const circumference = 2 * Math.PI * radius
+  const strokeDasharray = `${(percentage / 100) * circumference} ${circumference}`
 
-const ADVICE_PER_PROFILE = {
-  A: {
-    title: "Profil : À structurer",
-    text: "Tu as besoin d'un cadre simple pour résoudre efficacement.",
-    tips: [
-      "Utilise une check-list : comprendre, planifier, tester, vérifier.",
-      "Pose-toi 3 questions : quoi, pourquoi, comment.",
-      "Note ce qui a déjà échoué pour éviter les boucles."
-    ]
-  },
-  B: {
-    title: "Profil : Structuré",
-    text: "Tu sais analyser et avancer étape par étape. C'est une compétence très recherchée.",
-    tips: [
-      "Garde un journal de résolution pour progresser encore.",
-      "Partage ta méthode avec les autres.",
-      "Teste une alternative avant de recommencer de zéro."
-    ]
-  },
-  C: {
-    title: "Profil : Réactif et créatif",
-    text: "Tu réagis vite. Avec un peu de structure, tu gagneras en efficacité.",
-    tips: [
-      "Avant d'agir, prends 2 minutes pour prioriser.",
-      "Choisis une seule hypothèse à la fois.",
-      "Demande un retour rapide pour ajuster."
-    ]
-  }
+  return (
+    <div className="flex justify-center">
+      <svg width="200" height="200" viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r={radius} fill="none" stroke="#e5e7eb" strokeWidth="30" />
+        <circle
+          cx="100"
+          cy="100"
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth="30"
+          strokeDasharray={strokeDasharray}
+          strokeLinecap="round"
+          transform="rotate(-90 100 100)"
+          className="transition-all duration-1000"
+        />
+        <text
+          x="100"
+          y="100"
+          textAnchor="middle"
+          dominantBaseline="middle"
+          className="text-3xl font-bold"
+          fill="#1f2937"
+        >
+          {percentage}%
+        </text>
+      </svg>
+    </div>
+  )
 }
+
+const DIALOGUE = [
+  { text: 'Je vais te montrer quelques chiffres sur les compétences les plus utiles.', durationMs: 2000 },
+  { text: 'À toi de deviner ce qu\'ils représentent.', durationMs: 1600 },
+  { text: 'Prêt ? On lance le quiz compétences.', durationMs: 1400 }
+]
 
 export default function Niveau37() {
   const navigate = useNavigate()
@@ -110,28 +138,30 @@ export default function Niveau37() {
   const [error, setError] = useState('')
   const [profile, setProfile] = useState(null)
   const [avatarUrl, setAvatarUrl] = useState('')
-
-  const [dialogueIdx, setDialogueIdx] = useState(0)
-  const [phase, setPhase] = useState('intro')
   const [showSuccess, setShowSuccess] = useState(false)
   const [finishing, setFinishing] = useState(false)
 
-  const [currentQIndex, setCurrentQIndex] = useState(0)
-  const [answers, setAnswers] = useState({})
-  const [resultProfile, setResultProfile] = useState(null)
+  const [dialogueStep, setDialogueStep] = useState(0)
+  const dialogueFinished = dialogueStep >= DIALOGUE.length
+  const [currentQuiz, setCurrentQuiz] = useState(0)
+  const [selectedAnswer, setSelectedAnswer] = useState(null)
+  const [showResult, setShowResult] = useState(false)
+  const [answers, setAnswers] = useState([])
 
   const firstName = profile?.first_name || 'toi'
 
-  const dialogues = useMemo(() => [
-    { text: `${firstName}, on va muscler ta résolution de problème.`, durationMs: 2000 },
-    { text: "C'est une compétence clé pour les études et le travail.", durationMs: 2000 },
-    { text: "Mini diagnostic, puis conseils. Go !", durationMs: 1600 },
-  ], [firstName])
+  const currentDialogue = useMemo(() => {
+    if (dialogueStep >= DIALOGUE.length) return null
+    const d = DIALOGUE[dialogueStep]
+    return {
+      text: dialogueStep === DIALOGUE.length - 1 ? `${firstName}, ${d.text.toLowerCase()}` : d.text,
+      durationMs: d.durationMs
+    }
+  }, [dialogueStep, firstName])
 
-  const currentDialogue = dialogues[dialogueIdx] || { text: '', durationMs: 1500 }
   const { text: typed, done: typedDone, skip } = useTypewriter(
-    phase === 'intro' ? currentDialogue.text : '',
-    currentDialogue.durationMs
+    currentDialogue?.text || '',
+    currentDialogue?.durationMs || 1200
   )
 
   useEffect(() => {
@@ -139,7 +169,10 @@ export default function Niveau37() {
     ;(async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
-        if (!user) { navigate('/login'); return }
+        if (!user) {
+          navigate('/login')
+          return
+        }
 
         const pRes = await usersAPI.getProfile().catch(() => null)
         if (!mounted) return
@@ -158,72 +191,71 @@ export default function Niveau37() {
   }, [navigate])
 
   const onDialogueNext = () => {
-    if (!typedDone) { skip(); return }
-    if (dialogueIdx < dialogues.length - 1) {
-      setDialogueIdx(prev => prev + 1)
-    } else {
-      setPhase('quiz')
+    if (!typedDone) {
+      skip()
+      return
     }
+    setDialogueStep((prev) => prev + 1)
   }
 
-  const handleOptionClick = (optionId) => {
-    const nextAnswers = { ...answers, [QUESTIONS[currentQIndex].id]: optionId }
-    setAnswers(nextAnswers)
-
-    if (currentQIndex < QUESTIONS.length - 1) {
-      setTimeout(() => setCurrentQIndex(prev => prev + 1), 250)
-    } else {
-      calculateResult(nextAnswers)
-    }
+  const onSelectAnswer = (answerId) => {
+    if (showResult) return
+    setSelectedAnswer(answerId)
   }
 
-  const calculateResult = (finalAnswers) => {
-    const counts = { A: 0, B: 0, C: 0 }
-    Object.values(finalAnswers).forEach(ans => {
-      if (counts[ans] !== undefined) counts[ans]++
-    })
-
-    let max = 0
-    let dominant = 'B'
-    Object.entries(counts).forEach(([key, val]) => {
-      if (val > max) {
-        max = val
-        dominant = key
+  const onValidateAnswer = () => {
+    if (!selectedAnswer) return
+    setShowResult(true)
+    setAnswers((prev) => [
+      ...prev,
+      {
+        quizId: QUIZ_DATA[currentQuiz].id,
+        selected: selectedAnswer,
+        correct: selectedAnswer === QUIZ_DATA[currentQuiz].correct
       }
-    })
-
-    setResultProfile(dominant)
-    setPhase('result')
+    ])
   }
 
-  const finishLevel = async () => {
+  const onNext = async () => {
+    if (currentQuiz < QUIZ_DATA.length - 1) {
+      setCurrentQuiz((prev) => prev + 1)
+      setSelectedAnswer(null)
+      setShowResult(false)
+      return
+    }
+
     if (finishing) return
     setFinishing(true)
     try {
-      // Save problem-solving profile to extra info
-      const profileData = ADVICE_PER_PROFILE[resultProfile]
+      const correctCount = answers.filter((answer) => answer.correct).length + (selectedAnswer === currentQuizData.correct ? 1 : 0)
       await usersAPI.saveExtraInfo([
         {
-          question_id: 'niveau37_problem_solving_profile',
-          question_text: 'Soft skill : résolution de problème',
+          question_id: 'niveau37_skills_quiz_score',
+          question_text: 'Score quiz compétences (Niveau 37)',
+          answer_text: `${correctCount}/${QUIZ_DATA.length} bonnes réponses`
+        },
+        {
+          question_id: 'niveau37_skills_quiz_completed',
+          question_text: 'Quiz compétences complété (Niveau 37)',
           answer_text: JSON.stringify({
-            profile: resultProfile,
-            profileTitle: profileData?.title || '',
-            answers,
+            score: `${correctCount}/${QUIZ_DATA.length}`,
             completedAt: new Date().toISOString()
           })
         }
-      ]).catch(e => console.warn('saveExtraInfo N37 failed', e))
-      
+      ]).catch((saveError) => console.warn('saveExtraInfo N37 failed', saveError))
+
       await levelUp({ minLevel: 37, xpReward: XP_PER_LEVEL })
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau37 levelUp failed', e)
-      setError('Impossible de valider le niveau.')
+      setError('Impossible de valider le niveau pour le moment.')
     } finally {
       setFinishing(false)
     }
   }
+
+  const currentQuizData = QUIZ_DATA[currentQuiz]
+  const isCorrect = selectedAnswer === currentQuizData?.correct
 
   if (loading) {
     return (
@@ -243,93 +275,138 @@ export default function Niveau37() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-            <img src={avatarUrl} alt="Avatar" className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-52 lg:h-52 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto md:mx-0" />
+            <img
+              src={avatarUrl}
+              alt="Avatar"
+              className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-52 lg:h-52 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto md:mx-0"
+            />
             <div className="flex-1 w-full">
               <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
-                  {phase === 'intro' && typed}
-                  {phase === 'quiz' && "Réponds spontanément, pas besoin d'être parfait."}
-                  {phase === 'result' && "Voici ton profil et des conseils utiles."}
+                  {!dialogueFinished ? typed : (
+                    showResult ? (
+                      isCorrect ? <><FaStar className="inline w-4 h-4" /> Bonne réponse !</> : <><FaCircleXmark className="inline w-4 h-4" /> Mauvaise réponse, c'était la réponse {currentQuizData.correct}</>
+                    ) : currentQuizData.question
+                  )}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
               </div>
 
-              <div className="mt-4 flex flex-col gap-3">
-                {phase === 'intro' && (
-                  <button onClick={onDialogueNext} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">
-                    {dialogueIdx < dialogues.length - 1 ? 'Suivant' : 'Commencer'}
+              {!dialogueFinished && (
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={onDialogueNext}
+                    className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200"
+                  >
+                    {dialogueStep < DIALOGUE.length - 1 ? 'Suivant' : 'Commencer'}
                   </button>
-                )}
-                {phase === 'result' && (
-                  <button onClick={finishLevel} disabled={finishing} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto disabled:opacity-50">
-                    Terminer le niveau
-                  </button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 md:p-6 shadow-card">
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">37</div>
-            <h2 className="text-lg md:text-xl font-bold">Résolution de problème</h2>
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaChartColumn className="w-5 h-5" /></div>
+            <h2 className="text-xl font-bold">Quiz Compétences</h2>
+            {dialogueFinished && (
+              <span className="ml-auto text-sm text-text-secondary">
+                {currentQuiz + 1} / {QUIZ_DATA.length}
+              </span>
+            )}
           </div>
 
-          {phase === 'intro' && (
-            <div className="text-text-secondary text-center py-8">Le mini questionnaire apparaîtra ici.</div>
-          )}
-
-          {phase === 'quiz' && (
-            <div className="space-y-6">
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-[#c1ff72] h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${((currentQIndex) / QUESTIONS.length) * 100}%` }}
-                />
-              </div>
-
-              <div>
-                <h3 className="text-lg font-semibold mb-6">{QUESTIONS[currentQIndex].text}</h3>
-                <div className="flex flex-col gap-3">
-                  {QUESTIONS[currentQIndex].options.map(opt => (
-                    <button
-                      key={opt.id}
-                      onClick={() => handleOptionClick(opt.id)}
-                      className="text-left p-4 rounded-xl border border-gray-200 hover:border-[#c1ff72] hover:bg-[#f8fff0] transition-all"
-                    >
-                      {opt.text}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="text-center text-sm text-text-secondary">
-                Question {currentQIndex + 1} sur {QUESTIONS.length}
-              </div>
+          {!dialogueFinished ? (
+            <div className="text-text-secondary text-center py-8">
+              Réponds au dialogue pour commencer le quiz.
             </div>
-          )}
+          ) : (
+            <div className="space-y-6">
+              <PieChart percentage={currentQuizData.stat} color={currentQuizData.color} />
 
-          {phase === 'result' && resultProfile && (
-            <div className="space-y-4">
-              <div className="bg-[#f8fff0] border border-[#c1ff72] rounded-xl p-6 text-center">
-                <h3 className="text-xl font-bold text-gray-900 mb-2">{ADVICE_PER_PROFILE[resultProfile].title}</h3>
-                <p className="text-gray-700 mb-4">{ADVICE_PER_PROFILE[resultProfile].text}</p>
+              <div className="text-center text-xs text-text-secondary">
+                Source : {currentQuizData.source}
               </div>
 
-              <div>
-                <h4 className="font-semibold mb-3">Conseils rapides :</h4>
-                <ul className="space-y-3">
-                  {ADVICE_PER_PROFILE[resultProfile].tips.map((tip, idx) => (
-                    <li key={idx} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                      <span className="text-[#c1ff72] font-bold text-lg">•</span>
-                      <span className="text-sm text-gray-800">{tip}</span>
-                    </li>
-                  ))}
-                </ul>
+              <div className="space-y-3">
+                {currentQuizData.options.map((option) => {
+                  const isSelected = selectedAnswer === option.id
+                  const isCorrectOption = option.id === currentQuizData.correct
+
+                  let optionClasses = 'w-full p-4 rounded-xl border-2 text-left transition-all cursor-pointer '
+                  if (showResult) {
+                    if (isCorrectOption) {
+                      optionClasses += 'border-green-500 bg-green-50'
+                    } else if (isSelected && !isCorrectOption) {
+                      optionClasses += 'border-red-500 bg-red-50'
+                    } else {
+                      optionClasses += 'border-gray-200 bg-gray-50 opacity-50'
+                    }
+                  } else if (isSelected) {
+                    optionClasses += 'border-black bg-gray-100'
+                  } else {
+                    optionClasses += 'border-gray-300 bg-white hover:border-black hover:bg-gray-50 shadow-sm'
+                  }
+
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => onSelectAnswer(option.id)}
+                      disabled={showResult}
+                      className={optionClasses}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm shrink-0">
+                          {option.id}
+                        </span>
+                        <span className="flex-1 text-sm md:text-base">{option.text}</span>
+                        {showResult && isCorrectOption && (
+                          <span className="text-green-600 text-xl"><FaCheck className="w-4 h-4" /></span>
+                        )}
+                        {showResult && isSelected && !isCorrectOption && (
+                          <span className="text-red-600 text-xl"><FaXmark className="w-4 h-4" /></span>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {showResult && (
+                <div className={`p-4 rounded-xl ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
+                  <p className="text-sm">{currentQuizData.explanation}</p>
+                </div>
+              )}
+
+              <div className="pt-2">
+                {!showResult && (
+                  <button
+                    type="button"
+                    onClick={onValidateAnswer}
+                    disabled={!selectedAnswer}
+                    className="w-full px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 font-medium disabled:opacity-50"
+                  >
+                    Valider ma réponse
+                  </button>
+                )}
+
+                {showResult && (
+                  <button
+                    type="button"
+                    onClick={onNext}
+                    disabled={finishing}
+                    className="w-full px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 font-medium disabled:opacity-50"
+                  >
+                    {currentQuiz < QUIZ_DATA.length - 1 ? 'Question suivante' : 'Terminer'}
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -339,12 +416,14 @@ export default function Niveau37() {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce font-bold">37</div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 37 terminé !</h3>
-            <p className="text-text-secondary mb-4">Tu as renforcé ta capacité à résoudre des problèmes.</p>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 37 réussi !</h3>
+            <p className="text-text-secondary mb-4">
+              Tu as répondu à {answers.filter((answer) => answer.correct).length}/{QUIZ_DATA.length} questions correctement.
+            </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/38')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Niveau suivant</button>
+              <button onClick={() => navigate('/app/niveau/38')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />

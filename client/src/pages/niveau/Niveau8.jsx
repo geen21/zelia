@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { usersAPI } from '../../lib/api'
 import { levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
+import { FaClapperboard, FaTrophy } from 'react-icons/fa6'
 
 // Helper: build avatar URL from profile preferences, preferring explicit avatar_url
 function buildAvatarFromProfile(profile, seed = 'zelia') {
@@ -129,14 +130,9 @@ export default function Niveau8() {
   }, [navigate])
 
   const messages = useMemo(() => ([
-    { text: "Welcome back ! J’espère que tout se passe bien pour toi jusqu’ici …", durationMs: 1500 },
-    { text: "Je me disais que ça pourrait être cool que tes potes profitent également de mes connaissances pour trouver leur voie professionnelle.", durationMs: 4000 },
-    { text: "L’orientation doit vraiment être accessible pour tout le monde", durationMs:  1500 },
-    { text: "Si tu penses comme nous, tu peux directement leur partager ce lien pour qu’ils créent un compte /register", durationMs:  1500 },
-    { text: "Bref je parle beaucoup moi ! Comme quoi, j’ai encore des choses à apprendre aussi", durationMs:  1500 },
-    { text: "Je pense que c’est le bon moment pour passer le relai à Nicolas, qui va te parler de la diversité des métiers en France.", durationMs:  1500 },
-    { text: "Tu vas voir, c’est assez dingue !", durationMs:  1500 },
-    { text: "On se retrouve après au niveau 9….", durationMs:  1000 }
+    { text: "Welcome back ! Tu avances super bien. Si tu aimes le parcours et que tu apprends des choses, fais en profiter tes potes :)", durationMs: 2500 },
+    { text: "Tu peux leur partager directement le lien si tu penses que c'est intéressant et utile pour eux", durationMs: 2000 },
+    { text: "Reprenons avec cette petite vidéo sur la diversité des métiers. Tu as bientôt terminé le 1er bloc, bravo !", durationMs: 2500 }
   ]), [])
 
   const current = messages[idx] || { text: '', durationMs: 1500 }
@@ -309,7 +305,7 @@ export default function Niveau8() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Left: Avatar + Dialogue */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
@@ -329,16 +325,18 @@ export default function Niveau8() {
 
               {phase === 'intro' && (
                 <div className="mt-4 flex flex-col sm:flex-row gap-2">
-                  {idx === 3 && (
-                    <button
-                      onClick={handleCopyLink}
-                      className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto text-center"
-                    >
-                      {linkCopied ? 'Lien copié !' : 'Copier le lien'}
-                    </button>
+                  {idx === 1 && (
+                    <>
+                      <button
+                        onClick={handleCopyLink}
+                        className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto text-center"
+                      >
+                        {linkCopied ? 'Lien copié !' : 'Copier le lien'}
+                      </button>
+                    </>
                   )}
                   <button onClick={next} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">
-                    {idx === messages.length - 1 ? 'Oui laisse moi voir la vidéo' : 'Suivant'}
+                    {idx === messages.length - 1 ? 'Voir la vidéo' : 'Suivant'}
                   </button>
                 </div>
               )}
@@ -349,7 +347,7 @@ export default function Niveau8() {
         {/* Right: Video */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">🎬</div>
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaClapperboard className="w-5 h-5" /></div>
             <h2 className="text-xl font-bold">Vidéo</h2>
           </div>
           {phase !== 'watch' ? (
@@ -385,7 +383,7 @@ export default function Niveau8() {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 8 réussi !</h3>
             <p className="text-text-secondary mb-4">Bravo, tu as regardé la vidéo sur la réalité de l’orientation.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

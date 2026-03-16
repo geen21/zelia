@@ -4,6 +4,7 @@ import supabase from '../../lib/supabase'
 import apiClient, { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
+import { FaGraduationCap, FaXmark, FaCircleCheck, FaTriangleExclamation, FaCheck, FaTrophy } from 'react-icons/fa6'
 
 function useTypewriter(message, durationMs) {
   const [text, setText] = useState('')
@@ -368,7 +369,7 @@ Réponds UNIQUEMENT avec le JSON.`
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Avatar & Dialogue */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
@@ -416,7 +417,7 @@ Réponds UNIQUEMENT avec le JSON.`
         {/* Content Panel */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">🎓</div>
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaGraduationCap className="w-5 h-5" /></div>
             <h2 className="text-xl font-bold">Choix de la filière</h2>
           </div>
 
@@ -484,9 +485,7 @@ Réponds UNIQUEMENT avec le JSON.`
                         type="button"
                         onClick={() => removeNote(idx)}
                         className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50"
-                      >
-                        ✕
-                      </button>
+                      ><FaXmark className="w-3 h-3" /></button>
                     )}
                   </div>
                 ))}
@@ -527,7 +526,7 @@ Réponds UNIQUEMENT avec le JSON.`
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xl">{faisabilite.ok ? '✅' : '⚠️'}</span>
+                      <span className="text-xl">{faisabilite.ok ? <FaCircleCheck className="w-5 h-5 text-green-500" /> : <FaTriangleExclamation className="w-5 h-5 text-amber-500" />}</span>
                       <span className="font-semibold">{faisabilite.ok ? 'C\'est faisable !' : 'À améliorer'}</span>
                     </div>
                     <p>{faisabilite.message}</p>
@@ -538,7 +537,7 @@ Réponds UNIQUEMENT avec le JSON.`
                     <ul className="space-y-1 text-sm">
                       {selectedFilieres.map(i => (
                         <li key={i} className="flex items-center gap-2">
-                          <span className="text-[#c1ff72]">✓</span>
+                          <span className="text-[#c1ff72]"><FaCheck className="w-3 h-3" /></span>
                           {sanitizeText(filieres[i]?.degree)}
                         </li>
                       ))}
@@ -573,7 +572,7 @@ Réponds UNIQUEMENT avec le JSON.`
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 21 réussi !</h3>
             <p className="text-text-secondary mb-4">Tes filières et tes notes sont enregistrées.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

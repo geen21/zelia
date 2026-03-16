@@ -1,47 +1,12 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import apiClient, { usersAPI } from '../../lib/api'
+import { usersAPI } from '../../lib/api'
+import apiClient from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
+import { buildAvatarFromProfile } from '../../lib/avatar'
+import { FaComments, FaTrophy } from 'react-icons/fa6'
 
-// Helper: build avatar URL from profile preferences, preferring explicit avatar_url
-function buildAvatarFromProfile(profile, seed = 'zelia') {
-  try {
-    if (profile?.avatar_url && typeof profile.avatar_url === 'string') {
-      return profile.avatar_url
-    }
-    if (profile?.avatar && typeof profile.avatar === 'string') {
-      return profile.avatar
-    }
-    if (profile?.avatar_json) {
-      let conf = profile.avatar_json
-      if (typeof conf === 'string') {
-        try { conf = JSON.parse(conf) } catch {}
-      }
-      if (conf && typeof conf === 'object') {
-        if (conf.url && typeof conf.url === 'string') {
-          try {
-            const u = new URL(conf.url)
-            if (!u.searchParams.has('seed')) u.searchParams.set('seed', String(seed))
-            if (!u.searchParams.has('size')) u.searchParams.set('size', '300')
-            return u.toString()
-          } catch {}
-        }
-        const params = new URLSearchParams()
-        params.set('seed', String(seed))
-        Object.entries(conf).forEach(([k, v]) => {
-          if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
-        })
-        if (!params.has('size')) params.set('size', '300')
-        return `https://api.dicebear.com/9.x/lorelei/svg?${params.toString()}`
-      }
-    }
-  } catch {}
-  const p = new URLSearchParams({ seed: String(seed), size: '300', radius: '15' })
-  return `https://api.dicebear.com/9.x/lorelei/svg?${p.toString()}`
-}
-
-// Typewriter for a single message with adjustable overall duration
 function useTypewriter(message, durationMs) {
   const [text, setText] = useState('')
   const [done, setDone] = useState(false)
@@ -82,57 +47,90 @@ function useTypewriter(message, durationMs) {
   return { text, done, skip }
 }
 
+const ADMIN_EMAILS = new Set(['joris.geerdes@zelia.io', 'nicolas.wiegele@zelia.io'])
+
 export default function Niveau13() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
-  const [baseAvatarUrl, setBaseAvatarUrl] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const [idx, setIdx] = useState(0)
-  // phases: intro -> practice -> rate -> feedback|success
-  const [phase, setPhase] = useState('intro')
-  const [mouthAlt, setMouthAlt] = useState(false)
-  const [userId, setUserId] = useState('')
-
-  const [jobTitleFromResults, setJobTitleFromResults] = useState('')
-
-  // recording state
-  const mediaRecorderRef = useRef(null)
-  const [recording, setRecording] = useState(false)
-  const chunksRef = useRef([])
-  const [audioUrl, setAudioUrl] = useState('')
-  const [rating, setRating] = useState(null) // Start with null to force user interaction
+  const [dialogueStep, setDialogueStep] = useState(0)
   const [showSuccess, setShowSuccess] = useState(false)
-  const [showFeedback, setShowFeedback] = useState(false)
+  const [finishing, setFinishing] = useState(false)
 
-  // Load profile + set avatar + results
+  // Chat state
+  const [user, setUser] = useState(null)
+  const [mode, setMode] = useState('student') // 'student' | 'ai'
+  const [messages, setMessages] = useState([])
+  const [input, setInput] = useState('')
+  const [aiHistory, setAiHistory] = useState([])
+  const [aiInput, setAiInput] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const listRef = useRef(null)
+
+  const firstName = profile?.first_name || 'toi'
+  const dialogueFinished = dialogueStep >= 3
+  const showSecondDialogue = dialogueStep >= 4
+
+  const dialogues = useMemo(() => [
+    { text: 'Bon on a que des cadors ici !', durationMs: 1500 },
+    { text: 'On te propose de te présenter rapidement sur le chat global de Zélia', durationMs: 2200 },
+    { text: "Le but est de créer un espace d'échange", durationMs: 1800 },
+  ], [])
+
+  const secondDialogues = useMemo(() => [
+    { text: "Tu peux envoyer un message pour te présenter, dire ce que tu penses, essayer de voir si d'autres aimeraient faire le même métier que toi ?", durationMs: 3500 },
+    { text: "Tu peux également discuter avec notre conseillère d'orientation virtuelle si tu veux !", durationMs: 2500 },
+  ], [])
+
+  const currentDialogue = dialogueStep < 3 
+    ? dialogues[dialogueStep] 
+    : dialogueStep < 5 
+      ? secondDialogues[dialogueStep - 3]
+      : { text: '', durationMs: 1000 }
+
+  const { text: typed, done: typedDone, skip } = useTypewriter(
+    dialogueStep < 5 ? currentDialogue?.text || '' : '',
+    currentDialogue?.durationMs || 1500
+  )
+
+  // Load profile and chat data
   useEffect(() => {
     let mounted = true
     ;(async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) { navigate('/login'); return }
-        setUserId(user.id)
+        const { data: { user: authUser } } = await supabase.auth.getUser()
+        if (!authUser) { navigate('/login'); return }
+        
+        setUser({ id: authUser.id, email: authUser.email })
+        
         const pRes = await usersAPI.getProfile().catch(() => null)
         if (!mounted) return
         const prof = pRes?.data?.profile || pRes?.data || null
         setProfile(prof)
-        setBaseAvatarUrl(buildAvatarFromProfile(prof, user.id))
+        setAvatarUrl(buildAvatarFromProfile(prof, authUser.id))
 
-        // Fetch results to decide preferred job title if needed
-        try {
-          const anal = await apiClient.get('/analysis/my-results', { headers: { 'Cache-Control': 'no-cache' }, params: { _: Date.now() } })
-          const r = anal?.data?.results || {}
-          const list = r.jobRecommendations || r.job_recommandations || []
-          if (Array.isArray(list) && list.length > 0) setJobTitleFromResults(list[0]?.title || '')
-        } catch {
-          try {
-            const latest = await apiClient.get('/results/latest', { headers: { 'Cache-Control': 'no-cache' }, params: { _: Date.now() } })
-            const simple = latest?.data?.results?.analysis || latest?.data?.results || {}
-            const list = simple.jobRecommendations || simple.job_recommandations || simple.career_matches || []
-            if (Array.isArray(list) && list.length > 0) setJobTitleFromResults(list[0]?.title || '')
-          } catch {}
+        // Load chat messages
+        const { data: initial } = await supabase
+          .from('global_chat')
+          .select('*')
+          .order('created_at', { ascending: true })
+          .limit(100)
+        if (!mounted) return
+        setMessages(initial || [])
+
+        // Subscribe realtime
+        const channel = supabase
+          .channel('global_chat_n27')
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'global_chat' }, (payload) => {
+            setMessages((prev) => [...prev, payload.new])
+          })
+          .subscribe()
+
+        return () => {
+          supabase.removeChannel(channel)
         }
       } catch (e) {
         console.error(e)
@@ -145,155 +143,92 @@ export default function Niveau13() {
     return () => { mounted = false }
   }, [navigate])
 
-  const messages = useMemo(() => {
-    const prenom = (profile?.first_name || '').trim()
-    const intro = `Re ! En avant pour le niveau 13${prenom ? ` ${prenom}` : ''}. On va entrer dans le vif du sujet, avec un module pour apprendre à se présenter à l’oral.`
-    return ([
-      { text: intro, durationMs: 3200 },
-      { text: "L’idée c’est de pouvoir te présenter en 1 minute, ce qu’on appelle un “pitch”. Prends le micro et enregistre-toi jusqu’à ce que tu aies une présentation dont tu es fier/fière.", durationMs: 4200 },
-      { text: "Je sais que ça peut paraître un peu complexe ou te mettre mal à l'aise. Isole-toi si c'est le cas.", durationMs: 3000 },
-      { text: "Je te donne un texte d’exemple. Tu peux le répéter tel quel ou l’adapter. Tant que tu ne te donnes pas au moins 8/10, tu peux recommencer ;)", durationMs: 4000 },
-    ])
-  }, [profile])
-
-  const current = messages[idx] || { text: '', durationMs: 1500 }
-  const { text: typed, done: typedDone, skip } = useTypewriter(current.text, current.durationMs)
-
-  // Animate mouth every 0.2s while typing
+  // Auto scroll
   useEffect(() => {
-    if (phase !== 'intro' || typedDone) return
-    const int = setInterval(() => setMouthAlt((v) => !v), 200)
-    return () => clearInterval(int)
-  }, [phase, typedDone])
-
-  // Helper to modify DiceBear lorelei URL params
-  function modifyDicebearUrl(urlStr, params = {}) {
-    try {
-      const u = new URL(urlStr)
-      const isDice = /api\.dicebear\.com/.test(u.host) && /\/lorelei\/svg/.test(u.pathname)
-      if (!isDice) return urlStr
-      Object.entries(params).forEach(([k, v]) => {
-        if (v === null || v === undefined || v === '') {
-          u.searchParams.delete(k)
-        } else {
-          u.searchParams.set(k, String(v))
-        }
-      })
-      if (!u.searchParams.has('size')) u.searchParams.set('size', '300')
-      return u.toString()
-    } catch {
-      return urlStr
+    if (listRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight
     }
-  }
+  }, [messages, aiHistory])
 
-  const displayedAvatarUrl = useMemo(() => {
-    let url = baseAvatarUrl
-    if (!url) return url
-    const isDicebear = (() => {
-      try { const u = new URL(url); return /api\.dicebear\.com/.test(u.host) && /\/lorelei\/svg/.test(u.pathname) } catch { return false }
-    })()
-    if (!isDicebear) return url
-
-    // Eyes: last intro line -> variant16
-    if (phase === 'intro' && idx === 3) {
-      url = modifyDicebearUrl(url, { eyes: 'variant16' })
-    } else {
-      url = modifyDicebearUrl(url, {})
-    }
-
-    // Mouth animation while typing
-    if (phase === 'intro' && !typedDone) {
-      url = modifyDicebearUrl(url, { mouth: mouthAlt ? 'happy08' : null })
-    } else {
-      url = modifyDicebearUrl(url, { mouth: null })
-    }
-    return url
-  }, [baseAvatarUrl, phase, idx, typedDone, mouthAlt])
-
-  function next() {
+  const onDialogueNext = () => {
     if (!typedDone) { skip(); return }
-    if (idx + 1 < messages.length) setIdx((v) => v + 1)
-    else setPhase('practice')
+    setDialogueStep((prev) => prev + 1)
   }
 
-  // Pitch text computed from profile and results
-  const pitchText = useMemo(() => {
-    const fn = profile?.first_name || ''
-    const ln = profile?.last_name || ''
-    const dep = profile?.department || ''
-    const pref = profile?.home_preference || ''
-    const jobTitle = (String(pref).toLowerCase() === 'questionnaire')
-      ? (jobTitleFromResults || 'un métier qui me correspond')
-      : (pref || jobTitleFromResults || 'un métier qui me correspond')
-    return (
-      `Bonjour, je m'appelle ${fn} ${ln}, j'habite actuellement dans le ${dep}. ` +
-      `Ce qui me motive profondément dans le métier de ${jobTitle}, c’est de comprendre comment les choses fonctionnent et comment les améliorer. ` +
-      `Je ne me contente jamais de la première réponse ; ma curiosité me pousse à explorer différentes perspectives avant d’agir.\n\n` +
-      `J'aborde chaque nouveau défi avec la même méthode : j’écoute, j’apprends vite, et je connecte les idées et les gens pour construire quelque chose qui a du sens. ` +
-      `Je crois fermement que les meilleures solutions naissent de la collaboration et d'une vision d'ensemble.\n\n` +
-      `Mon objectif n'est pas simplement d'accomplir des tâches, mais d'apporter une énergie positive et une volonté de faire avancer les projets. ` +
-      `Je cherche à m'investir dans un environnement où je pourrai continuer à apprendre et avoir un impact concret.`
-    )
-  }, [profile, jobTitleFromResults])
-
-  // Recording handlers
-  const startRecording = async () => {
-    try {
-      setShowFeedback(false)
-      setAudioUrl('')
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mr = new MediaRecorder(stream)
-      chunksRef.current = []
-      mr.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunksRef.current.push(e.data) }
-      mr.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-        const url = URL.createObjectURL(blob)
-        setAudioUrl(url)
-        setPhase('rate')
-        setRecording(false)
-        // stop all tracks
-        stream.getTracks().forEach(t => t.stop())
-      }
-      mediaRecorderRef.current = mr
-      mr.start()
-      setRecording(true)
-    } catch (e) {
-      console.error('Recording start failed', e)
-      alert('Impossible d’accéder au micro. Autorisez le micro puis réessayez.')
+  // Send global message
+  const handleSendGlobal = async () => {
+    const text = input.trim()
+    if (!text || !user) return
+    setInput('')
+    const optimistic = {
+      id: Date.now(),
+      user_id: user.id,
+      user_email: user.email,
+      content: text,
+      created_at: new Date().toISOString(),
+    }
+    setMessages((prev) => [...prev, optimistic])
+    const { error: insErr } = await supabase
+      .from('global_chat')
+      .insert({ user_id: user.id, user_email: user.email, content: text })
+    if (insErr) {
+      setMessages((prev) => prev.filter((m) => m !== optimistic))
+      setInput(text)
     }
   }
 
-  const stopRecording = () => {
+  // Send AI message
+  const handleSendAI = async () => {
+    const text = aiInput.trim()
+    if (!text) return
+    const newHistory = [...aiHistory, { role: 'user', content: text }]
+    setAiHistory(newHistory)
+    setAiInput('')
+    setAiLoading(true)
     try {
-      mediaRecorderRef.current?.stop()
-    } catch {}
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+      const res = await apiClient.post('/chat/ai', {
+        mode: 'advisor',
+        message: text,
+        history: newHistory.slice(-10),
+        advisorType: 'conseiller-orientation'
+      }, { headers })
+      const reply = res?.data?.reply || "Je n'ai pas pu générer de réponse."
+      setAiHistory((prev) => [...prev, { role: 'assistant', content: reply }])
+    } catch (e) {
+      setAiHistory((prev) => [...prev, { role: 'assistant', content: 'Erreur IA: ' + (e?.response?.data?.error || e.message) }])
+    } finally {
+      setAiLoading(false)
+    }
   }
 
-  const resetPractice = () => {
-    setAudioUrl('')
-    setRating(null) // Reset to null
-    setPhase('practice')
-  }
+  const isAdminMsg = (email) => email && ADMIN_EMAILS.has(email.toLowerCase())
 
-  const submitRating = async () => {
-    if (rating >= 8) {
+  const finishLevel = async () => {
+    if (finishing) return
+    setFinishing(true)
+    try {
+      await usersAPI.saveExtraInfo([
+        {
+          question_id: 'niveau13_chat_discovered',
+          question_text: 'Découverte du chat communautaire (Niveau 13)',
+          answer_text: 'Oui'
+        },
+        {
+          question_id: 'niveau13_messages_sent',
+          question_text: 'Messages envoyés (Niveau 13)',
+          answer_text: `${messages.filter(m => m.user_id === user?.id).length} message(s)`
+        }
+      ])
+      await levelUp({ minLevel: 13, xpReward: XP_PER_LEVEL })
       setShowSuccess(true)
-      // Sauvegarder le rating et Level up
-      ;(async () => {
-        try {
-          await usersAPI.saveExtraInfo([
-            {
-              question_id: 'niveau13_pitch_rating',
-              question_text: 'Note auto-évaluation du pitch',
-              answer_text: `${rating}/10`
-            }
-          ])
-          await levelUp({ minLevel: 13, xpReward: XP_PER_LEVEL })
-        } catch (e) { console.warn('Progression update failed (non-blocking):', e) }
-      })()
-    } else {
-      setShowFeedback(true)
-      // After showing feedback message, let user restart practice
+    } catch (e) {
+      console.error('Niveau13 levelUp failed', e)
+      setError('Impossible de valider le niveau pour le moment.')
+    } finally {
+      setFinishing(false)
     }
   }
 
@@ -315,135 +250,170 @@ export default function Niveau13() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Left: Avatar + Dialogue */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-            <img src={displayedAvatarUrl} alt="Avatar" className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-52 lg:h-52 xl:w-60 xl:h-60 2xl:w-64 2xl:h-64 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto md:mx-0" />
+            <img src={avatarUrl} alt="Avatar" className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-52 lg:h-52 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto md:mx-0" />
             <div className="flex-1 w-full">
               <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
-                  {phase === 'intro' ? (
-                    <>{typed}</>
-                  ) : phase === 'practice' ? (
-                    <>Tu peux maintenant lire le texte d’exemple et t'enregistrer quand tu veux.</>
-                  ) : phase === 'rate' ? (
-                    <>
-                      <div className="mb-4">Alors combien tu te noterais sur 10 ?</div>
-                      
-                      {/* Custom slider with visual feedback */}
-                      <div className="mb-4">
-                        <div className="flex flex-wrap justify-center gap-2 mb-3">
-                          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => (
-                            <button
-                              key={val}
-                              type="button"
-                              onClick={() => setRating(val)}
-                              className={`w-9 h-9 md:w-10 md:h-10 lg:w-11 lg:h-11 rounded-full font-bold text-sm md:text-base transition-all ${
-                                rating === val
-                                  ? (val >= 8 ? 'bg-[#F68FFF] text-black ring-2 ring-black' : 'bg-[#c1ff72] text-black ring-2 ring-black')
-                                  : rating !== null && val <= rating
-                                  ? (val >= 8 ? 'bg-[#F68FFF]/40 text-black' : 'bg-[#c1ff72]/40 text-black')
-                                  : 'bg-white/20 text-white/60 hover:bg-white/30'
-                              }`}
-                            >
-                              {val}
-                            </button>
-                          ))}
-                        </div>
-                        
-                        {/* Visual bar showing the rating */}
-                        <div className="relative h-2 bg-white/20 rounded-full overflow-hidden mx-2">
-                          <div
-                            className="absolute top-0 left-0 h-full bg-[#c1ff72] rounded-full transition-all duration-300"
-                            style={{ width: `${rating !== null ? (rating * 10) : 0}%` }}
-                          />
-                        </div>
-                        
-                        {rating !== null && (
-                          <div className="text-center mt-2 text-[#c1ff72] font-bold text-lg">
-                            {rating}/10
-                          </div>
-                        )}
-                      </div>
-                      
-                      <button 
-                        onClick={submitRating} 
-                        disabled={rating === null}
-                        className={`mt-3 px-4 py-2 rounded-lg border border-gray-200 w-full sm:w-auto transition-all ${
-                          rating === null 
-                            ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                            : 'bg-[#c1ff72] text-black hover:bg-[#b3ee5f]'
-                        }`}
-                      >
-                        Valider
-                      </button>
-                    </>
-                  ) : showFeedback ? (
-                    <>C'est déjà pas trop mal, on va essayer de le refaire, recommençons ensemble.</>
-                  ) : null}
+                  {dialogueStep < 5 ? typed : 'Le chat est débloqué ! Tu peux y accéder à tout moment depuis le menu.'}
                 </div>
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
               </div>
 
-              {phase === 'intro' && (
-                <div className="mt-4">
-                  <button onClick={next} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">
-                    {idx === messages.length - 1 ? 'Afficher le texte' : 'Suivant'}
+              <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                {dialogueStep < 3 && (
+                  <button
+                    onClick={onDialogueNext}
+                    className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200"
+                  >
+                    {dialogueStep < 2 ? 'Suivant' : 'Voir le chat'}
                   </button>
-                </div>
-              )}
+                )}
 
-              {showFeedback && phase !== 'intro' && (
-                <div className="mt-4">
-                  <button onClick={resetPractice} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto">Recommencer</button>
-                </div>
-              )}
+                {dialogueFinished && dialogueStep < 5 && (
+                  <button
+                    onClick={onDialogueNext}
+                    className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200"
+                  >
+                    Suivant
+                  </button>
+                )}
+
+                {dialogueStep >= 5 && (
+                  <button
+                    onClick={finishLevel}
+                    disabled={finishing}
+                    className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-50"
+                  >
+                    Terminer le niveau
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Right: Pitch + Recorder */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          {/* Controls moved above the title */}
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            {!recording && (
-              <button onClick={startRecording} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">S'enregistrer</button>
-            )}
-            {recording && (
-              <button onClick={stopRecording} className="px-4 py-2 rounded-lg bg-red-500 text-white border border-red-600">Arrêter</button>
-            )}
-            {audioUrl && !recording && (
-              <>
-                <audio controls src={audioUrl} className="w-full max-w-md" />
-                <button onClick={resetPractice} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300">Réenregistrer</button>
-              </>
-            )}
-          </div>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">🎤</div>
-            <h2 className="text-xl font-bold">Pitch 60s</h2>
-          </div>
-          {phase !== 'intro' ? (
-            <div className="text-text-primary whitespace-pre-wrap mb-4">{pitchText}</div>
+        {/* Right: Chat */}
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-card overflow-hidden">
+          {!dialogueFinished ? (
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaComments className="w-5 h-5" /></div>
+                <h2 className="text-xl font-bold">Chat Zélia</h2>
+              </div>
+              <div className="text-text-secondary text-center py-8">
+                Réponds au dialogue pour débloquer le chat.
+              </div>
+            </div>
           ) : (
-            <div className="text-text-secondary text-sm mb-4">Le texte d’exemple s’affichera après avoir cliqué sur « Afficher le texte ».</div>
+            <>
+              {/* Chat header with toggle */}
+              <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaComments className="w-5 h-5" /></div>
+                    <h2 className="text-xl font-bold">Chat Zélia</h2>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className={`px-3 py-1.5 rounded-full border text-sm ${mode==='student' ? 'bg-black text-white border-black' : 'bg-white border-gray-200'}`}
+                      onClick={() => setMode('student')}
+                    >Étudiants</button>
+                    <button
+                      className={`px-3 py-1.5 rounded-full border text-sm ${mode==='ai' ? 'bg-black text-white border-black' : 'bg-white border-gray-200'}`}
+                      onClick={() => setMode('ai')}
+                    >IA</button>
+                  </div>
+                </div>
+              </div>
+
+              {mode === 'student' ? (
+                <>
+                  <div ref={listRef} className="h-[40vh] overflow-y-auto p-4 space-y-3 bg-gray-50">
+                    {messages.length === 0 && (
+                      <div className="text-center text-text-secondary py-8">Sois le premier à envoyer un message !</div>
+                    )}
+                    {messages.map((m) => (
+                      <div key={m.id} className={`flex ${m.user_id === user?.id ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[75%] px-3 py-2 rounded-lg border ${m.user_id === user?.id ? 'bg-black text-white border-black' : 'bg-white border-gray-200'}`}>
+                          <div className="text-xs mb-1 flex items-center gap-2">
+                            {isAdminMsg(m.user_email) ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#f68fff] text-white">Admin</span>
+                            ) : (
+                              <span className={m.user_id === user?.id ? 'text-gray-300' : 'text-gray-600'}>{m.user_email || 'Utilisateur'}</span>
+                            )}
+                          </div>
+                          <div className="whitespace-pre-wrap break-words">{m.content}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="p-4 border-t border-gray-200 bg-white">
+                    <div className="flex gap-2">
+                      <input
+                        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 outline-none"
+                        placeholder="Écrire un message…"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSendGlobal() }}
+                      />
+                      <button className="px-4 py-2 rounded-lg bg-black text-white" onClick={handleSendGlobal}>Envoyer</button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div ref={listRef} className="h-[40vh] overflow-y-auto p-4 space-y-3 bg-gray-50">
+                    {aiHistory.length === 0 && (
+                      <div className="text-center text-text-secondary py-8">Pose une question à notre conseillère d'orientation !</div>
+                    )}
+                    {aiHistory.map((m, i) => (
+                      <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[75%] px-3 py-2 rounded-lg border ${m.role === 'user' ? 'bg-black text-white border-black' : 'bg-white border-gray-200'}`}>
+                          <div className="text-xs mb-1 text-gray-600">{m.role === 'user' ? 'Vous' : 'Conseillère IA'}</div>
+                          <div className="whitespace-pre-wrap break-words">{m.content}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {aiLoading && (
+                      <div className="text-sm text-gray-500">L'IA rédige une réponse…</div>
+                    )}
+                  </div>
+                  <div className="p-4 border-t border-gray-200 bg-white">
+                    <div className="flex gap-2">
+                      <input
+                        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 outline-none"
+                        placeholder="Poser une question d'orientation…"
+                        value={aiInput}
+                        onChange={(e) => setAiInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSendAI() }}
+                      />
+                      <button disabled={aiLoading} className="px-4 py-2 rounded-lg bg-black text-white disabled:opacity-60" onClick={handleSendAI}>Envoyer</button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
           )}
         </div>
       </div>
 
-      {/* Success overlay for Level 13 completion */}
+      {/* Success Popup */}
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 13 réussi !</h3>
-            <p className="text-text-secondary mb-4">Félicitations, ton pitch est prêt. Tu sais te présenter efficacement.</p>
+            <p className="text-text-secondary mb-4">Le chat est maintenant débloqué dans le menu !</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
               <button onClick={() => navigate('/app/niveau/14')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
             </div>
+            {/* Subtle confetti dots */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />
               <div className="absolute w-2 h-2 bg-yellow-400 rounded-full right-8 top-10 animate-ping" />

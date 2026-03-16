@@ -182,7 +182,7 @@ export default function Niveau39() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
@@ -207,7 +207,7 @@ export default function Niveau39() {
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 md:p-6 shadow-card">
+        <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">39</div>
             <h2 className="text-lg md:text-xl font-bold">Retours utilisateurs</h2>

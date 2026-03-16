@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import supabase from '../../lib/supabase'
 import { usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
+import { FaCheck, FaBullseye, FaTrophy } from 'react-icons/fa6'
 
 const REGIONS = [
   'Île-de-France',
@@ -444,7 +445,7 @@ export default function Niveau6() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-card">
           <div className="flex flex-col items-center gap-6 md:flex-row md:items-start">
@@ -492,7 +493,7 @@ export default function Niveau6() {
                         <span
                           className={`mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${step.done ? 'bg-black text-white' : 'border border-gray-300 bg-white text-gray-400'}`}
                         >
-                          {step.done ? '✓' : index + 1}
+                          {step.done ? <FaCheck className="w-3 h-3" /> : index + 1}
                         </span>
                         <div>
                           <p className="font-medium text-gray-900">{step.title}</p>
@@ -711,7 +712,7 @@ export default function Niveau6() {
             </>
           ) : (
             <div className="flex h-full min-h-[420px] flex-col items-center justify-center text-center text-gray-600">
-              <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#c1ff72] text-2xl">🎯</span>
+              <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#c1ff72] text-2xl"><FaBullseye className="w-6 h-6" /></span>
               <h3 className="text-lg font-semibold text-gray-900">Lance le tutoriel pour accéder à la recherche</h3>
               <p className="mt-2 max-w-sm text-sm text-gray-500">
                 Clique sur « Commencer le tutoriel » à gauche. Les filtres et les formations officielles apparaîtront juste ici pour t'accompagner étape par étape.
@@ -724,7 +725,7 @@ export default function Niveau6() {
       {completed && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 6 réussi !</h3>
             <p className="text-text-secondary mb-4">Tu sais maintenant rechercher et comparer les formations qui t'intéressent.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

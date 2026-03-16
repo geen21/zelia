@@ -4,6 +4,7 @@ import apiClient, { analysisAPI, usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
+import { FaBrain, FaTrophy } from 'react-icons/fa6'
 
 function useTypewriter(message, durationMs) {
   const [text, setText] = useState('')
@@ -162,10 +163,10 @@ export default function Niveau19() {
   }, [profile])
 
   const dialogue = useMemo(() => ([
-    { text: 'Je vais te livrer selon moi des choses que l\'on aime pas forcément entendre...', durationMs: 1800 },
-    { text: 'Mais je suis persuadé que cela peut te faire avancer !', durationMs: 1600 },
-    { text: 'Je vais te lister 5 défaut chez toi qui selon moi peuvent être des points d\'amélioration', durationMs: 2000 },
-    { text: `On test ça${firstName ? ` ${firstName}` : ''} ? Tu me dis si tu es d\'accord ou pas :)`, durationMs: 1800 }
+    { text: 'Ok l\u00e0 je vais \u00eatre honn\u00eate avec toi, c\'est pas toujours facile \u00e0 entendre...', durationMs: 1800 },
+    { text: 'Mais c\'est justement ce qui va te faire progresser le plus !', durationMs: 1600 },
+    { text: 'Je vais te proposer 5 axes d\'am\u00e9lioration que j\'ai d\u00e9tect\u00e9s chez toi', durationMs: 2000 },
+    { text: `Allez on y va${firstName ? ` ${firstName}` : ''} ? Dis-moi si tu valides ou pas :)`, durationMs: 1800 }
   ]), [firstName])
 
   const currentDialogue = dialogue[Math.min(step, dialogue.length - 1)]
@@ -175,7 +176,7 @@ export default function Niveau19() {
   const buildContext = () => {
     const profileBlock = formatProfileContext(profile)
     const responseBlock = (responses || [])
-      .map((r) => `- [${r.questionnaire_type || 'questionnaire'} #${r.question_id}] ${r.response || '—'}`)
+      .map((r) => `- [${r.questionnaire_type || 'questionnaire'} #${r.question_id}] ${r.response || '—'}`)
       .join('\n')
     const personalityBlock = analysis
       ? [
@@ -199,11 +200,13 @@ export default function Niveau19() {
     try {
       const context = buildContext()
       const message =
-        `À partir du contexte suivant, propose 5 points d'amélioration (défauts à travailler) liés à la personnalité de l'utilisateur.\n` +
+        `Tu es un coach d'orientation qui s'adresse à un jeune de moins de 40 ans. Tutoie-le, sois direct, bienveillant et naturel (pas de ton corporate ou scolaire).\n` +
+        `À partir du contexte suivant, propose 5 points d'amélioration concrets liés à sa personnalité.\n` +
         `${context}\n\n` +
         `Contraintes STRICTES :\n` +
         `- Réponds uniquement par une liste de 5 points, un par ligne.\n` +
-        `- Formulations bienveillantes, orientées amélioration.\n` +
+        `- Utilise un ton direct, encourageant et adapté à un public jeune (pas de jargon RH).\n` +
+        `- Formule chaque point comme un conseil concret, pas un défaut brut.\n` +
         `- Pas d'introduction ni de conclusion.`
 
       const resp = await apiClient.post('/chat/ai', {
@@ -259,7 +262,7 @@ export default function Niveau19() {
       const entries = improvements.map((text, idx) => ({
         question_id: `niveau_19_${idx + 1}`,
         question_text: text,
-        answer_text: nextAnswers[idx] || '—'
+        answer_text: nextAnswers[idx] || '—'
       }))
       await usersAPI.saveExtraInfo(entries)
       await levelUp({ minLevel: 19, xpReward: XP_PER_LEVEL })
@@ -291,7 +294,7 @@ export default function Niveau19() {
   const currentPoint = improvements[currentIdx]
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
@@ -323,7 +326,7 @@ export default function Niveau19() {
 
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">🧠</div>
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaBrain className="w-5 h-5" /></div>
             <h2 className="text-xl font-bold">Points d'amélioration</h2>
           </div>
 
@@ -376,7 +379,7 @@ export default function Niveau19() {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 19 réussi !</h3>
             <p className="text-text-secondary mb-4">Tes réponses sont enregistrées.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

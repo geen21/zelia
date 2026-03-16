@@ -3,38 +3,39 @@ import { useNavigate } from 'react-router-dom'
 import supabase from '../../lib/supabase'
 import { analysisAPI, usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
+import { FaTrophy } from 'react-icons/fa6'
 
 const DIALOGUE_STEPS = [
   {
     id: 'intro-1',
-    text: "J'espère que ça va toujours, te voici au niveau 7, tu avances super bien!",
-    durationMs: 1400
+    text: 'Te voilà au niveau 7, tu avances bien !',
+    durationMs: 1100
   },
   {
     id: 'intro-2',
-    text: 'Je commence à bien te connaitre, merci pour toutes ces infos !',
-    durationMs: 500
+    text: 'Je commence à bien te connaître, merci pour tes infos !',
+    durationMs: 450
   },
   {
     id: 'intro-3',
-    text: 'Ici le but est de rentrer dans une relation honnête pour avancer ensemble dans la bonne direction.',
-    durationMs: 1000
+    text: 'Ici, on avance avec honnêteté pour viser juste.',
+    durationMs: 800
   },
   {
     id: 'intro-4',
-    text: 'Je ne connais pas encore tes notes mais je peux déjà te dire si un métier te correspond ou pas sur la base de ces infos.',
-    durationMs: 1500
+    text: 'Je ne connais pas encore tes notes, mais je peux déjà estimer si un métier te correspond.',
+    durationMs: 1200
   },
   {
     id: 'job-prompt',
-    text: 'Dis-moi un métier et je te dirai si oui ou non tu es fait pour ce métier',
-    durationMs: 1200,
+    text: 'Donne-moi un métier et je te dirai s’il te correspond.',
+    durationMs: 950,
     requiresEvaluation: true
   },
   {
     id: 'closing',
-    text: "Au niveau 14 tu auras la possibilité d'aller beaucoup plus loin, en m'indiquant tous les métiers que tu souhaites. Encore une fois je serai intransigeante et la plus honnête possible.",
-    durationMs: 2200,
+    text: "Au niveau 14, tu pourras aller plus loin avec plusieurs métiers. Je resterai aussi honnête qu'exigeante.",
+    durationMs: 1700,
     closing: true
   }
 ]
@@ -154,11 +155,41 @@ function clampExplanation(text, maxWords = 100) {
   return `${words.slice(0, maxWords).join(' ')}…`
 }
 
+function normalizeJobSuggestions(profile, rawRecommendations) {
+  const homePreference = (profile?.home_preference || '').trim()
+  const isQuestionnaire = homePreference.toLowerCase() === 'questionnaire'
+
+  if (!isQuestionnaire && homePreference) {
+    return [homePreference]
+  }
+
+  let list = rawRecommendations
+  if (typeof list === 'string') {
+    try {
+      list = JSON.parse(list)
+    } catch {
+      list = []
+    }
+  }
+
+  if (!Array.isArray(list)) return []
+
+  return [...new Set(
+    list
+      .map((item) => {
+        if (typeof item === 'string') return item.trim()
+        return (item?.title || item?.intitule || '').trim()
+      })
+      .filter(Boolean)
+  )].slice(0, 6)
+}
+
 export default function Niveau7() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
+  const [jobSuggestions, setJobSuggestions] = useState([])
   const [mouthAlt, setMouthAlt] = useState(false)
   const [dialogStep, setDialogStep] = useState(0)
   const [jobInput, setJobInput] = useState('')
@@ -190,6 +221,35 @@ export default function Niveau7() {
 
         const profile = response?.data?.profile ?? response?.data ?? null
         setAvatarUrl(buildAvatarFromProfile(profile, user.id || 'zelia'))
+
+        try {
+          const homePreference = (profile?.home_preference || '').trim()
+          const isQuestionnaire = homePreference.toLowerCase() === 'questionnaire'
+
+          if (!isQuestionnaire && homePreference) {
+            setJobSuggestions(normalizeJobSuggestions(profile, []))
+            return
+          }
+
+          let query = supabase
+            .from('user_results')
+            .select('job_recommendations, questionnaire_type')
+            .eq('user_id', user.id)
+
+          if (isQuestionnaire) {
+            query = query.eq('questionnaire_type', 'inscription')
+          }
+
+          const { data: userResultsData } = await query
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          if (cancelled) return
+          setJobSuggestions(normalizeJobSuggestions(profile, userResultsData?.job_recommendations))
+        } catch (suggestionErr) {
+          console.warn('Niveau7 job suggestions load failed', suggestionErr)
+        }
       } catch (err) {
         console.error('Niveau7 profile load failed', err)
         if (!cancelled) {
@@ -356,8 +416,34 @@ export default function Niveau7() {
   <form onSubmit={handleEvaluate} className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="job-input" className="text-sm font-semibold text-gray-700">
-              Ton métier cible
+              Ton métier cible (selon ta personnalité)
             </label>
+
+            {jobSuggestions.length > 0 && !jobInput.trim() && (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Suggestions basées sur ton profil
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {jobSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => {
+                        setJobInput(suggestion)
+                        setAnalysisResult(null)
+                        setEvaluationError('')
+                      }}
+                      disabled={locked || evaluating}
+                      className="rounded-full border border-gray-200 bg-white px-3 py-1 text-sm font-medium text-gray-700 transition hover:border-black hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <input
               id="job-input"
               ref={jobInputRef}
@@ -411,7 +497,7 @@ export default function Niveau7() {
               className={`rounded-2xl border px-5 py-4 text-base font-medium shadow-inner ${analysisResult.verdict === 'Oui' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}`}
             >
               <span className="font-semibold">{analysisResult.verdict}</span>
-              <span className="ml-2 text-gray-900">— {analysisResult.explanation}</span>
+              <span className="ml-2 text-gray-900">— {analysisResult.explanation}</span>
             </div>
           ) : emptyFallback ? (
             <p>{emptyFallback}</p>
@@ -422,11 +508,11 @@ export default function Niveau7() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="mx-auto w-full max-w-none">
   <div className="grid w-full grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
-          <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-card md:p-8">
-            <div className="mt-6 flex flex-col items-center gap-6 md:flex-row md:items-start">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-card md:p-8">
+            <div className="flex flex-col items-center gap-6 md:flex-row md:items-start">
               <img
                 src={displayedAvatarUrl}
                 alt="Avatar"
@@ -434,11 +520,11 @@ export default function Niveau7() {
               />
 
               <div className="w-full flex-1">
-                <div className="relative w-full rounded-2xl bg-black p-5 text-white">
+                <div className="relative w-full rounded-2xl bg-black p-4 text-white md:p-5">
                   <div className="min-h-[3.5rem] whitespace-pre-wrap text-base leading-relaxed md:text-lg">
                     {dialogueText}
                   </div>
-                  <div className="absolute -left-2 top-6 h-0 w-0 border-b-8 border-r-8 border-t-8 border-b-transparent border-r-black border-t-transparent" />
+                  <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
                 </div>
 
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -481,7 +567,7 @@ export default function Niveau7() {
       {completed && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 7 réussi !</h3>
             <p className="text-text-secondary mb-4">Tu as affronté le verdict de Zélia. Direction le prochain niveau !</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

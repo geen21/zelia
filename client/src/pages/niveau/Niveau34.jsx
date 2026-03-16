@@ -58,7 +58,7 @@ const QUESTIONS = [
     id: 2,
     text: "Quand tu as trop de choses à faire en même temps...",
     options: [
-      { id: 'A', text: "Je bloque et je proscratine" },
+	  { id: 'A', text: "Je bloque et je procrastine" },
       { id: 'B', text: "Je fais une liste et je priorise" },
       { id: 'C', text: "Je fonce et je fais tout à la dernière minute" }
     ]
@@ -245,7 +245,7 @@ export default function Niveau34() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Left: Avatar + Dialogue */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
@@ -278,7 +278,7 @@ export default function Niveau34() {
         </div>
 
         {/* Right: Quiz Area */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 md:p-6 shadow-card">
+        <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">34</div>
             <h2 className="text-lg md:text-xl font-bold">Gérer son stress</h2>

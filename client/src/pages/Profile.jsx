@@ -3,6 +3,7 @@ import { analysisAPI, usersAPI } from '../lib/api'
 import { resolveAvatarUrl } from '../lib/avatar'
 import { fetchProgression, getDefaultProgression } from '../lib/progression'
 import { generateZeliaShareImage } from '../lib/shareImage'
+import ZeliaDiploma from '../components/ZeliaDiploma'
 
 const stripLegacyMbtiTokens = (text) => {
   if (!text || typeof text !== 'string') return text || ''
@@ -235,6 +236,14 @@ export default function Profile() {
       return null
     }
   }, [extraInfos])
+
+  const diplomaDate = useMemo(() => {
+    const entries = Array.isArray(extraInfos) ? extraInfos : []
+    const match = entries.find((row) => row?.question_id === 'niveau40_diploma_date')
+    return match?.answer_text || null
+  }, [extraInfos])
+
+  const hasDiploma = Number(progression?.level || 0) >= 40 || !!diplomaDate
 
   const refreshLatestAnalysis = useCallback(async () => {
     try {
@@ -776,6 +785,35 @@ export default function Profile() {
 
                 <p className="text-xs text-text-secondary">
                   Astuce : publiez votre story et taguez <span className="font-semibold">@zelia</span> pour que nous puissions la repartager.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-semibold">Mon Diplôme Zélia (Niveau 40)</h2>
+                <p className="text-text-secondary text-sm">Téléchargez votre diplôme obtenu après avoir complété les 40 niveaux.</p>
+              </div>
+            </div>
+
+            {hasDiploma ? (
+              <div style={{ overflowX: 'auto' }}>
+                <ZeliaDiploma
+                  firstName={formData.firstName}
+                  lastName={formData.lastName}
+                  personalityType={resolvedAnalysis?.personalityType || null}
+                  completionDate={diplomaDate ? new Date(diplomaDate) : new Date()}
+                  avatarUrl={avatarUrl}
+                />
+              </div>
+            ) : (
+              <div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">
+                <div className="text-text-secondary text-4xl mb-2">🎓</div>
+                <h3 className="text-lg font-semibold mb-2">Terminez le niveau 40</h3>
+                <p className="text-text-secondary">
+                  Complétez les 40 niveaux du parcours Zélia pour débloquer votre diplôme.
                 </p>
               </div>
             )}

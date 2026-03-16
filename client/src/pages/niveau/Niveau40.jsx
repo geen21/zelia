@@ -5,6 +5,7 @@ import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 
+
 const STEP_INTRO = 'intro'
 const STEP_BILAN = 'bilan'
 
@@ -70,18 +71,18 @@ function extractJson(raw) {
 
 function formatExtraInfos(entries) {
   return (entries || [])
-    .map((row) => `- [${row.question_id}] ${row.question_text || 'Question'}: ${row.answer_text || '—'}`)
+    .map((row) => `- [${row.question_id}] ${row.question_text || 'Question'}: ${row.answer_text || '—'}`)
     .join('\n')
 }
 
 const LEVELS_SUMMARY = [
-  { level: 31, title: 'Marché du travail et débouchés', type: 'jeu' },
-  { level: 32, title: 'Mini-projets étudiants', type: 'idées' },
+  { level: 31, title: 'Explorer ses options : compétences', type: 'recherche' },
+  { level: 32, title: 'Compétences recommandées par métier', type: 'idées' },
   { level: 33, title: 'Lettre à soi-même', type: 'écriture' },
   { level: 34, title: 'Gestion du stress', type: 'questionnaire' },
   { level: 35, title: 'Vidéo motivation', type: 'vidéo' },
   { level: 36, title: 'Soft skill : intelligence émotionnelle', type: 'questionnaire' },
-  { level: 37, title: 'Soft skill : résolution de problème', type: 'questionnaire' },
+  { level: 37, title: 'Quiz compétences', type: 'questionnaire' },
   { level: 38, title: 'Soft skill : adaptabilité', type: 'questionnaire' },
   { level: 39, title: 'Retours utilisateurs', type: 'feedback' }
 ]
@@ -93,32 +94,39 @@ function buildFallbackBilan(entries) {
 
   const sections = []
 
-  // --- Section 1: Marché du travail (N31) ---
+  // --- Section 1: Explorer ses options (N31) ---
   const n31 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau31'))
   if (n31) {
     try {
       const data = JSON.parse(n31.answer_text || '{}')
       sections.push({
-        title: 'Marché du travail et débouchés',
-        content: `Score obtenu : ${data.score || 'N/A'}. ${data.correctJobs ? `Métiers bien classés : ${data.correctJobs}.` : ''}`
+        title: 'Explorer ses options : compétences',
+        content: `Métier ciblé : ${data.selectedJob || n31.answer_text || 'N/A'}.`
       })
     } catch {
-      sections.push({ title: 'Marché du travail et débouchés', content: 'Niveau complété.' })
+      sections.push({ title: 'Explorer ses options : compétences', content: 'Niveau complété.' })
     }
   }
 
-  // --- Section 2: Mini-projets (N32) ---
-  const n32 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau32'))
+  // --- Section 2: Compétences recommandées (N32) ---
+  const n32 = entries.find(e => {
+    const questionId = (e.question_id || '').toLowerCase()
+    return questionId.includes('niveau32_skills') || questionId.includes('niveau32_projects') || questionId.includes('niveau32')
+  })
   if (n32) {
     try {
       const data = JSON.parse(n32.answer_text || '{}')
-      const projectsList = Array.isArray(data.projectIdeas) ? data.projectIdeas.join(', ') : ''
+      const skillsList = Array.isArray(data.recommendedSkills)
+        ? data.recommendedSkills.join(', ')
+        : Array.isArray(data.projectIdeas)
+          ? data.projectIdeas.join(', ')
+          : ''
       sections.push({
-        title: 'Mini-projets étudiants',
-        content: `Métier ciblé : ${data.targetJob || 'N/A'}. ${projectsList ? `Idées de projets : ${projectsList}.` : ''}`
+        title: 'Compétences recommandées par métier',
+        content: `Métier ciblé : ${data.targetJob || 'N/A'}. ${skillsList ? `Compétences suggérées : ${skillsList}.` : ''}`
       })
     } catch {
-      sections.push({ title: 'Mini-projets étudiants', content: 'Niveau complété.' })
+      sections.push({ title: 'Compétences recommandées par métier', content: 'Niveau complété.' })
     }
   }
 
@@ -181,9 +189,9 @@ function buildFallbackBilan(entries) {
   if (n37) {
     try {
       const data = JSON.parse(n37.answer_text || '{}')
-      softSkillsContent.push(`Résolution de problème : ${data.profileTitle || data.profile || 'profil identifié'}.`)
+      softSkillsContent.push(`Quiz compétences : score ${data.score || 'complété'}.`)
     } catch {
-      softSkillsContent.push('Résolution de problème : niveau complété.')
+      softSkillsContent.push('Quiz compétences : niveau complété.')
     }
   }
 
@@ -357,6 +365,11 @@ export default function Niveau40() {
     setFinishing(true)
     try {
       await levelUp({ minLevel: 40, xpReward: XP_PER_LEVEL })
+      // Save diploma completion date
+      await usersAPI.saveExtraInfo([{
+        question_id: 'niveau40_diploma_date',
+        answer_text: new Date().toISOString()
+      }]).catch(() => {})
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau40 levelUp failed', e)
@@ -384,7 +397,7 @@ export default function Niveau40() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
@@ -414,7 +427,7 @@ export default function Niveau40() {
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 md:p-6 shadow-card">
+        <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">40</div>
             <h2 className="text-lg md:text-xl font-bold">Bilan final</h2>
@@ -527,18 +540,27 @@ export default function Niveau40() {
                 Félicitations
               </h2>
               <p className="text-gray-500 font-medium mb-8 leading-relaxed">
-                Tu as complété l'intégralité du parcours. Ton bilan final est prêt.
+                Tu as complété l'intégralité du parcours. Ton diplôme Zélia est disponible sur ton profil !
               </p>
 
-              <button 
-                onClick={() => navigate('/app/profile')}
-                className="group w-full py-4 px-6 rounded-xl bg-black text-[#c1ff72] font-bold text-lg hover:bg-gray-900 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
-              >
-                <span>Accéder à mon Profil</span>
-                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
-                </svg>
-              </button>
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => navigate('/app/profile')}
+                  className="group w-full py-4 px-6 rounded-xl bg-black text-[#c1ff72] font-bold text-lg hover:bg-gray-900 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v3a2 2 0 002 2h14a2 2 0 002-2v-3" />
+                  </svg>
+                  <span>Télécharger mon diplôme</span>
+                </button>
+
+                <button 
+                  onClick={() => navigate('/app/activites')}
+                  className="w-full py-3 px-6 rounded-xl border border-gray-200 text-gray-600 font-medium hover:bg-gray-50 transition-all"
+                >
+                  Retour aux activités
+                </button>
+              </div>
             </div>
           </div>
         </div>

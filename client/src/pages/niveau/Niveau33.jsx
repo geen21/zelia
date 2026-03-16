@@ -4,6 +4,7 @@ import apiClient, { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
+import { FaFaceSmile } from 'react-icons/fa6'
 
 function useTypewriter(message, durationMs) {
   const [text, setText] = useState('')
@@ -79,7 +80,7 @@ export default function Niveau33() {
 
   const dialogues = useMemo(() => [
     { text: `Pour te motiver ${firstName}, j'ai pensé à un truc sympa.`, durationMs: 2000 },
-    { text: `Je te laisse écrire une lettre à toi même, on te l'envoie dans 5 ans ! (vraiment)`, durationMs: 2600 },
+	{ text: `Je te laisse écrire une lettre à toi-même, on te l'envoie dans 5 ans ! (vraiment)`, durationMs: 2600 },
     { text: `Il faudra juste que tu gardes ton adresse mail : ${authEmail || '...'}`, durationMs: 2200 },
     { text: `Écris ce que tu veux, sur tes objectifs, n'importe quoi. Tu acceptes ?`, durationMs: 2200 }
   ], [firstName, authEmail])
@@ -200,7 +201,7 @@ export default function Niveau33() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Left: Avatar + Dialogue */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
@@ -240,7 +241,7 @@ export default function Niveau33() {
         </div>
 
         {/* Right: Letter */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 md:p-6 shadow-card">
+        <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">33</div>
             <h2 className="text-lg md:text-xl font-bold">On t’envoie un email dans 5 ans !</h2>
@@ -251,14 +252,14 @@ export default function Niveau33() {
           )}
 
           {phase === 'decision' && (
-            <div className="text-text-secondary text-center py-8">Dis-moi si tu veux écrire ta lettre 😊</div>
+            <div className="text-text-secondary text-center py-8">Dis-moi si tu veux écrire ta lettre <FaFaceSmile className="inline w-4 h-4" /></div>
           )}
 
           {(phase === 'write' || phase === 'sending') && (
             <div className="space-y-4">
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                 <p className="text-sm text-text-secondary mb-1">Adresse mail :</p>
-                <p className="font-semibold">{authEmail || '—'}</p>
+                <p className="font-semibold">{authEmail || '—'}</p>
               </div>
 
               {formError && (
@@ -269,7 +270,7 @@ export default function Niveau33() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
-                  Lettre à toi même que tu recevras le {futureDateLabel}
+                  Lettre à toi-même que tu recevras le {futureDateLabel}
                 </label>
                 <textarea
                   value={letter}

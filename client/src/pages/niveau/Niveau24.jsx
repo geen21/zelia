@@ -4,6 +4,7 @@ import supabase from '../../lib/supabase'
 import { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
+import { FaStar, FaCircleXmark, FaChartColumn, FaCheck, FaXmark, FaTrophy } from 'react-icons/fa6'
 
 // Quiz data with real statistics
 const QUIZ_DATA = [
@@ -289,7 +290,7 @@ export default function Niveau24() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-2 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Left: Avatar & Dialogue */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
@@ -304,7 +305,7 @@ export default function Niveau24() {
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
                   {!dialogueFinished ? typed : (
                     showResult ? (
-                      isCorrect ? '🎉 Bonne réponse !' : `❌ Mauvaise réponse, c'était la réponse ${currentQuizData.correct}`
+                      isCorrect ? <><FaStar className="inline w-4 h-4" /> Bonne réponse !</> : <><FaCircleXmark className="inline w-4 h-4" /> Mauvaise réponse, c'était la réponse {currentQuizData.correct}</>
                     ) : currentQuizData.question
                   )}
                 </div>
@@ -329,7 +330,7 @@ export default function Niveau24() {
         {/* Right: Quiz Card */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">📊</div>
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaChartColumn className="w-5 h-5" /></div>
             <h2 className="text-xl font-bold">Quiz Orientation</h2>
             {dialogueFinished && (
               <span className="ml-auto text-sm text-text-secondary">
@@ -389,10 +390,10 @@ export default function Niveau24() {
                         </span>
                         <span className="flex-1 text-sm md:text-base">{option.text}</span>
                         {showResult && isCorrectOption && (
-                          <span className="text-green-600 text-xl">✓</span>
+                          <span className="text-green-600 text-xl"><FaCheck className="w-4 h-4" /></span>
                         )}
                         {showResult && isSelected && !isCorrectOption && (
-                          <span className="text-red-600 text-xl">✗</span>
+                          <span className="text-red-600 text-xl"><FaXmark className="w-4 h-4" /></span>
                         )}
                       </div>
                     </button>
@@ -440,7 +441,7 @@ export default function Niveau24() {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 24 réussi !</h3>
             <p className="text-text-secondary mb-4">
               Tu as répondu à {answers.filter(a => a.correct).length}/{QUIZ_DATA.length} questions correctement.

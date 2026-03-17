@@ -245,7 +245,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 // Uses RPC function for optimized performance
 router.post('/search', optionalAuth, async (req, res) => {
   try {
-    const { keywords = [], department, region, limit = 20 } = req.body
+    const { keywords = [], department, region, commune, cursus_types, preference, limit = 20 } = req.body
 
     const parsedLimit = Math.min(Number.parseInt(limit, 10) || 20, 50)
 
@@ -255,7 +255,16 @@ router.post('/search', optionalAuth, async (req, res) => {
       .filter(k => k.length >= 2)
       .slice(0, 10)
 
-    console.log('Formations search:', { keywords: cleanKeywords, department, region, limit: parsedLimit })
+    const cleanCommune = (commune || '').trim().toLowerCase()
+    const cleanPreference = (preference || '').trim().toLowerCase()
+    const cleanCursusTypes = (Array.isArray(cursus_types) ? cursus_types : [])
+      .map(t => String(t || '').trim().toLowerCase())
+      .filter(t => t.length >= 2)
+
+    console.log('Formations search:', { keywords: cleanKeywords, department, region, commune: cleanCommune, cursus_types: cleanCursusTypes, preference: cleanPreference, limit: parsedLimit })
+
+    // Request more results from RPC to allow post-filtering
+    const rpcLimit = Math.min(parsedLimit * 5, 100)
 
     // Try RPC function first
     let { data, error } = await supabase
@@ -263,44 +272,82 @@ router.post('/search', optionalAuth, async (req, res) => {
         p_keywords: cleanKeywords.length > 0 ? cleanKeywords : null,
         p_department: department || null,
         p_region: region || null,
-        p_limit: parsedLimit
+        p_limit: rpcLimit
       })
 
     if (error) {
       console.error('Formations search RPC error:', error)
       // Fallback to simple query if RPC fails
-      return await fallbackSearch(req, res, cleanKeywords, department, region, parsedLimit)
+      return await fallbackSearch(req, res, cleanKeywords, department, region, parsedLimit, { commune: cleanCommune, cursus_types: cleanCursusTypes, preference: cleanPreference })
     }
 
-    // If no results with department filter, try without it
-    if ((!data || data.length === 0) && department && cleanKeywords.length > 0) {
-      console.log('No results with department, trying without...')
-      const { data: dataNoDepth, error: errNoDepth } = await supabase
+    // If no results with department filter, try with commune as department
+    if ((!data || data.length === 0) && cleanCommune && !department) {
+      const { data: dataCom, error: errCom } = await supabase
         .rpc('search_formations', {
-          p_keywords: cleanKeywords,
-          p_department: null,
+          p_keywords: cleanKeywords.length > 0 ? cleanKeywords : null,
+          p_department: cleanCommune,
           p_region: null,
-          p_limit: parsedLimit
+          p_limit: rpcLimit
         })
-      if (!errNoDepth && dataNoDepth && dataNoDepth.length > 0) {
-        data = dataNoDepth
+      if (!errCom && dataCom && dataCom.length > 0) {
+        data = dataCom
       }
     }
 
-    // If still no results, try with just keywords (broader search)
-    if ((!data || data.length === 0) && cleanKeywords.length > 1) {
-      console.log('No results, trying with fewer keywords...')
-      const { data: dataSingle, error: errSingle } = await supabase
-        .rpc('search_formations', {
-          p_keywords: [cleanKeywords[0]],
-          p_department: null,
-          p_region: null,
-          p_limit: parsedLimit
+    // Post-filter by commune (city match)
+    if (data && data.length > 0 && cleanCommune) {
+      const filtered = data.filter(d =>
+        (d.commune || '').toLowerCase().includes(cleanCommune) ||
+        (d.departement || '').toLowerCase().includes(cleanCommune) ||
+        (d.region || '').toLowerCase().includes(cleanCommune)
+      )
+      if (filtered.length > 0) data = filtered
+    }
+
+    // Post-filter by cursus types (study level)
+    if (data && data.length > 0 && cleanCursusTypes.length > 0) {
+      const filtered = data.filter(d => {
+        const tc = (d.tc || '').toLowerCase()
+        return cleanCursusTypes.some(f => tc.includes(f))
+      })
+      if (filtered.length > 0) data = filtered
+    }
+
+    // Post-filter by public/private preference
+    if (data && data.length > 0 && cleanPreference) {
+      if (cleanPreference.includes('public')) {
+        const filtered = data.filter(d => {
+          const tc = (d.tc || '').toLowerCase()
+          return !tc.includes('privé') && !tc.includes('prive')
         })
-      if (!errSingle && dataSingle && dataSingle.length > 0) {
-        data = dataSingle
+        if (filtered.length > 0) data = filtered
+      } else if (cleanPreference.includes('priv')) {
+        const filtered = data.filter(d => {
+          const tc = (d.tc || '').toLowerCase()
+          return tc.includes('privé') || tc.includes('prive')
+        })
+        if (filtered.length > 0) data = filtered
       }
     }
+
+    // Only broaden search if still no results and no location was specified
+    if ((!data || data.length === 0) && !cleanCommune && !department && cleanKeywords.length > 0) {
+      console.log('No results and no location filter, trying broader search...')
+      const { data: dataBroad, error: errBroad } = await supabase
+        .rpc('search_formations', {
+          p_keywords: cleanKeywords.length > 0 ? [cleanKeywords[0]] : null,
+          p_department: null,
+          p_region: null,
+          p_limit: rpcLimit
+        })
+      if (!errBroad && dataBroad && dataBroad.length > 0) {
+        data = dataBroad
+      }
+    }
+
+    // Trim to requested limit
+    data = (data || []).slice(0, parsedLimit)
 
     console.log('Formations search returned:', data?.length ?? 0, 'results')
 
@@ -315,8 +362,9 @@ router.post('/search', optionalAuth, async (req, res) => {
 })
 
 // Fallback search if RPC is not available
-async function fallbackSearch(req, res, keywords, department, region, limit) {
+async function fallbackSearch(req, res, keywords, department, region, limit, extraFilters = {}) {
   try {
+    const { commune, cursus_types, preference } = extraFilters
     const textColumns = ['nmc', 'etab_nom', 'tc']
 
     let query = supabase
@@ -365,16 +413,45 @@ async function fallbackSearch(req, res, keywords, department, region, limit) {
       query = query.ilike('region', `%${region}%`)
     }
 
-    const { data, error } = await query
+    // Apply commune filter (city)
+    if (commune) {
+      query = query.or(`commune.ilike.%${commune}%,departement.ilike.%${commune}%`)
+    }
+
+    // Apply cursus type filter
+    if (Array.isArray(cursus_types) && cursus_types.length > 0) {
+      const tcFilters = cursus_types.map(t => `tc.ilike.%${t}%`)
+      query = query.or(tcFilters.join(','))
+    }
+
+    const { data: rawData, error } = await query
 
     if (error) {
       console.error('Formations fallback search error:', error)
       return res.status(400).json({ error: error.message })
     }
 
+    // Post-filter by public/private preference
+    let results = rawData ?? []
+    if (results.length > 0 && preference) {
+      if (preference.includes('public')) {
+        const filtered = results.filter(d => {
+          const tc = (d.tc || '').toLowerCase()
+          return !tc.includes('privé') && !tc.includes('prive')
+        })
+        if (filtered.length > 0) results = filtered
+      } else if (preference.includes('priv')) {
+        const filtered = results.filter(d => {
+          const tc = (d.tc || '').toLowerCase()
+          return tc.includes('privé') || tc.includes('prive')
+        })
+        if (filtered.length > 0) results = filtered
+      }
+    }
+
     res.json({
-      formations: data ?? [],
-      total: data?.length ?? 0
+      formations: results,
+      total: results.length
     })
   } catch (err) {
     console.error('Formations fallback error:', err)

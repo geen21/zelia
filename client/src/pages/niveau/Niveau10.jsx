@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import supabase from '../../lib/supabase'
 import { analysisAPI, usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
-import { FaClipboardList, FaTrophy, FaStar, FaRocket } from 'react-icons/fa6'
+import { FaClipboardList, FaTrophy, FaStar, FaRocket, FaDownload } from 'react-icons/fa6'
 
 function buildAvatarFromProfile(profile, seed = 'zelia') {
   try {
@@ -97,6 +97,12 @@ const STEP_Q1 = 'q1'
 const STEP_Q2 = 'q2'
 const STEP_BILAN = 'bilan'
 
+let jsPdfPromise = null
+async function loadJsPdf() {
+  if (!jsPdfPromise) jsPdfPromise = import('jspdf').then((m) => m.jsPDF)
+  return jsPdfPromise
+}
+
 const OPTIONS_3 = ['Oui', 'Non', 'Je ne sais pas']
 
 export default function Niveau10() {
@@ -120,6 +126,7 @@ export default function Niveau10() {
 
   const [showSuccess, setShowSuccess] = useState(false)
   const [finishing, setFinishing] = useState(false)
+  const [downloading, setDownloading] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -242,6 +249,50 @@ export default function Niveau10() {
       setBilanError('Impossible de valider le niveau pour le moment. Réessaie.')
     } finally {
       setFinishing(false)
+    }
+  }
+
+  const downloadBilan = async () => {
+    if (downloading) return
+    setDownloading(true)
+    try {
+      const JsPDF = await loadJsPdf()
+      const doc = new JsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
+      const margin = 15
+      const pageW = doc.internal.pageSize.getWidth()
+      const usable = pageW - margin * 2
+      let y = margin
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(18)
+      doc.text('Bilan Zélia — Niveaux 1 à 9', margin, y)
+      y += 10
+
+      const addSection = (title, content) => {
+        if (!content || content === 'Non disponible') return
+        if (y > 260) { doc.addPage(); y = margin }
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(12)
+        doc.text(title, margin, y)
+        y += 6
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(10)
+        const lines = doc.splitTextToSize(String(content), usable)
+        doc.text(lines, margin, y)
+        y += lines.length * 5 + 6
+      }
+
+      addSection('Anglais', englishLevel || 'Non disponible')
+      addSection('Formations', formationsText.length ? formationsText.join(', ') : 'Non disponible')
+      addSection('Résumé personnalité', personalitySummary)
+      addSection('Résumé Niveau 1', niveau1Summary)
+      addSection('Bilan compétences', skillsBilan)
+
+      doc.save('zelia-bilan-niveaux-1-9.pdf')
+    } catch (e) {
+      console.error('PDF generation failed', e)
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -409,6 +460,15 @@ export default function Niveau10() {
               {Boolean(bilanError) && (
                 <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">{bilanError}</div>
               )}
+
+              <button
+                onClick={downloadBilan}
+                disabled={downloading}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-black text-white border border-gray-200 w-full sm:w-auto disabled:opacity-50 hover:bg-gray-800 transition-colors"
+              >
+                <FaDownload className="w-4 h-4" />
+                {downloading ? 'Téléchargement…' : 'Télécharger le bilan'}
+              </button>
             </div>
           )}
         </div>

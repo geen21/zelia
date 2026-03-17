@@ -425,7 +425,7 @@ export default function Niveau5() {
       {completed && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">ï¿½</div>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
             <h3 className="text-2xl font-extrabold mb-2">Niveau 5 réussi !</h3>
             <p className="text-text-secondary mb-4">Ton niveau d'anglais est : <strong>{englishLevel}</strong>. Continue à pratiquer pour progresser !</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

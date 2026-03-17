@@ -96,7 +96,7 @@ export default function Layout() {
 		formations: 6,
 		emplois: 9,
 		lettre: 12,
-		chat: 27,
+		chat: 13,
 	}
 
 	const isUnlocked = (required) => Number(level) >= Number(required)
@@ -191,7 +191,7 @@ export default function Layout() {
 					>
 						Lettre de motivation
 					</SidebarLink>
-					{/* Chat - unlock at level 15 */}
+					{/* Chat - unlock at level 13 */}
 								<SidebarLink
 									to="/app/chat"
 									icon="ph-chats"

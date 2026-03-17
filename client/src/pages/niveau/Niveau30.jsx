@@ -4,9 +4,16 @@ import apiClient, { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
+import { FaClipboardList, FaDownload } from 'react-icons/fa6'
 
 const STEP_INTRO = 'intro'
 const STEP_BILAN = 'bilan'
+
+let jsPdfPromise = null
+async function loadJsPdf() {
+  if (!jsPdfPromise) jsPdfPromise = import('jspdf').then((m) => m.jsPDF)
+  return jsPdfPromise
+}
 
 function useTypewriter(message, durationMs) {
   const [text, setText] = useState('')
@@ -126,9 +133,9 @@ function buildFallbackSummary(entries) {
 
   const summary = [
     `Tu as progressé sur les filières, le budget et la sélection d'écoles (N21-N23).`,
-    `Le quiz stats (N24) et les vidéos (N25, N29) ont consolidé ta vision de l'orientation.`,
+    `Le quiz stats (N24) et les vidéos (N25, N27) ont consolidé ta vision de l'orientation.`,
     `Tu as avancé sur Parcoursup et les démarches concrètes (N26).`,
-    `Tu as aussi travaillé ta posture via le pitch oral et la simulation d'entretien (N27-N28).`,
+    `Tu as travaillé ta posture via le pitch oral (N28) et la simulation d'entretien (N29).`,
     `Points marquants enregistrés: ${formatLevel([21, 22, 23, 24, 25, 26, 27, 28, 29])}.`
   ].join('\n')
 
@@ -143,9 +150,9 @@ const LEVELS_SUMMARY = [
   { level: 24, title: 'Quiz : Statistiques orientation', type: 'quiz' },
   { level: 25, title: 'Video : Etudes post-bac', type: 'video' },
   { level: 26, title: 'Resume : Parcoursup', type: 'info' },
-  { level: 27, title: 'Apprendre à se présenter (Pitch)', type: 'pitch' },
-  { level: 28, title: 'Simulation : Entretien embauche', type: 'simulation' },
-  { level: 29, title: 'Video : Comment se vendre', type: 'video' },
+  { level: 27, title: 'Vidéo : Comment se vendre', type: 'vidéo' },
+  { level: 28, title: 'Apprendre à se présenter (Pitch)', type: 'pitch' },
+  { level: 29, title: 'Simulation : Entretien admission', type: 'simulation' },
 ]
 
 export default function Niveau30() {
@@ -161,6 +168,7 @@ export default function Niveau30() {
   const [bilan, setBilan] = useState(null)
   const [showSuccess, setShowSuccess] = useState(false)
   const [finishing, setFinishing] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [extraInfos, setExtraInfos] = useState([])
 
   useEffect(() => {
@@ -237,7 +245,7 @@ export default function Niveau30() {
         `{"summary":""}\n` +
         `Contraintes:\n` +
         `- 5 phrases maximum, style clair et concret.\n` +
-        `- Inclure brièvement: vidéos, quiz stats, Parcoursup, simulation d'entretien, prochaine étape.\n` +
+        `- Inclure brièvement: vidéos orientation (N21-N23, N25), quiz stats (N24), Parcoursup (N26), vidéo se vendre (N27), pitch oral (N28), simulation d'entretien (N29).\n` +
         `- Ne recopie pas les données brutes, synthétise.\n` +
         `- Sois encourageant et personnalisé.`
 
@@ -282,6 +290,34 @@ export default function Niveau30() {
       setBilanError('Impossible de valider le niveau pour le moment. Reessaie.')
     } finally {
       setFinishing(false)
+    }
+  }
+
+  const downloadBilan = async () => {
+    if (downloading || !bilan?.summary) return
+    setDownloading(true)
+    try {
+      const JsPDF = await loadJsPdf()
+      const doc = new JsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
+      const margin = 15
+      const usable = doc.internal.pageSize.getWidth() - margin * 2
+      let y = margin
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(18)
+      doc.text('Bilan Zélia — Niveaux 21 à 29', margin, y)
+      y += 10
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+      const lines = doc.splitTextToSize(cleanBilanSummary(bilan.summary), usable)
+      doc.text(lines, margin, y)
+
+      doc.save('zelia-bilan-niveaux-21-29.pdf')
+    } catch (e) {
+      console.error('PDF generation failed', e)
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -383,11 +419,22 @@ export default function Niveau30() {
           )}
 
           {showBilan && !bilanLoading && !bilanError && (
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <div className="font-semibold">Résumé</div>
-              <div className="mt-2 whitespace-pre-wrap text-text-secondary text-sm">
-                {summary || 'Bilan non disponible'}
+            <div className="space-y-4">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div className="font-semibold">Résumé</div>
+                <div className="mt-2 whitespace-pre-wrap text-text-secondary text-sm">
+                  {summary || 'Bilan non disponible'}
+                </div>
               </div>
+
+              <button
+                onClick={downloadBilan}
+                disabled={downloading}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-black text-white border border-gray-200 w-full sm:w-auto disabled:opacity-50 hover:bg-gray-800 transition-colors"
+              >
+                <FaDownload className="w-4 h-4" />
+                {downloading ? 'Téléchargement…' : 'Télécharger le bilan'}
+              </button>
             </div>
           )}
         </div>

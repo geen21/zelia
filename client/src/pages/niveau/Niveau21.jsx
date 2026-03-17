@@ -100,17 +100,66 @@ export default function Niveau21() {
 
         const name = prof?.first_name || 'toi'
 
-        // Load filières based on home_preference or study_recommendations
+        // Load user's actual job recommendations from user_results
+        let jobRecommendations = []
         const homePreference = (prof?.home_preference || '').trim()
+        const isQuestionnaire = homePreference.toLowerCase() === 'questionnaire'
+
+        try {
+          let query = supabase
+            .from('user_results')
+            .select('job_recommendations, questionnaire_type')
+            .eq('user_id', user.id)
+
+          if (isQuestionnaire) {
+            query = query.eq('questionnaire_type', 'inscription')
+          }
+
+          const { data: userResultsData } = await query
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          if (userResultsData?.job_recommendations) {
+            let list = userResultsData.job_recommendations
+            if (typeof list === 'string') {
+              try { list = JSON.parse(list) } catch { list = [] }
+            }
+            if (Array.isArray(list)) {
+              jobRecommendations = list
+                .map(item => {
+                  if (typeof item === 'string') return item.trim()
+                  return (item?.title || item?.intitule || '').trim()
+                })
+                .filter(Boolean)
+                .slice(0, 6)
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to load job_recommendations', e)
+        }
+
+        // Build the target job context
+        const targetJob = (!isQuestionnaire && homePreference) ? homePreference : ''
+        const jobContext = targetJob
+          ? `Le métier principal visé est : "${targetJob}".`
+          : ''
+        const recsContext = jobRecommendations.length > 0
+          ? `Les métiers recommandés selon le profil de l'élève sont : ${jobRecommendations.join(', ')}.`
+          : ''
+
+        // Generate filières based on actual job data
         let filieresData = []
 
-        if (homePreference) {
-          // Generate filières via Gemini based on home_preference
-          const message = `L'élève souhaite devenir "${homePreference}".
-Propose 6 types de filières d'études (formations) qui permettent d'accéder à ce métier ou à des métiers similaires.
-Réponds en JSON strict : un tableau d'objets avec "type" (type d'étude courte) et "degree" (intitulé du diplôme).
-Exemple de format:
-[{"type":"Master universitaire","degree":"Master en Intelligence Artificielle"},{"type":"École d'ingénieurs","degree":"Diplôme d'Ingénieur en Robotique"}]
+        if (targetJob || jobRecommendations.length > 0) {
+          const message = `Tu es un conseiller d'orientation expert. Voici le profil de l'élève :
+${jobContext}
+${recsContext}
+
+Propose exactement 10 types de filières d'études (formations post-bac) qui correspondent DIRECTEMENT à ces métiers.
+Les filières doivent être réalistes et cohérentes avec les métiers mentionnés.
+Réponds en JSON strict : un tableau d'objets avec "type" (type d'étude court, ex: "BTS", "Licence", "Master", "École d'ingénieurs") et "degree" (intitulé précis du diplôme).
+Exemple: [{"type":"BTS","degree":"BTS Commerce International"},{"type":"Licence","degree":"Licence en Droit"}]
 Réponds UNIQUEMENT avec le JSON, sans texte autour.`
 
           const resp = await apiClient.post('/chat/ai', {
@@ -129,8 +178,10 @@ Réponds UNIQUEMENT avec le JSON, sans texte autour.`
           } catch {
             filieresData = []
           }
-        } else {
-          // Try to get from user_results.study_recommendations
+        }
+
+        // Fallback: try study_recommendations from analysis
+        if (filieresData.length === 0) {
           try {
             const anal = await apiClient.get('/analysis/my-results', { headers: { 'Cache-Control': 'no-cache' }, params: { _: Date.now() } })
             const results = anal?.data?.results || {}
@@ -142,44 +193,27 @@ Réponds UNIQUEMENT avec le JSON, sans texte autour.`
               }))
             }
           } catch {
-            // fallback
+            // fallback below
           }
         }
 
-        // If still empty, generate generic filières
+        // If still empty, use hardcoded generic fallback (no AI call)
         if (filieresData.length === 0) {
-          const fallbackMessage = `Propose 6 types de filières d'études variées pour un lycéen en France.
-Réponds en JSON strict : un tableau d'objets avec "type" (type d'étude) et "degree" (intitulé du diplôme).
-Exemple: [{"type":"BTS","degree":"BTS Commerce International"},{"type":"Licence","degree":"Licence en Droit"}]
-Réponds UNIQUEMENT avec le JSON.`
-
-          const resp = await apiClient.post('/chat/ai', {
-            mode: 'advisor',
-            advisorType: 'filieres-fallback',
-            message: fallbackMessage,
-            history: []
-          })
-
-          try {
-            const reply = resp?.data?.reply || ''
-            const jsonMatch = reply.match(/\[[\s\S]*\]/)
-            if (jsonMatch) {
-              filieresData = JSON.parse(jsonMatch[0])
-            }
-          } catch {
-            // Use hardcoded fallback
-            filieresData = [
-              { type: 'BTS', degree: 'BTS Commerce International' },
-              { type: 'DUT/BUT', degree: 'BUT Techniques de Commercialisation' },
-              { type: 'Licence', degree: 'Licence en Droit' },
-              { type: 'École de Commerce', degree: 'Programme Grande École' },
-              { type: 'École d\'Ingénieurs', degree: 'Diplôme d\'Ingénieur Généraliste' },
-              { type: 'Master', degree: 'Master en Management' }
-            ]
-          }
+          filieresData = [
+            { type: 'BTS', degree: 'BTS Commerce International' },
+            { type: 'DUT/BUT', degree: 'BUT Techniques de Commercialisation' },
+            { type: 'Licence', degree: 'Licence en Droit' },
+            { type: 'École de Commerce', degree: 'Programme Grande École' },
+            { type: 'École d\'Ingénieurs', degree: 'Diplôme d\'Ingénieur Généraliste' },
+            { type: 'Master', degree: 'Master en Management' },
+            { type: 'Licence Pro', degree: 'Licence Pro Métiers du Numérique' },
+            { type: 'BTS', degree: 'BTS Communication' },
+            { type: 'CPGE', degree: 'Classe Préparatoire Économique et Commerciale' },
+            { type: 'DN MADE', degree: 'DN MADE Graphisme' }
+          ]
         }
 
-        setFilieres(filieresData.slice(0, 8))
+        setFilieres(filieresData.slice(0, 10))
 
         // Build dialogues
         setDialogues([

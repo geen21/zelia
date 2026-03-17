@@ -4,10 +4,16 @@ import apiClient, { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
-
+import { FaDownload } from 'react-icons/fa6'
 
 const STEP_INTRO = 'intro'
 const STEP_BILAN = 'bilan'
+
+let jsPdfPromise = null
+async function loadJsPdf() {
+  if (!jsPdfPromise) jsPdfPromise = import('jspdf').then((m) => m.jsPDF)
+  return jsPdfPromise
+}
 
 function useTypewriter(message, durationMs) {
   const [text, setText] = useState('')
@@ -253,6 +259,7 @@ export default function Niveau40() {
   const [bilan, setBilan] = useState(null)
   const [showSuccess, setShowSuccess] = useState(false)
   const [finishing, setFinishing] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [extraInfos, setExtraInfos] = useState([])
 
   useEffect(() => {
@@ -379,6 +386,42 @@ export default function Niveau40() {
     }
   }
 
+  const downloadBilan = async () => {
+    if (downloading || !bilan?.sections) return
+    setDownloading(true)
+    try {
+      const JsPDF = await loadJsPdf()
+      const doc = new JsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
+      const margin = 15
+      const usable = doc.internal.pageSize.getWidth() - margin * 2
+      let y = margin
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(18)
+      doc.text('Bilan final Zélia — Niveaux 31 à 39', margin, y)
+      y += 10
+
+      bilan.sections.forEach((section) => {
+        if (y > 260) { doc.addPage(); y = margin }
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(12)
+        doc.text(section.title || 'Section', margin, y)
+        y += 6
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(10)
+        const lines = doc.splitTextToSize(String(section.content || ''), usable)
+        doc.text(lines, margin, y)
+        y += lines.length * 5 + 6
+      })
+
+      doc.save('zelia-bilan-final-niveaux-31-39.pdf')
+    } catch (e) {
+      console.error('PDF generation failed', e)
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-6 text-center">
@@ -458,6 +501,15 @@ export default function Niveau40() {
                       <p className="text-sm text-gray-700 whitespace-pre-wrap">{section.content}</p>
                     </div>
                   ))}
+
+                  <button
+                    onClick={downloadBilan}
+                    disabled={downloading}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-black text-white border border-gray-200 w-full sm:w-auto disabled:opacity-50 hover:bg-gray-800 transition-colors"
+                  >
+                    <FaDownload className="w-4 h-4" />
+                    {downloading ? 'Téléchargement…' : 'Télécharger le bilan'}
+                  </button>
                 </div>
               )}
             </div>

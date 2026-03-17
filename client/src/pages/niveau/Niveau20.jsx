@@ -4,10 +4,16 @@ import apiClient, { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
-import { FaClipboardList, FaTrophy } from 'react-icons/fa6'
+import { FaClipboardList, FaTrophy, FaDownload } from 'react-icons/fa6'
 
 const STEP_INTRO = 'intro'
 const STEP_BILAN = 'bilan'
+
+let jsPdfPromise = null
+async function loadJsPdf() {
+  if (!jsPdfPromise) jsPdfPromise = import('jspdf').then((m) => m.jsPDF)
+  return jsPdfPromise
+}
 
 function useTypewriter(message, durationMs) {
   const [text, setText] = useState('')
@@ -168,6 +174,7 @@ export default function Niveau20() {
   const [bilan, setBilan] = useState(null)
   const [showSuccess, setShowSuccess] = useState(false)
   const [finishing, setFinishing] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [extraInfos, setExtraInfos] = useState([])
 
   useEffect(() => {
@@ -234,14 +241,28 @@ export default function Niveau20() {
       }
 
       const context = formatExtraInfos(extraInfos)
+      const levelsContext = [
+        'N11: Classement des domaines professionnels',
+        'N12: Débouchés et marché du travail',
+        'N13: Chat communautaire',
+        'N14: Lettre de motivation',
+        'N15: Points positifs et négatifs',
+        'N16: Vidéo : comment se vendre',
+        'N17: Créer son CV',
+        'N18: Classement des métiers',
+        'N19: Axes d\'amélioration'
+      ].join('\n')
+
       const message =
         `Tu dois produire un résumé très court des niveaux 11 à 19 à partir des informations ci-dessous.\n` +
+        `Contexte des modules traversés:\n${levelsContext}\n\n` +
         `Réponds UNIQUEMENT en JSON valide au format suivant :\n` +
         `{"summary":""}\n` +
         `Contraintes:\n` +
         `- 5 phrases maximum, style clair et concret.\n` +
-        `- Inclure brièvement: classement métiers (N11/N18), lettre (N14), points positifs/négatifs (N15), CV (N17), amélioration (N19).\n` +
+        `- Inclure brièvement: classement domaines/métiers (N11/N18), lettre de motivation (N14), CV (N17), axes d'amélioration (N19).\n` +
         `- Ne recopie pas les données brutes, synthétise.\n` +
+        `- Sois encourageant et personnalisé.\n` +
         `Données:\n${context}`
 
       const resp = await apiClient.post('/chat/ai', {
@@ -285,6 +306,34 @@ export default function Niveau20() {
       setBilanError('Impossible de valider le niveau pour le moment. Réessaie.')
     } finally {
       setFinishing(false)
+    }
+  }
+
+  const downloadBilan = async () => {
+    if (downloading || !bilan?.summary) return
+    setDownloading(true)
+    try {
+      const JsPDF = await loadJsPdf()
+      const doc = new JsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
+      const margin = 15
+      const usable = doc.internal.pageSize.getWidth() - margin * 2
+      let y = margin
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(18)
+      doc.text('Bilan Zélia — Niveaux 11 à 19', margin, y)
+      y += 10
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+      const lines = doc.splitTextToSize(cleanBilanSummary(bilan.summary), usable)
+      doc.text(lines, margin, y)
+
+      doc.save('zelia-bilan-niveaux-11-19.pdf')
+    } catch (e) {
+      console.error('PDF generation failed', e)
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -368,11 +417,22 @@ export default function Niveau20() {
           ) : bilanError ? (
             <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">{bilanError}</div>
           ) : (
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <div className="font-semibold">Résumé</div>
-              <div className="mt-2 whitespace-pre-wrap text-text-secondary">
-                {summary || 'Non disponible'}
+            <div className="space-y-4">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div className="font-semibold">Résumé</div>
+                <div className="mt-2 whitespace-pre-wrap text-text-secondary">
+                  {summary || 'Non disponible'}
+                </div>
               </div>
+
+              <button
+                onClick={downloadBilan}
+                disabled={downloading}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-black text-white border border-gray-200 w-full sm:w-auto disabled:opacity-50 hover:bg-gray-800 transition-colors"
+              >
+                <FaDownload className="w-4 h-4" />
+                {downloading ? 'Téléchargement…' : 'Télécharger le bilan'}
+              </button>
             </div>
           )}
         </div>

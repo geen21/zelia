@@ -100,6 +100,31 @@ function parsePoints(raw) {
   }
 }
 
+function normalizeJobSuggestions(profile, rawRecommendations) {
+  const homePreference = (profile?.home_preference || '').trim()
+  const isQuestionnaire = homePreference.toLowerCase() === 'questionnaire'
+
+  if (!isQuestionnaire && homePreference) {
+    return [homePreference]
+  }
+
+  let list = rawRecommendations
+  if (typeof list === 'string') {
+    try { list = JSON.parse(list) } catch { list = [] }
+  }
+
+  if (!Array.isArray(list)) return []
+
+  return [...new Set(
+    list
+      .map((item) => {
+        if (typeof item === 'string') return item.trim()
+        return (item?.title || item?.intitule || '').trim()
+      })
+      .filter(Boolean)
+  )].slice(0, 6)
+}
+
 export default function Niveau15() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
@@ -107,9 +132,9 @@ export default function Niveau15() {
   const [profile, setProfile] = useState(null)
   const [avatarUrl, setAvatarUrl] = useState('')
   const [jobFromResults, setJobFromResults] = useState('')
+  const [jobSuggestions, setJobSuggestions] = useState([])
 
   const [step, setStep] = useState(0)
-  const [choice, setChoice] = useState(null) // 'yes' | 'no'
   const [jobInput, setJobInput] = useState('')
 
   const [negatives, setNegatives] = useState([])
@@ -164,6 +189,7 @@ export default function Niveau15() {
               const title = list[0]?.title || list[0]?.intitule || (typeof list[0] === 'string' ? list[0] : '')
               setJobFromResults(title || '')
             }
+            setJobSuggestions(normalizeJobSuggestions(prof, userResultsData?.job_recommendations))
           }
         } catch (e) {
           console.warn('Failed to fetch job_recommendations from user_results', e)
@@ -189,12 +215,12 @@ export default function Niveau15() {
     { type: 'text', text: "Ça n'est jamais tout blanc ou tout noir, il y a des points positifs et négatifs dans chaque métier", durationMs: 2600 },
     { type: 'text', text: "On a toujours tendance à entendre le positif alors je te propose qu'on voit ensemble les bons et les mauvais côtés pour un métier donné", durationMs: 3000 },
     { type: 'text', text: "Je vais te lister les 3 points les plus négatifs et les 3 points les plus positifs pour chaque métier", durationMs: 2600 },
-    { type: 'question', text: `Tu veux le faire pour ce métier : ${suggestedJob || 'ce métier'} ?`, durationMs: 1800 }
-  ]), [suggestedJob])
+    { type: 'text', text: "Choisis un métier et je t'affiche les points !", durationMs: 1500 }
+  ]), [])
 
   const current = dialogue[Math.min(step, dialogue.length - 1)]
   const { text: typed, done: typedDone, skip } = useTypewriter(current?.text || '', current?.durationMs || 1500)
-  const isQuestionStep = current?.type === 'question'
+  const isLastDialogueStep = step >= dialogue.length - 1
 
   const onNext = () => {
     if (!typedDone) {
@@ -204,22 +230,7 @@ export default function Niveau15() {
     setStep((prev) => Math.min(prev + 1, dialogue.length - 1))
   }
 
-  const onChooseYes = () => {
-    if (!typedDone) return
-    if (!suggestedJob) {
-      setChoice('no')
-      return
-    }
-    setChoice('yes')
-    setJobInput('')
-  }
-
-  const onChooseNo = () => {
-    if (!typedDone) return
-    setChoice('no')
-  }
-
-  const effectiveJob = choice === 'yes' && suggestedJob ? suggestedJob : jobInput.trim()
+  const effectiveJob = jobInput.trim()
 
   const generatePoints = async () => {
     const jobTitle = effectiveJob
@@ -323,33 +334,14 @@ export default function Niveau15() {
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
               </div>
 
-              {!isQuestionStep && (
+              {!isLastDialogueStep && (
                 <button
                   type="button"
                   onClick={onNext}
                   className="mt-4 px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200"
                 >
-                  {step < dialogue.length - 1 ? (typedDone ? 'Suivant' : 'Passer') : 'Suivant'}
+                  {typedDone ? 'Suivant' : 'Passer'}
                 </button>
-              )}
-
-              {isQuestionStep && typedDone && (
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={onChooseYes}
-                    className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200"
-                  >
-                    Oui
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onChooseNo}
-                    className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300"
-                  >
-                    Non
-                  </button>
-                </div>
               )}
             </div>
           </div>
@@ -362,33 +354,45 @@ export default function Niveau15() {
             <h2 className="text-xl font-bold">Points positifs / négatifs</h2>
           </div>
 
-          {isQuestionStep && typedDone && (
-            <div className="mb-4">
-              {choice === null && (
-                <div className="text-text-secondary">Réponds à la question à gauche pour continuer.</div>
-              )}
+          <div className="mb-4">
+            <div className="space-y-2">
+              <label className="text-sm text-text-secondary">Métier souhaité</label>
 
-              {choice === 'yes' && suggestedJob && (
-                <div className="space-y-3">
-                  <div className="text-sm text-text-secondary">Métier sélectionné</div>
-                  <div className="font-semibold">{suggestedJob}</div>
+              {jobSuggestions.length > 0 && !jobInput.trim() && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Suggestions basées sur ton profil
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {jobSuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => {
+                          setJobInput(suggestion)
+                          setNegatives([])
+                          setPositives([])
+                          setGenerateError('')
+                        }}
+                        disabled={generating}
+                        className="rounded-full border border-gray-200 bg-white px-3 py-1 text-sm font-medium text-gray-700 transition hover:border-black hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {(choice === 'no' || (choice === 'yes' && !suggestedJob)) && (
-                <div className="space-y-2">
-                  <label className="text-sm text-text-secondary">Métier souhaité</label>
-                  <input
-                    type="text"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
-                    placeholder="Ex: Développeur web"
-                    value={jobInput}
-                    onChange={(e) => setJobInput(e.target.value)}
-                  />
-                </div>
-              )}
+              <input
+                type="text"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
+                placeholder="Ex: Développeur web"
+                value={jobInput}
+                onChange={(e) => setJobInput(e.target.value)}
+              />
             </div>
-          )}
+          </div>
 
           <div className="flex flex-wrap gap-3 items-center mb-4">
             <button

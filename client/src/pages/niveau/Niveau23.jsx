@@ -97,54 +97,60 @@ export default function Niveau23() {
         const fieldsRes = await usersAPI.getFields().catch(() => null)
         const userFields = fieldsRes?.data?.fields || []
 
-        // Build context for Gemini
-        const contextParts = []
+        // --- Parse N22 structured preferences ---
+        const getExtra = (id) => (extraInfo.find(e => e.question_id === id)?.answer_text || '').trim()
+        const n22City = getExtra('niveau22_city')
+        const n22Preference = getExtra('niveau22_preference')   // 'public' or 'privé'
+        const n22NearHome = getExtra('niveau22_near_home')       // 'Oui' or 'Non'
+        const n22Level = getExtra('niveau22_level')              // 'Bac +2', 'Bac +3', etc.
 
-        // From user_fields
+        // Map study level to cursus types for filtering
+        const levelToCursusTypes = {
+          'Bac +2': ['BTS', 'BUT', 'DUT', 'DEUST', 'CPGE'],
+          'Bac +3': ['Licence', 'BUT', 'Bachelor', 'DN MADE'],
+          'Bac +5': ['Master', 'ingénieur', 'Grade master'],
+          'Bac +8': ['Doctorat'],
+          'Bac +8 ou plus': ['Doctorat']
+        }
+        const cursusTypes = levelToCursusTypes[n22Level] || []
+
+        // Determine search location: use N22 city, or home department if "near home"
+        const userDepartment = (prof?.department || '').trim()
+        const searchCity = n22City || (n22NearHome === 'Oui' ? userDepartment : '') || userDepartment
+
+        // Build context for Gemini (domain keywords only)
+        const contextParts = []
         userFields.forEach(f => {
           if (f.field_type || f.field_degree) {
-            contextParts.push(`Filière choisie: ${f.field_type || ''} - ${f.field_degree || ''}`)
+            contextParts.push(`Filière choisie: ${f.field_type || ''} ${f.field_degree || ''}`.trim())
           }
         })
 
-        // From informations_complementaires
+        // From informations_complementaires (N21 fields only, for domain context)
         extraInfo.forEach(e => {
-          if (e.question_id?.includes('niveau21') || e.question_id?.includes('niveau22')) {
-            if (e.answer_text && e.answer_text !== '{}' && e.answer_text !== '[]') {
-              contextParts.push(`${e.question_text}: ${e.answer_text}`)
-            }
+          if (e.question_id?.includes('niveau21') && e.answer_text && e.answer_text !== '{}' && e.answer_text !== '[]') {
+            contextParts.push(`${e.question_text}: ${e.answer_text}`)
           }
         })
 
-        // Get department from profile
-        const userDepartment = (prof?.department || '').trim()
-
-        // Ask Gemini to generate search keywords
+        // Ask Gemini ONLY for domain keywords (not location/level/type)
         const geminiPrompt = `Tu es un expert en orientation scolaire. Voici le profil d'un étudiant:
 
 ${contextParts.join('\n')}
-Département de l'étudiant: ${userDepartment || 'Non renseigné'}
 
-La base de données formation_france contient des écoles avec ces colonnes:
-- etab_nom: nom de l'établissement (ex: "Y SCHOOLS - Ecole Supérieure de Tourisme")
-- nmc: nom court de la formation
-- tc: type de cursus (ex: "Licence", "Master", "BTS", "BUT", "Ecole d'ingénieur", "Privés enseignement supérieur")
-- departement: département (ex: "Paris", "Rhône", "Aube")
+Génère 3 à 5 mots-clés de DOMAINE pour rechercher des formations adaptées dans la base de données.
+Les mots-clés doivent correspondre au domaine d'études (ex: informatique, commerce, droit, tourisme, santé, ingénieur, communication, etc.)
 
-Génère des mots-clés pour une recherche SQL LIKE qui trouvera des écoles adaptées.
-IMPORTANT: Choisis des mots-clés PERTINENTS au domaine (commerce, informatique, tourisme, ingénieur, etc.) PAS des mots génériques.
-Le département doit correspondre au département de l'étudiant.
+IMPORTANT:
+- NE PAS inclure de ville, département ou région
+- NE PAS inclure de niveau d'études (licence, master, BTS, etc.)
+- NE PAS inclure "public" ou "privé"
+- UNIQUEMENT des mots-clés de domaine/discipline
 
-Renvoie UNIQUEMENT un JSON avec ce format exact:
-{
-  "keywords": ["mot1", "mot2", "mot3"],
-  "department": "${userDepartment || ''}"
-}
-
-Réponds UNIQUEMENT avec le JSON, rien d'autre.`
+Renvoie UNIQUEMENT un JSON: {"keywords": ["mot1", "mot2", "mot3"]}
+Rien d'autre.`
 
         let keywords = []
-        let searchDepartment = userDepartment
 
         try {
           const aiRes = await apiClient.post('/chat/ai', {
@@ -160,9 +166,6 @@ Réponds UNIQUEMENT avec le JSON, rien d'autre.`
             if (Array.isArray(parsed.keywords) && parsed.keywords.length > 0) {
               keywords = parsed.keywords.map(k => String(k || '').trim()).filter(Boolean)
             }
-            if (parsed.department) {
-              searchDepartment = parsed.department
-            }
           }
         } catch (err) {
           console.warn('Gemini query generation failed:', err)
@@ -177,17 +180,19 @@ Réponds UNIQUEMENT avec le JSON, rien d'autre.`
             }
           })
           if (keywords.length === 0) {
-            keywords = ['licence', 'master', 'bts']
+            keywords = ['formation']
           }
         }
 
-        console.log('Niveau23 search:', { keywords, department: searchDepartment })
+        console.log('Niveau23 search:', { keywords, city: searchCity, cursusTypes, preference: n22Preference })
 
-        // Search formations using API
+        // Search formations with structured filters from N22
         try {
           const searchRes = await apiClient.post('/formations/search', {
             keywords: keywords.slice(0, 5),
-            department: searchDepartment,
+            commune: searchCity,
+            cursus_types: cursusTypes,
+            preference: n22Preference,
             limit: 20
           })
           const formations = searchRes?.data?.formations || []

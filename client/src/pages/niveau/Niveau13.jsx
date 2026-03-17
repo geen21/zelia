@@ -82,7 +82,7 @@ export default function Niveau13() {
 
   const secondDialogues = useMemo(() => [
     { text: "Tu peux envoyer un message pour te présenter, dire ce que tu penses, essayer de voir si d'autres aimeraient faire le même métier que toi ?", durationMs: 3500 },
-    { text: "Tu peux également discuter avec notre conseillère d'orientation virtuelle si tu veux !", durationMs: 2500 },
+    { text: "On peut se parler directement ici !", durationMs: 2500 },
   ], [])
 
   const currentDialogue = dialogueStep < 3 

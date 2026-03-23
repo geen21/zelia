@@ -5,7 +5,7 @@ import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 
-const VIDEO_ID = 'QMwfhMb6cxA'
+const VIDEO_ID = 'zwNFqXkxqOA'
 const VIDEO_TITLE = 'Se motiver et avancer'
 
 function useTypewriter(message, durationMs) {

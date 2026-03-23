@@ -105,7 +105,7 @@ export default function Niveau25() {
         playerRef.current = new YTGlobal.Player('niv25Player', {
           height: '100%',
           width: '100%',
-          videoId: 'QMwfhMb6cxA', // TODO: Replace with actual video ID for niveau 25
+          videoId: 'OLd17RLW85A',
           playerVars: {
             rel: 0,
             modestbranding: 1,
@@ -255,7 +255,7 @@ export default function Niveau25() {
                 <iframe
                   width="560"
                   height="315"
-                  src="https://www.youtube.com/embed/QMwfhMb6cxA"
+                  src="https://www.youtube.com/embed/OLd17RLW85A"
                   title="YouTube video player"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

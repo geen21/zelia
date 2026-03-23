@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { analysisAPI, usersAPI } from '../lib/api'
 import { resolveAvatarUrl } from '../lib/avatar'
-import { fetchProgression, getDefaultProgression } from '../lib/progression'
+import { completeQuest, fetchProgression, getDefaultProgression } from '../lib/progression'
 import { generateZeliaShareImage } from '../lib/shareImage'
 import ZeliaDiploma from '../components/ZeliaDiploma'
 
@@ -244,6 +244,17 @@ export default function Profile() {
   }, [extraInfos])
 
   const hasDiploma = Number(progression?.level || 0) >= 40 || !!diplomaDate
+
+  const handleDiplomaDownloadComplete = useCallback(async () => {
+    try {
+      const result = await completeQuest('level_40')
+      if (result?.progression) {
+        setProgression(result.progression)
+      }
+    } catch (err) {
+      console.error('Failed to mark final quest complete after diploma download', err)
+    }
+  }, [])
 
   const refreshLatestAnalysis = useCallback(async () => {
     try {
@@ -806,6 +817,7 @@ export default function Profile() {
                   personalityType={resolvedAnalysis?.personalityType || null}
                   completionDate={diplomaDate ? new Date(diplomaDate) : new Date()}
                   avatarUrl={avatarUrl}
+                  onDownloadComplete={handleDiplomaDownloadComplete}
                 />
               </div>
             ) : (

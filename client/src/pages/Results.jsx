@@ -97,7 +97,7 @@ export default function Results() {
 				const userId = getUserId()
 				if (userId) {
 					try {
-						await apiClient.post('/analysis/generate-analysis', { userId })
+						await apiClient.post('/analysis/generate-analysis', {})
 						// Refetch results after generation
 						const refreshed = await apiClient.get('/analysis/my-results', {
 							headers: { 'Cache-Control': 'no-cache' },

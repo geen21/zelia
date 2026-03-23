@@ -7,7 +7,7 @@ function formatDate(date) {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-export default function ZeliaDiploma({ firstName, lastName, personalityType, completionDate, avatarUrl }) {
+export default function ZeliaDiploma({ firstName, lastName, personalityType, completionDate, avatarUrl, onDownloadComplete }) {
   const diplomaRef = useRef(null)
   const [downloading, setDownloading] = useState(false)
 
@@ -38,12 +38,15 @@ export default function ZeliaDiploma({ firstName, lastName, personalityType, com
       const pdfH = pdf.internal.pageSize.getHeight()
       pdf.addImage(imgData, 'PNG', 0, 0, pdfW, pdfH)
       pdf.save('diplome-zelia.pdf')
+      if (typeof onDownloadComplete === 'function') {
+        await onDownloadComplete()
+      }
     } catch (err) {
       console.error('Diploma PDF download failed', err)
     } finally {
       setDownloading(false)
     }
-  }, [downloading])
+  }, [downloading, onDownloadComplete])
 
   return (
     <div className="space-y-4">

@@ -775,10 +775,9 @@ function Niveau10Legacy_DISABLED() {
       return mapped
     } catch (err) {
       if (err.response?.status === 404) {
-        const targetUserId = userId || profile?.id
-        if (targetUserId) {
+        if (userId || profile?.id) {
           try {
-            await apiClient.post('/analysis/generate-analysis', { userId: targetUserId })
+            await apiClient.post('/analysis/generate-analysis', {})
             const refreshed = await fetchResults()
             const orientation = refreshed?.inscriptionResults || null
             if (!orientation) {

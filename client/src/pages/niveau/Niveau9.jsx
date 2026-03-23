@@ -5,8 +5,6 @@ import apiClient, { usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { FaCheck, FaBriefcase, FaTrophy } from 'react-icons/fa6'
 
-const CONTRACT_TYPES = ['CDI', 'CDD', 'Alternance', 'Stage', 'Intérim', 'Saisonnier']
-
 // Extract 2 most meaningful words from a job title for search matching
 function extractSearchKeywords(jobTitle) {
   if (!jobTitle) return ''
@@ -189,7 +187,7 @@ export default function Niveau9() {
   const [introIdx, setIntroIdx] = useState(0)
   const [mouthAlt, setMouthAlt] = useState(false)
 
-  const [form, setForm] = useState({ keyword: '', contract: '' })
+  const [form, setForm] = useState({ keyword: '' })
   const [searching, setSearching] = useState(false)
   const [searchExecuted, setSearchExecuted] = useState(false)
   const [searchError, setSearchError] = useState('')
@@ -206,7 +204,7 @@ export default function Niveau9() {
   const introMessages = useMemo(() => ([
     { text: 'Te voilà au niveau Métiers ! On va apprendre à trouver des offres de jobs en un clin d’œil.', durationMs: 3200 },
     { text: 'Je vais te guider pour utiliser la page Emplois et repérer les opportunités qui collent à ton profil.', durationMs: 3800 },
-    { text: `Prépare un mot-clé, un contrat et suis-moi étape par étape. On y va ${firstName}?`, durationMs: 2800 }
+    { text: `Prépare un mot-clé et suis-moi étape par étape. On y va ${firstName}?`, durationMs: 2800 }
   ]), [firstName])
 
   const currentIntro = introMessages[introIdx] || { text: '', durationMs: 2000 }
@@ -312,7 +310,6 @@ export default function Niveau9() {
   }, [avatarUrl, shouldAnimateMouth, mouthAlt])
 
   const keywordDone = form.keyword.trim().length >= 2
-  const filtersDone = Boolean(form.contract)
   const searchDone = searchExecuted
   const exploreDone = Boolean(selectedJob)
 
@@ -322,12 +319,6 @@ export default function Niveau9() {
       title: 'Choisir un mot-clé',
       description: 'Ex: développeur, vente, marketing…',
       done: keywordDone
-    },
-    {
-      id: 'filters',
-      title: 'Sélectionner un filtre',
-  description: 'Choisis un type de contrat pour cibler les offres.',
-      done: filtersDone
     },
     {
       id: 'search',
@@ -341,7 +332,7 @@ export default function Niveau9() {
       description: 'Ouvre la fiche ou note les infos clés.',
       done: exploreDone
     }
-  ]), [keywordDone, filtersDone, searchDone, exploreDone])
+  ]), [keywordDone, searchDone, exploreDone])
 
   const stepsCompleted = steps.filter((step) => step.done).length
   const progressPercent = Math.round((stepsCompleted / steps.length) * 100)
@@ -349,11 +340,10 @@ export default function Niveau9() {
 
   const guideMessage = useMemo(() => {
   if (!keywordDone) return 'Commence par saisir un mot-clé. Pense au métier ou au secteur que tu vises.'
-  if (!filtersDone) return 'Top ! Choisis un type de contrat pour cibler les offres.'
     if (!searchDone) return 'Parfait, lance la recherche pour voir les offres disponibles.'
-    if (!exploreDone) return 'Clique sur une offre et observe le contrat, la localisation et la date.'
+    if (!exploreDone) return 'Clique sur une offre et observe la localisation, la date et les informations utiles.'
     return 'Tu maîtrises maintenant la recherche de jobs. Tu peux valider ce niveau quand tu veux.'
-  }, [keywordDone, filtersDone, searchDone, exploreDone])
+  }, [keywordDone, searchDone, exploreDone])
 
   const handleIntroNext = () => {
     if (!introDone) {
@@ -380,7 +370,6 @@ export default function Niveau9() {
     try {
       const params = { page: 1, page_size: 24 }
       if (form.keyword.trim()) params.q = form.keyword.trim()
-      if (form.contract) params.typecontrat = form.contract
 
       const { data } = await apiClient.get('/catalog/metiers/search', {
         params,
@@ -570,24 +559,6 @@ export default function Niveau9() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="md:col-span-2">
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Type de contrat</label>
-                    <select
-                      className="w-full rounded-lg border border-gray-300 px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-black"
-                      value={form.contract}
-                      onChange={(event) => updateForm('contract', event.target.value)}
-                    >
-                      <option value="">Tous</option>
-                      {CONTRACT_TYPES.map((type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
                 <button
                   type="submit"
                   disabled={searching}
@@ -627,7 +598,7 @@ export default function Niveau9() {
 
                 {searchExecuted && results.length === 0 && (
                   <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
-                    <p>Aucun résultat pour ces critères. Essaie un autre mot-clé ou élargis les filtres.</p>
+                    <p>Aucun résultat pour ce mot-clé. Essaie un autre terme ou une recherche plus large.</p>
                     {jobSuggestions.length > 0 && (
                       <div className="mt-3">
                         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Suggestions basées sur ton profil</p>
@@ -700,7 +671,6 @@ export default function Niveau9() {
                   <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
                     <h4 className="text-base font-semibold text-gray-900">Ce que tu peux noter :</h4>
                     <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-600">
-                      <li>Le type de contrat et la localisation précise.</li>
                       <li>La localisation exacte et la date de mise à jour.</li>
                       <li>Le code ROME pour approfondir le métier.</li>
                       <li>Les liens pour postuler ou contacter l’entreprise.</li>

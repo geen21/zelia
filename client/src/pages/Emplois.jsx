@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react'
-import axios from 'axios'
-import { jwtDecode } from 'jwt-decode'
 import { supabase } from '../lib/supabase'
+import apiClient from '../lib/api'
 
 export default function Emplois(){
 	const [q, setQ] = useState('')
@@ -19,8 +18,6 @@ export default function Emplois(){
 	// page size derived from toggle; no separate state needed
 	const [jobRecs, setJobRecs] = useState(null) // [{title, skills:[]}, ...]
 	const [recoLoading, setRecoLoading] = useState(false)
-	const authToken = localStorage.getItem('token') || localStorage.getItem('supabase_auth_token')
-
     // Debounce search
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -28,18 +25,6 @@ export default function Emplois(){
         }, 600)
         return () => clearTimeout(timer)
     }, [q, typecontrat, alternance])
-
-	// Align with Results.jsx: derive the user ID from the token (no auth header needed for GET /api/analysis/results/:userId)
-	const getUserId = () => {
-		const token = localStorage.getItem('supabase_auth_token') || localStorage.getItem('token')
-		if (!token) return null
-		try {
-			const decoded = jwtDecode(token)
-			return decoded.sub || decoded.user_id || decoded.id || null
-		} catch (e) {
-			return null
-		}
-	}
 
 	// Helpers
 	const sanitizeValue = (v) => {
@@ -97,12 +82,9 @@ export default function Emplois(){
 	// Fetch current user's recommendations (jobs)
 	async function ensureJobRecommendations(){
 		if (jobRecs) return
-		const userId = getUserId()
-		if (!userId) return
 		setRecoLoading(true)
 		try{
-			// Use the same public endpoint as Results.jsx to avoid 403 from /my-results
-			const { data } = await axios.get(`/api/analysis/results/${userId}`)
+			const { data } = await apiClient.get('/analysis/my-results')
 			const recs = data?.results?.jobRecommendations
 			if (Array.isArray(recs)) setJobRecs(recs)
 		} catch(err) {

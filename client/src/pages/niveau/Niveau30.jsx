@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiClient, { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
+import { extractBilanJson, formatBilanExtraInfos, normalizeLevelSummaries } from '../../lib/levelBilan'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 import { FaClipboardList, FaDownload } from 'react-icons/fa6'
@@ -54,93 +55,6 @@ function useTypewriter(message, durationMs) {
   return { text, done, skip }
 }
 
-function sanitizeText(raw) {
-  if (!raw) return ''
-  return String(raw)
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/\*\*/g, '')
-    .trim()
-}
-
-function cleanBilanSummary(raw) {
-  const text = sanitizeText(raw)
-  if (!text) return ''
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.replace(/\s*→\s*Je suis d'accord\.?\s*$/i, '').trim())
-    .filter((line) => line && !/^Je suis d'accord\.?$/i.test(line))
-    .join('\n')
-    .trim()
-}
-
-function extractJson(raw) {
-  const text = sanitizeText(raw)
-  const start = text.indexOf('{')
-  const end = text.lastIndexOf('}')
-  if (start === -1 || end === -1 || end <= start) return null
-  const chunk = text.slice(start, end + 1)
-  try {
-    return JSON.parse(chunk)
-  } catch {
-    return null
-  }
-}
-
-function formatExtraInfos(entries) {
-  return (entries || [])
-    .map((row) => `- [${row.question_id}] ${row.question_text || 'Question'}: ${row.answer_text || '—'}`)
-    .join('\n')
-}
-
-function buildFallbackSummary(entries) {
-  const list = Array.isArray(entries) ? entries : []
-  const byLevel = new Map()
-
-  list.forEach((row) => {
-    const rawId = String(row?.question_id || '').toLowerCase()
-    const match = rawId.match(/niveau[_]?(\d+)/)
-    if (!match) return
-    const level = Number(match[1])
-    if (Number.isNaN(level) || level < 21 || level > 29) return
-    if (!byLevel.has(level)) byLevel.set(level, [])
-    byLevel.get(level).push(row)
-  })
-
-  const formatValue = (value) => {
-    if (value == null) return '—'
-    const raw = String(value).trim()
-    if (!raw) return '—'
-    try {
-      const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed)) return parsed.map((item) => JSON.stringify(item)).join(', ')
-      if (parsed && typeof parsed === 'object') return Object.entries(parsed).map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`).join(', ')
-      return JSON.stringify(parsed)
-    } catch {
-      return raw
-    }
-  }
-
-  const formatLevel = (levels) => {
-    const rows = []
-    levels.forEach((lvl) => {
-      const items = byLevel.get(lvl) || []
-      items.forEach((row) => {
-        rows.push(`Niveau ${lvl} - ${row?.question_text || 'Question'}: ${formatValue(row?.answer_text)}`)
-      })
-    })
-    return rows.length ? rows.join(' | ') : 'Non disponible'
-  }
-
-  const summary = [
-    `Tu as progressé sur les filières, le budget et la sélection d'écoles (N21-N23).`,
-    `Le quiz stats (N24) et les vidéos (N25, N27) ont consolidé ta vision de l'orientation.`,
-    `Tu as avancé sur Parcoursup et les démarches concrètes (N26).`,
-    `Tu as travaillé ta posture via le pitch oral (N28) et la simulation d'entretien (N29).`,
-    `Points marquants enregistrés: ${formatLevel([21, 22, 23, 24, 25, 26, 27, 28, 29])}.`
-  ].join('\n')
-
-  return { summary: cleanBilanSummary(summary) }
-}
 
 // Resume des niveaux 21-29 (videos et jeux)
 const LEVELS_SUMMARY = [
@@ -232,7 +146,7 @@ export default function Niveau30() {
       }
 
       const context = extraInfos.length > 0 
-        ? formatExtraInfos(extraInfos) 
+        ? formatBilanExtraInfos(extraInfos) 
         : 'Aucune donnee specifique enregistree pour les niveaux 21-29.'
 
       const summaryContext = LEVELS_SUMMARY.map(l => `- Niveau ${l.level}: ${l.title} (${l.type})`).join('\n')
@@ -242,11 +156,12 @@ export default function Niveau30() {
         `L'utilisateur a parcouru les modules suivants:\n${summaryContext}\n\n` +
         `Donnees enregistrees de l'utilisateur:\n${context}\n\n` +
         `Reponds UNIQUEMENT en JSON valide au format suivant :\n` +
-        `{"summary":""}\n` +
+        `{"levelSummaries":[{"level":21,"title":"Video : Conseils Orientation","summary":""}]}\n` +
         `Contraintes:\n` +
-        `- 5 phrases maximum, style clair et concret.\n` +
-        `- Inclure brièvement: vidéos orientation (N21-N23, N25), quiz stats (N24), Parcoursup (N26), vidéo se vendre (N27), pitch oral (N28), simulation d'entretien (N29).\n` +
-        `- Ne recopie pas les données brutes, synthétise.\n` +
+        `- Retourne 9 objets, un pour chaque niveau de 21 a 29.\n` +
+        `- Garde exactement les numeros de niveau.\n` +
+        `- Chaque summary doit faire 1 ou 2 phrases courtes, concretes et personnalisees.\n` +
+        `- Ne recopie pas les donnees brutes, synthese seulement.\n` +
         `- Sois encourageant et personnalisé.`
 
       const resp = await apiClient.post('/chat/ai', {
@@ -256,16 +171,13 @@ export default function Niveau30() {
         history: []
       })
 
-      const parsed = extractJson(resp?.data?.reply || '')
-      const summary = cleanBilanSummary(parsed?.summary || '')
-      if (!summary) {
-        setBilan(buildFallbackSummary(extraInfos))
-      } else {
-        setBilan({ summary })
-      }
+      const parsed = extractBilanJson(resp?.data?.reply || '')
+      setBilan({
+        levelSummaries: normalizeLevelSummaries(parsed?.levelSummaries, LEVELS_SUMMARY, extraInfos)
+      })
     } catch (e) {
       console.error('Niveau30 bilan fetch failed', e)
-      setBilan(buildFallbackSummary(extraInfos))
+      setBilan({ levelSummaries: normalizeLevelSummaries([], LEVELS_SUMMARY, extraInfos) })
       setBilanError('')
     } finally {
       setBilanLoading(false)
@@ -294,7 +206,7 @@ export default function Niveau30() {
   }
 
   const downloadBilan = async () => {
-    if (downloading || !bilan?.summary) return
+    if (downloading || !Array.isArray(bilan?.levelSummaries)) return
     setDownloading(true)
     try {
       const JsPDF = await loadJsPdf()
@@ -308,10 +220,18 @@ export default function Niveau30() {
       doc.text('Bilan Zélia — Niveaux 21 à 29', margin, y)
       y += 10
 
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(10)
-      const lines = doc.splitTextToSize(cleanBilanSummary(bilan.summary), usable)
-      doc.text(lines, margin, y)
+      bilan.levelSummaries.forEach((item) => {
+        if (y > 260) { doc.addPage(); y = margin }
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(12)
+        doc.text(`Niveau ${item.level} - ${item.title}`, margin, y)
+        y += 6
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(10)
+        const lines = doc.splitTextToSize(String(item.summary || 'Non disponible'), usable)
+        doc.text(lines, margin, y)
+        y += lines.length * 5 + 6
+      })
 
       doc.save('zelia-bilan-niveaux-21-29.pdf')
     } catch (e) {
@@ -338,7 +258,7 @@ export default function Niveau30() {
     )
   }
 
-  const summary = cleanBilanSummary(bilan?.summary || '')
+  const levelSummaries = Array.isArray(bilan?.levelSummaries) ? bilan.levelSummaries : []
   const showBilan = phase === STEP_BILAN
 
   return (
@@ -420,12 +340,12 @@ export default function Niveau30() {
 
           {showBilan && !bilanLoading && !bilanError && (
             <div className="space-y-4">
-              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                <div className="font-semibold">Résumé</div>
-                <div className="mt-2 whitespace-pre-wrap text-text-secondary text-sm">
-                  {summary || 'Bilan non disponible'}
+              {levelSummaries.map((item) => (
+                <div key={item.level} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="font-semibold">Niveau {item.level} · {item.title}</div>
+                  <div className="mt-2 whitespace-pre-wrap text-text-secondary text-sm">{item.summary || 'Bilan non disponible'}</div>
                 </div>
-              </div>
+              ))}
 
               <button
                 onClick={downloadBilan}

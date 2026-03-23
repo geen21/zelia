@@ -253,7 +253,7 @@ export default function Niveau4() {
     try {
       const payload = { answers: Object.entries(answers).map(([qid, ans]) => ({ question_id: Number(qid), answer: ans })), questionnaireType: 'mbti' }
       await apiClient.post('/questionnaire/submit?type=mbti', payload)
-      const resp = await apiClient.post('/analysis/generate-analysis-by-type', { userId, questionnaireType: 'mbti' })
+      const resp = await apiClient.post('/analysis/generate-analysis-by-type', { questionnaireType: 'mbti' })
       const data = resp?.data?.analysis
       if (data) {
         const normalized = sanitizeAnalysisPayload(data)

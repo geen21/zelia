@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiClient, { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
+import { extractBilanJson, formatBilanExtraInfos, normalizeLevelSummaries } from '../../lib/levelBilan'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 import { FaClipboardList, FaTrophy, FaDownload } from 'react-icons/fa6'
@@ -54,112 +55,17 @@ function useTypewriter(message, durationMs) {
   return { text, done, skip }
 }
 
-function sanitizeText(raw) {
-  if (!raw) return ''
-  return String(raw)
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/\*\*/g, '')
-    .trim()
-}
-
-function cleanBilanSummary(raw) {
-  const text = sanitizeText(raw)
-  if (!text) return ''
-
-  const cleanedLines = text
-    .split(/\r?\n/)
-    .map((line) => line.replace(/\s*→\s*Je suis d'accord\.?\s*$/i, '').trim())
-    .filter((line) => line && !/^Je suis d'accord\.?$/i.test(line))
-
-  return cleanedLines.join('\n').trim()
-}
-
-function extractJson(raw) {
-  const text = sanitizeText(raw)
-  const start = text.indexOf('{')
-  const end = text.lastIndexOf('}')
-  if (start === -1 || end === -1 || end <= start) return null
-  const chunk = text.slice(start, end + 1)
-  try {
-    return JSON.parse(chunk)
-  } catch {
-    return null
-  }
-}
-
-function formatExtraInfos(entries) {
-  return (entries || [])
-    .map((row) => `- [${row.question_id}] ${row.question_text || 'Question'}: ${row.answer_text || '—'}`)
-    .join('\n')
-}
-
-function buildFallbackSummary(entries) {
-  const byId = new Map()
-  const list = Array.isArray(entries) ? entries : []
-  list.forEach((row) => {
-    const id = String(row?.question_id || '').toLowerCase()
-    if (!id) return
-    if (!byId.has(id)) byId.set(id, row)
-  })
-
-  const getAnswer = (id) => byId.get(id)?.answer_text || ''
-  const safe = (value) => (value && String(value).trim() ? String(value).trim() : 'Non disponible')
-
-  const n11Ranking = safe(getAnswer('niveau11_domain_ranking'))
-  const n11Top3 = safe(getAnswer('niveau11_top3'))
-  const n12Game = safe(getAnswer('niveau12_game_completed'))
-  const n13Chat = safe(getAnswer('niveau13_chat_discovered'))
-  const n14Job = safe(getAnswer('niveau14_target_job'))
-  const n14Letter = safe(getAnswer('niveau14_letter_generated'))
-  const n15Pos = safe(getAnswer('niveau15_positives'))
-  const n15Neg = safe(getAnswer('niveau15_negatives'))
-  const n16Video = safe(getAnswer('niveau16_video_watched'))
-
-  const n17Target = safe(getAnswer('niveau17_target_job'))
-  const n17Languages = safe(getAnswer('niveau17_languages'))
-  const n17Pdf = safe(getAnswer('niveau17_cv_pdf_url'))
-
-  const n18Ranks = list
-    .filter((row) => String(row?.question_id || '').toLowerCase().startsWith('niveau18_rank_'))
-    .sort((a, b) => {
-      const ai = Number(String(a.question_id).split('_').pop()) || 0
-      const bi = Number(String(b.question_id).split('_').pop()) || 0
-      return ai - bi
-    })
-    .map((row, idx) => `${idx + 1}. ${row?.answer_text || '—'}`)
-
-  let n18Source = ''
-  const rawSource = getAnswer('niveau18_jobs_source')
-  if (rawSource) {
-    try {
-      const parsed = JSON.parse(rawSource)
-      if (Array.isArray(parsed)) n18Source = parsed.filter(Boolean).join(', ')
-    } catch {
-      n18Source = String(rawSource)
-    }
-  }
-
-  const n19Items = list
-    .filter((row) => {
-      const id = String(row?.question_id || '').toLowerCase()
-      return id.startsWith('niveau_19_') || id.startsWith('niveau19_')
-    })
-    .map((row) => String(row?.answer_text || '').trim())
-    .filter((value) => value && !/^je suis d'accord\.?$/i.test(value))
-
-  const topN18 = n18Ranks.length ? n18Ranks[0].replace(/^1\.\s*/, '') : 'Non disponible'
-  const n19First = n19Items.length ? n19Items[0] : 'Non disponible'
-
-  const summary = [
-    `Tu as surtout exploré ${n11Top3} et découvert les débouchés du marché du travail.`,
-    `Tu as découvert le chat communautaire, et ta lettre cible le métier ${n14Job}.`,
-    `Côté CV, tu as travaillé ${n17Target} (${n17Languages})${n17Pdf !== 'Non disponible' ? ' avec un PDF exporté' : ''}.`,
-    `${n18Source ? `Dans les pistes métiers (${n18Source}), ` : ''}ta priorité ressort sur ${topN18}.`,
-    `Prochain axe d'amélioration: ${n19First}.`
-  ].join('\n')
-
-  return { summary: cleanBilanSummary(summary) }
-}
+const LEVELS_SUMMARY = [
+  { level: 11, title: 'Classement des domaines' },
+  { level: 12, title: 'Debouches et marche' },
+  { level: 13, title: 'Chat communautaire' },
+  { level: 14, title: 'Lettre de motivation' },
+  { level: 15, title: 'Points positifs et negatifs' },
+  { level: 16, title: 'Video : comment se vendre' },
+  { level: 17, title: 'Creation du CV' },
+  { level: 18, title: 'Classement des metiers' },
+  { level: 19, title: 'Axes d amelioration' }
+]
 
 export default function Niveau20() {
   const navigate = useNavigate()
@@ -240,7 +146,7 @@ export default function Niveau20() {
         return
       }
 
-      const context = formatExtraInfos(extraInfos)
+      const context = formatBilanExtraInfos(extraInfos)
       const levelsContext = [
         'N11: Classement des domaines professionnels',
         'N12: Débouchés et marché du travail',
@@ -256,12 +162,13 @@ export default function Niveau20() {
       const message =
         `Tu dois produire un résumé très court des niveaux 11 à 19 à partir des informations ci-dessous.\n` +
         `Contexte des modules traversés:\n${levelsContext}\n\n` +
-        `Réponds UNIQUEMENT en JSON valide au format suivant :\n` +
-        `{"summary":""}\n` +
+        `Reponds UNIQUEMENT en JSON valide au format suivant :\n` +
+        `{"levelSummaries":[{"level":11,"title":"Classement des domaines","summary":""}]}\n` +
         `Contraintes:\n` +
-        `- 5 phrases maximum, style clair et concret.\n` +
-        `- Inclure brièvement: classement domaines/métiers (N11/N18), lettre de motivation (N14), CV (N17), axes d'amélioration (N19).\n` +
-        `- Ne recopie pas les données brutes, synthétise.\n` +
+        `- Retourne 9 objets, un pour chaque niveau de 11 a 19.\n` +
+        `- Garde exactement les numeros de niveau.\n` +
+        `- Chaque summary doit faire 1 ou 2 phrases courtes, concretes et personnalisees.\n` +
+        `- Ne recopie pas les donnees brutes, synthese seulement.\n` +
         `- Sois encourageant et personnalisé.\n` +
         `Données:\n${context}`
 
@@ -272,16 +179,13 @@ export default function Niveau20() {
         history: []
       })
 
-      const parsed = extractJson(resp?.data?.reply || '')
-      const summary = cleanBilanSummary(parsed?.summary || '')
-      if (!summary) {
-        setBilan(buildFallbackSummary(extraInfos))
-      } else {
-        setBilan({ summary })
-      }
+      const parsed = extractBilanJson(resp?.data?.reply || '')
+      setBilan({
+        levelSummaries: normalizeLevelSummaries(parsed?.levelSummaries, LEVELS_SUMMARY, extraInfos)
+      })
     } catch (e) {
       console.error('Niveau20 bilan fetch failed', e)
-      setBilan(buildFallbackSummary(extraInfos))
+      setBilan({ levelSummaries: normalizeLevelSummaries([], LEVELS_SUMMARY, extraInfos) })
       setBilanError('')
     } finally {
       setBilanLoading(false)
@@ -310,7 +214,7 @@ export default function Niveau20() {
   }
 
   const downloadBilan = async () => {
-    if (downloading || !bilan?.summary) return
+    if (downloading || !Array.isArray(bilan?.levelSummaries)) return
     setDownloading(true)
     try {
       const JsPDF = await loadJsPdf()
@@ -324,10 +228,18 @@ export default function Niveau20() {
       doc.text('Bilan Zélia — Niveaux 11 à 19', margin, y)
       y += 10
 
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(10)
-      const lines = doc.splitTextToSize(cleanBilanSummary(bilan.summary), usable)
-      doc.text(lines, margin, y)
+      bilan.levelSummaries.forEach((item) => {
+        if (y > 260) { doc.addPage(); y = margin }
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(12)
+        doc.text(`Niveau ${item.level} - ${item.title}`, margin, y)
+        y += 6
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(10)
+        const lines = doc.splitTextToSize(String(item.summary || 'Non disponible'), usable)
+        doc.text(lines, margin, y)
+        y += lines.length * 5 + 6
+      })
 
       doc.save('zelia-bilan-niveaux-11-19.pdf')
     } catch (e) {
@@ -354,7 +266,7 @@ export default function Niveau20() {
     )
   }
 
-  const summary = cleanBilanSummary(bilan?.summary || '')
+  const levelSummaries = Array.isArray(bilan?.levelSummaries) ? bilan.levelSummaries : []
   const showBilan = phase === STEP_BILAN
 
   return (
@@ -418,12 +330,12 @@ export default function Niveau20() {
             <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">{bilanError}</div>
           ) : (
             <div className="space-y-4">
-              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                <div className="font-semibold">Résumé</div>
-                <div className="mt-2 whitespace-pre-wrap text-text-secondary">
-                  {summary || 'Non disponible'}
+              {levelSummaries.map((item) => (
+                <div key={item.level} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="font-semibold">Niveau {item.level} · {item.title}</div>
+                  <div className="mt-2 whitespace-pre-wrap text-text-secondary">{item.summary || 'Non disponible'}</div>
                 </div>
-              </div>
+              ))}
 
               <button
                 onClick={downloadBilan}

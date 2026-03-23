@@ -76,8 +76,8 @@ export default function Layout() {
 			{ match: '/app/formations', label: 'Formations' },
 			{ match: '/app/emplois', label: 'Emplois' },
 			{ match: '/app/activites', label: 'Activités' },
-			{ match: '/app/lettre', label: 'Lettre' },
 			{ match: '/app/chat', label: 'Chat' },
+			{ match: '/app/lettre', label: 'Lettre' },
 			{ match: '/app/results', label: 'Résultats' },
 		]
 		const found = map.find(m => loc.pathname.startsWith(m.match))
@@ -95,8 +95,8 @@ export default function Layout() {
 		activites: 1,
 		formations: 6,
 		emplois: 9,
+		chat: 12,
 		lettre: 12,
-		chat: 13,
 	}
 
 	const isUnlocked = (required) => Number(level) >= Number(required)
@@ -180,6 +180,17 @@ export default function Layout() {
 					>
 						Emplois
 					</SidebarLink>
+					{/* Chat - unlock at level 12 */}
+								<SidebarLink
+									to="/app/chat"
+									icon="ph-chats"
+									active={active('/app/chat')}
+									onClick={() => setSidebarOpen(false)}
+									locked={!isUnlocked(thresholds.chat)}
+									lockTitle={`Niveau ${thresholds.chat}`}
+								>
+									Chat
+								</SidebarLink>
 					{/* Lettre de motivation - unlock at level 12 */}
 								<SidebarLink
 						to="/app/lettre"
@@ -191,17 +202,6 @@ export default function Layout() {
 					>
 						Lettre de motivation
 					</SidebarLink>
-					{/* Chat - unlock at level 13 */}
-								<SidebarLink
-									to="/app/chat"
-									icon="ph-chats"
-									active={active('/app/chat')}
-									onClick={() => setSidebarOpen(false)}
-									locked={!isUnlocked(thresholds.chat)}
-									lockTitle={`Niveau ${thresholds.chat}`}
-								>
-									Chat
-								</SidebarLink>
 								<div className="mt-auto">
 									<SidebarLink
 										to="/app/results"

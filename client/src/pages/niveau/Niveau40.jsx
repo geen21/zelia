@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiClient, { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
+import { extractBilanJson, formatBilanExtraInfos, normalizeLevelSummaries } from '../../lib/levelBilan'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 import { FaDownload } from 'react-icons/fa6'
@@ -54,33 +55,6 @@ function useTypewriter(message, durationMs) {
   return { text, done, skip }
 }
 
-function sanitizeText(raw) {
-  if (!raw) return ''
-  return String(raw)
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/\*\*/g, '')
-    .trim()
-}
-
-function extractJson(raw) {
-  const text = sanitizeText(raw)
-  const start = text.indexOf('{')
-  const end = text.lastIndexOf('}')
-  if (start === -1 || end === -1 || end <= start) return null
-  const chunk = text.slice(start, end + 1)
-  try {
-    return JSON.parse(chunk)
-  } catch {
-    return null
-  }
-}
-
-function formatExtraInfos(entries) {
-  return (entries || [])
-    .map((row) => `- [${row.question_id}] ${row.question_text || 'Question'}: ${row.answer_text || '—'}`)
-    .join('\n')
-}
-
 const LEVELS_SUMMARY = [
   { level: 31, title: 'Explorer ses options : compétences', type: 'recherche' },
   { level: 32, title: 'Compétences recommandées par métier', type: 'idées' },
@@ -92,159 +66,6 @@ const LEVELS_SUMMARY = [
   { level: 38, title: 'Soft skill : adaptabilité', type: 'questionnaire' },
   { level: 39, title: 'Retours utilisateurs', type: 'feedback' }
 ]
-
-function buildFallbackBilan(entries) {
-  if (!entries || entries.length === 0) {
-    return { sections: [{ title: 'Bilan', content: 'Aucune donnée disponible pour ce bilan.' }] }
-  }
-
-  const sections = []
-
-  // --- Section 1: Explorer ses options (N31) ---
-  const n31 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau31'))
-  if (n31) {
-    try {
-      const data = JSON.parse(n31.answer_text || '{}')
-      sections.push({
-        title: 'Explorer ses options : compétences',
-        content: `Métier ciblé : ${data.selectedJob || n31.answer_text || 'N/A'}.`
-      })
-    } catch {
-      sections.push({ title: 'Explorer ses options : compétences', content: 'Niveau complété.' })
-    }
-  }
-
-  // --- Section 2: Compétences recommandées (N32) ---
-  const n32 = entries.find(e => {
-    const questionId = (e.question_id || '').toLowerCase()
-    return questionId.includes('niveau32_skills') || questionId.includes('niveau32_projects') || questionId.includes('niveau32')
-  })
-  if (n32) {
-    try {
-      const data = JSON.parse(n32.answer_text || '{}')
-      const skillsList = Array.isArray(data.recommendedSkills)
-        ? data.recommendedSkills.join(', ')
-        : Array.isArray(data.projectIdeas)
-          ? data.projectIdeas.join(', ')
-          : ''
-      sections.push({
-        title: 'Compétences recommandées par métier',
-        content: `Métier ciblé : ${data.targetJob || 'N/A'}. ${skillsList ? `Compétences suggérées : ${skillsList}.` : ''}`
-      })
-    } catch {
-      sections.push({ title: 'Compétences recommandées par métier', content: 'Niveau complété.' })
-    }
-  }
-
-  // --- Section 3: Lettre à soi-même (N33) ---
-  const n33 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau33'))
-  if (n33) {
-    try {
-      const data = JSON.parse(n33.answer_text || '{}')
-      sections.push({
-        title: 'Lettre à soi-même',
-        content: data.didWriteLetter ? `Lettre écrite et programmée pour envoi.` : 'Niveau complété sans écrire de lettre.'
-      })
-    } catch {
-      sections.push({ title: 'Lettre à soi-même', content: 'Niveau complété.' })
-    }
-  }
-
-  // --- Section 4: Gestion du stress (N34) ---
-  const n34 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau34'))
-  if (n34) {
-    try {
-      const data = JSON.parse(n34.answer_text || '{}')
-      sections.push({
-        title: 'Gestion du stress',
-        content: `Profil identifié : ${data.profileTitle || data.profile || 'N/A'}.`
-      })
-    } catch {
-      sections.push({ title: 'Gestion du stress', content: 'Niveau complété.' })
-    }
-  }
-
-  // --- Section 5: Vidéo motivation (N35) ---
-  const n35 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau35'))
-  if (n35) {
-    try {
-      const data = JSON.parse(n35.answer_text || '{}')
-      sections.push({
-        title: 'Vidéo motivation',
-        content: `Vidéo "${data.videoTitle || 'motivation'}" regardée.`
-      })
-    } catch {
-      sections.push({ title: 'Vidéo motivation', content: 'Vidéo regardée.' })
-    }
-  }
-
-  // --- Section 6: Soft skills (N36, N37, N38) ---
-  const softSkillsContent = []
-  
-  const n36 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau36'))
-  if (n36) {
-    try {
-      const data = JSON.parse(n36.answer_text || '{}')
-      softSkillsContent.push(`Adaptabilité : ${data.situationsCompleted || 5} situations travaillées.`)
-    } catch {
-      softSkillsContent.push('Adaptabilité : niveau complété.')
-    }
-  }
-
-  const n37 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau37'))
-  if (n37) {
-    try {
-      const data = JSON.parse(n37.answer_text || '{}')
-      softSkillsContent.push(`Quiz compétences : score ${data.score || 'complété'}.`)
-    } catch {
-      softSkillsContent.push('Quiz compétences : niveau complété.')
-    }
-  }
-
-  const n38 = entries.find(e => (e.question_id || '').toLowerCase().includes('niveau38'))
-  if (n38) {
-    try {
-      const data = JSON.parse(n38.answer_text || '{}')
-      softSkillsContent.push(`Résolution de problèmes (situations) : ${data.situationsCompleted || 5} situations analysées.`)
-    } catch {
-      softSkillsContent.push('Résolution de problèmes : niveau complété.')
-    }
-  }
-
-  if (softSkillsContent.length > 0) {
-    sections.push({
-      title: 'Soft skills développés',
-      content: softSkillsContent.join(' ')
-    })
-  }
-
-  // --- Section 7: Feedback (N39) ---
-  const n39Entries = entries.filter(e => (e.question_id || '').toLowerCase().includes('niveau39'))
-  if (n39Entries.length > 0) {
-    const feedbackParts = []
-    n39Entries.forEach(entry => {
-      const qid = entry.question_id || ''
-      if (qid.includes('favorite_level')) feedbackParts.push(`Niveau préféré : ${entry.answer_text || 'N/A'}`)
-      if (qid.includes('rating')) feedbackParts.push(`Note globale : ${entry.answer_text || 'N/A'}/5`)
-    })
-    if (feedbackParts.length > 0) {
-      sections.push({
-        title: 'Retours utilisateur',
-        content: feedbackParts.join('. ') + '.'
-      })
-    }
-  }
-
-  // If no sections were created, add a generic one
-  if (sections.length === 0) {
-    sections.push({
-      title: 'Parcours complété',
-      content: 'Tu as terminé les niveaux 31 à 39. Bravo pour ton parcours !'
-    })
-  }
-
-  return { sections }
-}
 
 export default function Niveau40() {
   const navigate = useNavigate()
@@ -316,7 +137,7 @@ export default function Niveau40() {
     setBilanLoading(true)
     try {
       const context = extraInfos.length > 0
-        ? formatExtraInfos(extraInfos)
+        ? formatBilanExtraInfos(extraInfos)
         : 'Aucune donnée spécifique enregistrée pour les niveaux 31-39.'
 
       const summaryContext = LEVELS_SUMMARY.map(l => `- Niveau ${l.level}: ${l.title} (${l.type})`).join('\n')
@@ -326,10 +147,12 @@ export default function Niveau40() {
         `Modules traversés:\n${summaryContext}\n\n` +
         `Données utilisateur:\n${context}\n\n` +
         `Réponds UNIQUEMENT en JSON valide au format:\n` +
-        `{"sections":[{"title":"","content":""}]}` +
+        `{"levelSummaries":[{"level":31,"title":"Explorer ses options : compétences","summary":""}]}` +
         `\nContraintes:\n` +
-        `- 5 sections maximum, 2 à 4 phrases par section.\n` +
-        `- Inclure: progression personnelle, soft skills, motivation, retours utilisateur, prochaines étapes.\n` +
+        `- Retourne 9 objets, un pour chaque niveau de 31 a 39.\n` +
+        `- Garde exactement les numeros de niveau.\n` +
+        `- Chaque summary doit faire 1 ou 2 phrases courtes, concretes et personnalisees.\n` +
+        `- Fais ressortir ce qui a ete travaille sur le niveau concerne.\n` +
         `- Ton encourageant et clair.`
 
       const resp = await apiClient.post('/chat/ai', {
@@ -339,19 +162,13 @@ export default function Niveau40() {
         history: []
       })
 
-      const parsed = extractJson(resp?.data?.reply || '')
-      const sections = Array.isArray(parsed?.sections) ? parsed.sections : []
-      
-      if (sections.length === 0) {
-        // Use fallback bilan if AI parsing failed
-        setBilan(buildFallbackBilan(extraInfos))
-      } else {
-        setBilan({ sections })
-      }
+      const parsed = extractBilanJson(resp?.data?.reply || '')
+      setBilan({
+        levelSummaries: normalizeLevelSummaries(parsed?.levelSummaries, LEVELS_SUMMARY, extraInfos)
+      })
     } catch (e) {
       console.error('Niveau40 bilan fetch failed', e)
-      // Use fallback bilan on error
-      setBilan(buildFallbackBilan(extraInfos))
+      setBilan({ levelSummaries: normalizeLevelSummaries([], LEVELS_SUMMARY, extraInfos) })
       if (extraInfos.length === 0) {
         setBilanError("Impossible de générer ton bilan pour le moment.")
       }
@@ -387,7 +204,7 @@ export default function Niveau40() {
   }
 
   const downloadBilan = async () => {
-    if (downloading || !bilan?.sections) return
+    if (downloading || !Array.isArray(bilan?.levelSummaries)) return
     setDownloading(true)
     try {
       const JsPDF = await loadJsPdf()
@@ -401,15 +218,15 @@ export default function Niveau40() {
       doc.text('Bilan final Zélia — Niveaux 31 à 39', margin, y)
       y += 10
 
-      bilan.sections.forEach((section) => {
+      bilan.levelSummaries.forEach((section) => {
         if (y > 260) { doc.addPage(); y = margin }
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(12)
-        doc.text(section.title || 'Section', margin, y)
+        doc.text(`Niveau ${section.level} - ${section.title || 'Section'}`, margin, y)
         y += 6
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(10)
-        const lines = doc.splitTextToSize(String(section.content || ''), usable)
+        const lines = doc.splitTextToSize(String(section.summary || ''), usable)
         doc.text(lines, margin, y)
         y += lines.length * 5 + 6
       })
@@ -438,6 +255,8 @@ export default function Niveau40() {
       </div>
     )
   }
+
+  const levelSummaries = Array.isArray(bilan?.levelSummaries) ? bilan.levelSummaries : []
 
   return (
     <div className="p-2 md:p-6">
@@ -493,12 +312,12 @@ export default function Niveau40() {
                 <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg text-sm">{bilanError}</div>
               )}
 
-              {!bilanLoading && bilan && Array.isArray(bilan.sections) && (
+              {!bilanLoading && levelSummaries.length > 0 && (
                 <div className="space-y-4">
-                  {bilan.sections.map((section, idx) => (
-                    <div key={idx} className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                      <h3 className="font-semibold mb-2">{section.title || `Section ${idx + 1}`}</h3>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{section.content}</p>
+                  {levelSummaries.map((section) => (
+                    <div key={section.level} className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                      <h3 className="font-semibold mb-2">Niveau {section.level} · {section.title}</h3>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{section.summary}</p>
                     </div>
                   ))}
 

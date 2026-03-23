@@ -187,6 +187,60 @@ export async function levelUp({ minLevel = null, xpReward = 0 } = {}) {
   }
 }
 
+export async function completeQuest(questId) {
+  const normalizedQuestId = String(questId || '').trim()
+  const current = await fetchProgression()
+  const currentLevel = normalizeLevelValue(current.level ?? DEFAULT_PROGRESSION.level)
+  const currentXp = clampXpForLevel(currentLevel, current.xp ?? DEFAULT_PROGRESSION.xp)
+  const existingQuests = Array.isArray(current.quests) ? current.quests.filter(Boolean) : []
+
+  if (!normalizedQuestId) {
+    return {
+      updated: false,
+      progression: {
+        ...DEFAULT_PROGRESSION,
+        ...current,
+        level: currentLevel,
+        xp: currentXp,
+        quests: existingQuests
+      }
+    }
+  }
+
+  if (existingQuests.includes(normalizedQuestId)) {
+    return {
+      updated: false,
+      progression: {
+        ...DEFAULT_PROGRESSION,
+        ...current,
+        level: currentLevel,
+        xp: currentXp,
+        quests: existingQuests
+      }
+    }
+  }
+
+  const updatedQuests = [...existingQuests, normalizedQuestId]
+
+  await progressionAPI.update({
+    level: currentLevel,
+    xp: currentXp,
+    quests: updatedQuests,
+    perks: current.perks || []
+  })
+
+  return {
+    updated: true,
+    progression: {
+      ...DEFAULT_PROGRESSION,
+      ...current,
+      level: currentLevel,
+      xp: currentXp,
+      quests: updatedQuests
+    }
+  }
+}
+
 export function isLevelAccessible({
   targetLevel,
   progression,

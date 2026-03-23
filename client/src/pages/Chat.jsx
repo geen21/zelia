@@ -55,20 +55,10 @@ export default function Chat() {
         if (!mounted) return
         setMessages(initial || [])
 
-        // Load job recommendations for personas (prefer results by userId; fallback to auth route)
+        // Load job recommendations for personas for the authenticated user only.
         try {
-          let recos = []
-          try {
-            const res1 = await apiClient.get(`/analysis/results/${resolvedUser.id}`)
-            recos = res1?.data?.results?.jobRecommendations || []
-          } catch (e1) {
-            try {
-              const res2 = await apiClient.get('/analysis/my-results')
-              recos = res2?.data?.results?.jobRecommendations || []
-            } catch (e2) {
-              // ignore
-            }
-          }
+          const res = await apiClient.get('/analysis/my-results')
+          const recos = res?.data?.results?.jobRecommendations || []
           setJobs(recos)
           if (recos.length > 0) setPersona(recos[0])
         } catch (e) {

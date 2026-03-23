@@ -9,14 +9,10 @@ dotenv.config()
 
 const router = express.Router()
 
-// Generate analysis using Gemini API
-router.post('/generate-analysis', async (req, res) => {
+// Generate analysis using Gemini API for the authenticated user only
+router.post('/generate-analysis', authenticateToken, async (req, res) => {
   try {
-    const { userId } = req.body
-
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' })
-    }
+    const userId = req.user.id
 
     console.log('Generating analysis for user ID:', userId)
 
@@ -272,14 +268,12 @@ function stripMbtiTokens(text) {
 }
 
 // Generate analysis for a specific questionnaire type (e.g., mbti), with extended Zélia-style analysis
-router.post('/generate-analysis-by-type', async (req, res) => {
+router.post('/generate-analysis-by-type', authenticateToken, async (req, res) => {
   try {
-    const { userId, questionnaireType } = req.body || {}
+    const { questionnaireType } = req.body || {}
+    const userId = req.user.id
 
     const qType = (questionnaireType || 'inscription').toString()
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' })
-    }
 
     const db = supabaseAdmin || supabase
 
@@ -589,9 +583,14 @@ router.post('/generate-analysis-by-type', async (req, res) => {
 })
 
 // Get user analysis results
-router.get('/results/:userId', async (req, res) => {
+router.get('/results/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params
+    const authenticatedUserId = req.user.id
+
+    if (userId !== authenticatedUserId) {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
 
     const db = supabaseAdmin || supabase
     const { data: rows, error } = await db

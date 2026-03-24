@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import axios from 'axios'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import supabase from '../lib/supabase'
 
 export default function Register() {
   const [step, setStep] = useState(1)
@@ -19,7 +20,48 @@ export default function Register() {
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [newsletterOptIn, setNewsletterOptIn] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
+  const [bypassLoading, setBypassLoading] = useState(false)
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const after = useMemo(() => params.get('after') || '', [params])
+
+  const navigateAfterAuth = () => {
+    if (after === 'results') {
+      navigate('/app/results')
+      return
+    }
+    navigate('/app')
+  }
+
+  async function bypassEmailConfirmation() {
+    if (!email || !password || bypassLoading) return
+
+    setError('')
+    setBypassLoading(true)
+    try {
+      await axios.post('/api/auth/confirm-email', { email })
+
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+
+      if (signInError) throw signInError
+
+      if (signInData.session?.access_token) {
+        localStorage.setItem('supabase_auth_token', signInData.session.access_token)
+      }
+
+      localStorage.removeItem('pending_registration_email')
+      localStorage.removeItem('pending_registration_after')
+      navigateAfterAuth()
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || "Impossible de valider l'email manuellement"
+      setError(msg)
+    } finally {
+      setBypassLoading(false)
+    }
+  }
 
   const departements = useMemo(() => [
     { code: '01', name: 'Ain' }, { code: '02', name: 'Aisne' }, { code: '03', name: 'Allier' },
@@ -124,6 +166,8 @@ export default function Register() {
 
       // Show email confirmation message
       setEmailSent(true)
+      localStorage.setItem('pending_registration_email', email)
+      localStorage.setItem('pending_registration_after', after)
 
       // Clean up local storage if registration was successful
       if (avatarData) {
@@ -211,6 +255,14 @@ export default function Register() {
               <p className="text-sm text-text-secondary">
                 L'email peut prendre quelques minutes à arriver. Pensez à vérifier votre dossier spam si vous ne le recevez pas.
               </p>
+              <button
+                type="button"
+                onClick={bypassEmailConfirmation}
+                disabled={bypassLoading}
+                className="mt-4 inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-900 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {bypassLoading ? 'Validation...' : "Je n'ai pas reçu mon mail"}
+              </button>
             </div>
           </div>
         ) : (

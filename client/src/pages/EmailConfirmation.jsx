@@ -5,8 +5,46 @@ import supabase from '../lib/supabase'
 export default function EmailConfirmation() {
   const [status, setStatus] = useState('loading') // loading, success, error
   const [message, setMessage] = useState('')
+  const [bypassLoading, setBypassLoading] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+  const pendingEmail = localStorage.getItem('pending_registration_email') || ''
+  const pendingAfter = localStorage.getItem('pending_registration_after') || ''
+
+  const navigateAfterConfirmation = () => {
+    const destination = pendingAfter === 'results' ? '/login?after=results' : '/login'
+    navigate(destination)
+  }
+
+  const bypassEmailConfirmation = async () => {
+    if (!pendingEmail || bypassLoading) return
+
+    setBypassLoading(true)
+    try {
+      await fetch('/api/auth/confirm-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pendingEmail })
+      }).then(async (response) => {
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}))
+          throw new Error(payload?.error || 'Impossible de confirmer cet email')
+        }
+      })
+
+      setStatus('success')
+      setMessage('Email validé manuellement')
+      setTimeout(() => {
+        navigateAfterConfirmation()
+      }, 1200)
+    } catch (error) {
+      console.error('Manual email confirmation error:', error)
+      setStatus('error')
+      setMessage(error?.message || "Impossible de valider l'email manuellement")
+    } finally {
+      setBypassLoading(false)
+    }
+  }
 
   useEffect(() => {
     const handleEmailConfirmation = async () => {
@@ -40,9 +78,10 @@ export default function EmailConfirmation() {
           
           // Redirect after a short delay (without alert)
           setTimeout(() => {
-            // Check if user has questionnaire responses to determine redirect
-            const hasQuestionnaireData = localStorage.getItem('answers_cache')
-            if (hasQuestionnaireData) {
+            const redirectToResults = pendingAfter === 'results' || Boolean(localStorage.getItem('answers_cache'))
+            localStorage.removeItem('pending_registration_email')
+            localStorage.removeItem('pending_registration_after')
+            if (redirectToResults) {
               navigate('/app/results')
             } else {
               navigate('/app')
@@ -106,6 +145,22 @@ export default function EmailConfirmation() {
               Retour à la connexion
             </button>
           </>
+        )}
+
+        {pendingEmail && (
+          <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
+            <p className="text-sm text-text-secondary">
+              Si tu n'as pas reçu l'email, tu peux valider ton compte manuellement.
+            </p>
+            <button
+              type="button"
+              onClick={bypassEmailConfirmation}
+              disabled={bypassLoading}
+              className="mt-3 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {bypassLoading ? 'Validation...' : "Je n'ai pas reçu mon mail"}
+            </button>
+          </div>
         )}
       </div>
     </div>

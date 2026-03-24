@@ -183,6 +183,52 @@ export default function Results() {
 		}
 	}
 
+	const looksLikeStudyTitle = (value) => {
+		const text = (value || '').trim()
+		if (!text) return false
+		return /^(CAP|BTS|BUT|DUT|Licence|Bachelor|Master|Concours|Classe préparatoire|Prépa|École|Ecole|Baccalauréat|Bac pro|DN MADE|DEUST|DCG|DSCG)\b/i.test(text)
+	}
+
+	const inferStudyDescription = (degree) => {
+		const value = (degree || '').trim().toLowerCase()
+		if (!value) return "Piste d'étude cohérente avec ton profil et les métiers recommandés."
+		if (value.startsWith('cap')) return 'Formation professionnalisante courte pour apprendre rapidement un métier concret.'
+		if (value.startsWith('bts') || value.startsWith('but') || value.startsWith('dut')) return 'Formation supérieure professionnalisante avec une approche concrète du terrain.'
+		if (value.startsWith('licence professionnelle')) return 'Parcours professionnalisant pour te spécialiser rapidement dans un domaine précis.'
+		if (value.startsWith('licence') || value.startsWith('bachelor')) return 'Parcours post-bac pour approfondir un domaine et construire une spécialisation.'
+		if (value.startsWith('master')) return 'Formation avancée pour viser une expertise forte ou des postes à responsabilité.'
+		if (value.includes('concours') || value.startsWith('école') || value.startsWith('ecole')) return 'Voie sélective menant à une formation spécialisée et encadrée.'
+		return "Piste d'étude cohérente avec ton profil et les métiers recommandés."
+	}
+
+	const normalizeStudyRecommendations = (studies) => {
+		if (!Array.isArray(studies)) return []
+
+		const normalized = []
+		for (const study of studies) {
+			const degree = (study?.degree || study?.diploma || study?.title || '').trim()
+			const type = (study?.type || study?.study_type || study?.label || '').trim()
+
+			if (!degree) continue
+
+			normalized.push({
+				degree,
+				type: !type || looksLikeStudyTitle(type) ? inferStudyDescription(degree) : type
+			})
+
+			if (type && looksLikeStudyTitle(type)) {
+				normalized.push({
+					degree: type,
+					type: inferStudyDescription(type)
+				})
+			}
+		}
+
+		return normalized
+			.filter((study, index, array) => array.findIndex((candidate) => candidate.degree === study.degree && candidate.type === study.type) === index)
+			.slice(0, 6)
+	}
+
 	const sanitizeResultsForDisplay = (results) => {
 		if (!results || typeof results !== 'object') return results
 		const clone = { ...results }
@@ -209,6 +255,9 @@ export default function Results() {
 				}
 				return true
 			})
+			clone.studyRecommendations = normalizeStudyRecommendations(clone.studyRecommendations)
+		} else {
+			clone.studyRecommendations = []
 		}
 
 		if (isMbti) {

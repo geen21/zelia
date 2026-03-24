@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { authAPI } from '../lib/api'
 import supabase from '../lib/supabase'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -10,6 +10,8 @@ export default function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const after = params.get('after') || ''
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -47,6 +49,10 @@ export default function Login() {
 
       // Check for cached questionnaire answers
       const cached = localStorage.getItem('answers_cache')
+      if (after === 'results') {
+        navigate('/app/results')
+        return
+      }
       if (cached) {
         try {
           // TODO: Submit cached answers when questionnaire API is ready

@@ -70,6 +70,31 @@ function formatProfileContext(profile) {
   return rows.join('\n')
 }
 
+function normalizeJobSuggestions(profile, rawRecommendations) {
+  const homePreference = (profile?.home_preference || '').trim()
+  const isQuestionnaire = homePreference.toLowerCase() === 'questionnaire'
+
+  if (!isQuestionnaire && homePreference) {
+    return [homePreference]
+  }
+
+  let list = rawRecommendations
+  if (typeof list === 'string') {
+    try { list = JSON.parse(list) } catch { list = [] }
+  }
+
+  if (!Array.isArray(list)) return []
+
+  return [...new Set(
+    list
+      .map((item) => {
+        if (typeof item === 'string') return item.trim()
+        return (item?.title || item?.intitule || '').trim()
+      })
+      .filter(Boolean)
+  )].slice(0, 6)
+}
+
 export default function Niveau14() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
@@ -77,11 +102,11 @@ export default function Niveau14() {
   const [profile, setProfile] = useState(null)
   const [avatarUrl, setAvatarUrl] = useState('')
   const [jobFromResults, setJobFromResults] = useState('')
+  const [jobSuggestions, setJobSuggestions] = useState([])
   const [userResponses, setUserResponses] = useState([])
   const [extraInfos, setExtraInfos] = useState([])
 
   const [step, setStep] = useState(0)
-  const [choice, setChoice] = useState(null) // 'yes' | 'no'
   const [jobInput, setJobInput] = useState('')
 
   const [letter, setLetter] = useState('')
@@ -140,8 +165,10 @@ export default function Niveau14() {
               setJobFromResults(title || '')
             }
           }
+          setJobSuggestions(normalizeJobSuggestions(prof, userResultsData?.job_recommendations))
         } catch (e) {
           console.warn('Failed to fetch job_recommendations from user_results', e)
+          setJobSuggestions(normalizeJobSuggestions(prof, []))
         }
 
         // Fetch user_responses & informations_complementaires for context
@@ -181,24 +208,14 @@ export default function Niveau14() {
     return raw.split(/\s+/)[0]
   }, [profile])
 
-  const suggestedJob = useMemo(() => {
-    // If home_preference is a specific job (not 'questionnaire'), use it directly
-    const pref = (profile?.home_preference || '').trim()
-    if (pref && pref.toLowerCase() !== 'questionnaire') {
-      return pref
-    }
-    // Otherwise use job_recommendations from user_results
-    return (jobFromResults || '').trim()
-  }, [profile, jobFromResults])
-
   const dialogue = useMemo(() => {
     const line1 = `On va te générer une lettre de motivation${firstName ? ` ${firstName}` : ''} !`
     return ([
       { type: 'text', text: line1, durationMs: 1800 },
       { type: 'text', text: "Avec ce qu'on s'est dit ensemble ça va m'aider pour te générer ta lettre de motivation parfaite", durationMs: 2600 },
-      { type: 'question', text: `Est-ce qu'on fait une lettre de motivation pour ce métier : ${suggestedJob || 'ce métier'} ?`, durationMs: 2000 }
+      { type: 'text', text: "Choisis un métier et je te prépare une lettre de motivation adaptée.", durationMs: 2000 }
     ])
-  }, [firstName, suggestedJob])
+  }, [firstName])
 
   const finalMessage = "Tu peux désormais y accéder gratuitement dans le menu, c'est un outil dédié pour tes lettres de motivation futures !"
 
@@ -206,8 +223,7 @@ export default function Niveau14() {
   const activeText = showFinalMessage ? finalMessage : (current?.text || '')
   const activeDuration = showFinalMessage ? 3000 : (current?.durationMs || 1500)
   const { text: typed, done: typedDone, skip } = useTypewriter(activeText, activeDuration)
-
-  const isQuestionStep = current?.type === 'question' && !showFinalMessage
+  const isLastDialogueStep = step >= dialogue.length - 1
 
   const onNext = () => {
     if (!typedDone) {
@@ -217,22 +233,7 @@ export default function Niveau14() {
     setStep((prev) => Math.min(prev + 1, dialogue.length - 1))
   }
 
-  const onChooseYes = () => {
-    if (!typedDone) return
-    if (!suggestedJob) {
-      setChoice('no')
-      return
-    }
-    setChoice('yes')
-    setJobInput('')
-  }
-
-  const onChooseNo = () => {
-    if (!typedDone) return
-    setChoice('no')
-  }
-
-  const effectiveJob = choice === 'yes' && suggestedJob ? suggestedJob : jobInput.trim()
+  const effectiveJob = jobInput.trim()
 
   const buildContext = () => {
     const profileBlock = formatProfileContext(profile)
@@ -298,12 +299,12 @@ export default function Niveau14() {
     setFinishing(true)
     try {
       // Sauvegarder les données du niveau 14
-      if (suggestedJob || companyInput || letter) {
+      if (effectiveJob || letter) {
         await usersAPI.saveExtraInfo([
           {
             question_id: 'niveau14_target_job',
             question_text: 'Métier ciblé pour la lettre de motivation',
-            answer_text: suggestedJob || companyInput || 'Non spécifié'
+            answer_text: effectiveJob || 'Non spécifié'
           },
           {
             question_id: 'niveau14_letter_generated',
@@ -357,7 +358,7 @@ export default function Niveau14() {
                 <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
               </div>
 
-              {!isQuestionStep && !showFinalMessage && (
+              {!isLastDialogueStep && !showFinalMessage && (
                 <button
                   type="button"
                   onClick={onNext}
@@ -365,25 +366,6 @@ export default function Niveau14() {
                 >
                   {step < dialogue.length - 1 ? (typedDone ? 'Suivant' : 'Passer') : 'Suivant'}
                 </button>
-              )}
-
-              {isQuestionStep && typedDone && !showFinalMessage && (
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={onChooseYes}
-                    className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200"
-                  >
-                    Oui
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onChooseNo}
-                    className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300"
-                  >
-                    Non
-                  </button>
-                </div>
               )}
 
               {showFinalMessage && typedDone && (
@@ -407,33 +389,48 @@ export default function Niveau14() {
             <h2 className="text-xl font-bold">Lettre de motivation</h2>
           </div>
 
-          {isQuestionStep && typedDone && (
-            <div className="mb-4">
-              {choice === null && (
-                <div className="text-text-secondary">Réponds à la question à gauche pour continuer.</div>
-              )}
+          <div className="mb-4">
+            <div className="space-y-2">
+              <label className="text-sm text-text-secondary">Métier souhaité</label>
 
-              {choice === 'yes' && suggestedJob && (
-                <div className="space-y-3">
-                  <div className="text-sm text-text-secondary">Métier sélectionné</div>
-                  <div className="font-semibold">{suggestedJob}</div>
+              {jobSuggestions.length > 0 && !jobInput.trim() && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Suggestions basées sur ton profil
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {jobSuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => {
+                          setJobInput(suggestion)
+                          setLetter('')
+                          setGenerateError('')
+                        }}
+                        disabled={generating}
+                        className="rounded-full border border-gray-200 bg-white px-3 py-1 text-sm font-medium text-gray-700 transition hover:border-black hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {(choice === 'no' || (choice === 'yes' && !suggestedJob)) && (
-                <div className="space-y-2">
-                  <label className="text-sm text-text-secondary">Métier souhaité</label>
-                  <input
-                    type="text"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
-                    placeholder="Ex: Développeur web"
-                    value={jobInput}
-                    onChange={(e) => setJobInput(e.target.value)}
-                  />
-                </div>
-              )}
+              <input
+                type="text"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
+                placeholder="Ex: Développeur web"
+                value={jobInput}
+                onChange={(e) => {
+                  setJobInput(e.target.value)
+                  setLetter('')
+                  setGenerateError('')
+                }}
+              />
             </div>
-          )}
+          </div>
 
           <div className="flex flex-wrap gap-3 items-center mb-4">
             {!letter && (

@@ -105,8 +105,8 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
       + `   - Compétences requises: [3-4 compétences principales sous forme liste, par mots clés]\n\n`
       + `###Recommandations d'études###\n`
       + `OBLIGATOIRE : Fournis EXACTEMENT 6 recommandations d'études. Cette section ne doit JAMAIS être vide. Pour chaque recommandation, suis le format suivant :\n`
-      + `1. [Nom du diplôme]\n`
-      + `2. [Nom du type d'étude]\n\n`
+      + `1. [Nom du diplôme ou de la formation]\n`
+      + `   Description: [Une courte description claire de cette piste d'étude, en une phrase]\n\n`
       + `1. Utilisez EXACTEMENT les titres de section indiqués ci-dessus avec trois dièses (###).\n`
       + `2. Chaque section est OBLIGATOIRE et doit apparaître dans l'ordre indiqué.\n`
       + `3. Si vous ne pouvez pas respecter ce format ou si l'une des sections manque.\n`
@@ -384,8 +384,8 @@ router.post('/generate-analysis-by-type', authenticateToken, async (req, res) =>
         `   - Compétences requises: [3-4 compétences principales sous forme liste, par mots clés]\n\n` +
         `###Recommandations d'études###\n` +
         `OBLIGATOIRE : Fournis EXACTEMENT 6 recommandations d'études. Cette section ne doit JAMAIS être vide. Pour chaque recommandation, suis le format suivant :\n` +
-        `1. [Nom du diplôme]\n` +
-        `2. [Nom du type d'étude]\n\n` +
+        `1. [Nom du diplôme ou de la formation]\n` +
+        `   Description: [Une courte description claire de cette piste d'étude, en une phrase]\n\n` +
         `1. Utilisez EXACTEMENT les titres de section indiqués ci-dessus avec trois dièses (###).\n` +
         `2. Chaque section est OBLIGATOIRE et doit apparaître dans l'ordre indiqué.\n` +
         `3. Si vous ne pouvez pas respecter ce format ou si l'une des sections manque.\n` +
@@ -757,6 +757,18 @@ function parseJobRecommendations(text) {
 
 function parseStudyRecommendations(text) {
   const cleanText = (t) => (t || '').replace(/\*\*/g, '').trim()
+  const inferStudyDescription = (degree) => {
+    const value = cleanText(degree).toLowerCase()
+    if (!value) return 'Piste d\'étude cohérente avec ton profil et tes métiers recommandés.'
+    if (value.startsWith('cap')) return 'Formation professionnalisante courte pour apprendre rapidement un métier concret.'
+    if (value.startsWith('bts') || value.startsWith('but') || value.startsWith('dut')) return 'Formation supérieure professionnalisante avec une approche concrète du terrain.'
+    if (value.startsWith('licence professionnelle')) return 'Parcours professionnalisant pour te spécialiser rapidement dans un domaine précis.'
+    if (value.startsWith('licence') || value.startsWith('bachelor')) return 'Parcours post-bac pour approfondir un domaine et construire une spécialisation.'
+    if (value.startsWith('master')) return 'Formation avancée pour viser une expertise forte ou des postes à responsabilité.'
+    if (value.includes('concours') || value.startsWith('école') || value.startsWith('ecole')) return 'Voie sélective menant à une formation spécialisée et encadrée.'
+    return 'Piste d\'étude cohérente avec ton profil et tes métiers recommandés.'
+  }
+
   const studies = []
   if (!text) return studies
 
@@ -764,23 +776,47 @@ function parseStudyRecommendations(text) {
   const startMatch = text.match(/^\s*1\./m)
   const content = startMatch ? text.substring(startMatch.index) : text
 
-  const lines = content.split('\n').filter(line => line.trim())
-  
-  for (let i = 0; i < lines.length; i += 2) {
-    if (lines[i] && lines[i + 1]) {
-      const degree = cleanText(lines[i].replace(/^\d+\.\s*/, ''))
-      const type = cleanText(lines[i + 1].replace(/^\d+\.\s*/, ''))
-      
-      if (degree && type) {
-        studies.push({
-          degree: degree,
-          type: type
-        })
-      }
-    }
+  const lines = content.split('\n').map(line => line.trim()).filter(Boolean)
+  const numberedOnly = lines.every(line => /^\d+\.\s+/.test(line))
+
+  if (numberedOnly) {
+    return lines
+      .map(line => cleanText(line.replace(/^\d+\.\s*/, '')))
+      .filter(Boolean)
+      .map(degree => ({ degree, type: inferStudyDescription(degree) }))
+      .slice(0, 6)
   }
-  
-  return studies
+
+  let currentStudy = null
+
+  const pushCurrentStudy = () => {
+    if (!currentStudy?.degree) return
+    studies.push({
+      degree: currentStudy.degree,
+      type: currentStudy.type || inferStudyDescription(currentStudy.degree)
+    })
+  }
+
+  for (const line of lines) {
+    if (/^\d+\.\s+/.test(line)) {
+      pushCurrentStudy()
+      currentStudy = {
+        degree: cleanText(line.replace(/^\d+\.\s*/, '')),
+        type: ''
+      }
+      continue
+    }
+
+    if (!currentStudy) continue
+
+    const description = cleanText(line.replace(/^description\s*:\s*/i, '').replace(/^type\s+d['’]étude\s*:\s*/i, ''))
+    if (!description) continue
+    currentStudy.type = currentStudy.type ? `${currentStudy.type} ${description}`.trim() : description
+  }
+
+  pushCurrentStudy()
+
+  return studies.slice(0, 6)
 }
 
 // Level 7: evaluate job fit using user_results context and Gemini (legacy level9 alias)

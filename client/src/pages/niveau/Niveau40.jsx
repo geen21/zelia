@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import apiClient, { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { extractBilanJson, formatBilanExtraInfos, normalizeLevelSummaries } from '../../lib/levelBilan'
-import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
+import { XP_PER_LEVEL, completeQuest, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 import { FaDownload } from 'react-icons/fa6'
 
@@ -189,6 +189,7 @@ export default function Niveau40() {
     setFinishing(true)
     try {
       await levelUp({ minLevel: 40, xpReward: XP_PER_LEVEL })
+      await completeQuest('level_40')
       // Save diploma completion date
       await usersAPI.saveExtraInfo([{
         question_id: 'niveau40_diploma_date',

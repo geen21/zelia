@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import api, { usersAPI } from '../lib/api';
-import { ALL_QUEST_IDS, MAX_LEVEL, XP_PER_LEVEL, questLabel } from '../lib/progression';
+import { ALL_QUEST_IDS, MAX_LEVEL, XP_PER_LEVEL, completeQuest, questLabel } from '../lib/progression';
 
 // Zélia Game Engine - French Career Orientation Game
 class ZeliaGameEngine {
@@ -356,10 +356,11 @@ const Activites = () => {
 
             // Fetch profile + progression + results status in parallel
             try {
-                const [profRes, progRes, resultsRes] = await Promise.all([
+                const [profRes, progRes, resultsRes, extraInfoRes] = await Promise.all([
                     usersAPI.getProfile().catch(() => null),
                     api.get(`/progression/${user.id}`).catch(() => null),
-                    api.get('/analysis/my-results', { headers: { 'Cache-Control': 'no-cache' }, params: { _: Date.now() } }).catch(() => null)
+                    api.get('/analysis/my-results', { headers: { 'Cache-Control': 'no-cache' }, params: { _: Date.now() } }).catch(() => null),
+                    usersAPI.getExtraInfo().catch(() => null)
                 ]);
 
                 const prof = profRes?.data?.profile || null;
@@ -368,6 +369,13 @@ const Activites = () => {
                 // Check if results exist (status 200 and data present)
                 const hasResults = !!(resultsRes && resultsRes.status === 200 && resultsRes.data);
                 if (isMounted) setResultsAvailable(hasResults);
+
+                const extraInfoEntries = Array.isArray(extraInfoRes?.data?.entries)
+                    ? extraInfoRes.data.entries
+                    : Array.isArray(extraInfoRes?.data)
+                        ? extraInfoRes.data
+                        : [];
+                const diplomaDate = extraInfoEntries.find((entry) => entry?.question_id === 'niveau40_diploma_date')?.answer_text || null;
 
                 const pdata = progRes?.data || {};
                 const cleanLevel = Math.max(1, Math.min(Math.floor(pdata?.level) || 1, MAX_LEVEL));
@@ -380,8 +388,14 @@ const Activites = () => {
                 const normalizedToNext = cleanLevel >= MAX_LEVEL ? 0 : rawToNext > 0 ? rawToNext : XP_PER_LEVEL;
 
                 // If results are available, mark 'complete_test' as done in local state
-                const mergedQuests = new Set(pdata?.quests || []);
+                const storedQuests = Array.isArray(pdata?.quests) ? pdata.quests : [];
+                const mergedQuests = new Set(storedQuests);
                 if (hasResults) mergedQuests.add('complete_test');
+                if (diplomaDate) mergedQuests.add('level_40');
+
+                if (diplomaDate && !storedQuests.includes('level_40')) {
+                    completeQuest('level_40').catch(() => null);
+                }
 
                 const initialState = {
                     progression: {

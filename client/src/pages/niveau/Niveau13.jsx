@@ -155,7 +155,7 @@ export default function Niveau13() {
     setDialogueStep((prev) => prev + 1)
   }
 
-  // Send global message
+  // Send global message via server API (bypasses Supabase RLS)
   const handleSendGlobal = async () => {
     const text = input.trim()
     if (!text || !user) return
@@ -168,10 +168,9 @@ export default function Niveau13() {
       created_at: new Date().toISOString(),
     }
     setMessages((prev) => [...prev, optimistic])
-    const { error: insErr } = await supabase
-      .from('global_chat')
-      .insert({ user_id: user.id, user_email: user.email, content: text })
-    if (insErr) {
+    try {
+      await apiClient.post('/chat/message', { content: text })
+    } catch {
       setMessages((prev) => prev.filter((m) => m !== optimistic))
       setInput(text)
     }

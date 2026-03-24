@@ -243,11 +243,16 @@ const intro = `Re ! En avant pour le niveau 28${prenom ? ` ${prenom}` : ''}. On 
       setShowFeedback(false)
       setAudioUrl('')
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mr = new MediaRecorder(stream)
+      // Pick a MIME type supported by the browser (iOS Safari does not support webm)
+      const mimeType = ['audio/webm', 'audio/mp4', 'audio/ogg', 'audio/wav', ''].find(
+        t => !t || MediaRecorder.isTypeSupported(t)
+      ) || ''
+      const mr = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
+      const chosenType = mr.mimeType || mimeType || 'audio/wav'
       chunksRef.current = []
       mr.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunksRef.current.push(e.data) }
       mr.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        const blob = new Blob(chunksRef.current, { type: chosenType })
         const url = URL.createObjectURL(blob)
         setAudioUrl(url)
         setPhase('rate')

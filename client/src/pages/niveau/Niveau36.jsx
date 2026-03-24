@@ -212,7 +212,24 @@ export default function Niveau36() {
 
   const onTouchStartItem = (id) => {
     if (showFeedback) return
-    setDraggingId(id)
+    if (draggingId && draggingId !== id) {
+      // Second tap: drop onto this item
+      const next = [...dragItems]
+      const fromIndex = next.findIndex(item => item.id === draggingId)
+      const toIndex = next.findIndex(item => item.id === id)
+      if (fromIndex !== -1 && toIndex !== -1) {
+        const [moved] = next.splice(fromIndex, 1)
+        next.splice(toIndex, 0, moved)
+        setDragItems(next)
+      }
+      setDraggingId(null)
+    } else if (draggingId === id) {
+      // Tap same item: deselect
+      setDraggingId(null)
+    } else {
+      // First tap: select
+      setDraggingId(id)
+    }
   }
 
   const onTouchMoveList = (e) => {

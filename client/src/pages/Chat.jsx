@@ -105,11 +105,10 @@ export default function Chat() {
       created_at: new Date().toISOString(),
     }
     setMessages((prev) => [...prev, optimistic])
-    const { error: insErr } = await supabase
-      .from('global_chat')
-      .insert({ user_id: user.id, user_email: user.email, content: text })
-    if (insErr) {
-      setError(insErr.message)
+    try {
+      await apiClient.post('/chat/message', { content: text })
+    } catch (insErr) {
+      setError(insErr?.response?.data?.error || insErr.message)
       // rollback optimistic
       setMessages((prev) => prev.filter((m) => m !== optimistic))
       setInput(text)
@@ -163,10 +162,10 @@ export default function Chat() {
   if (error) return <div className="p-6 text-red-600">{error}</div>
 
   return (
-    <div className="min-h-screen bg-white p-4 flex flex-col">
-      <div className="w-full space-y-6 flex flex-col">
+    <div className="h-full flex flex-col p-4 overflow-hidden">
+      <div className="flex flex-col flex-1 min-h-0 gap-4">
         {/* Header card with toggle */}
-        <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-card">
+        <div className="bg-white rounded-3xl p-4 border border-gray-200 shadow-card shrink-0">
           <div className="flex flex-col items-center gap-3 text-center">
             <div className="flex items-center justify-center gap-2">
               <button
@@ -183,12 +182,12 @@ export default function Chat() {
         </div>
 
         {mode === 'student' ? (
-          <section className="bg-white rounded-3xl border border-gray-200 shadow-card overflow-hidden flex flex-col">
-            <header className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <section className="bg-white rounded-3xl border border-gray-200 shadow-card overflow-hidden flex flex-col flex-1 min-h-0">
+            <header className="px-6 py-4 border-b border-gray-200 flex items-center justify-between shrink-0">
               <h2 className="text-xl font-bold text-gray-800">Chat global</h2>
               <span className="text-xs px-2 py-1 rounded-full bg-[#c1ff72] text-black border border-gray-200">Tous les utilisateurs</span>
             </header>
-            <div ref={listRef} className="h-[50vh] overflow-y-auto p-4 space-y-3 bg-white">
+            <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-white">
               {messages.map((m) => (
                 <div key={m.id} className={`flex ${m.user_id === user.id ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[75%] px-3 py-2 rounded-lg border ${m.user_id === user.id ? 'bg-black text-white border-black' : 'bg-white border-gray-200'}`}>
@@ -205,7 +204,7 @@ export default function Chat() {
                 </div>
               ))}
             </div>
-            <footer className="p-4 border-t border-gray-200 bg-white">
+            <footer className="p-4 border-t border-gray-200 bg-white shrink-0">
               <div className="flex gap-2">
                 <input
                   className="flex-1 border border-gray-200 rounded-lg px-3 py-2 outline-none"
@@ -219,7 +218,7 @@ export default function Chat() {
             </footer>
           </section>
         ) : (
-          <section className="bg-white rounded-3xl border border-gray-200 shadow-card overflow-hidden flex flex-col">
+          <section className="bg-white rounded-3xl border border-gray-200 shadow-card overflow-hidden flex flex-col flex-1 min-h-0">
             <header className="px-6 py-4 border-b border-gray-200 flex items-center gap-2 flex-wrap">
               <h2 className="text-xl font-bold text-gray-800 text-center">Conseiller IA</h2>
               {jobs.length > 0 ? (
@@ -243,7 +242,7 @@ export default function Chat() {
                 <p className="text-sm text-text-secondary text-center mt-1">Conseiller d'orientation</p>
               )}
             </header>
-            <div ref={listRef} className="h-[50vh] overflow-y-auto p-4 space-y-3 bg-white">
+            <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-white">
               {aiHistory.map((m, i) => (
                 <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[75%] px-3 py-2 rounded-lg border ${m.role === 'user' ? 'bg-black text-white border-black' : 'bg-white border-gray-200'}`}>
@@ -256,7 +255,7 @@ export default function Chat() {
                 <div className="text-sm text-gray-500">L'IA rédige une réponse…</div>
               )}
             </div>
-            <footer className="p-4 border-t border-gray-200 bg-white">
+            <footer className="p-4 border-t border-gray-200 bg-white shrink-0">
               <div className="flex gap-2">
                 <input
                   className="flex-1 border border-gray-200 rounded-lg px-3 py-2 outline-none"

@@ -102,7 +102,7 @@ export default function Layout() {
 	const isUnlocked = (required) => Number(level) >= Number(required)
 
 	return (
-		<div className="min-h-screen bg-white text-text-primary">
+		<div className="h-screen flex flex-col bg-white text-text-primary overflow-hidden">
 				<BugModal
 					open={bugOpen}
 					onClose={() => { if (!bugSending) setBugOpen(false) }}
@@ -236,7 +236,7 @@ export default function Layout() {
 			</aside>
 
 			{/* Header */}
-			<header className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-line md:pl-64">
+			<header className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-line md:pl-64 shrink-0">
 				<div className="h-16 flex items-center justify-between px-4 sm:px-6">
 					<div className="flex items-center gap-3">
 						<button className="md:hidden p-2 rounded-lg border border-line" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Toggle sidebar">
@@ -281,8 +281,8 @@ export default function Layout() {
 			</header>
 
 			{/* Main content */}
-			<main className="md:pl-64">
-				<div className="px-2 sm:px-6 py-4">
+			<main className="md:pl-64 flex-1 min-h-0 flex flex-col overflow-y-auto">
+				<div className="px-2 sm:px-6 py-4 flex-1 min-h-0 flex flex-col">
 					<Outlet />
 				</div>
 			</main>

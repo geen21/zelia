@@ -51,6 +51,11 @@ DROP POLICY IF EXISTS "Anyone can read global chat" ON public.global_chat;
 CREATE POLICY "Authenticated users can read global chat" ON public.global_chat
   FOR SELECT USING (auth.uid() IS NOT NULL);
 
+-- Ensure authenticated users can still insert their own messages
+DROP POLICY IF EXISTS "Authenticated users can insert their messages" ON public.global_chat;
+CREATE POLICY "Authenticated users can insert their messages" ON public.global_chat
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
 DROP POLICY IF EXISTS "Authenticated users can view custom formations" ON public.custom_formations;
 CREATE POLICY "Company members can view custom formations" ON public.custom_formations
   FOR SELECT USING (

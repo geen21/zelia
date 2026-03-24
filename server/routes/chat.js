@@ -1,10 +1,38 @@
 import express from 'express'
 import dotenv from 'dotenv'
 import { authenticateToken } from '../middleware/auth.js'
+import { supabaseAdmin, supabase as supabaseClient } from '../config/supabase.js'
 
 dotenv.config()
 
 const router = express.Router()
+
+// POST /api/chat/message  — insert a global chat message (bypasses RLS)
+router.post('/message', authenticateToken, async (req, res) => {
+  try {
+    const { content } = req.body || {}
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json({ error: 'Message requis' })
+    }
+    if (content.length > 2000) {
+      return res.status(400).json({ error: 'Message trop long (2000 caractères max)' })
+    }
+    const db = supabaseAdmin || supabaseClient
+    const { data, error: insErr } = await db
+      .from('global_chat')
+      .insert({ user_id: req.user.id, user_email: req.user.email, content: content.trim() })
+      .select()
+      .single()
+    if (insErr) {
+      console.error('Chat insert error:', insErr)
+      return res.status(500).json({ error: 'Erreur lors de l\'envoi du message' })
+    }
+    res.json({ message: data })
+  } catch (e) {
+    console.error('Chat message route error:', e)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
 
 // POST /api/chat/ai
 // body: { mode: 'persona'|'advisor', persona?: {title, skills[]}, message: string, history?: [{role, content}] }

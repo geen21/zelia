@@ -1,8 +1,30 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import supabase from '../lib/supabase'
-import apiClient from '../lib/api'
+import apiClient, { chatAPI } from '../lib/api'
 
 const ADMIN_EMAILS = new Set(['joris.geerdes@zelia.io', 'nicolas.wiegele@zelia.io'])
+
+function mergeMessages(previousMessages, incomingMessage) {
+  if (!incomingMessage?.id) {
+    return previousMessages
+  }
+
+  const nextMessages = [...previousMessages]
+  const existingIndex = nextMessages.findIndex((message) => message.id === incomingMessage.id)
+
+  if (existingIndex >= 0) {
+    nextMessages[existingIndex] = { ...nextMessages[existingIndex], ...incomingMessage }
+  } else {
+    nextMessages.push(incomingMessage)
+  }
+
+  nextMessages.sort((left, right) => new Date(left.created_at) - new Date(right.created_at))
+  return nextMessages
+}
+
+function getMessageAuthorLabel(message) {
+  return message?.user_display_name || message?.user_first_name || message?.user_email || 'Utilisateur'
+}
 
 export default function Chat() {
   const [mode, setMode] = useState('student') // 'student' | 'ai'
@@ -25,6 +47,7 @@ export default function Chat() {
   // Fetch current user and initial data
   useEffect(() => {
     let mounted = true
+    let channel = null
     ;(async () => {
       try {
         setLoading(true)
@@ -46,14 +69,9 @@ export default function Chat() {
         setUser(resolvedUser)
 
         // Load last messages
-        const { data: initial, error: selErr } = await supabase
-          .from('global_chat')
-          .select('*')
-          .order('created_at', { ascending: true })
-          .limit(200)
-        if (selErr) throw selErr
+        const { data: chatData } = await chatAPI.getMessages({ limit: 200 })
         if (!mounted) return
-        setMessages(initial || [])
+        setMessages(chatData?.messages || [])
 
         // Load job recommendations for personas for the authenticated user only.
         try {
@@ -66,23 +84,31 @@ export default function Chat() {
         }
 
         // Subscribe realtime
-        const channel = supabase
+        channel = supabase
           .channel('global_chat_changes')
-          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'global_chat' }, (payload) => {
-            setMessages((prev) => [...prev, payload.new])
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'global_chat' }, async (payload) => {
+            try {
+              const { data } = await chatAPI.getMessageById(payload.new.id)
+              if (!mounted || !data?.message) return
+              setMessages((prev) => mergeMessages(prev, data.message))
+            } catch {
+              if (!mounted) return
+              setMessages((prev) => mergeMessages(prev, payload.new))
+            }
           })
           .subscribe()
-
-        return () => {
-          supabase.removeChannel(channel)
-        }
       } catch (e) {
         if (mounted) setError(e.message || 'Erreur de chargement')
       } finally {
         if (mounted) setLoading(false)
       }
     })()
-    return () => { mounted = false }
+    return () => {
+      mounted = false
+      if (channel) {
+        supabase.removeChannel(channel)
+      }
+    }
   }, [])
 
   // Auto scroll
@@ -96,21 +122,13 @@ export default function Chat() {
     const text = input.trim()
     if (!text || !user) return
     setInput('')
-    // Optimistic
-    const optimistic = {
-      id: Date.now(),
-      user_id: user.id,
-      user_email: user.email,
-      content: text,
-      created_at: new Date().toISOString(),
-    }
-    setMessages((prev) => [...prev, optimistic])
     try {
-      await apiClient.post('/chat/message', { content: text })
+      const { data } = await chatAPI.sendMessage(text)
+      if (data?.message) {
+        setMessages((prev) => mergeMessages(prev, data.message))
+      }
     } catch (insErr) {
       setError(insErr?.response?.data?.error || insErr.message)
-      // rollback optimistic
-      setMessages((prev) => prev.filter((m) => m !== optimistic))
       setInput(text)
     }
   }
@@ -195,7 +213,7 @@ export default function Chat() {
                       {isAdminMsg(m.user_email) ? (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#f68fff] text-white">Admin</span>
                       ) : (
-                        <span className="text-gray-600">{m.user_email || 'Utilisateur'}</span>
+                        <span className="text-gray-600">{getMessageAuthorLabel(m)}</span>
                       )}
                       <span className="text-gray-400">· {new Date(m.created_at).toLocaleTimeString()}</span>
                     </div>

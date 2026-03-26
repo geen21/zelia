@@ -154,6 +154,9 @@ export default apiClient
 
 // Chat API
 export const chatAPI = {
+  getMessages: (params = {}) => apiClient.get('/chat/messages', { params }),
+  getMessageById: (id) => apiClient.get(`/chat/messages/${id}`),
+  sendMessage: (content) => apiClient.post('/chat/message', { content }),
   aiChat: ({ mode, persona, message, history }) => apiClient.post('/chat/ai', { mode, persona, message, history })
 }
 

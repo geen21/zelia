@@ -7,6 +7,96 @@ dotenv.config()
 
 const router = express.Router()
 
+function buildDisplayName(message, profile) {
+  const firstName = profile?.first_name?.trim()
+  return {
+    ...message,
+    user_first_name: firstName || null,
+    user_display_name: firstName || message.user_email || 'Utilisateur'
+  }
+}
+
+async function enrichMessagesWithProfiles(db, messages) {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return []
+  }
+
+  const userIds = [...new Set(messages.map((message) => message?.user_id).filter(Boolean))]
+  let profilesById = new Map()
+
+  if (userIds.length > 0) {
+    const { data: profiles, error: profileErr } = await db
+      .from('profiles')
+      .select('id, first_name')
+      .in('id', userIds)
+
+    if (profileErr) {
+      throw profileErr
+    }
+
+    profilesById = new Map((profiles || []).map((profile) => [profile.id, profile]))
+  }
+
+  return messages.map((message) => buildDisplayName(message, profilesById.get(message.user_id)))
+}
+
+async function getChatMessageById(db, messageId) {
+  const { data, error } = await db
+    .from('global_chat')
+    .select('id, user_id, user_email, content, created_at')
+    .eq('id', messageId)
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  const [message] = await enrichMessagesWithProfiles(db, [data])
+  return message
+}
+
+router.get('/messages', authenticateToken, async (req, res) => {
+  try {
+    const requestedLimit = Number.parseInt(req.query.limit, 10)
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 200)
+      : 200
+
+    const db = supabaseAdmin || supabaseClient
+    const { data, error } = await db
+      .from('global_chat')
+      .select('id, user_id, user_email, content, created_at')
+      .order('created_at', { ascending: true })
+      .limit(limit)
+
+    if (error) {
+      console.error('Chat messages fetch error:', error)
+      return res.status(500).json({ error: 'Erreur lors du chargement du chat' })
+    }
+
+    const messages = await enrichMessagesWithProfiles(db, data || [])
+    res.json({ messages })
+  } catch (e) {
+    console.error('Chat messages route error:', e)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
+router.get('/messages/:id', authenticateToken, async (req, res) => {
+  try {
+    const db = supabaseAdmin || supabaseClient
+    const message = await getChatMessageById(db, req.params.id)
+    res.json({ message })
+  } catch (e) {
+    if (e?.code === 'PGRST116') {
+      return res.status(404).json({ error: 'Message introuvable' })
+    }
+
+    console.error('Chat message fetch route error:', e)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
 // POST /api/chat/message  — insert a global chat message (bypasses RLS)
 router.post('/message', authenticateToken, async (req, res) => {
   try {
@@ -21,13 +111,15 @@ router.post('/message', authenticateToken, async (req, res) => {
     const { data, error: insErr } = await db
       .from('global_chat')
       .insert({ user_id: req.user.id, user_email: req.user.email, content: content.trim() })
-      .select()
+      .select('id, user_id, user_email, content, created_at')
       .single()
     if (insErr) {
       console.error('Chat insert error:', insErr)
       return res.status(500).json({ error: 'Erreur lors de l\'envoi du message' })
     }
-    res.json({ message: data })
+
+    const [message] = await enrichMessagesWithProfiles(db, [data])
+    res.json({ message })
   } catch (e) {
     console.error('Chat message route error:', e)
     res.status(500).json({ error: 'Erreur serveur' })

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { usersAPI } from '../../lib/api'
-import apiClient from '../../lib/api'
+import apiClient, { chatAPI, usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 import { buildAvatarFromProfile } from '../../lib/avatar'
@@ -48,6 +47,28 @@ function useTypewriter(message, durationMs) {
 }
 
 const ADMIN_EMAILS = new Set(['joris.geerdes@zelia.io', 'nicolas.wiegele@zelia.io'])
+
+function mergeMessages(previousMessages, incomingMessage) {
+  if (!incomingMessage?.id) {
+    return previousMessages
+  }
+
+  const nextMessages = [...previousMessages]
+  const existingIndex = nextMessages.findIndex((message) => message.id === incomingMessage.id)
+
+  if (existingIndex >= 0) {
+    nextMessages[existingIndex] = { ...nextMessages[existingIndex], ...incomingMessage }
+  } else {
+    nextMessages.push(incomingMessage)
+  }
+
+  nextMessages.sort((left, right) => new Date(left.created_at) - new Date(right.created_at))
+  return nextMessages
+}
+
+function getMessageAuthorLabel(message) {
+  return message?.user_display_name || message?.user_first_name || message?.user_email || 'Utilisateur'
+}
 
 export default function Niveau13() {
   const navigate = useNavigate()
@@ -99,6 +120,7 @@ export default function Niveau13() {
   // Load profile and chat data
   useEffect(() => {
     let mounted = true
+    let channel = null
     ;(async () => {
       try {
         const { data: { user: authUser } } = await supabase.auth.getUser()
@@ -113,25 +135,24 @@ export default function Niveau13() {
         setAvatarUrl(buildAvatarFromProfile(prof, authUser.id))
 
         // Load chat messages
-        const { data: initial } = await supabase
-          .from('global_chat')
-          .select('*')
-          .order('created_at', { ascending: true })
-          .limit(100)
+        const { data: chatData } = await chatAPI.getMessages({ limit: 100 })
         if (!mounted) return
-        setMessages(initial || [])
+        setMessages(chatData?.messages || [])
 
         // Subscribe realtime
-        const channel = supabase
+        channel = supabase
           .channel('global_chat_n27')
-          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'global_chat' }, (payload) => {
-            setMessages((prev) => [...prev, payload.new])
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'global_chat' }, async (payload) => {
+            try {
+              const { data } = await chatAPI.getMessageById(payload.new.id)
+              if (!mounted || !data?.message) return
+              setMessages((prev) => mergeMessages(prev, data.message))
+            } catch {
+              if (!mounted) return
+              setMessages((prev) => mergeMessages(prev, payload.new))
+            }
           })
           .subscribe()
-
-        return () => {
-          supabase.removeChannel(channel)
-        }
       } catch (e) {
         console.error(e)
         if (!mounted) return
@@ -140,7 +161,12 @@ export default function Niveau13() {
         if (mounted) setLoading(false)
       }
     })()
-    return () => { mounted = false }
+    return () => {
+      mounted = false
+      if (channel) {
+        supabase.removeChannel(channel)
+      }
+    }
   }, [navigate])
 
   // Auto scroll
@@ -160,18 +186,12 @@ export default function Niveau13() {
     const text = input.trim()
     if (!text || !user) return
     setInput('')
-    const optimistic = {
-      id: Date.now(),
-      user_id: user.id,
-      user_email: user.email,
-      content: text,
-      created_at: new Date().toISOString(),
-    }
-    setMessages((prev) => [...prev, optimistic])
     try {
-      await apiClient.post('/chat/message', { content: text })
+      const { data } = await chatAPI.sendMessage(text)
+      if (data?.message) {
+        setMessages((prev) => mergeMessages(prev, data.message))
+      }
     } catch {
-      setMessages((prev) => prev.filter((m) => m !== optimistic))
       setInput(text)
     }
   }
@@ -343,7 +363,7 @@ export default function Niveau13() {
                             {isAdminMsg(m.user_email) ? (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#f68fff] text-white">Admin</span>
                             ) : (
-                              <span className={m.user_id === user?.id ? 'text-gray-300' : 'text-gray-600'}>{m.user_email || 'Utilisateur'}</span>
+                              <span className={m.user_id === user?.id ? 'text-gray-300' : 'text-gray-600'}>{getMessageAuthorLabel(m)}</span>
                             )}
                           </div>
                           <div className="whitespace-pre-wrap break-words">{m.content}</div>

@@ -106,7 +106,7 @@ export default function Niveau14() {
   const [userResponses, setUserResponses] = useState([])
   const [extraInfos, setExtraInfos] = useState([])
 
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(3)
   const [jobInput, setJobInput] = useState('')
 
   const [letter, setLetter] = useState('')

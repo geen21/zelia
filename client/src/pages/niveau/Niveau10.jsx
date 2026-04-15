@@ -112,7 +112,7 @@ export default function Niveau10() {
   const [profile, setProfile] = useState(null)
   const [baseAvatarUrl, setBaseAvatarUrl] = useState('')
 
-  const [phase, setPhase] = useState(STEP_INTRO)
+  const [phase, setPhase] = useState(STEP_Q1)
   const [mouthAlt, setMouthAlt] = useState(false)
 
   const [answers, setAnswers] = useState({

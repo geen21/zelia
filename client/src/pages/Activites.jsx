@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import api, { usersAPI } from '../lib/api';
+import api, { usersAPI, ecolesAPI } from '../lib/api';
 import { ALL_QUEST_IDS, MAX_LEVEL, XP_PER_LEVEL, completeQuest, questLabel } from '../lib/progression';
 
 // Zélia Game Engine - French Career Orientation Game
@@ -225,27 +225,18 @@ class ZeliaGameEngine {
     }
 
     getArc(level) {
-        if (level <= 5) return 'exploration';
-        if (level <= 10) return 'interets_forces';
-        if (level <= 15) return 'recherche_metiers';
-        if (level <= 20) return 'immersions_rencontres';
-        if (level <= 25) return 'competences_soft_skills';
-        if (level <= 30) return 'cv_lm';
-        if (level <= 35) return 'parcoursup_preparation';
-        if (level <= 40) return 'orals_pitch';
-        return 'orals_pitch';
+        if (level <= 3) return 'exploration';
+        if (level <= 6) return 'recherche_metiers';
+        if (level <= 9) return 'parcoursup_preparation';
+        return 'maitrise_finale';
     }
 
     unlockPerks(level) {
         const perks = [];
-        if (level === 5) perks.push('Checklist intelligente débloquée');
-        if (level === 10) perks.push('Générateur de CV disponible');
-        if (level === 15) perks.push('Bibliothèque d\'exemples débloquée');
-        if (level === 20) perks.push('Conseils personnalisés activés');
-        if (level === 25) perks.push('Simulateur de cohérence disponible');
-        if (level === 30) perks.push('Alertes calendrier activées');
-        if (level === 35) perks.push('Coaching express débloqué');
-        if (level === 40) perks.push('Bilan final débloqué');
+        if (level === 3) perks.push('Boîte à outils débloquée');
+        if (level === 5) perks.push('Recherche de formations débloquée');
+        if (level === 7) perks.push('Écoles partenaires débloquées');
+        if (level === 10) perks.push('Bilan final débloqué');
         return perks;
     }
 
@@ -343,6 +334,7 @@ const Activites = () => {
     const [shareFeedback, setShareFeedback] = useState('');
     const [showVideoOverlay, setShowVideoOverlay] = useState(false);
     const [resultsAvailable, setResultsAvailable] = useState(false);
+    const [ecolesPreview, setEcolesPreview] = useState([]);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -375,7 +367,7 @@ const Activites = () => {
                     : Array.isArray(extraInfoRes?.data)
                         ? extraInfoRes.data
                         : [];
-                const diplomaDate = extraInfoEntries.find((entry) => entry?.question_id === 'niveau40_diploma_date')?.answer_text || null;
+                const diplomaDate = extraInfoEntries.find((entry) => entry?.question_id === 'bilan_final_diploma_date' || entry?.question_id === 'niveau40_diploma_date')?.answer_text || null;
 
                 const pdata = progRes?.data || {};
                 const cleanLevel = Math.max(1, Math.min(Math.floor(pdata?.level) || 1, MAX_LEVEL));
@@ -391,10 +383,10 @@ const Activites = () => {
                 const storedQuests = Array.isArray(pdata?.quests) ? pdata.quests : [];
                 const mergedQuests = new Set(storedQuests);
                 if (hasResults) mergedQuests.add('complete_test');
-                if (diplomaDate) mergedQuests.add('level_40');
+                if (diplomaDate) mergedQuests.add('bilan_final');
 
-                if (diplomaDate && !storedQuests.includes('level_40')) {
-                    completeQuest('level_40').catch(() => null);
+                if (diplomaDate && !storedQuests.includes('bilan_final')) {
+                    completeQuest('bilan_final').catch(() => null);
                 }
 
                 const initialState = {
@@ -437,6 +429,19 @@ const Activites = () => {
 
                 setGameState(stateAfter);
                 setLastResponse(finalResponse);
+
+                // Fetch écoles partenaires preview
+                try {
+                    const ecolesRes = await ecolesAPI.matched().catch(() => null);
+                    const matchedEcoles = Array.isArray(ecolesRes?.data?.matched) ? ecolesRes.data.matched : [];
+                    if (matchedEcoles.length === 0) {
+                        const allRes = await ecolesAPI.partenaires().catch(() => null);
+                        const allEcoles = Array.isArray(allRes?.data?.formations) ? allRes.data.formations : [];
+                        if (isMounted) setEcolesPreview(allEcoles);
+                    } else {
+                        if (isMounted) setEcolesPreview(matchedEcoles);
+                    }
+                } catch {}
             } catch (e) {
                 console.error('Init load error:', e);
                 const defaultState = {
@@ -516,7 +521,7 @@ const Activites = () => {
 
     const { progression } = gameState;
     // Compute available level route (cap to implemented levels)
-    const maxLevelRoute = 50;
+    const maxLevelRoute = MAX_LEVEL;
     const currentLevel = progression?.level || 1;
     const targetLevel = Math.min(Math.max(1, currentLevel), maxLevelRoute);
     const hasAccessibleLevel = targetLevel >= 1 && targetLevel <= maxLevelRoute;
@@ -692,53 +697,35 @@ const Activites = () => {
                     </div>
                 )}
 
-                {/* Level Progression Roadmap */}
+                {/* Écoles partenaires preview */}
                 <div className="bg-white rounded-3xl p-8 border border-gray-200 shadow-card">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-                        Ton parcours vers le métier idéal
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">
+                        Écoles recommandées pour toi
                     </h2>
-                    
-                    <div className="grid md:grid-cols-4 gap-4">
-                        {[
-                            { levels: '1-10', start: 1, end: 10, title: 'Se découvrir', emoji: '🌟', color: 'from-green-400 to-green-600' },
-                            { levels: '11-20', start: 11, end: 20, title: 'Explorer ses options\net valider ses choix', emoji: '🔍', color: 'from-blue-400 to-blue-600' },
-                            { levels: '21-30', start: 21, end: 30, title: 'Les études : en route\nvers son métier idéal', emoji: '🎓', color: 'from-purple-400 to-purple-600' },
-                            { levels: '31-40', start: 31, end: 40, title: 'Devenir la meilleure\nversion de soi-même', emoji: '⭐', color: 'from-orange-400 to-orange-600' }
-                        ].map((arc, index) => {
-                            const isCurrentArc = progression.level >= arc.start && progression.level <= arc.end;
-                            const isCompleted = progression.level > arc.end;
-                            const targetLevel = isCurrentArc ? progression.level : arc.start;
-                            
-                            return (
-                                <div 
-                                    key={index}
-                                    onClick={() => navigate(`/app/niveau/${targetLevel}`)}
-                                    className={`relative p-4 rounded-xl text-center cursor-pointer transition-all hover:scale-105 ${
-                                        isCurrentArc 
-                                            ? 'bg-white border-2 border-[#c1ff72] text-gray-800'
-                                            : isCompleted
-                                                ? 'bg-gray-100 border-2 border-green-400'
-                                                : 'bg-white border border-gray-200'
-                                    }`}
-                                >
-                                    <div className="text-2xl mb-2">{arc.emoji}</div>
-                                    <div className="text-xs font-bold mb-1">Niveaux {arc.levels}</div>
-                                    <div className="text-sm font-medium whitespace-pre-line">{arc.title}</div>
-                                    
-                                    {isCompleted && (
-                                        <div className="absolute -top-2 -right-2 bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">
-                                            ✓
-                                        </div>
-                                    )}
-                                    
-                                    {isCurrentArc && (
-                                        <div className="absolute -top-2 -right-2 bg-[#c1ff72] text-black rounded-full w-6 h-6 flex items-center justify-center text-xs border border-gray-200">
-                                            ⚡
-                                        </div>
-                                    )}
+                    <p className="text-sm text-gray-500 text-center mb-6">Formations MyDigitalSchool adaptées à ton profil</p>
+
+                    {ecolesPreview.length === 0 ? (
+                        <p className="text-center text-gray-400 text-sm">Aucune formation chargée pour le moment.</p>
+                    ) : (
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            {ecolesPreview.slice(0, 6).map((f) => (
+                                <div key={f.id} className="border border-gray-200 rounded-2xl p-4 hover:border-[#c1ff72] transition-all">
+                                    <span className="inline-block text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 mb-2">{f.diploma_level}</span>
+                                    <h3 className="font-bold text-gray-800 text-sm leading-tight mb-1">{f.formation_name}</h3>
+                                    <p className="text-xs text-gray-500">{f.city}</p>
+                                    {f.description && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{f.description}</p>}
                                 </div>
-                            );
-                        })}
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="text-center mt-5">
+                        <button
+                            onClick={() => navigate('/app/ecoles-partenaires')}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#c1ff72] text-black font-semibold text-sm hover:bg-[#b0f060] transition-colors"
+                        >
+                            Voir toutes les formations
+                        </button>
                     </div>
                 </div>
 

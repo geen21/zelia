@@ -98,7 +98,7 @@ export default function Niveau19() {
   const [analysis, setAnalysis] = useState(null)
   const [responses, setResponses] = useState([])
 
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(4)
   const [improvements, setImprovements] = useState([])
   const [currentIdx, setCurrentIdx] = useState(0)
   const [answers, setAnswers] = useState([])

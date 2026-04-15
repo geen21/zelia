@@ -142,7 +142,7 @@ export default function Niveau26() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const [dialogueStep, setDialogueStep] = useState(0)
+  const [dialogueStep, setDialogueStep] = useState(2)
   const [tableStep, setTableStep] = useState(0)
   const [showSuccess, setShowSuccess] = useState(false)
   const [finishing, setFinishing] = useState(false)

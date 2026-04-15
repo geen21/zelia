@@ -68,7 +68,7 @@ export default function Niveau31() {
   const [profile, setProfile] = useState(null)
   const [avatarUrl, setAvatarUrl] = useState('')
 
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(3)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)

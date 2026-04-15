@@ -270,7 +270,7 @@ export default function Niveau3() {
     setShowSuccess(true)
     ;(async () => {
       try {
-        await levelUp({ minLevel: 3, xpReward: XP_PER_LEVEL })
+        await levelUp({ minLevel: 4, xpReward: XP_PER_LEVEL }) // New level 3 → advances to 4
       } catch (e) {
         console.warn('Progression update failed (non-blocking):', e)
       }

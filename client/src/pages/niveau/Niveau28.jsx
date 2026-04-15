@@ -92,7 +92,7 @@ export default function Niveau28() {
 
   const [idx, setIdx] = useState(0)
   // phases: intro -> practice -> rate -> feedback|success
-  const [phase, setPhase] = useState('intro')
+  const [phase, setPhase] = useState('practice')
   const [mouthAlt, setMouthAlt] = useState(false)
   const [userId, setUserId] = useState('')
 

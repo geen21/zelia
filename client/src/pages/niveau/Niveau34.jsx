@@ -112,7 +112,7 @@ export default function Niveau34() {
   const [avatarUrl, setAvatarUrl] = useState('')
 
   const [dialogueIdx, setDialogueIdx] = useState(0)
-  const [phase, setPhase] = useState('intro') // intro -> quiz -> result
+  const [phase, setPhase] = useState('quiz') // intro -> quiz -> result
   const [showSuccess, setShowSuccess] = useState(false)
   const [finishing, setFinishing] = useState(false)
   

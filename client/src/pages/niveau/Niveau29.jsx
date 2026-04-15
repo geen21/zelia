@@ -71,7 +71,7 @@ export default function Niveau29() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const [dialogueStep, setDialogueStep] = useState(0)
+  const [dialogueStep, setDialogueStep] = useState(3)
   const [showSuccess, setShowSuccess] = useState(false)
   const [finishing, setFinishing] = useState(false)
 

@@ -202,3 +202,10 @@ export const waitlistAPI = {
   join: (payload = {}) => apiClient.post('/waitlist', payload),
   getMyEntry: () => apiClient.get('/waitlist/me')
 }
+
+export const ecolesAPI = {
+  partenaires: () => apiClient.get('/ecoles/partenaires'),
+  matched: () => apiClient.get('/ecoles/matched'),
+  submit: (formationId) => apiClient.post('/ecoles/submit', { formation_id: formationId }),
+  mySubmissions: () => apiClient.get('/ecoles/my-submissions')
+}

@@ -56,7 +56,7 @@ export default function Niveau35() {
   const [error, setError] = useState('')
 
   const [idx, setIdx] = useState(0)
-  const [phase, setPhase] = useState('intro') // intro -> watch -> success
+  const [phase, setPhase] = useState('watch') // intro -> watch -> success
   const playerRef = useRef(null)
   const playerReadyRef = useRef(false)
   const [showSuccess, setShowSuccess] = useState(false)

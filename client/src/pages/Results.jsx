@@ -500,12 +500,12 @@ export default function Results() {
 	}
 
 	const renderPersonalityTab = () => {
-		// Gate until level 4
-		if ((progressionLevel || 0) < 4) {
+		// Gate until level 2
+		if ((progressionLevel || 0) < 2) {
 			return (
 				<div className="bg-yellow-50 border border-yellow-200 rounded-xl p-8 text-center shadow-card">
 					<h2 className="text-xl font-bold text-yellow-800 mb-2">Analyse de personnalité</h2>
-					<p className="text-yellow-700">Sera disponible au niveau 4.</p>
+					<p className="text-yellow-700">Sera disponible au niveau 2.</p>
 					{progressionLevel !== null && (
 						<p className="mt-2 text-sm text-yellow-600">Niveau actuel : {progressionLevel}</p>
 					)}

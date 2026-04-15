@@ -141,7 +141,7 @@ export default function Niveau37() {
   const [showSuccess, setShowSuccess] = useState(false)
   const [finishing, setFinishing] = useState(false)
 
-  const [dialogueStep, setDialogueStep] = useState(0)
+  const [dialogueStep, setDialogueStep] = useState(DIALOGUE.length)
   const dialogueFinished = dialogueStep >= DIALOGUE.length
   const [currentQuiz, setCurrentQuiz] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState(null)

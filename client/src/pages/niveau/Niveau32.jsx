@@ -53,7 +53,7 @@ export default function Niveau32() {
   const [avatarUrl, setAvatarUrl] = useState('')
 
   const [dialogueIdx, setDialogueIdx] = useState(0)
-  const [phase, setPhase] = useState('intro') // intro -> skills -> question -> success
+  const [phase, setPhase] = useState('skills') // intro -> skills -> question -> success
   const [showSuccess, setShowSuccess] = useState(false)
   const [finishing, setFinishing] = useState(false)
 

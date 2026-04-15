@@ -1,50 +1,19 @@
 import { progressionAPI } from './api'
 
-export const MAX_LEVEL = 40
-export const PAYWALL_LEVEL = 10
+export const MAX_LEVEL = 10
 export const XP_PER_LEVEL = 100
 
 const CORE_QUEST_SEQUENCE = [
   { id: 'explore_interests', label: "Exploration métiers et intérêts" },
-  { id: 'watch_intro', label: "L’importance de l’orientation (vidéo)" },
-  { id: 'strengths_quiz', label: 'Quiz idées reçues' },
-  { id: 'personality_test', label: 'Test de personnalité' },
-  { id: 'values_exploration', label: "Test d’anglais" },
-  { id: 'job_research', label: 'Recherche de formations' },
-  { id: 'salary_analysis', label: 'Matching métier' },
-  { id: 'job_videos', label: 'La diversité des métiers (vidéo)' },
-  { id: 'schedule_meeting', label: "Recherche d'emplois" },
-  { id: 'prepare_questions', label: 'Bilan numéro 1' },
   { id: 'company_visit', label: 'Classement des domaines' },
-  { id: 'soft_skills_assessment', label: 'Débouchés et marché' },
-  { id: 'star_method', label: 'Chat communautaire' },
-  { id: 'leadership_test', label: 'Lettre de motivation' },
+  { id: 'strengths_quiz', label: 'Quiz idées reçues' },
   { id: 'cv_builder', label: 'Points positifs et négatifs' },
-  { id: 'cover_letter', label: 'Vidéo : comment se vendre' },
-  { id: 'cv_review', label: 'Créer son CV' },
-  { id: 'projet_motive', label: 'Classement des métiers' },
-  { id: 'voeux_strategy', label: 'Affiner ses préférences' },
-  { id: 'calendar_planning', label: 'Bilan numéro 2' },
+  { id: 'salary_analysis', label: 'Matching métier' },
+  { id: 'soft_skills_assessment', label: 'Débouchés et marché' },
   { id: 'pitch_practice', label: 'Choisir une voie d’études' },
   { id: 'interview_simulation', label: 'Panorama des études' },
-  { id: 'confidence_building', label: 'Construire son plan d’action' },
-  { id: 'portfolio_review', label: 'Statistiques et réalité' },
-  { id: 'coherence_check', label: 'Vidéo : études post-bac' },
-  { id: 'final_polish', label: 'Préparer Parcoursup' },
-  { id: 'mentor_others', label: "Se présenter à l'oral" },
-  { id: 'success_story', label: "Simulation d'entretien" },
-  { id: 'expert_badge', label: 'Vidéo : comment se vendre' },
-  { id: 'level_30', label: 'Bilan numéro 3' },
-  { id: 'level_31', label: "Explorer un parcours d'études" },
-  { id: 'level_32', label: 'Compétences recommandées' },
-  { id: 'level_33', label: 'Lettre à soi-même' },
-  { id: 'level_34', label: 'Gérer son stress' },
-  { id: 'level_35', label: 'Vidéo motivation' },
-  { id: 'level_36', label: 'Soft skill : intelligence émotionnelle' },
-  { id: 'level_37', label: 'Quiz compétences' },
-  { id: 'level_38', label: 'Soft skill : adaptabilité' },
-  { id: 'level_39', label: 'Retours utilisateurs' },
-  { id: 'level_40', label: 'Bilan final' }
+  { id: 'confidence_building', label: 'Écoles recommandées' },
+  { id: 'bilan_final', label: 'Bilan final' }
 ]
 
 const LEVEL_QUEST_ENTRIES = Array.from({ length: MAX_LEVEL }, (_, index) => {
@@ -244,33 +213,28 @@ export async function completeQuest(questId) {
 export function isLevelAccessible({
   targetLevel,
   progression,
-  hasPaid,
-  paidGateLevel = PAYWALL_LEVEL
 }) {
   const cleanLevel = Math.max(1, Math.min(Number(targetLevel) || 1, MAX_LEVEL))
   const progressionLevel = Math.max(1, Number(progression?.level) || 1)
 
   // Allow replay of previously reached levels
   if (cleanLevel <= progressionLevel) {
-    if (cleanLevel > paidGateLevel && !hasPaid) return false
     return true
   }
 
   // Allow access to the immediate next level (in-progress level)
   if (cleanLevel === progressionLevel + 1) {
-    if (cleanLevel > paidGateLevel && !hasPaid) return false
     return true
   }
 
   return false
 }
 
-export function computeNextPlayableLevel({ progression, hasPaid, paidGateLevel = PAYWALL_LEVEL }) {
+export function computeNextPlayableLevel({ progression }) {
   const progressionLevel = Math.max(1, Number(progression?.level) || 1)
-  const maxPlayable = hasPaid ? MAX_LEVEL : paidGateLevel
 
-  if (progressionLevel > maxPlayable) {
-    return maxPlayable
+  if (progressionLevel > MAX_LEVEL) {
+    return MAX_LEVEL
   }
   return progressionLevel
 }

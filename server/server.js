@@ -23,6 +23,7 @@ import letterRoutes from './routes/letter.js'
 import shareRoutes from './routes/share.js'
 import supportRoutes from './routes/support.js'
 import waitlistRoutes from './routes/waitlist.js'
+import ecolesRoutes from './routes/ecoles.js'
 
 // Load environment variables
 dotenv.config()
@@ -151,6 +152,7 @@ app.use('/api/payments', paymentsRoutes)
 app.use('/api/share', shareRoutes)
 app.use('/api/support', supportRoutes)
 app.use('/api/waitlist', waitlistRoutes)
+app.use('/api/ecoles', ecolesRoutes)
 
 // Root endpoint
 app.get('/', (req, res) => {

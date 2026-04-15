@@ -54,7 +54,7 @@ export default function Niveau33() {
   const [authEmail, setAuthEmail] = useState('')
 
   const [dialogueIdx, setDialogueIdx] = useState(0)
-  const [phase, setPhase] = useState('intro') // intro -> decision -> write -> sending
+  const [phase, setPhase] = useState('decision') // intro -> decision -> write -> sending
   const [showSuccess, setShowSuccess] = useState(false)
   const [finishing, setFinishing] = useState(false)
   const [letter, setLetter] = useState('')

@@ -55,7 +55,7 @@ export default function Niveau16() {
   const [error, setError] = useState('')
 
   const [idx, setIdx] = useState(0)
-  const [phase, setPhase] = useState('intro') // intro -> watch
+  const [phase, setPhase] = useState('watch') // intro -> watch
   const playerRef = useRef(null)
   const playerReadyRef = useRef(false)
   const [showSuccess, setShowSuccess] = useState(false)

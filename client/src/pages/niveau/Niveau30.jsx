@@ -76,7 +76,7 @@ export default function Niveau30() {
   const [profile, setProfile] = useState(null)
   const [avatarUrl, setAvatarUrl] = useState('')
 
-  const [phase, setPhase] = useState(STEP_INTRO)
+  const [phase, setPhase] = useState(STEP_BILAN)
   const [bilanLoading, setBilanLoading] = useState(false)
   const [bilanError, setBilanError] = useState('')
   const [bilan, setBilan] = useState(null)

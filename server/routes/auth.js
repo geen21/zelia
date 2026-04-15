@@ -24,6 +24,8 @@ router.post('/register', async (req, res) => {
       department: userData?.departement || userData?.department || '',
       school: userData?.ecole || userData?.school || '',
       phone_number: userData?.numeroTelephone || userData?.numero_telephone || userData?.phone_number || '',
+      newsletter_opt_in: userData?.newsletter_opt_in || false,
+      accept_data_transfer: userData?.accept_data_transfer || false,
       // Include avatar and questionnaire data in metadata for trigger function
       avatarData: avatarData || null,
       questionnaireResponses: questionnaireResponses || null

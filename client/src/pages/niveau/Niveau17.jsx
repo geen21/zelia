@@ -204,7 +204,7 @@ export default function Niveau17() {
   const [userEmail, setUserEmail] = useState('')
   const [userId, setUserId] = useState('')
 
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(2)
   const [companies, setCompanies] = useState([''])
   const [roles, setRoles] = useState([''])
   const [targetJob, setTargetJob] = useState('')

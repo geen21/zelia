@@ -119,7 +119,7 @@ export default function Niveau4() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const [phase, setPhase] = useState('intro') // intro -> quiz -> generating -> results -> success
+  const [phase, setPhase] = useState('quiz') // intro -> quiz -> generating -> results -> success
   // Separate indices for intro messages and quiz questions
   const [introIdx, setIntroIdx] = useState(0)
   const [qIdx, setQIdx] = useState(0)

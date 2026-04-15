@@ -124,7 +124,7 @@ export default function Niveau38() {
   const [avatarUrl, setAvatarUrl] = useState('')
 
   const [dialogueIdx, setDialogueIdx] = useState(0)
-  const [phase, setPhase] = useState('intro')
+  const [phase, setPhase] = useState('game')
   const [showSuccess, setShowSuccess] = useState(false)
   const [finishing, setFinishing] = useState(false)
 

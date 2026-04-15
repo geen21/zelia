@@ -51,7 +51,7 @@ export default function Niveau39() {
   const [profile, setProfile] = useState(null)
   const [avatarUrl, setAvatarUrl] = useState('')
 
-  const [phase, setPhase] = useState('intro')
+  const [phase, setPhase] = useState('form')
   const [showSuccess, setShowSuccess] = useState(false)
   const [finishing, setFinishing] = useState(false)
   const [saving, setSaving] = useState(false)

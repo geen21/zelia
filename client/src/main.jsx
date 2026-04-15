@@ -21,10 +21,7 @@ import ConditionsConfidentialite from './pages/ConditionsConfidentialite.jsx'
 const Activites = lazy(() => import('./pages/Activites.jsx'))
 import Lettre from './pages/Lettre.jsx'
 import Niveau1 from './pages/niveau/Niveau1.jsx'
-import Niveau2 from './pages/niveau/Niveau2.jsx'
 import Niveau3 from './pages/niveau/Niveau3.jsx'
-import Niveau4 from './pages/niveau/Niveau4.jsx'
-import Niveau5 from './pages/niveau/Niveau5.jsx'
 import EmailConfirmation from './pages/EmailConfirmation.jsx'
 import Chat from './pages/Chat.jsx'
 import BlogIndex from './pages/blog/BlogIndex.jsx'
@@ -43,24 +40,38 @@ const tagManagerArgs = {
 
 TagManager.initialize(tagManagerArgs)
 
-const dynamicNiveauModules = import.meta.glob([
-  './pages/niveau/Niveau[6-9].jsx',
+// New 10-level parcours: lazy-load components mapped from old levels
+const Niveau11 = lazy(() => import('./pages/niveau/Niveau11.jsx'))
+const Niveau15 = lazy(() => import('./pages/niveau/Niveau15.jsx'))
+const Niveau7 = lazy(() => import('./pages/niveau/Niveau7.jsx'))
+const Niveau12 = lazy(() => import('./pages/niveau/Niveau12.jsx'))
+const Niveau21 = lazy(() => import('./pages/niveau/Niveau21.jsx'))
+const Niveau22 = lazy(() => import('./pages/niveau/Niveau22.jsx'))
+const Niveau23 = lazy(() => import('./pages/niveau/Niveau23.jsx'))
+const NiveauBilanFinal = lazy(() => import('./pages/niveau/NiveauBilanFinal.jsx'))
+
+// Boite à outils: all old level components for standalone tool access
+const toolModules = import.meta.glob([
+  './pages/niveau/Niveau[2-9].jsx',
   './pages/niveau/Niveau[1-3][0-9].jsx',
   './pages/niveau/Niveau40.jsx'
 ])
 
-const dynamicNiveauComponents = Object.entries(dynamicNiveauModules).reduce((acc, [path, loader]) => {
+const toolComponents = Object.entries(toolModules).reduce((acc, [path, loader]) => {
   const match = path.match(/Niveau(\d+)\.jsx$/)
   if (!match) return acc
   const level = Number(match[1])
-  if (Number.isNaN(level) || level <= 5) return acc
+  if (Number.isNaN(level)) return acc
   acc[level] = lazy(() => loader())
   return acc
 }, /** @type {Record<number, React.LazyExoticComponent<React.ComponentType<any>>>} */ ({}))
 
+const BoiteAOutils = lazy(() => import('./pages/BoiteAOutils.jsx'))
+const EcolesPartenaires = lazy(() => import('./pages/EcolesPartenaires.jsx'))
+
 loadLegacyStyles()
 
-const dynamicNiveauLevels = Object.keys(dynamicNiveauComponents)
+const toolLevels = Object.keys(toolComponents)
   .map((level) => Number(level))
   .sort((a, b) => a - b)
 
@@ -108,25 +119,35 @@ function App() {
           } />
           <Route path="lettre" element={<Lettre />} />
           <Route path="chat" element={<Chat />} />
+          {/* New 10-level parcours */}
           <Route path="niveau/1" element={<Niveau1 />} />
-          <Route path="niveau/2" element={<Niveau2 />} />
+          <Route path="niveau/2" element={<Suspense fallback={<div className="p-6 text-center">Chargement du niveau…</div>}><Niveau11 /></Suspense>} />
           <Route path="niveau/3" element={<Niveau3 />} />
-          <Route path="niveau/4" element={<Niveau4 />} />
-          <Route path="niveau/5" element={<Niveau5 />} />
-          {dynamicNiveauLevels.map((level) => {
-            const Component = dynamicNiveauComponents[level]
+          <Route path="niveau/4" element={<Suspense fallback={<div className="p-6 text-center">Chargement du niveau…</div>}><Niveau15 /></Suspense>} />
+          <Route path="niveau/5" element={<Suspense fallback={<div className="p-6 text-center">Chargement du niveau…</div>}><Niveau7 /></Suspense>} />
+          <Route path="niveau/6" element={<Suspense fallback={<div className="p-6 text-center">Chargement du niveau…</div>}><Niveau12 /></Suspense>} />
+          <Route path="niveau/7" element={<Suspense fallback={<div className="p-6 text-center">Chargement du niveau…</div>}><Niveau21 /></Suspense>} />
+          <Route path="niveau/8" element={<Suspense fallback={<div className="p-6 text-center">Chargement du niveau…</div>}><Niveau22 /></Suspense>} />
+          <Route path="niveau/9" element={<Suspense fallback={<div className="p-6 text-center">Chargement du niveau…</div>}><Niveau23 /></Suspense>} />
+          <Route path="niveau/10" element={<Suspense fallback={<div className="p-6 text-center">Chargement du niveau…</div>}><NiveauBilanFinal /></Suspense>} />
+          {/* Boite à outils */}
+          <Route path="outils" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><BoiteAOutils /></Suspense>} />
+          {toolLevels.map((level) => {
+            const Component = toolComponents[level]
             return (
               <Route
-                key={level}
-                path={`niveau/${level}`}
+                key={`tool-${level}`}
+                path={`outils/${level}`}
                 element={
-                  <Suspense fallback={<div className="p-6 text-center">Chargement du niveau…</div>}>
+                  <Suspense fallback={<div className="p-6 text-center">Chargement de l'outil…</div>}>
                     <Component />
                   </Suspense>
                 }
               />
             )
           })}
+          {/* Ecoles partenaires */}
+          <Route path="ecoles-partenaires" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><EcolesPartenaires /></Suspense>} />
         </Route>
         <Route path="*" element={<Navigate to="/" />} />
         </Routes>

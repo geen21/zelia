@@ -183,7 +183,7 @@ export default function Niveau9() {
   const [firstName, setFirstName] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [phase, setPhase] = useState('intro')
+  const [phase, setPhase] = useState('search')
   const [introIdx, setIntroIdx] = useState(0)
   const [mouthAlt, setMouthAlt] = useState(false)
 

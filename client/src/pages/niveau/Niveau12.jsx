@@ -238,7 +238,7 @@ export default function Niveau12() {
         }
       ]).catch(e => console.warn('saveExtraInfo N12 failed', e))
       
-      await levelUp({ minLevel: 12, xpReward: XP_PER_LEVEL })
+      await levelUp({ minLevel: 7, xpReward: XP_PER_LEVEL }) // New level 6 → advances to 7
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau12 levelUp failed', e)
@@ -521,12 +521,12 @@ export default function Niveau12() {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce font-bold">12</div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 12 terminé !</h3>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce font-bold">6</div>
+            <h3 className="text-2xl font-extrabold mb-2">Niveau 6 terminé !</h3>
 			<p className="text-text-secondary mb-4">Tu connais maintenant mieux le marché du travail et ses surprises.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
 			  <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/13')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Niveau suivant</button>
+              <button onClick={() => navigate('/app/niveau/7')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Niveau suivant</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />

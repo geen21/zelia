@@ -154,7 +154,7 @@ export default function Niveau24() {
   const [finishing, setFinishing] = useState(false)
 
   // Dialogue phase
-  const [dialogueStep, setDialogueStep] = useState(0)
+  const [dialogueStep, setDialogueStep] = useState(DIALOGUE.length)
   const dialogueFinished = dialogueStep >= DIALOGUE.length
 
   // Quiz phase

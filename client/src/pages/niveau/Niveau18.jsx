@@ -137,7 +137,7 @@ export default function Niveau18() {
   const [showSuccess, setShowSuccess] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(DIALOGUE.length)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),

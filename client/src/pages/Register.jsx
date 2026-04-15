@@ -19,6 +19,7 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [newsletterOptIn, setNewsletterOptIn] = useState(false)
+  const [acceptDataTransfer, setAcceptDataTransfer] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
   const [bypassLoading, setBypassLoading] = useState(false)
   const navigate = useNavigate()
@@ -150,6 +151,7 @@ export default function Register() {
         newsletter_opt_in: newsletterOptIn,
         newsletterOptIn,
         accept_terms: acceptTerms,
+        accept_data_transfer: acceptDataTransfer,
         termsAcceptedAt: new Date().toISOString()
       }
 
@@ -161,7 +163,8 @@ export default function Register() {
         avatarData,
         questionnaireResponses,
         acceptTerms,
-        newsletterOptIn
+        newsletterOptIn,
+        acceptDataTransfer
       })
 
       // Show email confirmation message
@@ -370,6 +373,17 @@ export default function Register() {
                       />
                       <span className="text-text-secondary text-xs">
                         Je souhaite recevoir la newsletter Zelia (conseils orientation, nouveautés).
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 rounded border-gray-300 text-black focus:ring-black"
+                        checked={acceptDataTransfer}
+                        onChange={(e) => setAcceptDataTransfer(e.target.checked)}
+                      />
+                      <span className="text-text-secondary text-xs">
+                        J'accepte de transférer mes données aux écoles partenaires.
                       </span>
                     </label>
                   </div>

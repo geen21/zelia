@@ -93,10 +93,12 @@ export default function Layout() {
 	// Unlock thresholds by section
 	const thresholds = {
 		activites: 1,
-		formations: 6,
-		emplois: 9,
-		chat: 12,
-		lettre: 12,
+		formations: 3,
+		emplois: 5,
+		chat: 6,
+		lettre: 6,
+		outils: 2,
+		ecoles: 7,
 	}
 
 	const isUnlocked = (required) => Number(level) >= Number(required)
@@ -191,8 +193,8 @@ export default function Layout() {
 								>
 									Chat
 								</SidebarLink>
-					{/* Lettre de motivation - unlock at level 12 */}
-								<SidebarLink
+					{/* Lettre de motivation - unlock at level 6 */}
+							<SidebarLink
 						to="/app/lettre"
 						icon="ph-file-text"
 						active={active('/app/lettre')}
@@ -202,6 +204,28 @@ export default function Layout() {
 					>
 						Lettre de motivation
 					</SidebarLink>
+							{/* Boîte à outils - unlock at level 2 */}
+							<SidebarLink
+								to="/app/outils"
+								icon="ph-toolbox"
+								active={active('/app/outils')}
+								onClick={() => setSidebarOpen(false)}
+								locked={!isUnlocked(thresholds.outils)}
+								lockTitle={`Niveau ${thresholds.outils}`}
+							>
+								Boîte à outils
+							</SidebarLink>
+							{/* Écoles partenaires - unlock at level 7 */}
+							<SidebarLink
+								to="/app/ecoles-partenaires"
+								icon="ph-buildings"
+								active={active('/app/ecoles-partenaires')}
+								onClick={() => setSidebarOpen(false)}
+								locked={!isUnlocked(thresholds.ecoles)}
+								lockTitle={`Niveau ${thresholds.ecoles}`}
+							>
+								Écoles partenaires
+							</SidebarLink>
 								<div className="mt-auto">
 									<SidebarLink
 										to="/app/results"

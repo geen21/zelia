@@ -90,18 +90,7 @@ export default function Layout() {
 		nav('/')
 	}
 
-	// Unlock thresholds by section
-	const thresholds = {
-		activites: 1,
-		formations: 3,
-		emplois: 5,
-		chat: 6,
-		lettre: 6,
-		outils: 2,
-		ecoles: 7,
-	}
 
-	const isUnlocked = (required) => Number(level) >= Number(required)
 
 	return (
 		<div className="h-screen flex flex-col bg-white text-text-primary overflow-hidden">
@@ -150,79 +139,59 @@ export default function Layout() {
 						</button>
 					</div>
 					<nav className="py-4 flex-1 overflow-y-auto flex flex-col">
-					{/* Activités is always accessible */}
 					<SidebarLink
 						to="/app"
 						icon="ph-activity"
 						active={active('/app')}
 						onClick={() => setSidebarOpen(false)}
-						locked={false}
 					>
 						Activités
 					</SidebarLink>
-					{/* Formations - unlock at level 6 */}
-								<SidebarLink
+					<SidebarLink
 						to="/app/formations"
 						icon="ph-graduation-cap"
 						active={active('/app/formations')}
 						onClick={() => setSidebarOpen(false)}
-						locked={!isUnlocked(thresholds.formations)}
-									lockTitle={`Niveau ${thresholds.formations}`}
 					>
 						Formations
 					</SidebarLink>
-					{/* Emplois - unlock at level 9 */}
-								<SidebarLink
+					<SidebarLink
 						to="/app/emplois"
 						icon="ph-briefcase"
 						active={active('/app/emplois')}
 						onClick={() => setSidebarOpen(false)}
-						locked={!isUnlocked(thresholds.emplois)}
-									lockTitle={`Niveau ${thresholds.emplois}`}
 					>
 						Emplois
 					</SidebarLink>
-					{/* Chat - unlock at level 12 */}
-								<SidebarLink
-									to="/app/chat"
-									icon="ph-chats"
-									active={active('/app/chat')}
-									onClick={() => setSidebarOpen(false)}
-									locked={!isUnlocked(thresholds.chat)}
-									lockTitle={`Niveau ${thresholds.chat}`}
-								>
-									Chat
-								</SidebarLink>
-					{/* Lettre de motivation - unlock at level 6 */}
-							<SidebarLink
+					<SidebarLink
+						to="/app/chat"
+						icon="ph-chats"
+						active={active('/app/chat')}
+						onClick={() => setSidebarOpen(false)}
+					>
+						Chat
+					</SidebarLink>
+					<SidebarLink
 						to="/app/lettre"
 						icon="ph-file-text"
 						active={active('/app/lettre')}
 						onClick={() => setSidebarOpen(false)}
-						locked={!isUnlocked(thresholds.lettre)}
-									lockTitle={`Niveau ${thresholds.lettre}`}
 					>
 						Lettre de motivation
 					</SidebarLink>
-							{/* Boîte à outils - unlock at level 2 */}
-							<SidebarLink
-								to="/app/outils"
-								icon="ph-toolbox"
-								active={active('/app/outils')}
-								onClick={() => setSidebarOpen(false)}
-								locked={!isUnlocked(thresholds.outils)}
-								lockTitle={`Niveau ${thresholds.outils}`}
+						<SidebarLink
+							to="/app/outils"
+							icon="ph-toolbox"
+							active={active('/app/outils')}
+							onClick={() => setSidebarOpen(false)}
 							>
 								Boîte à outils
 							</SidebarLink>
-							{/* Écoles partenaires - unlock at level 7 */}
-							<SidebarLink
-								to="/app/ecoles-partenaires"
-								icon="ph-buildings"
-								active={active('/app/ecoles-partenaires')}
-								onClick={() => setSidebarOpen(false)}
-								locked={!isUnlocked(thresholds.ecoles)}
-								lockTitle={`Niveau ${thresholds.ecoles}`}
+						<SidebarLink
+							to="/app/ecoles-partenaires"
+							icon="ph-buildings"
+							active={active('/app/ecoles-partenaires')}
+							onClick={() => setSidebarOpen(false)}
 							>
 								Écoles partenaires
 							</SidebarLink>

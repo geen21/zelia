@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { ecolesAPI } from '../lib/api'
 import { FaLocationDot, FaGraduationCap, FaPaperPlane, FaCheck } from 'react-icons/fa6'
 
@@ -17,7 +18,9 @@ export default function EcolesPartenaires() {
   const [cityFilter, setCityFilter] = useState('')
   const [submitted, setSubmitted] = useState(new Set())
   const [submitting, setSubmitting] = useState(null)
-  const [tab, setTab] = useState('matched')
+  const [tab, setTab] = useState('all')
+  const [highlightId, setHighlightId] = useState(null)
+  const location = useLocation()
 
   useEffect(() => {
     let mounted = true
@@ -42,6 +45,28 @@ export default function EcolesPartenaires() {
     })()
     return () => { mounted = false }
   }, [])
+
+  // Scroll to and highlight a specific formation when arriving via hash
+  useEffect(() => {
+    if (loading) return
+    const hash = location.hash || ''
+    const match = hash.match(/^#formation-(.+)$/)
+    if (!match) return
+    const id = match[1]
+    // Pre-select the matched tab so the formation is visible
+    const inMatched = matched.some((f) => f.id === id)
+    if (inMatched) setTab('matched')
+    setHighlightId(id)
+    // Wait for paint, then scroll
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`formation-${id}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    })
+    const t = setTimeout(() => setHighlightId(null), 2500)
+    return () => clearTimeout(t)
+  }, [loading, location.hash, matched])
 
   const handleSubmit = async (formationId) => {
     if (submitted.has(formationId) || submitting === formationId) return
@@ -81,8 +106,8 @@ export default function EcolesPartenaires() {
   return (
     <div className="p-2 md:p-6">
       <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-black mb-2">Écoles partenaires</h1>
-        <p className="text-gray-500">Découvre les formations de nos écoles partenaires et candidate directement.</p>
+        <h1 className="text-2xl md:text-3xl font-black mb-2">Écoles recommandées</h1>
+        <p className="text-gray-500">Découvre les formations recommandées pour toi et candidate directement.</p>
       </div>
 
       {/* Tabs */}
@@ -126,7 +151,15 @@ export default function EcolesPartenaires() {
       {/* Formation cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((f) => (
-          <div key={f.id} className="bg-white border border-gray-200 rounded-2xl p-5 hover:shadow-md transition-shadow">
+          <div
+            key={f.id}
+            id={`formation-${f.id}`}
+            className={`bg-white border rounded-2xl p-5 hover:shadow-md transition-all ${
+              highlightId === f.id
+                ? 'border-[#c1ff72] ring-2 ring-[#c1ff72] shadow-lg'
+                : 'border-gray-200'
+            }`}
+          >
             <div className="flex items-start justify-between gap-2 mb-3">
               <div>
                 <h3 className="font-bold text-sm">{f.school_name}</h3>
@@ -180,7 +213,7 @@ export default function EcolesPartenaires() {
       {filtered.length === 0 && (
         <div className="text-center py-12 text-gray-400">
           {tab === 'matched'
-            ? 'Complète plus de niveaux pour obtenir des recommandations personnalisées.'
+            ? 'Complète les niveaux 2 (domaines), 8 (niveau d’études et ville) et 9 (écoles) pour activer les recommandations personnalisées.'
             : 'Aucune formation trouvée pour cette ville.'}
         </div>
       )}

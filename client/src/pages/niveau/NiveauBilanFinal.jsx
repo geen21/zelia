@@ -139,18 +139,18 @@ export default function NiveauBilanFinal() {
       const message =
         `Tu dois produire un bilan final du parcours Zélia pour les niveaux 1 à 9.\n` +
         `Modules traversés:\n${summaryContext}\n\n` +
-        `Données utilisateur:\n${context}\n\n` +
-        `Réponds UNIQUEMENT en JSON valide au format:\n` +
-        `{"levelSummaries":[{"level":1,"title":"Exploration des métiers","summary":""}]}` +
-        `\nContraintes:\n` +
-        `- Retourne 9 objets, un pour chaque niveau de 1 a 9.\n` +
-        `- Garde exactement les numeros de niveau.\n` +
-        `- Chaque summary doit faire 1 ou 2 phrases courtes, concretes et personnalisees.\n` +
-        `- Fais ressortir ce qui a ete travaille sur le niveau concerne.\n` +
-        `- Ton encourageant et clair.`
+        `Données utilisateur enregistrées (réponses, choix, scores) :\n${context}\n\n` +
+        `Réponds UNIQUEMENT en JSON valide (aucun texte avant/après, pas de balises markdown) au format strict suivant :\n` +
+        `{"levelSummaries":[{"level":1,"title":"Exploration des métiers","summary":"..."},{"level":2,"title":"Classement des domaines","summary":"..."}, ... 9 entrées au total]}\n` +
+        `Contraintes :\n` +
+        `- EXACTEMENT 9 objets, un par niveau de 1 à 9, dans l'ordre.\n` +
+        `- Conserve les numéros et titres fournis.\n` +
+        `- Chaque "summary" : 2 à 3 phrases personnalisées qui s'appuient explicitement sur les données utilisateur fournies (cite les choix, métiers, scores, écoles évoqués). Si une donnée manque pour un niveau, résume ce que le niveau a permis de travailler avec un ton encourageant.\n` +
+        `- Français clair, ton bienveillant, à la 2e personne du singulier (« tu »).\n` +
+        `- Ne mentionne jamais que tu es une IA ni le format JSON.`
 
       const resp = await apiClient.post('/chat/ai', {
-        mode: 'advisor',
+        mode: 'bilan',
         advisorType: 'bilan-final',
         message,
         history: []

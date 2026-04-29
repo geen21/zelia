@@ -9,6 +9,12 @@ export default function Layout() {
 	const nav = useNavigate()
 	const loc = useLocation()
 	const [sidebarOpen, setSidebarOpen] = useState(false)
+	const [desktopCollapsed, setDesktopCollapsed] = useState(() => {
+		try { return localStorage.getItem('zelia.sidebar.collapsed') === '1' } catch { return false }
+	})
+	useEffect(() => {
+		try { localStorage.setItem('zelia.sidebar.collapsed', desktopCollapsed ? '1' : '0') } catch {}
+	}, [desktopCollapsed])
 	const [dropdownOpen, setDropdownOpen] = useState(false)
 	const dropdownRef = useRef(null)
   const [level, setLevel] = useState(1)
@@ -128,11 +134,11 @@ export default function Layout() {
 					sent={bugSent}
 				/>
 			{/* Sidebar */}
-			<aside className={`fixed top-0 left-0 h-full w-64 bg-white border-r border-line z-40 transition-transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+			<aside className={`fixed top-0 left-0 h-full bg-white border-r border-line z-40 transition-all duration-200 ${desktopCollapsed ? 'md:w-16' : 'md:w-64'} w-64 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
 				<div className="h-full flex flex-col">
-					<div className="h-16 flex items-center justify-between px-6 border-b border-line">
-						<Link to="/app" className="flex items-center justify-center">
-							<img src="/static/images/logo-dark.png" alt="Logo" className="h-8" />
+					<div className={`h-16 flex items-center border-b border-line ${desktopCollapsed ? 'md:justify-center md:px-2' : 'md:px-6'} justify-between px-6`}>
+						<Link to="/app" className="flex items-center justify-center" title="Accueil">
+							<img src="/static/images/logo-dark.png" alt="Logo" className={`${desktopCollapsed ? 'md:h-7' : ''} h-8`} />
 						</Link>
 						<button className="md:hidden p-2 rounded-lg hover:bg-gray-50" onClick={() => setSidebarOpen(false)} aria-label="Fermer la sidebar">
 							<i className="ph ph-x text-xl"></i>
@@ -144,6 +150,7 @@ export default function Layout() {
 						icon="ph-activity"
 						active={active('/app')}
 						onClick={() => setSidebarOpen(false)}
+						collapsed={desktopCollapsed}
 					>
 						Activités
 					</SidebarLink>
@@ -152,6 +159,7 @@ export default function Layout() {
 						icon="ph-graduation-cap"
 						active={active('/app/formations')}
 						onClick={() => setSidebarOpen(false)}
+						collapsed={desktopCollapsed}
 					>
 						Formations
 					</SidebarLink>
@@ -160,22 +168,16 @@ export default function Layout() {
 						icon="ph-briefcase"
 						active={active('/app/emplois')}
 						onClick={() => setSidebarOpen(false)}
+						collapsed={desktopCollapsed}
 					>
 						Emplois
-					</SidebarLink>
-					<SidebarLink
-						to="/app/chat"
-						icon="ph-chats"
-						active={active('/app/chat')}
-						onClick={() => setSidebarOpen(false)}
-					>
-						Chat
 					</SidebarLink>
 					<SidebarLink
 						to="/app/lettre"
 						icon="ph-file-text"
 						active={active('/app/lettre')}
 						onClick={() => setSidebarOpen(false)}
+						collapsed={desktopCollapsed}
 					>
 						Lettre de motivation
 					</SidebarLink>
@@ -184,6 +186,7 @@ export default function Layout() {
 							icon="ph-toolbox"
 							active={active('/app/outils')}
 							onClick={() => setSidebarOpen(false)}
+							collapsed={desktopCollapsed}
 							>
 								Boîte à outils
 							</SidebarLink>
@@ -192,8 +195,9 @@ export default function Layout() {
 							icon="ph-buildings"
 							active={active('/app/ecoles-partenaires')}
 							onClick={() => setSidebarOpen(false)}
+							collapsed={desktopCollapsed}
 							>
-								Écoles partenaires
+								Écoles recommandées
 							</SidebarLink>
 								<div className="mt-auto">
 									<SidebarLink
@@ -201,12 +205,22 @@ export default function Layout() {
 										icon="ph-chart-line-up"
 										active={active('/app/results')}
 										onClick={() => setSidebarOpen(false)}
+										collapsed={desktopCollapsed}
 									>
 										Mes resultats
 									</SidebarLink>
+									<SidebarLink
+										to="/app/chat"
+										icon="ph-chats"
+										active={active('/app/chat')}
+										onClick={() => setSidebarOpen(false)}
+										collapsed={desktopCollapsed}
+									>
+										Chat
+									</SidebarLink>
 								</div>
 					</nav>
-					<div className="px-6 pb-3 pt-2 border-t border-line flex flex-col items-center gap-2 text-text-secondary">
+					<div className={`px-6 pb-3 pt-2 border-t border-line flex flex-col items-center gap-2 text-text-secondary ${desktopCollapsed ? 'md:hidden' : ''}`}>
 						{/* Alpha badge + Report bug */}
 						<div className="flex flex-row items-center justify-center gap-2 text-[11px] uppercase tracking-wide w-full">
 							<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-[#f68fff] text-[#f68fff] whitespace-nowrap">
@@ -229,11 +243,19 @@ export default function Layout() {
 			</aside>
 
 			{/* Header */}
-			<header className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-line md:pl-64 shrink-0">
+			<header className={`sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-line ${desktopCollapsed ? 'md:pl-16' : 'md:pl-64'} shrink-0 transition-all duration-200`}>
 				<div className="h-16 flex items-center justify-between px-4 sm:px-6">
 					<div className="flex items-center gap-3">
 						<button className="md:hidden p-2 rounded-lg border border-line" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Toggle sidebar">
 							<i className="ph ph-list text-xl"></i>
+						</button>
+						<button
+							className="hidden md:inline-flex p-2 rounded-lg border border-line hover:bg-gray-50"
+							onClick={() => setDesktopCollapsed((v) => !v)}
+							aria-label={desktopCollapsed ? 'Déplier la sidebar' : 'Rétracter la sidebar'}
+							title={desktopCollapsed ? 'Déplier la sidebar' : 'Rétracter la sidebar'}
+						>
+							<i className={`ph ${desktopCollapsed ? 'ph-sidebar-simple' : 'ph-sidebar'} text-xl`}></i>
 						</button>
 						<nav className="text-sm text-text-secondary">
 							<span className="text-text-primary font-medium">{crumbs[1]}</span>
@@ -274,7 +296,7 @@ export default function Layout() {
 			</header>
 
 			{/* Main content */}
-			<main className="md:pl-64 flex-1 min-h-0 flex flex-col overflow-y-auto">
+			<main className={`${desktopCollapsed ? 'md:pl-16' : 'md:pl-64'} flex-1 min-h-0 flex flex-col overflow-y-auto transition-all duration-200`}>
 				<div className="px-2 sm:px-6 py-4 flex-1 min-h-0 flex flex-col">
 					<Outlet />
 				</div>
@@ -283,7 +305,7 @@ export default function Layout() {
 	)
 }
 
-function SidebarLink({ to, icon, active, children, onClick, locked = false, lockTitle = '' }){
+function SidebarLink({ to, icon, active, children, onClick, locked = false, lockTitle = '', collapsed = false }){
 	const handleClick = (e) => {
 		if (locked) {
 			e.preventDefault()
@@ -292,20 +314,22 @@ function SidebarLink({ to, icon, active, children, onClick, locked = false, lock
 		if (onClick) onClick(e)
 	}
 
+	const label = typeof children === 'string' ? children : ''
+
 	return (
 		<Link
 			to={to}
 			onClick={handleClick}
 			aria-disabled={locked}
-			title={locked ? lockTitle : undefined}
-			className={`group flex items-center gap-3 px-4 py-2.5 text-sm text-text-primary relative ${active ? 'bg-gray-50' : 'hover:bg-gray-50'} ${locked ? 'pointer-events-auto select-none' : ''}`}
+			title={locked ? lockTitle : (collapsed ? label : undefined)}
+			className={`group flex items-center gap-3 px-4 py-2.5 text-sm text-text-primary relative ${active ? 'bg-gray-50' : 'hover:bg-gray-50'} ${locked ? 'pointer-events-auto select-none' : ''} ${collapsed ? 'md:justify-center md:px-2' : ''}`}
 		>
 			<span className={`absolute left-0 top-0 h-full w-1 ${active ? 'bg-black' : 'bg-transparent'} rounded-r`}></span>
 			<div className={`flex items-center gap-3 ${locked ? 'blur-[1px] opacity-60' : ''}`}>
 				<i className={`ph ${icon} text-lg ${active ? 'text-black' : 'text-text-secondary'} group-hover:text-black`}></i>
-				<span className={`${active ? 'font-medium' : ''}`}>{children}</span>
+				<span className={`${active ? 'font-medium' : ''} ${collapsed ? 'md:hidden' : ''}`}>{children}</span>
 			</div>
-					{locked && (
+					{locked && !collapsed && (
 						<div className="absolute inset-0 flex items-center justify-end pr-3">
 							<span className="inline-flex items-center gap-1 text-xs text-text-secondary bg-gray-100 border border-line rounded-full px-2 py-0.5">
 								<span className="inline-block h-2 w-2 rounded-full bg-[#f68fff]"></span>

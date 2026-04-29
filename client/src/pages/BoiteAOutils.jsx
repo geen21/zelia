@@ -101,11 +101,11 @@ export default function BoiteAOutils() {
           <button
             key={tool.oldLevel}
             onClick={() => navigate(`/app/outils/${tool.oldLevel}`)}
-            className="bg-white border border-gray-200 rounded-2xl p-5 text-left hover:shadow-lg hover:border-gray-300 transition-all group"
+            className="bg-white border border-gray-200 rounded-2xl p-3 text-left hover:shadow-lg hover:border-gray-300 transition-all group"
           >
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-xl group-hover:bg-[#c1ff72] transition-colors">
-                {(() => { const Icon = ICON_MAP[tool.icon] || PiWrenchBold; return <Icon className="w-5 h-5" /> })()}
+              <div className="w-14 h-14 shrink-0 bg-gray-100 rounded-xl flex items-center justify-center group-hover:bg-[#c1ff72] transition-colors">
+                {(() => { const Icon = ICON_MAP[tool.icon] || PiWrenchBold; return <Icon className="w-8 h-8" /> })()}
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-bold text-sm mb-1 truncate">{tool.title}</h3>

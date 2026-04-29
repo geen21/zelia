@@ -141,25 +141,36 @@ router.post('/ai', authenticateToken, async (req, res) => {
     }
 
     const titlesText = Array.isArray(jobTitles) && jobTitles.length ? `Titres métiers disponibles: ${jobTitles.join(', ')}.` : ''
-    const sys = mode === 'persona' && persona?.title
+    const isBilan = mode === 'bilan' || (typeof advisorType === 'string' && advisorType.startsWith('bilan'))
+    const sys = isBilan
+      ? `Tu es Zélia, coach d'orientation francophone. Tu dois produire un bilan structuré pour l'utilisateur. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans balise markdown, sans backticks. Respecte exactement le schéma demandé dans le message. Le ton doit être encourageant, concret et personnalisé à partir des données fournies.`
+      : mode === 'persona' && persona?.title
       ? `Type de conseiller: ${advisorType || persona.title}. Tu es ${persona.title}. ${titlesText} Réponds en français, en incarnant ce métier (quotidien, contraintes, voies d'accès, perspectives). Donne des réponses COURTES, comme dans une discussion (2-4 phrases max), précises et utiles. Si on te pose des questions personnelles, réponds du point de vue professionnel. Compétences clés: ${(persona.skills||[]).join(', ')}.`
       : `Type de conseiller: ${advisorType || 'conseiller-ia'}. Tu es un conseiller d'orientation en français. ${titlesText} Donne des réponses COURTES comme dans une discussion (2-4 phrases max), concrètes, bienveillantes et actionnables avec premières étapes.`
 
     // Build content for Gemini API
     const parts = []
     parts.push({ text: `[Contexte] ${sys}` })
-    for (const turn of history.slice(-10)) {
-      if (!turn || !turn.content) continue
-      parts.push({ text: `${turn.role === 'user' ? 'Etudiant' : 'IA'}: ${turn.content}` })
+    if (!isBilan) {
+      for (const turn of history.slice(-10)) {
+        if (!turn || !turn.content) continue
+        parts.push({ text: `${turn.role === 'user' ? 'Etudiant' : 'IA'}: ${turn.content}` })
+      }
+      parts.push({ text: `Etudiant: ${message}` })
+      parts.push({ text: `IA:` })
+    } else {
+      parts.push({ text: message })
     }
-    parts.push({ text: `Etudiant: ${message}` })
-    parts.push({ text: `IA:` })
+
+    const generationConfig = isBilan
+      ? { temperature: 0.7, maxOutputTokens: 2048, responseMimeType: 'application/json' }
+      : { temperature: 0.9, maxOutputTokens: 512 }
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`
     const resp = await fetch(geminiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts }] })
+      body: JSON.stringify({ contents: [{ parts }], generationConfig })
     })
 
     if (!resp.ok) {

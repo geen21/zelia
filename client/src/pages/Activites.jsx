@@ -235,7 +235,7 @@ class ZeliaGameEngine {
         const perks = [];
         if (level === 3) perks.push('Boîte à outils débloquée');
         if (level === 5) perks.push('Recherche de formations débloquée');
-        if (level === 7) perks.push('Écoles partenaires débloquées');
+        if (level === 7) perks.push('Écoles recommandées débloquées');
         if (level === 10) perks.push('Bilan final débloqué');
         return perks;
     }
@@ -368,6 +368,7 @@ const Activites = () => {
                         ? extraInfoRes.data
                         : [];
                 const diplomaDate = extraInfoEntries.find((entry) => entry?.question_id === 'bilan_final_diploma_date' || entry?.question_id === 'niveau40_diploma_date')?.answer_text || null;
+                const niv10Done = extraInfoEntries.some((entry) => entry?.question_id === 'niv10_career_ideas' || entry?.question_id === 'niv10_like_app');
 
                 const pdata = progRes?.data || {};
                 const cleanLevel = Math.max(1, Math.min(Math.floor(pdata?.level) || 1, MAX_LEVEL));
@@ -384,8 +385,12 @@ const Activites = () => {
                 const mergedQuests = new Set(storedQuests);
                 if (hasResults) mergedQuests.add('complete_test');
                 if (diplomaDate) mergedQuests.add('bilan_final');
+                // The bilan final is also considered done if the user reached
+                // niveau 10 or already saved the niv10 feedback answers.
+                const bilanDone = !!diplomaDate || niv10Done || cleanLevel >= 10;
+                if (bilanDone) mergedQuests.add('bilan_final');
 
-                if (diplomaDate && !storedQuests.includes('bilan_final')) {
+                if (bilanDone && !storedQuests.includes('bilan_final')) {
                     completeQuest('bilan_final').catch(() => null);
                 }
 
@@ -430,17 +435,11 @@ const Activites = () => {
                 setGameState(stateAfter);
                 setLastResponse(finalResponse);
 
-                // Fetch écoles partenaires preview
+                // Fetch écoles recommandées (matched only, with score)
                 try {
                     const ecolesRes = await ecolesAPI.matched().catch(() => null);
                     const matchedEcoles = Array.isArray(ecolesRes?.data?.matched) ? ecolesRes.data.matched : [];
-                    if (matchedEcoles.length === 0) {
-                        const allRes = await ecolesAPI.partenaires().catch(() => null);
-                        const allEcoles = Array.isArray(allRes?.data?.formations) ? allRes.data.formations : [];
-                        if (isMounted) setEcolesPreview(allEcoles);
-                    } else {
-                        if (isMounted) setEcolesPreview(matchedEcoles);
-                    }
+                    if (isMounted) setEcolesPreview(matchedEcoles);
                 } catch {}
             } catch (e) {
                 console.error('Init load error:', e);
@@ -591,13 +590,22 @@ const Activites = () => {
                                     <button
                                         onClick={() => {
                                             if (hasAccessibleLevel) navigate(`/app/niveau/${targetLevel}`);
+                                            else navigate('/app/outils');
                                         }}
-                                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border transition ${hasAccessibleLevel ? 'bg-[#f68fff] text-white border-transparent hover:opacity-90' : 'bg-gray-200 text-gray-500 border-gray-300 cursor-not-allowed'}`}
-                                        title={hasAccessibleLevel ? `Aller au Niveau ${targetLevel}` : 'Tous les niveaux disponibles sont terminés'}
-                                        disabled={!hasAccessibleLevel}
+                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border transition bg-[#f68fff] text-white border-transparent hover:opacity-90"
+                                        title={hasAccessibleLevel ? `Aller au Niveau ${targetLevel}` : 'Ouvrir la Boîte à outils'}
                                     >
-                                        <span role="img" aria-label="jeu">🎮</span>
-                                        <span>{hasAccessibleLevel ? `Aller au Niveau ${targetLevel}` : 'Niveaux terminés'}</span>
+                                        <span role="img" aria-label="jeu">{hasAccessibleLevel ? '🎮' : '🧰'}</span>
+                                        <span>{hasAccessibleLevel ? `Aller au Niveau ${targetLevel}` : 'Ouvrir la Boîte à outils'}</span>
+                                    </button>
+                                    <button
+                                        onClick={() => navigate('/app/outils')}
+                                        type="button"
+                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-gray-200 bg-white text-gray-700 hover:border-[#c1ff72] hover:text-black transition"
+                                        title="Ouvrir la Boîte à outils"
+                                    >
+                                        <span role="img" aria-label="boîte à outils">🧰</span>
+                                        <span>Boîte à outils</span>
                                     </button>
                                 </div>
                                 {shareFeedback && (
@@ -635,6 +643,63 @@ const Activites = () => {
                                 style={{ width: `${progressPercent}%` }}
                             />
                         </div>
+                    </div>
+                </div>
+
+                {/* Écoles recommandées preview */}
+                <div className="bg-white rounded-3xl p-4 md:p-5 border border-gray-200 shadow-card">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <h2 className="text-base md:text-lg font-bold text-gray-800 truncate">
+                                Formations recommandées pour toi
+                            </h2>
+                            <img
+                                src="/assets/images/mydigitalschool-logo.png"
+                                alt="MyDigitalSchool"
+                                className="h-6 md:h-7 object-contain shrink-0"
+                            />
+                        </div>
+                        <button
+                            onClick={() => navigate('/app/ecoles-partenaires')}
+                            className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#c1ff72] text-black font-semibold text-xs hover:bg-[#b0f060] transition-colors shrink-0"
+                        >
+                            Tout voir
+                        </button>
+                    </div>
+
+                    {ecolesPreview.length === 0 ? (
+                        <p className="text-center text-gray-400 text-xs py-2">
+                            Complète les niveaux 2 (domaines) et 7 (filières) pour activer les recommandations personnalisées.
+                        </p>
+                    ) : (
+                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            {ecolesPreview.slice(0, 3).map((f) => (
+                                <button
+                                    key={f.id}
+                                    type="button"
+                                    onClick={() => navigate(`/app/ecoles-partenaires#formation-${f.id}`)}
+                                    className="relative text-left border border-gray-200 rounded-xl p-3 hover:border-[#c1ff72] hover:shadow-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#c1ff72]"
+                                >
+                                    {f.match_score != null && (
+                                        <span className="absolute top-2 right-2 text-[10px] font-bold bg-[#c1ff72] text-black px-1.5 py-0.5 rounded-full border border-black/10">
+                                            {f.match_score}%
+                                        </span>
+                                    )}
+                                    <span className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 mb-1">{f.diploma_level}</span>
+                                    <h3 className="font-bold text-gray-800 text-xs leading-tight mb-0.5 pr-10 line-clamp-2">{f.formation_name}</h3>
+                                    <p className="text-[11px] text-gray-500">{f.city}</p>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="text-center mt-3 sm:hidden">
+                        <button
+                            onClick={() => navigate('/app/ecoles-partenaires')}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#c1ff72] text-black font-semibold text-xs hover:bg-[#b0f060] transition-colors"
+                        >
+                            Voir toutes les formations
+                        </button>
                     </div>
                 </div>
 
@@ -696,38 +761,6 @@ const Activites = () => {
                         </div>
                     </div>
                 )}
-
-                {/* Écoles partenaires preview */}
-                <div className="bg-white rounded-3xl p-8 border border-gray-200 shadow-card">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">
-                        Écoles recommandées pour toi
-                    </h2>
-                    <p className="text-sm text-gray-500 text-center mb-6">Formations MyDigitalSchool adaptées à ton profil</p>
-
-                    {ecolesPreview.length === 0 ? (
-                        <p className="text-center text-gray-400 text-sm">Aucune formation chargée pour le moment.</p>
-                    ) : (
-                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            {ecolesPreview.slice(0, 6).map((f) => (
-                                <div key={f.id} className="border border-gray-200 rounded-2xl p-4 hover:border-[#c1ff72] transition-all">
-                                    <span className="inline-block text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 mb-2">{f.diploma_level}</span>
-                                    <h3 className="font-bold text-gray-800 text-sm leading-tight mb-1">{f.formation_name}</h3>
-                                    <p className="text-xs text-gray-500">{f.city}</p>
-                                    {f.description && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{f.description}</p>}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    <div className="text-center mt-5">
-                        <button
-                            onClick={() => navigate('/app/ecoles-partenaires')}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#c1ff72] text-black font-semibold text-sm hover:bg-[#b0f060] transition-colors"
-                        >
-                            Voir toutes les formations
-                        </button>
-                    </div>
-                </div>
 
 
                     </div>

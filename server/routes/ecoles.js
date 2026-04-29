@@ -28,19 +28,28 @@ router.get('/matched', authenticateToken, async (req, res) => {
 
     // Fetch user's extra info for matching
     const { data: extraInfo, error: extraError } = await supabaseAdmin
-      .from('user_extra_info')
-      .select('question_id, answer_text')
+      .from('informations_complementaires')
+      .select('question_id, answer_text, created_at')
       .eq('user_id', userId)
+      .order('created_at', { ascending: false })
 
     if (extraError) throw extraError
 
     const entries = extraInfo || []
-    const entryMap = new Map(entries.map((e) => [e.question_id, e.answer_text]))
+    const entryMap = new Map()
+    for (const entry of entries) {
+      const questionId = entry?.question_id
+      if (!questionId || entryMap.has(questionId)) continue
+      entryMap.set(questionId, entry?.answer_text || '')
+    }
 
-    // Extract matching criteria from user data
-    const topDomains = entryMap.get('niveau11_top3') || ''
-    const studyLevel = entryMap.get('niveau22_study_level') || entryMap.get('niveau22_budget_etudes') || ''
-    const location = entryMap.get('niveau22_location') || entryMap.get('niveau22_city_preference') || ''
+    const pickFirstValue = (...questionIds) => {
+      for (const questionId of questionIds) {
+        const value = entryMap.get(questionId)
+        if (typeof value === 'string' && value.trim()) return value.trim()
+      }
+      return ''
+    }
 
     // Fetch all formations
     const { data: formations, error: formError } = await supabaseAdmin
@@ -52,52 +61,208 @@ router.get('/matched', authenticateToken, async (req, res) => {
       return res.json({ matched: [] })
     }
 
-    // Simple matching algorithm: score each formation
-    const scored = formations.map((f) => {
-      let score = 0
-
-      // Domain match
-      if (topDomains && f.domain) {
-        const domains = topDomains.toLowerCase().split(',').map((d) => d.trim())
-        const fDomain = (f.domain || '').toLowerCase()
-        if (domains.some((d) => fDomain.includes(d) || d.includes(fDomain))) {
-          score += 40
-        }
-      }
-
-      // Location match
-      if (location && f.city) {
-        const loc = location.toLowerCase()
-        const city = f.city.toLowerCase()
-        if (loc.includes(city) || city.includes(loc)) {
-          score += 30
-        }
-      }
-
-      // Study level match
-      if (studyLevel && f.diploma_level) {
-        const sl = studyLevel.toLowerCase()
-        const dl = (f.diploma_level || '').toLowerCase()
-        if (sl.includes(dl) || dl.includes(sl)) {
-          score += 30
-        }
-      }
-
-      return { ...f, match_score: score }
-    })
-
-    // Return formations with score > 0, sorted by score
-    const matched = scored
-      .filter((f) => f.match_score > 0)
-      .sort((a, b) => b.match_score - a.match_score)
-      .slice(0, 20)
-
+    const matched = scoreFormations(formations, entryMap, pickFirstValue)
     res.json({ matched })
   } catch (e) {
     console.error('GET /ecoles/matched error:', e)
     res.status(500).json({ error: 'Failed to fetch matched formations' })
   }
 })
+
+// ---------- Recommendation algorithm ----------
+
+const normalize = (s) =>
+  String(s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+
+// Generic French stopwords + recurring formation words that don't differentiate
+const STOPWORDS = new Set([
+  'bachelor', 'mba', 'bts', 'master', 'licence', 'diplome', 'titre', 'niveau',
+  'pour', 'avec', 'dans', 'des', 'les', 'une', 'aux', 'sur', 'par', 'mais',
+  'le', 'la', 'de', 'du', 'au', 'en', 'et', 'ou', 'un', 'son', 'ses', 'ces',
+  'plus', 'cette', 'cet', 'sans', 'tres', 'sous', 'chez', 'mon', 'ton'
+])
+
+function tokenize(text) {
+  return normalize(text)
+    .split(' ')
+    .filter((t) => t.length >= 3 && !STOPWORDS.has(t))
+}
+
+// Domains (Niveau 11) → sets of *informative* tokens that may appear in
+// a formation name. Each token weight is 1; multi-hit formations score higher.
+const DOMAIN_TO_TOKENS = {
+  'arts creation': ['design', 'creation', 'artistique', 'graphique', 'motion', 'ux', 'ui'],
+  'sciences recherche': ['data', 'analyst', 'recherche', 'big', 'ia'],
+  'technologie numerique': ['informatique', 'developpeur', 'developpement', 'web', 'cyber', 'reseau', 'sio', 'full', 'stack', 'data', 'ia'],
+  'sante bien etre': [],
+  'education formation': [],
+  'commerce vente': ['affaires', 'business', 'entrepreneuriat'],
+  'marketing communication': ['marketing', 'communication', 'webmarketing'],
+  'finance gestion': ['gestion', 'management', 'entrepreneuriat', 'projet'],
+  'droit justice': [],
+  'environnement developpement durable': [],
+  'sport loisirs': [],
+  'transport logistique': [],
+  'batiment travaux publics': [],
+  'cuisine hotellerie': [],
+  'social humanitaire': [],
+  'culture patrimoine': []
+}
+
+function tokensForDomain(domainNormalized) {
+  const mapped = DOMAIN_TO_TOKENS[domainNormalized]
+  if (mapped && mapped.length) return mapped
+  // fallback: significant tokens of the label itself
+  return tokenize(domainNormalized)
+}
+
+function parseTopDomains(raw) {
+  if (!raw) return []
+  let list = []
+  try {
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed)) list = parsed.map(String)
+  } catch {
+    list = String(raw).split(/[,;|\n]/).map((s) => s.trim()).filter(Boolean)
+  }
+  return list.slice(0, 3).map(normalize)
+}
+
+function parseLevel(raw) {
+  const n = normalize(raw).replace(/\s+/g, '')
+  const m = n.match(/bac\+?(\d+)/)
+  if (!m) return null
+  return parseInt(m[1], 10)
+}
+
+// Build a weighted token bag from the user signals.
+// Higher weights mean stronger personal preference for that token.
+function buildUserTokenBag({ topDomains, jobKeywordsRaw }) {
+  const bag = new Map()
+  const add = (token, weight) => {
+    if (!token || token.length < 3) return
+    if (STOPWORDS.has(token)) return
+    bag.set(token, (bag.get(token) || 0) + weight)
+  }
+
+  // Domains: rank-weighted (top1 stronger than top3)
+  const rankWeights = [3, 2, 1]
+  topDomains.forEach((dom, idx) => {
+    const w = rankWeights[idx] || 1
+    tokensForDomain(dom).forEach((t) => add(t, w))
+  })
+
+  // Free-text job/filière keywords: high weight (these are very specific)
+  tokenize(jobKeywordsRaw).forEach((t) => add(t, 4))
+
+  return bag
+}
+
+function scoreFormationContent(formation, userBag) {
+  const tokens = tokenize(formation.formation_name)
+  if (tokens.length === 0 || userBag.size === 0) return { raw: 0, hits: 0 }
+  const seen = new Set()
+  let raw = 0
+  let hits = 0
+  for (const t of tokens) {
+    if (seen.has(t)) continue
+    const w = userBag.get(t)
+    if (w) {
+      raw += w
+      hits += 1
+      seen.add(t)
+    }
+  }
+  return { raw, hits }
+}
+
+function scoreCity(userCity, formationCity) {
+  const a = normalize(userCity)
+  const b = normalize(formationCity)
+  if (!a || !b) return 0
+  if (a === b) return 1
+  if (a.includes(b) || b.includes(a)) return 1
+  const aTokens = a.split(' ').filter((t) => t.length > 2)
+  const bTokens = b.split(' ').filter((t) => t.length > 2)
+  const overlap = aTokens.filter((t) => bTokens.includes(t)).length
+  if (overlap >= 2) return 1
+  if (overlap === 1) return 0.4
+  return 0
+}
+
+function scoreLevel(userLevelN, formationLevelN) {
+  if (userLevelN == null || formationLevelN == null) return 0
+  if (userLevelN === formationLevelN) return 1
+  const diff = Math.abs(userLevelN - formationLevelN)
+  if (diff === 1) return 0.5
+  if (diff === 2) return 0.2
+  return 0
+}
+
+function scoreFormations(formations, entryMap, pickFirstValue) {
+  // Extract user signals
+  const topDomainsRaw = pickFirstValue('niveau11_top3', 'niveau11_domain_ranking')
+  const topDomains = parseTopDomains(topDomainsRaw)
+  const userLevelRaw = pickFirstValue('niveau22_level', 'niveau22_study_level')
+  const userLevelN = parseLevel(userLevelRaw)
+  const userCity = pickFirstValue('niveau22_city', 'niveau22_location', 'niveau22_city_preference')
+
+  const jobKeywordsParts = [
+    pickFirstValue('niveau31_selected_job'),
+    pickFirstValue('niveau14_target_job'),
+    pickFirstValue('niveau17_target_job'),
+    pickFirstValue('niveau21_filieres')
+  ].filter(Boolean)
+  const jobKeywordsRaw = jobKeywordsParts.join(' ')
+
+  const userBag = buildUserTokenBag({ topDomains, jobKeywordsRaw })
+  if (userBag.size === 0) return [] // No usable intent signal
+
+  // Score every formation by content overlap (the only differentiating factor)
+  // City/level are added as small bonuses (max +1 each), so they tilt ties
+  // without flattening the percentages.
+  const intermediate = formations
+    .map((f) => {
+      const { raw, hits } = scoreFormationContent(f, userBag)
+      if (hits === 0) return null // No content match -> not recommended
+      const cityBonus = scoreCity(userCity, f.city)
+      const levelBonus = scoreLevel(userLevelN, parseLevel(f.diploma_level))
+      // Total contribution: content (variable) + small fixed bonuses
+      const total = raw + cityBonus + levelBonus
+      return { f, raw, total, hits }
+    })
+    .filter(Boolean)
+
+  if (intermediate.length === 0) return []
+
+  // Absolute scaling: a formation needs ~12 points of weighted overlap
+  // (e.g. 3 strong hits) to reach 100%. This avoids systematic ties at
+  // the top that the relative-to-max normalization produced.
+  const TARGET = 12
+
+  const scored = intermediate.map(({ f, total, hits, raw }) => {
+    const ratio = total / TARGET
+    // Soft cap with diminishing returns above the target
+    const base = ratio >= 1
+      ? 92 + Math.min(8, Math.round((ratio - 1) * 6)) // 92..100
+      : Math.round(ratio * 92) // 0..92
+    // Bonus for multi-hit specificity (rewards formations whose name shares
+    // several distinct tokens with the user bag, not just one big-weight one)
+    const specificity = Math.min(6, (hits - 1) * 3)
+    const pct = Math.max(35, Math.min(100, base + specificity))
+    return { ...f, match_score: pct, _hits: hits, _raw: total }
+  })
+
+  return scored
+    .sort((a, b) => (b._raw - a._raw) || (b.match_score - a.match_score))
+    .slice(0, 12)
+    .map(({ _hits, _raw, ...rest }) => rest)
+}
 
 // POST /api/ecoles/submit - Submit application to a formation
 router.post('/submit', authenticateToken, async (req, res) => {

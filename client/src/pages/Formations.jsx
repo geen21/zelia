@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { supabase } from '../lib/supabase'
 
@@ -300,9 +301,18 @@ useEffect(() => {
 			.no-outline::-webkit-search-results-button,
 			.no-outline::-webkit-search-results-decoration { display: none !important; }
 			`}</style>
-			<div>
-				<h1 className="text-2xl font-bold">Formations</h1>
-				<p className="text-text-secondary">Explorez les formations en France</p>
+			<div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+				<div>
+					<h1 className="text-2xl font-bold">Formations</h1>
+					<p className="text-text-secondary">Explorez les formations en France</p>
+				</div>
+				<Link
+					to="/app/ecoles-partenaires"
+					className="inline-flex items-center gap-2 self-start sm:self-auto px-4 py-2 rounded-full bg-[#c1ff72] text-black font-semibold text-sm border border-gray-200 hover:bg-[#b0f060] transition-colors"
+				>
+					<i className="ph ph-graduation-cap"></i>
+					Formations recommandées pour toi
+				</Link>
 			</div>
 
 			{/* Filters */}

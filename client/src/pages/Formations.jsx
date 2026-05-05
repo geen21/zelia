@@ -303,7 +303,7 @@ useEffect(() => {
 			`}</style>
 			<div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
 				<div>
-					<h1 className="text-2xl font-bold">Formations</h1>
+					<h1 className="text-xl md:text-2xl font-black mb-1">Formations</h1>
 					<p className="text-text-secondary">Explorez les formations en France</p>
 				</div>
 				<Link

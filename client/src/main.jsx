@@ -68,6 +68,7 @@ const toolComponents = Object.entries(toolModules).reduce((acc, [path, loader]) 
 
 const BoiteAOutils = lazy(() => import('./pages/BoiteAOutils.jsx'))
 const EcolesPartenaires = lazy(() => import('./pages/EcolesPartenaires.jsx'))
+const FormationDetail = lazy(() => import('./pages/FormationDetail.jsx'))
 
 loadLegacyStyles()
 
@@ -148,6 +149,7 @@ function App() {
           })}
           {/* Ecoles partenaires */}
           <Route path="ecoles-partenaires" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><EcolesPartenaires /></Suspense>} />
+          <Route path="ecoles-partenaires/:id" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><FormationDetail /></Suspense>} />
         </Route>
         <Route path="*" element={<Navigate to="/" />} />
         </Routes>

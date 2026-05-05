@@ -524,6 +524,7 @@ const Activites = () => {
     const currentLevel = progression?.level || 1;
     const targetLevel = Math.min(Math.max(1, currentLevel), maxLevelRoute);
     const hasAccessibleLevel = targetLevel >= 1 && targetLevel <= maxLevelRoute;
+    const showLevelButton = hasAccessibleLevel && currentLevel < 10;
     const { ui, avatar, perks, xpGained } = lastResponse;
 
     // Level 1 blocking logic: if level 1 and no results yet, block everything except the results button
@@ -563,7 +564,7 @@ const Activites = () => {
                             <div className="text-center sm:text-left">
                                 <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-3">
                                     <div className="flex items-center gap-3">
-                                        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+                                        <h1 className="text-xl md:text-2xl font-black mb-1">
                                             Aventure Zélia - Niveau {effectiveLevel}
                                         </h1>
                                         <div className="flex items-center gap-2">
@@ -587,17 +588,16 @@ const Activites = () => {
                                             </button>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={() => {
-                                            if (hasAccessibleLevel) navigate(`/app/niveau/${targetLevel}`);
-                                            else navigate('/app/outils');
-                                        }}
-                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border transition bg-[#f68fff] text-white border-transparent hover:opacity-90"
-                                        title={hasAccessibleLevel ? `Aller au Niveau ${targetLevel}` : 'Ouvrir la Boîte à outils'}
-                                    >
-                                        <span role="img" aria-label="jeu">{hasAccessibleLevel ? '🎮' : '🧰'}</span>
-                                        <span>{hasAccessibleLevel ? `Aller au Niveau ${targetLevel}` : 'Ouvrir la Boîte à outils'}</span>
-                                    </button>
+                                    {showLevelButton && (
+                                        <button
+                                            onClick={() => navigate(`/app/niveau/${targetLevel}`)}
+                                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border transition bg-[#f68fff] text-white border-transparent hover:opacity-90"
+                                            title={`Aller au Niveau ${targetLevel}`}
+                                        >
+                                            <span role="img" aria-label="jeu">🎮</span>
+                                            <span>{`Aller au Niveau ${targetLevel}`}</span>
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => navigate('/app/outils')}
                                         type="button"
@@ -653,11 +653,6 @@ const Activites = () => {
                             <h2 className="text-base md:text-lg font-bold text-gray-800 truncate">
                                 Formations recommandées pour toi
                             </h2>
-                            <img
-                                src="/assets/images/mydigitalschool-logo.png"
-                                alt="MyDigitalSchool"
-                                className="h-6 md:h-7 object-contain shrink-0"
-                            />
                         </div>
                         <button
                             onClick={() => navigate('/app/ecoles-partenaires')}
@@ -677,7 +672,7 @@ const Activites = () => {
                                 <button
                                     key={f.id}
                                     type="button"
-                                    onClick={() => navigate(`/app/ecoles-partenaires#formation-${f.id}`)}
+                                    onClick={() => navigate(`/app/ecoles-partenaires/${f.id}`)}
                                     className="relative text-left border border-gray-200 rounded-xl p-3 hover:border-[#c1ff72] hover:shadow-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#c1ff72]"
                                 >
                                     {f.match_score != null && (

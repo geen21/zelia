@@ -21,6 +21,27 @@ router.get('/partenaires', authenticateToken, async (req, res) => {
   }
 })
 
+// GET /api/ecoles/partenaires/:id - Get a single formation by id
+router.get('/partenaires/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params
+    const { data, error } = await supabaseAdmin
+      .from('ecoles_partenaires')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') return res.status(404).json({ error: 'Formation not found' })
+      throw error
+    }
+    res.json({ formation: data })
+  } catch (e) {
+    console.error('GET /ecoles/partenaires/:id error:', e)
+    res.status(500).json({ error: 'Failed to fetch formation' })
+  }
+})
+
 // GET /api/ecoles/matched - Get formations matched to user profile
 router.get('/matched', authenticateToken, async (req, res) => {
   try {
@@ -61,8 +82,18 @@ router.get('/matched', authenticateToken, async (req, res) => {
       return res.json({ matched: [] })
     }
 
-    const matched = scoreFormations(formations, entryMap, pickFirstValue)
-    res.json({ matched })
+    const { data: analysisResult, error: analysisError } = await supabaseAdmin
+      .from('user_results')
+      .select('job_recommendations')
+      .eq('user_id', userId)
+      .eq('questionnaire_type', 'inscription')
+      .maybeSingle()
+
+    if (analysisError && analysisError.code !== 'PGRST116') throw analysisError
+
+    const userCity = pickFirstValue('niveau22_city', 'niveau22_location', 'niveau22_city_preference')
+    const matched = scoreFormations(formations, entryMap, pickFirstValue, analysisResult?.job_recommendations)
+    res.json({ matched, userCity: userCity || null })
   } catch (e) {
     console.error('GET /ecoles/matched error:', e)
     res.status(500).json({ error: 'Failed to fetch matched formations' })
@@ -84,12 +115,39 @@ const STOPWORDS = new Set([
   'bachelor', 'mba', 'bts', 'master', 'licence', 'diplome', 'titre', 'niveau',
   'pour', 'avec', 'dans', 'des', 'les', 'une', 'aux', 'sur', 'par', 'mais',
   'le', 'la', 'de', 'du', 'au', 'en', 'et', 'ou', 'un', 'son', 'ses', 'ces',
-  'plus', 'cette', 'cet', 'sans', 'tres', 'sous', 'chez', 'mon', 'ton'
+  'plus', 'cette', 'cet', 'sans', 'tres', 'sous', 'chez', 'mon', 'ton', 'junior'
+])
+
+const TOKEN_ALIASES = new Map([
+  ['project', 'projet'],
+  ['projects', 'projet'],
+  ['projets', 'projet'],
+  ['digitale', 'digital'],
+  ['digitaux', 'digital'],
+  ['numerique', 'digital'],
+  ['numeriques', 'digital'],
+  ['manager', 'management'],
+  ['managerial', 'management'],
+  ['manageriales', 'management'],
+  ['gestionnaire', 'gestion'],
+  ['coordination', 'coordonner'],
+  ['coordinateur', 'coordonner'],
+  ['coordinatrice', 'coordonner'],
+  ['planification', 'planning'],
+  ['communaute', 'community'],
+  ['communautes', 'community'],
+  ['reseaux', 'reseau'],
+  ['logiciels', 'logiciel'],
+  ['utilisateurs', 'utilisateur'],
+  ['developpeur', 'developpement'],
+  ['developpeuse', 'developpement'],
+  ['developper', 'developpement']
 ])
 
 function tokenize(text) {
   return normalize(text)
     .split(' ')
+    .map((t) => TOKEN_ALIASES.get(t) || t)
     .filter((t) => t.length >= 3 && !STOPWORDS.has(t))
 }
 
@@ -142,7 +200,28 @@ function parseLevel(raw) {
 
 // Build a weighted token bag from the user signals.
 // Higher weights mean stronger personal preference for that token.
-function buildUserTokenBag({ topDomains, jobKeywordsRaw }) {
+function addWeightedTokens(bag, text, weight) {
+  tokenize(text).forEach((token) => {
+    bag.set(token, (bag.get(token) || 0) + weight)
+  })
+}
+
+function buildJobRecommendationsText(jobRecommendations) {
+  let jobs = jobRecommendations
+  if (typeof jobs === 'string') {
+    try { jobs = JSON.parse(jobs) } catch { jobs = [] }
+  }
+  if (!Array.isArray(jobs)) return ''
+  return jobs
+    .slice(0, 8)
+    .map((job) => [
+      job?.title,
+      Array.isArray(job?.skills) ? job.skills.join(' ') : ''
+    ].filter(Boolean).join(' '))
+    .join(' ')
+}
+
+function buildUserTokenBag({ topDomains, jobKeywordsRaw, jobRecommendationsRaw }) {
   const bag = new Map()
   const add = (token, weight) => {
     if (!token || token.length < 3) return
@@ -160,22 +239,32 @@ function buildUserTokenBag({ topDomains, jobKeywordsRaw }) {
   // Free-text job/filière keywords: high weight (these are very specific)
   tokenize(jobKeywordsRaw).forEach((t) => add(t, 4))
 
+  // AI-generated job ideas are the closest signal to what the user sees in results.
+  tokenize(jobRecommendationsRaw).forEach((t) => add(t, 5))
+
   return bag
 }
 
 function scoreFormationContent(formation, userBag) {
-  const tokens = tokenize(formation.formation_name)
-  if (tokens.length === 0 || userBag.size === 0) return { raw: 0, hits: 0 }
+  if (userBag.size === 0) return { raw: 0, hits: 0 }
+  const weightedFields = [
+    { text: formation.formation_name, multiplier: 3 },
+    { text: formation.domain, multiplier: 2 },
+    { text: formation.description, multiplier: 1 }
+  ]
   const seen = new Set()
   let raw = 0
   let hits = 0
-  for (const t of tokens) {
-    if (seen.has(t)) continue
-    const w = userBag.get(t)
-    if (w) {
-      raw += w
-      hits += 1
-      seen.add(t)
+
+  for (const field of weightedFields) {
+    for (const token of tokenize(field.text)) {
+      if (seen.has(token)) continue
+      const weight = userBag.get(token)
+      if (weight) {
+        raw += weight * field.multiplier
+        hits += 1
+        seen.add(token)
+      }
     }
   }
   return { raw, hits }
@@ -185,13 +274,13 @@ function scoreCity(userCity, formationCity) {
   const a = normalize(userCity)
   const b = normalize(formationCity)
   if (!a || !b) return 0
-  if (a === b) return 1
-  if (a.includes(b) || b.includes(a)) return 1
+  if (a === b) return 6
+  if (a.includes(b) || b.includes(a)) return 6
   const aTokens = a.split(' ').filter((t) => t.length > 2)
   const bTokens = b.split(' ').filter((t) => t.length > 2)
   const overlap = aTokens.filter((t) => bTokens.includes(t)).length
-  if (overlap >= 2) return 1
-  if (overlap === 1) return 0.4
+  if (overlap >= 2) return 6
+  if (overlap === 1) return 2
   return 0
 }
 
@@ -204,7 +293,7 @@ function scoreLevel(userLevelN, formationLevelN) {
   return 0
 }
 
-function scoreFormations(formations, entryMap, pickFirstValue) {
+function scoreFormations(formations, entryMap, pickFirstValue, jobRecommendations) {
   // Extract user signals
   const topDomainsRaw = pickFirstValue('niveau11_top3', 'niveau11_domain_ranking')
   const topDomains = parseTopDomains(topDomainsRaw)
@@ -219,20 +308,21 @@ function scoreFormations(formations, entryMap, pickFirstValue) {
     pickFirstValue('niveau21_filieres')
   ].filter(Boolean)
   const jobKeywordsRaw = jobKeywordsParts.join(' ')
+  const jobRecommendationsRaw = buildJobRecommendationsText(jobRecommendations)
 
-  const userBag = buildUserTokenBag({ topDomains, jobKeywordsRaw })
-  if (userBag.size === 0) return [] // No usable intent signal
+  const userBag = buildUserTokenBag({ topDomains, jobKeywordsRaw, jobRecommendationsRaw })
+  const hasContentSignal = userBag.size > 0
+  const hasCitySignal = Boolean(userCity)
+  // Need at least one signal to produce recommendations
+  if (!hasContentSignal && !hasCitySignal) return []
 
-  // Score every formation by content overlap (the only differentiating factor)
-  // City/level are added as small bonuses (max +1 each), so they tilt ties
-  // without flattening the percentages.
   const intermediate = formations
     .map((f) => {
-      const { raw, hits } = scoreFormationContent(f, userBag)
-      if (hits === 0) return null // No content match -> not recommended
+      const { raw, hits } = hasContentSignal ? scoreFormationContent(f, userBag) : { raw: 0, hits: 0 }
       const cityBonus = scoreCity(userCity, f.city)
       const levelBonus = scoreLevel(userLevelN, parseLevel(f.diploma_level))
-      // Total contribution: content (variable) + small fixed bonuses
+      // Exclude only if both content AND city give nothing
+      if (hits === 0 && cityBonus === 0) return null
       const total = raw + cityBonus + levelBonus
       return { f, raw, total, hits }
     })

@@ -211,6 +211,7 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
         skills_assessment: sections.skillsAssessment,
         job_recommendations: sections.jobRecommendations,
         study_recommendations: sections.studyRecommendations,
+        skills_data: { personalityType: sections.personalityType || null },
         updated_at: new Date().toISOString()
       }, {
         onConflict: 'user_id,questionnaire_type',
@@ -544,7 +545,7 @@ router.post('/generate-analysis-by-type', authenticateToken, async (req, res) =>
         job_recommendations: jobRecommendations,
         // Per requirement, do not store study recommendations for MBTI
         study_recommendations: isMbti ? null : sections.studyRecommendations,
-        skills_data: shareCardData, // Store the share card data here
+        skills_data: { ...(shareCardData || {}), personalityType: sections.personalityType || null }, // Include personalityType for persistence
         share_image_url: null, // Reset share image on new analysis
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id,questionnaire_type', ignoreDuplicates: false })
@@ -1156,7 +1157,8 @@ router.get('/my-results', authenticateToken, async (req, res) => {
 
     const mapRow = (row) => {
       if (!row) return null
-      let personalityType = null
+      // personalityType is stored in skills_data for persistence across sessions
+      let personalityType = row.skills_data?.personalityType || null
       let personalityAnalysis = row.personality_analysis || null
       let skillsAssessment = row.skills_assessment || null
       let jobRecommendations = row.job_recommendations || null
@@ -1219,9 +1221,10 @@ router.get('/my-results', authenticateToken, async (req, res) => {
       console.warn('Could not fetch profile for avatar:', profileErr)
     }
 
-    const primary = mbtiMapped || inscriptionMapped || fallbackMapped || {}
+    const primary = inscriptionMapped || mbtiMapped || fallbackMapped || {}
     res.json({
       results: {
+        // Top-level = inscription (orientation) data for the orientation tab
         personalityType: primary.personalityType || null,
         personalityAnalysis: primary.personalityAnalysis || null,
         skillsAssessment: primary.skillsAssessment || null,
@@ -1229,6 +1232,8 @@ router.get('/my-results', authenticateToken, async (req, res) => {
         studyRecommendations: primary.studyRecommendations || [],
         shareImageUrl: primary.shareImageUrl || null,
         inscriptionResults: inscriptionMapped || null,
+        // MBTI results exposed separately for the personality tab
+        mbtiResults: mbtiMapped || null,
         avatarUrlBase: profile?.avatar_json?.url || profile?.avatar || null,
         avatarConfig: profile?.avatar_json || null,
         createdAt: primary.createdAt,

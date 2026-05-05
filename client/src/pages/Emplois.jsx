@@ -203,7 +203,7 @@ useEffect(() => {
 			.no-outline::-webkit-search-results-decoration { display: none !important; }
 			`}</style>
 			<div>
-				<h1 className="text-2xl font-bold">Métiers</h1>
+				<h1 className="text-xl md:text-2xl font-black mb-1">Métiers</h1>
 				<p className="text-text-secondary">Offres et fiches métiers</p>
 			</div>
 

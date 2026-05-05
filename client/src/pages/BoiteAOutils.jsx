@@ -64,7 +64,7 @@ export default function BoiteAOutils() {
   return (
     <div className="p-2 md:p-6">
       <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-black mb-2">Boîte à outils</h1>
+        <h1 className="text-xl md:text-2xl font-black mb-1">Boîte à outils</h1>
         <p className="text-gray-500">Accède librement à tous les outils complémentaires du parcours Zélia.</p>
       </div>
 

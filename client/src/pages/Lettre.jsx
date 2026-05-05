@@ -75,7 +75,7 @@ export default function Lettre(){
 	return (
 		<div className="space-y-6">
 			<div>
-				<h1 className="text-2xl font-bold">Lettre de motivation</h1>
+				<h1 className="text-xl md:text-2xl font-black mb-1">Lettre de motivation</h1>
 				<p className="text-text-secondary">Générée à partir de votre profil</p>
 			</div>
 

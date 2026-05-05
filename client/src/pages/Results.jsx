@@ -278,6 +278,15 @@ export default function Results() {
 				clone.inscriptionResults.personalityAnalysis = ensureJobMentions(clone.inscriptionResults.personalityAnalysis, inscriptionJobs)
 			}
 		}
+		if (clone.mbtiResults && typeof clone.mbtiResults === 'object') {
+			const mbtiJobs = Array.isArray(clone.mbtiResults.jobRecommendations)
+				? clone.mbtiResults.jobRecommendations.slice(0, 6)
+				: clone.mbtiResults.jobRecommendations
+			clone.mbtiResults = {
+				...clone.mbtiResults,
+				jobRecommendations: mbtiJobs
+			}
+		}
 		return clone
 	}
 
@@ -330,7 +339,7 @@ export default function Results() {
 		return (
 			<div className="space-y-6">
 				<div>
-					<h1 className="text-2xl font-bold">Mes Résultats</h1>
+					<h1 className="text-xl md:text-2xl font-black mb-1">Mes Résultats</h1>
 					<p className="text-text-secondary">Analyse personnalisée de votre questionnaire</p>
 				</div>
 				{renderTabs()}
@@ -346,7 +355,7 @@ export default function Results() {
 		return (
 			<div className="space-y-6">
 				<div>
-					<h1 className="text-2xl font-bold">Mes Résultats</h1>
+					<h1 className="text-xl md:text-2xl font-black mb-1">Mes Résultats</h1>
 					<p className="text-text-secondary">Analyse personnalisée de votre questionnaire</p>
 				</div>
 				{renderTabs()}
@@ -367,7 +376,7 @@ export default function Results() {
 		return (
 			<div className="space-y-6">
 				<div>
-					<h1 className="text-2xl font-bold">Mes Résultats</h1>
+					<h1 className="text-xl md:text-2xl font-black mb-1">Mes Résultats</h1>
 					<p className="text-text-secondary">Analyse personnalisée de votre questionnaire</p>
 				</div>
 				{renderTabs()}
@@ -388,13 +397,14 @@ export default function Results() {
 
 	const ContinueAdventureButton = () => {
 		if (!progressionLevel) return null
+		const isPastLevelTen = progressionLevel >= 10
 		return (
 			<div className="flex justify-center my-4">
 				<button
-					onClick={() => navigate(`/app/niveau/${progressionLevel}`)}
+					onClick={() => navigate(isPastLevelTen ? '/app/outils' : `/app/niveau/${progressionLevel}`)}
 					className="px-5 py-2.5 bg-[#c1ff72] hover:bg-[#b3ff5d] text-black text-sm rounded-lg border border-gray-200 transition"
 				>
-					Continuer l'aventure Zelia – Aller au niveau {progressionLevel}
+					{isPastLevelTen ? 'Boîte à outils' : `Continuer l'aventure Zelia – Aller au niveau ${progressionLevel}`}
 				</button>
 			</div>
 		)
@@ -513,9 +523,26 @@ export default function Results() {
 			)
 		}
 
+		// Personality tab strictly uses MBTI questionnaire results
+		const mbti = analysisData.mbtiResults
+		if (!mbti) {
+			return (
+				<div className="bg-blue-50 border border-blue-200 rounded-xl p-8 text-center shadow-card">
+					<h2 className="text-xl font-bold text-blue-800 mb-2">Analyse de personnalité</h2>
+					<p className="text-blue-700">Complète le questionnaire de personnalité pour découvrir ton profil Zélia.</p>
+					<button
+						onClick={() => navigate('/app/outils')}
+						className="mt-4 px-5 py-2.5 bg-black text-white text-sm rounded-full font-medium hover:bg-gray-800 transition"
+					>
+						Aller à l'analyse de personnalité
+					</button>
+				</div>
+			)
+		}
+
 		return (
 			<div className="space-y-6">
-				{analysisData.personalityType && (
+				{mbti.personalityType && (
 					<div className="relative bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl shadow-card p-6">
 						{avatarUrls.type && (
 							<img src={avatarUrls.type} alt="Avatar" className="absolute right-4 top-4 w-14 h-14 rounded-full border border-white shadow-sm bg-white object-contain" />
@@ -528,11 +555,11 @@ export default function Results() {
 							</div>
 							<h2 className="text-xl font-bold text-blue-900">Type de personnalité</h2>
 						</div>
-						<p className="text-blue-800 font-semibold text-lg">{analysisData.personalityType}</p>
+						<p className="text-blue-800 font-semibold text-lg">{mbti.personalityType}</p>
 					</div>
 				)}
 				<ContinueAdventureButton />
-				{analysisData.personalityAnalysis && (
+				{mbti.personalityAnalysis && (
 					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
 						{avatarUrls.analysis && (
 							<img src={avatarUrls.analysis} alt="Avatar" className="absolute right-4 top-4 w-14 h-14 rounded-full border border-white shadow-sm bg-white object-contain" />
@@ -546,12 +573,12 @@ export default function Results() {
 							<h2 className="text-xl font-bold">Analyse de personnalité</h2>
 						</div>
 						<div className="space-y-4">
-							{renderParagraphs(analysisData.personalityAnalysis)}
+							{renderParagraphs(mbti.personalityAnalysis)}
 						</div>
 					</div>
 				)}
 				<ContinueAdventureButton />
-				{analysisData.skillsAssessment && (
+				{mbti.skillsAssessment && (
 					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
 						{avatarUrls.skills && (
 							<img src={avatarUrls.skills} alt="Avatar" className="absolute right-4 top-4 w-14 h-14 rounded-full border border-white shadow-sm bg-white object-contain" />
@@ -565,12 +592,12 @@ export default function Results() {
 							<h2 className="text-xl font-bold">Tes qualités</h2>
 						</div>
 						<div className="space-y-4">
-							{renderParagraphs(analysisData.skillsAssessment)}
+							{renderParagraphs(mbti.skillsAssessment)}
 						</div>
 					</div>
 				)}
 				<ContinueAdventureButton />
-				{analysisData.jobRecommendations && analysisData.jobRecommendations.length > 0 && (
+				{mbti.jobRecommendations && mbti.jobRecommendations.length > 0 && (
 					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
 						{avatarUrls.jobs && (
 							<img src={avatarUrls.jobs} alt="Avatar" className="absolute right-4 top-4 w-14 h-14 rounded-full border border-white shadow-sm bg-white object-contain" />
@@ -584,7 +611,7 @@ export default function Results() {
 							<h2 className="text-xl font-bold">Recommandations d'emploi</h2>
 						</div>
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							{analysisData.jobRecommendations.map((job, index) => (
+							{mbti.jobRecommendations.map((job, index) => (
 								<div key={index} className="bg-orange-50 border border-orange-200 rounded-lg p-4">
 									<h3 className="font-semibold text-orange-900 mb-2">{job.title}</h3>
 									<div className="text-sm text-orange-700">
@@ -629,7 +656,7 @@ export default function Results() {
 			<div>
 				<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
 					<div>
-						<h1 className="text-2xl font-bold">Mes Résultats</h1>
+						<h1 className="text-xl md:text-2xl font-black mb-1">Mes Résultats</h1>
 						<p className="text-text-secondary">Analyse personnalisée basée sur vos réponses</p>
 					</div>
 					<button

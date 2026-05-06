@@ -1127,6 +1127,7 @@ router.get('/my-results', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id
     const db = supabaseAdmin || supabase
+    const optional = ['1', 'true', 'yes'].includes(String(req.query.optional || '').toLowerCase())
 
     const { data: rows, error } = await db
       .from('user_results')
@@ -1140,6 +1141,9 @@ router.get('/my-results', authenticateToken, async (req, res) => {
     }
 
     if (!rows || rows.length === 0) {
+      if (optional) {
+        return res.json({ results: null })
+      }
       return res.status(404).json({ error: 'No analysis results found' })
     }
 
@@ -1151,9 +1155,6 @@ router.get('/my-results', authenticateToken, async (req, res) => {
     // Debug: log available questionnaire types
     const availableTypes = rows.map(r => r.questionnaire_type)
     console.log(`[my-results] User ${userId} has ${rows.length} result row(s) with types: ${JSON.stringify(availableTypes)}`)
-    if (!mbti && !inscription) {
-      console.warn(`[my-results] Neither 'mbti' nor 'inscription' found for user ${userId}, using fallback`)
-    }
 
     const mapRow = (row) => {
       if (!row) return null
@@ -1172,25 +1173,6 @@ router.get('/my-results', authenticateToken, async (req, res) => {
         try { studyRecommendations = JSON.parse(studyRecommendations) } catch { studyRecommendations = null }
       }
 
-      if (!personalityAnalysis && !skillsAssessment && !jobRecommendations && !studyRecommendations && row.skills_data) {
-        const sd = row.skills_data
-        personalityType = sd.personality_type || null
-        const strengthsText = Array.isArray(sd.strengths) && sd.strengths.length > 0
-          ? `Forces clés: ${sd.strengths.join(', ')}`
-          : null
-        const recsText = Array.isArray(sd.recommendations) && sd.recommendations.length > 0
-          ? `Recommandations:\n- ${sd.recommendations.join('\n- ')}`
-          : null
-        personalityAnalysis = [strengthsText, recsText].filter(Boolean).join('\n\n') || null
-        skillsAssessment = Array.isArray(sd.strengths) && sd.strengths.length > 0
-          ? `Compétences mises en avant: ${sd.strengths.join(', ')}`
-          : null
-        jobRecommendations = Array.isArray(sd.career_matches)
-          ? sd.career_matches.map(m => ({ title: m.title, skills: [] }))
-          : []
-        studyRecommendations = []
-      }
-
       return {
         personalityType,
         personalityAnalysis,
@@ -1204,11 +1186,26 @@ router.get('/my-results', authenticateToken, async (req, res) => {
       }
     }
 
-    const mbtiMapped = mapRow(mbti)
-    const inscriptionMapped = mapRow(inscription)
-    // Fallback: if neither mbti nor inscription found, use the first available row
-    const fallbackRow = (!mbti && !inscription && rows.length > 0) ? rows[0] : null
-    const fallbackMapped = mapRow(fallbackRow)
+    const hasResultContent = (mapped) => Boolean(
+      mapped && (
+        (mapped.personalityAnalysis && String(mapped.personalityAnalysis).trim()) ||
+        (mapped.skillsAssessment && String(mapped.skillsAssessment).trim()) ||
+        (Array.isArray(mapped.jobRecommendations) && mapped.jobRecommendations.length > 0) ||
+        (Array.isArray(mapped.studyRecommendations) && mapped.studyRecommendations.length > 0)
+      )
+    )
+
+    const rawMbtiMapped = mapRow(mbti)
+    const rawInscriptionMapped = mapRow(inscription)
+    const mbtiMapped = hasResultContent(rawMbtiMapped) ? rawMbtiMapped : null
+    const inscriptionMapped = hasResultContent(rawInscriptionMapped) ? rawInscriptionMapped : null
+
+    if (!mbtiMapped && !inscriptionMapped) {
+      if (optional) {
+        return res.json({ results: null })
+      }
+      return res.status(404).json({ error: 'No complete analysis results found' })
+    }
 
     // Fetch avatar data
     const { data: profile, error: profileErr } = await db
@@ -1221,7 +1218,7 @@ router.get('/my-results', authenticateToken, async (req, res) => {
       console.warn('Could not fetch profile for avatar:', profileErr)
     }
 
-    const primary = inscriptionMapped || mbtiMapped || fallbackMapped || {}
+    const primary = inscriptionMapped || mbtiMapped || {}
     res.json({
       results: {
         // Top-level = inscription (orientation) data for the orientation tab

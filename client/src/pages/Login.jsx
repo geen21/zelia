@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { authAPI } from '../lib/api'
+import { usersAPI } from '../lib/api'
 import supabase from '../lib/supabase'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
@@ -35,13 +35,18 @@ export default function Login() {
       // Update profile with profile type if needed
       if (profileType) {
         try {
-          const { data } = await supabase
-            .from('profiles')
-            .upsert({ 
-              id: signInData.user.id, 
-              profile_type: profileType,
-              updated_at: new Date().toISOString()
-            })
+          const profileResponse = await usersAPI.getProfile().catch(() => null)
+          const institutionData = profileResponse?.data?.profile?.institution_data
+          const safeInstitutionData = institutionData && typeof institutionData === 'object' && !Array.isArray(institutionData)
+            ? institutionData
+            : {}
+
+          await usersAPI.updateProfile({
+            institution_data: {
+              ...safeInstitutionData,
+              profile_type: profileType
+            }
+          })
         } catch (profileError) {
           console.warn('Profile update failed:', profileError)
         }

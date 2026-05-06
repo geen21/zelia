@@ -173,12 +173,22 @@ export default function Home() {
   }, [])
 
   const featuredPosts = useMemo(() => blogPosts.slice(0, 3), [])
+  const proofItems = useMemo(() => ([
+    { value: '10 niveaux', label: 'un parcours court, pas une usine à gaz' },
+    { value: 'Métiers et formations', label: 'des pistes que tu peux vraiment comparer' },
+    { value: 'Bilan final', label: 'un résumé clair pour reprendre tes idées plus tard' }
+  ]), [])
+  const productSteps = useMemo(() => ([
+    { step: '01', title: 'Réponds sans te prendre la tête', text: 'Des questions courtes pour poser tes goûts, tes envies et ce que tu veux éviter.' },
+    { step: '02', title: 'Regarde ce qui revient', text: 'Zélia regroupe les signaux importants et fait ressortir des pistes cohérentes.' },
+    { step: '03', title: 'Garde une trace utile', text: 'Tu retrouves ton bilan, tes métiers, tes formations et les outils pour avancer.' }
+  ]), [])
 
   return (
-    <div className="aximo-all-section landing-lock" style={{ background: '#fffbf7', color: '#000' }}>
+    <div className="aximo-all-section landing-page" style={{ background: '#fff', color: '#000' }}>
       <SEO 
         title="Zelia - Ta conseillère d'orientation virtuelle"
-        description="Découvre ton avenir avec Zelia, l'IA qui révolutionne l'orientation scolaire et professionnelle. Parcours personnalisé, découverte de métiers et formations."
+        description="Découvre Zélia, un parcours d'orientation en 10 niveaux pour mieux te connaître, explorer des métiers et garder un bilan clair."
         url="https://zelia.io/"
       />
       {/* Full-screen parallax scene with overlay nav */}
@@ -295,43 +305,31 @@ export default function Home() {
             <div className="col-lg-5">
               <div className="brand-section reveal">
                 <div className="brand-content">
+                  <p className="hero-eyebrow">orientation scolaire</p>
                   <h1 className="brand-title">
-                    zé<span className="accent-text">li</span>a
+                    Le test d’orientation Zélia.
                   </h1>
                   
-                  <div className="brand-tagline">
-                    <div className="tagline-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="currentColor"/>
-                      </svg>
-                    </div>
-                    <span className="tagline-text">L’ORIENTATION DEVIENT UN JEU D’ENFANT</span>
-                  </div>
-                  
-                  <div className="brand-stats">
-                    <div className="stat-item">
-                      <div className="stat-number">83%</div>
-                      <div className="stat-label">
-                        des étudiants se disent inquiets lorsqu’ils pensent à des choix en matière d’orientation
-                      </div>
-                    </div>
-                  </div>
-                  <div className="brand-features">
-                    <div className="feature-item">
-                      <span>+ de 50 modules et jeux interactifs</span>
+                  <p className="brand-lead">
+                    10 niveaux courts pour mieux te connaître, comparer des métiers et formations, puis garder un bilan clair.
+                  </p>
 
-                    </div>
-                    <div className="feature-item">
-                      <span>Apprendre à se connaître</span>
-                    </div>
-                    <div className="feature-item">
-                      <span>Trouver sa voie professionnelle </span>
-                    </div>
-                  </div>
-                  <div className="mt-8">
-                    <Link to="/avatar" className="nav-cta-btn" style={{ pointerEvents: 'auto', transform: 'none', transition: 'none' }}>
-                      <span>Passer le test d'orientation</span>
+                  <div className="hero-actions">
+                    <Link to="/avatar" className="hero-primary-btn">
+                      Passer le test d'orientation
                     </Link>
+                    <Link to="/blog" className="hero-secondary-btn">
+                      Voir les conseils
+                    </Link>
+                  </div>
+
+                  <div className="landing-proof-strip" aria-label="Indicateurs Zélia">
+                    {proofItems.map((item) => (
+                      <div key={item.value} className="landing-proof-item">
+                        <strong>{item.value}</strong>
+                        <span>{item.label}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -340,22 +338,43 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="landing-how-section">
+        <div className="container">
+          <div className="landing-section-header reveal">
+            <span className="landing-section-kicker">Dans Zélia</span>
+            <h2>Tu avances par petites décisions.</h2>
+            <p>Pas besoin de savoir déjà ce que tu veux faire. Le parcours t’aide à mettre de l’ordre dans tes idées.</p>
+          </div>
+
+          <div className="landing-how-grid">
+            {productSteps.map((item) => (
+              <article key={item.step} className="landing-how-card reveal">
+                <span className="landing-how-step">{item.step}</span>
+                <h3>{item.title}</h3>
+                <p>{item.text}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Levels Section */}
       <section className="levels-section">
         <div className="container mx-auto px-4">
           <div className="levels-content">
-            {/* Header intentionally removed per request */}
+            <div className="landing-section-header reveal">
+              <span className="landing-section-kicker">Progression</span>
+              <h2>10 niveaux pour construire ton orientation.</h2>
+              <p>Le parcours se concentre sur l’essentiel : mieux te connaître, tester des pistes, puis garder un bilan clair.</p>
+            </div>
             
             <div className="levels-grid">
               {[
-                { levels: '1-5', title: 'Exploration', emoji: '🌟', description: 'Découvre tes premiers intérêts', current: true },
-                { levels: '6-10', title: 'Intérêts & Forces', emoji: '💪', description: 'Identifie tes points forts' },
-                { levels: '11-15', title: 'Recherche Métiers', emoji: '🔍', description: 'Explore les métiers qui te correspondent' },
-                { levels: '16-20', title: 'Immersions', emoji: '🤝', description: 'Rencontre des professionnels' },
-                { levels: '21-25', title: 'Compétences', emoji: '🎯', description: 'Développe tes soft skills' },
-                { levels: '26-30', title: 'CV & LM', emoji: '📄', description: 'Crée tes premiers documents' },
-                { levels: '31-35', title: 'Parcoursup', emoji: '🎓', description: 'Prépare ton dossier d\'excellence' },
-                { levels: '36-40', title: 'Oraux', emoji: '🎤', description: 'Maîtrise tes entretiens' },
+                { levels: '1-2', title: 'Découverte', emoji: '🌟', description: 'Pose les bases de ton profil et de tes envies', current: true },
+                { levels: '3-4', title: 'Personnalité', emoji: '💡', description: 'Déconstruis les idées reçues et comprends ton mode de fonctionnement' },
+                { levels: '5-6', title: 'Formations', emoji: '🎓', description: 'Explore des pistes d’études et compare les possibilités' },
+                { levels: '7-8', title: 'Projection', emoji: '🎯', description: 'Relie tes forces à des métiers et situations concrètes' },
+                { levels: '9-10', title: 'Recherche & bilan', emoji: '📄', description: 'Passe à l’action et récupère ton bilan personnalisé' },
                 
               ].map((arc, index) => (
                 <div 
@@ -382,7 +401,7 @@ export default function Home() {
                 Prêt(e) à commencer ton parcours d'orientation personnalisé ?
               </p>
               <button 
-                onClick={() => navigate('/app/questionnaire')}
+                onClick={startTest}
                 className="levels-cta-btn"
               >
                 Débuter le Niveau 1
@@ -428,6 +447,19 @@ export default function Home() {
                 </div>
               </article>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-final-cta">
+        <div className="container">
+          <div className="landing-final-inner reveal">
+            <div>
+              <span className="landing-section-kicker">Départ</span>
+              <h2>Commence par le niveau 1.</h2>
+              <p>Tu réponds, Zélia garde le fil, et tu construis ton orientation progressivement.</p>
+            </div>
+            <button onClick={startTest} className="hero-primary-btn">Commencer gratuitement</button>
           </div>
         </div>
       </section>

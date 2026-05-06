@@ -533,20 +533,20 @@ function Niveau10Legacy_DISABLED() {
 
   const benefits = useMemo(() => ([
     {
-      title: 'Niveaux 11 à 20',
-      description: "Découvre les univers métiers, rencontre des professionnels et prépare tes immersions."
+      title: 'Boîte à outils',
+      description: "Retrouve les outils utiles pour continuer tes recherches après le bilan."
     },
     {
-      title: 'Niveaux 21 à 30',
-      description: 'Valorise tes compétences, construis un CV impactant et rédige ta lettre de motivation idéale.'
+      title: 'CV et lettre',
+      description: 'Prépare tes premiers documents à partir des pistes que tu as construites.'
     },
     {
-      title: 'Niveaux 31 à 40',
-      description: 'Sécurise Parcoursup, prépare tes oraux et travaille ta posture pour convaincre.'
+      title: 'Formations recommandées',
+      description: 'Compare les formations qui correspondent à ton profil et à tes objectifs.'
     },
     {
-      title: 'Niveaux 41 à 50',
-      description: 'Polis chaque détail de ton dossier et passe en mode mentor pour inspirer les autres.'
+      title: 'Bilan final',
+      description: 'Garde un résumé clair de ton parcours, de tes idées métiers et de tes prochaines actions.'
     }
   ]), [])
 
@@ -1265,7 +1265,7 @@ function Niveau10Legacy_DISABLED() {
                   Retour aux activités
                 </button>
               </div>
-              <p className="text-sm text-gray-500">Une fois validé, tu pourras accéder directement au niveau 11 depuis la page Activités.</p>
+              <p className="text-sm text-gray-500">Une fois validé, tu retrouveras ton bilan et la boîte à outils depuis la page Activités.</p>
             </div>
           )}
         </div>
@@ -1316,7 +1316,7 @@ function Niveau10Legacy_DISABLED() {
               className="mx-auto mt-6 h-32 w-32 rounded-2xl border border-gray-100 bg-white object-contain shadow-md"
             />
             <h3 className="mt-6 text-2xl font-extrabold text-gray-900">Merci pour le paiement !</h3>
-            <p className="mt-2 text-base text-gray-600">Merci pour ta confiance, on va pouvoir passer au niveau 11 ensemble.</p>
+            <p className="mt-2 text-base text-gray-600">Merci pour ta confiance, ton parcours complet est prêt.</p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
               <button
                 type="button"
@@ -1354,7 +1354,7 @@ function Niveau10Legacy_DISABLED() {
               <FaRocket className="w-6 h-6 text-white" />
             </div>
             <h3 className="mt-4 text-2xl font-extrabold text-gray-900">Niveau 10 validé !</h3>
-            <p className="mt-2 text-gray-500">Tu peux maintenant passer au niveau 11 et poursuivre ton parcours premium.</p>
+            <p className="mt-2 text-gray-500">Tu peux maintenant retrouver ton bilan et continuer avec la boîte à outils.</p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
               <button
                 type="button"

@@ -127,14 +127,7 @@ export default function Niveau28() {
           const r = anal?.data?.results || {}
           const list = r.jobRecommendations || r.job_recommandations || []
           if (Array.isArray(list) && list.length > 0) setJobTitleFromResults(list[0]?.title || '')
-        } catch {
-          try {
-            const latest = await apiClient.get('/results/latest', { headers: { 'Cache-Control': 'no-cache' }, params: { _: Date.now() } })
-            const simple = latest?.data?.results?.analysis || latest?.data?.results || {}
-            const list = simple.jobRecommendations || simple.job_recommandations || simple.career_matches || []
-            if (Array.isArray(list) && list.length > 0) setJobTitleFromResults(list[0]?.title || '')
-          } catch {}
-        }
+        } catch {}
       } catch (e) {
         console.error(e)
         if (!mounted) return

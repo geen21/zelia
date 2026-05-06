@@ -12,6 +12,8 @@ export default function Results() {
 	const [avatarUrls, setAvatarUrls] = useState({ type: '', analysis: '', skills: '', jobs: '', studies: '' })
 	const [activeTab, setActiveTab] = useState('orientation') // 'orientation' | 'personality'
 	const [progressionLevel, setProgressionLevel] = useState(null)
+	const RESULT_GENERATION_ATTEMPTS = 3
+	const RESULT_RETRY_DELAY_MS = 1200
 
 	// Get user ID from token (used only for avatar seed)
 	const getUserId = () => {
@@ -79,79 +81,88 @@ export default function Results() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [analysisData])
 
+	const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+	const hasUsableResultBlock = (data) => {
+		if (!data || typeof data !== 'object') return false
+		return Boolean(
+			(data.personalityAnalysis && String(data.personalityAnalysis).trim()) ||
+			(data.skillsAssessment && String(data.skillsAssessment).trim()) ||
+			(Array.isArray(data.jobRecommendations) && data.jobRecommendations.length > 0) ||
+			(Array.isArray(data.studyRecommendations) && data.studyRecommendations.length > 0)
+		)
+	}
+
+	const hasUsableResults = (data) => {
+		if (!data || typeof data !== 'object') return false
+		return hasUsableResultBlock(data.inscriptionResults) || hasUsableResultBlock(data.mbtiResults) || hasUsableResultBlock(data)
+	}
+
+	const fetchStoredResults = async () => {
+		const response = await apiClient.get('/analysis/my-results', {
+			headers: { 'Cache-Control': 'no-cache' },
+			params: { _: Date.now() }
+		})
+		const sanitized = sanitizeResultsForDisplay(response.data.results)
+		return hasUsableResults(sanitized) ? sanitized : null
+	}
+
 	const loadExistingResults = async () => {
 		setLoading(true)
 		setError('')
+		setAnalysisData(null)
+
 		try {
-			// Try to fetch stored analysis results
-			const response = await apiClient.get('/analysis/my-results', {
-				headers: { 'Cache-Control': 'no-cache' },
-				params: { _: Date.now() }
-			})
-			const sanitized = sanitizeResultsForDisplay(response.data.results)
-			setAnalysisData(sanitized)
-			setLoading(false)
-		} catch (err) {
-			if (err.response?.status === 404) {
-				// No stored analysis yet: try to generate, then refetch
-				const userId = getUserId()
-				if (userId) {
-					try {
-						await apiClient.post('/analysis/generate-analysis', {})
-						// Refetch results after generation
-						const refreshed = await apiClient.get('/analysis/my-results', {
-							headers: { 'Cache-Control': 'no-cache' },
-							params: { _: Date.now() }
-						})
-						const sanitized = sanitizeResultsForDisplay(refreshed.data.results)
-						setAnalysisData(sanitized)
+			for (let attempt = 1; attempt <= RESULT_GENERATION_ATTEMPTS; attempt++) {
+				try {
+					const existing = await fetchStoredResults()
+					if (existing) {
+						setAnalysisData(existing)
 						setLoading(false)
 						return
-					} catch (genErr) {
-						// If the AI analysis generation fails (e.g., missing API key),
-						// fall back to simple results based on questionnaire responses
-						try {
-							await apiClient.post('/results/generate')
-							// Now try to get whatever is stored (may have minimal fields)
-							const refreshed = await apiClient.get('/analysis/my-results', {
-								headers: { 'Cache-Control': 'no-cache' },
-								params: { _: Date.now() }
-							})
-							if (refreshed?.data?.results && (
-								refreshed.data.results.personalityAnalysis ||
-								refreshed.data.results.skillsAssessment ||
-								(refreshed.data.results.jobRecommendations ?? []).length > 0 ||
-								(refreshed.data.results.studyRecommendations ?? []).length > 0
-							)) {
-								const sanitized = sanitizeResultsForDisplay(refreshed.data.results)
-								setAnalysisData(sanitized)
-								setLoading(false)
-								return
-							}
-
-							// As a last resort, fetch the simple latest summary and map it to UI shape
-							const latestSimple = await apiClient.get('/results/latest', {
-								headers: { 'Cache-Control': 'no-cache' },
-								params: { _: Date.now() }
-							})
-							const simple = latestSimple?.data?.results?.analysis
-							if (simple) {
-								const mapped = mapSimpleAnalysisToUI(simple)
-								const sanitized = sanitizeResultsForDisplay(mapped)
-								setAnalysisData(sanitized)
-								setLoading(false)
-								return
-							}
-						} catch (fallbackErr) {
-							console.error('Fallback analysis failed:', fallbackErr)
-						}
+					}
+				} catch (err) {
+					if (err.response?.status === 401) {
+						setError('Utilisateur non authentifié')
+						setLoading(false)
+						return
+					}
+					if (err.response?.status !== 404) {
+						throw err
 					}
 				}
 
-				// If we got here, we couldn't load or generate results
-				setAnalysisData(null)
-				setLoading(false)
-			} else if (err.response?.status === 401) {
+				try {
+					await apiClient.post('/analysis/generate-analysis', {})
+					const generated = await fetchStoredResults()
+					if (generated) {
+						setAnalysisData(generated)
+						setLoading(false)
+						return
+					}
+				} catch (genErr) {
+					if (genErr.response?.status === 401) {
+						setError('Utilisateur non authentifié')
+						setLoading(false)
+						return
+					}
+					if (genErr.response?.status === 404) {
+						setError('Complète d’abord le questionnaire pour générer tes résultats.')
+						setLoading(false)
+						return
+					}
+					console.warn(`Results generation attempt ${attempt}/${RESULT_GENERATION_ATTEMPTS} failed:`, genErr)
+				}
+
+				if (attempt < RESULT_GENERATION_ATTEMPTS) {
+					await wait(RESULT_RETRY_DELAY_MS)
+				}
+			}
+
+			setError("L'analyse n'a pas pu être générée pour le moment. Réessaie dans quelques secondes.")
+			setLoading(false)
+		} catch (err) {
+			if (err.response?.status === 401) {
 				setError('Utilisateur non authentifié')
 				setLoading(false)
 			} else {
@@ -159,27 +170,6 @@ export default function Results() {
 				setError(err.response?.data?.error || 'Erreur lors du chargement des résultats')
 				setLoading(false)
 			}
-		}
-	}
-
-	// Map the simple results structure into the UI-friendly shape
-	const mapSimpleAnalysisToUI = (simple) => {
-		return {
-			personalityType: simple.personality_type || 'Profil non déterminé',
-			personalityAnalysis: [
-				simple.strengths?.length ? `Forces clés: ${simple.strengths.join(', ')}` : null,
-				simple.recommendations?.length ? `Recommandations: ${simple.recommendations.join('\n- ')}` : null
-			].filter(Boolean).join('\n\n'),
-			skillsAssessment: simple.strengths?.length ? `Compétences mises en avant: ${simple.strengths.join(', ')}` : '',
-			jobRecommendations: (simple.career_matches || []).map((m) => ({
-				title: m.title,
-				skills: []
-			})),
-			studyRecommendations: [],
-			avatarUrlBase: null,
-			avatarConfig: null,
-			createdAt: simple.completion_date,
-			updatedAt: simple.completion_date
 		}
 	}
 

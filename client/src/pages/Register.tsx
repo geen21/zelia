@@ -19,7 +19,7 @@ export default function Register() {
       const token: string = data.access_token
       localStorage.setItem('token', token)
 
-      // After account creation: push avatar (if any), questionnaire answers, then trigger results
+      // After account creation: push avatar (if any) and questionnaire answers.
       const headers = { Authorization: `Bearer ${token}` }
       try {
         const cfgStr = localStorage.getItem('avatar_cfg')
@@ -38,12 +38,6 @@ export default function Register() {
           }
         }
       } catch {}
-      try {
-        if (profileType === 'student') {
-          await axios.post('/api/results/generate', {}, { headers })
-        }
-      } catch {}
-
       // Navigate
       if (after === 'results' && profileType === 'student') {
         navigate('/app/results?first=1')

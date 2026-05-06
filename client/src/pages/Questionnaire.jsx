@@ -106,14 +106,12 @@ export default function Questionnaire() {
       try {
         const headers = { Authorization: `Bearer ${token}` }
         await axios.post('/api/questionnaire/submit', payload, { headers })
-        await axios.post('/api/results/generate', {}, { headers })
         // optional: persist a cache for resilience
         localStorage.setItem('answers_cache', JSON.stringify(payload))
         navigate('/app/results')
         return
       } catch (e) {
         console.warn('Failed to submit authenticated questionnaire:', e)
-        // fallback to registration path if API failed
       }
     }
     

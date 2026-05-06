@@ -142,8 +142,17 @@ router.post('/ai', authenticateToken, async (req, res) => {
 
     const titlesText = Array.isArray(jobTitles) && jobTitles.length ? `Titres métiers disponibles: ${jobTitles.join(', ')}.` : ''
     const isBilan = mode === 'bilan' || (typeof advisorType === 'string' && advisorType.startsWith('bilan'))
+    const isPointsMetier = advisorType === 'points-metier'
+    const isFicheMetier = advisorType === 'fiche-metier'
+    const isStudyBudget = advisorType === 'study-budget'
     const sys = isBilan
       ? `Tu es Zélia, coach d'orientation francophone. Tu dois produire un bilan structuré pour l'utilisateur. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans balise markdown, sans backticks. Respecte exactement le schéma demandé dans le message. Le ton doit être encourageant, concret et personnalisé à partir des données fournies.`
+      : isPointsMetier
+      ? `Tu es Zélia, conseillère d'orientation francophone. Réponds STRICTEMENT avec deux sections nommées NEGATIFS et POSITIFS. Chaque section contient exactement 3 puces courtes, concrètes et nuancées. N'ajoute aucune introduction, conclusion, markdown de titre, tableau ou bloc de code.`
+      : isFicheMetier
+      ? `Tu es Zélia, conseillère d'orientation francophone. Tu rédiges une fiche métier complète, concise et directement exploitable. Réponds STRICTEMENT avec les trois sections demandées, dans l'ordre, sans introduction, sans conclusion, sans markdown de titre et sans bloc de code. Termine toujours tes phrases et ne t'arrête pas avant la section Écoles/études.`
+      : isStudyBudget
+      ? `Tu es Zélia, conseillère d'orientation francophone. Tu estimes un budget d'études en France. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans markdown et sans backticks. Le JSON doit contenir uniquement min, max et message. min et max sont des nombres entiers en euros. message est une phrase courte.`
       : mode === 'persona' && persona?.title
       ? `Type de conseiller: ${advisorType || persona.title}. Tu es ${persona.title}. ${titlesText} Réponds en français, en incarnant ce métier (quotidien, contraintes, voies d'accès, perspectives). Donne des réponses COURTES, comme dans une discussion (2-4 phrases max), précises et utiles. Si on te pose des questions personnelles, réponds du point de vue professionnel. Compétences clés: ${(persona.skills||[]).join(', ')}.`
       : `Type de conseiller: ${advisorType || 'conseiller-ia'}. Tu es un conseiller d'orientation en français. ${titlesText} Donne des réponses COURTES comme dans une discussion (2-4 phrases max), concrètes, bienveillantes et actionnables avec premières étapes.`
@@ -151,7 +160,7 @@ router.post('/ai', authenticateToken, async (req, res) => {
     // Build content for Gemini API
     const parts = []
     parts.push({ text: `[Contexte] ${sys}` })
-    if (!isBilan) {
+    if (!isBilan && !isPointsMetier && !isFicheMetier && !isStudyBudget) {
       for (const turn of history.slice(-10)) {
         if (!turn || !turn.content) continue
         parts.push({ text: `${turn.role === 'user' ? 'Etudiant' : 'IA'}: ${turn.content}` })
@@ -164,6 +173,12 @@ router.post('/ai', authenticateToken, async (req, res) => {
 
     const generationConfig = isBilan
       ? { temperature: 0.7, maxOutputTokens: 2048, responseMimeType: 'application/json' }
+      : isPointsMetier
+      ? { temperature: 0.25, maxOutputTokens: 1024 }
+      : isFicheMetier
+      ? { temperature: 0.45, maxOutputTokens: 1536 }
+      : isStudyBudget
+      ? { temperature: 0.2, maxOutputTokens: 512, responseMimeType: 'application/json' }
       : { temperature: 0.9, maxOutputTokens: 512 }
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`
@@ -179,7 +194,23 @@ router.post('/ai', authenticateToken, async (req, res) => {
       return res.status(500).json({ error: 'Erreur IA' })
     }
     const data = await resp.json()
-    const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    const finishReason = data?.candidates?.[0]?.finishReason
+    const reply = (data?.candidates?.[0]?.content?.parts || [])
+      .map((part) => part?.text || '')
+      .filter(Boolean)
+      .join('\n')
+      .trim()
+    if (finishReason === 'MAX_TOKENS') {
+      console.error('Gemini chat truncated response:', JSON.stringify({ advisorType, mode, maxOutputTokens: generationConfig.maxOutputTokens }))
+      if (isBilan || !reply) {
+        return res.status(500).json({ error: 'Réponse IA tronquée' })
+      }
+      return res.json({ reply, truncated: true })
+    }
+    if (!reply) {
+      console.error('Gemini chat empty response:', JSON.stringify({ finishReason: data?.candidates?.[0]?.finishReason, promptFeedback: data?.promptFeedback || null }))
+      return res.status(500).json({ error: 'Réponse IA vide' })
+    }
     res.json({ reply })
   } catch (e) {
     console.error('AI chat route error:', e)

@@ -156,10 +156,6 @@ export default function Niveau25() {
     }
 
     return () => {
-      try {
-        const p = playerRef.current
-        if (p && p.destroy) p.destroy()
-      } catch {}
       playerRef.current = null
       playerReadyRef.current = false
     }
@@ -248,7 +244,15 @@ export default function Niveau25() {
             <div>
               {/* API-rendered player for end detection */}
               <div className="relative w-full overflow-hidden rounded-xl" style={{ paddingTop: '56.25%' }}>
-                <div id="niv25Player" className="absolute inset-0 w-full h-full" />
+                <iframe
+                  id="niv25Player"
+                  className="absolute inset-0 h-full w-full border-0"
+                  src="https://www.youtube.com/embed/OLd17RLW85A?enablejsapi=1&rel=0&modestbranding=1&playsinline=1"
+                  title="YouTube video player"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                />
               </div>
               {/* Fallback iframe display (no end detection) */}
               <noscript>

@@ -87,9 +87,83 @@ function useTypewriter(message, durationMs) {
 function sanitizeText(raw) {
   if (!raw) return ''
   return String(raw)
-    .replace(/```[\s\S]*?```/g, '')
+    .replace(/```(?:\w+)?\s*([\s\S]*?)```/g, '$1')
+    .replace(/```(?:\w+)?/g, '')
     .replace(/\*\*/g, '')
     .trim()
+}
+
+function parseAmount(value) {
+  if (value === null || value === undefined) return null
+  const normalized = String(value).replace(/[^\d.,]/g, '').replace(',', '.')
+  const amount = Number.parseFloat(normalized)
+  return Number.isFinite(amount) ? Math.round(amount) : null
+}
+
+function normalizeBudgetEstimate(value) {
+  if (!value || typeof value !== 'object') return null
+  const min = parseAmount(value.min)
+  const max = parseAmount(value.max)
+  if (min === null || max === null || min <= 0 || max < min) return null
+  return {
+    min,
+    max,
+    message: sanitizeText(value.message || 'Estimation à adapter selon les frais exacts de la formation et ton logement.')
+  }
+}
+
+function parseBudgetEstimate(raw) {
+  const cleaned = sanitizeText(raw).replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+  if (!cleaned) return null
+
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0])
+      const normalized = normalizeBudgetEstimate(parsed)
+      if (normalized) return normalized
+    } catch {}
+  }
+
+  const minMatch = cleaned.match(/["']?min["']?\s*:\s*["']?([\d\s.,]+)/i)
+  const maxMatch = cleaned.match(/["']?max["']?\s*:\s*["']?([\d\s.,]+)/i)
+  const messageMatch = cleaned.match(/["']?message["']?\s*:\s*["']([^"'}]*)/i)
+  const min = minMatch ? parseAmount(minMatch[1]) : null
+  const max = maxMatch ? parseAmount(maxMatch[1]) : null
+  if (min !== null && max !== null && max >= min) {
+    return {
+      min,
+      max,
+      message: sanitizeText(messageMatch?.[1] || 'Estimation à adapter selon les frais exacts de la formation et ton logement.')
+    }
+  }
+
+  return null
+}
+
+function buildFallbackEstimate({ preference, nearHome, city, needsHousing, studyLevel }) {
+  const yearsByLevel = {
+    'Bac +2': 2,
+    'Bac +3': 3,
+    'Bac +5': 5,
+    'Bac +8': 8,
+    'Bac +8 ou plus': 8
+  }
+  const years = yearsByLevel[studyLevel] || 3
+  const prefersPrivate = preference === 'Privé'
+  const tuitionMin = prefersPrivate ? 5000 : 200
+  const tuitionMax = prefersPrivate ? 15000 : 800
+  const largeCity = /paris|lyon|bordeaux|lille|marseille|nice|nantes|toulouse/i.test(city || '')
+  const housingMin = needsHousing ? (largeCity ? 8500 : 6500) : nearHome ? 800 : 3500
+  const housingMax = needsHousing ? (largeCity ? 14000 : 11000) : nearHome ? 2200 : 7000
+  const min = Math.round(((tuitionMin + housingMin) * years) / 100) * 100
+  const max = Math.round(((tuitionMax + housingMax) * years) / 100) * 100
+
+  return {
+    min,
+    max,
+    message: 'Estimation automatique à affiner avec les frais exacts de la formation, le logement et les aides possibles.'
+  }
 }
 
 export default function Niveau22() {
@@ -186,35 +260,31 @@ export default function Niveau22() {
         `Niveau d'études: ${studyLevel || 'non renseigné'}`
       ].join('\n')
 
-      const message = `Tu es un conseiller d'orientation. Voici le contexte de l'élève:\n${context}\n\nDonne une estimation de budget total pour les prochaines années d'études en France selon ces informations.\nRéponds en JSON strict avec min, max et un court message: {"min": 0, "max": 0, "message": "texte court"}.\nRéponds UNIQUEMENT avec le JSON.`
+      const message = `Voici le contexte de l'élève:\n${context}\n\nDonne une estimation de budget total pour les prochaines années d'études en France selon ces informations.\nRéponds en JSON strict avec min, max et un court message: {"min": 0, "max": 0, "message": "texte court"}.\nRéponds UNIQUEMENT avec le JSON.`
 
-      const resp = await apiClient.post('/chat/ai', {
-        mode: 'advisor',
-        advisorType: 'study-budget',
-        message,
-        history: []
-      })
-
-      const reply = resp?.data?.reply || ''
-      const jsonMatch = reply.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0])
-        setEstimate({
-          min: parsed.min ?? null,
-          max: parsed.max ?? null,
-          message: sanitizeText(parsed.message || '')
+      const requestEstimate = async (extraInstruction = '') => {
+        const resp = await apiClient.post('/chat/ai', {
+          mode: 'advisor',
+          advisorType: 'study-budget',
+          message: extraInstruction ? `${message}\n\n${extraInstruction}` : message,
+          history: []
         })
-      } else {
-        setEstimate({
-          min: null,
-          max: null,
-          message: sanitizeText(reply)
-        })
+        return resp?.data || {}
       }
+
+      let data = await requestEstimate()
+      let parsed = parseBudgetEstimate(data.reply)
+
+      if (!parsed || data.truncated) {
+        data = await requestEstimate('Réponds avec un JSON très court, sans markdown, sans phrase autour, sous cette forme exacte: {"min": 12000, "max": 25000, "message": "texte court"}.')
+        parsed = parseBudgetEstimate(data.reply) || parsed
+      }
+
+      setEstimate(parsed || buildFallbackEstimate({ preference, nearHome, city, needsHousing, studyLevel }))
       setPhase('result')
     } catch (e) {
       console.error('Budget estimate error', e)
-      setEstimate({ min: null, max: null, message: "Je n'ai pas pu estimer, mais on peut affiner ensemble." })
+      setEstimate(buildFallbackEstimate({ preference, nearHome, city, needsHousing, studyLevel }))
       setPhase('result')
     } finally {
       setEstimateLoading(false)

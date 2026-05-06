@@ -45,6 +45,72 @@ function useTypewriter(message, durationMs) {
   return { text, done, skip }
 }
 
+const SCHOOL_SEARCH_LIMIT = 20
+const MIN_RECOMMENDED_SCHOOLS = 5
+
+function formationKey(formation) {
+  return String(
+    formation?.id ||
+    `${formation?.etab_nom || ''}-${formation?.nmc || ''}-${formation?.commune || ''}-${formation?.tc || ''}`
+  ).trim().toLowerCase()
+}
+
+function mergeUniqueFormations(current, incoming) {
+  const seen = new Set(current.map(formationKey).filter(Boolean))
+  const merged = [...current]
+  for (const formation of incoming || []) {
+    const key = formationKey(formation)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    merged.push(formation)
+  }
+  return merged
+}
+
+async function searchRecommendedSchools({ keywords, commune, cursusTypes, preference }) {
+  const cleanKeywords = keywords.slice(0, 5)
+  const attempts = [
+    { commune, cursus_types: cursusTypes, preference },
+    { commune, cursus_types: cursusTypes, preference: '' },
+    { commune, cursus_types: [], preference },
+    { commune, cursus_types: [], preference: '' },
+    { commune: '', cursus_types: cursusTypes, preference },
+    { commune: '', cursus_types: cursusTypes, preference: '' },
+    { commune: '', cursus_types: [], preference: '' },
+    { keywords: [], commune, cursus_types: [], preference: '' },
+    { keywords: [], commune: '', cursus_types: [], preference: '' }
+  ]
+
+  let merged = []
+  const seenAttempts = new Set()
+  let lastError = null
+
+  for (const attempt of attempts) {
+    const body = {
+      keywords: Array.isArray(attempt.keywords) ? attempt.keywords : cleanKeywords,
+      commune: attempt.commune || '',
+      cursus_types: Array.isArray(attempt.cursus_types) ? attempt.cursus_types : [],
+      preference: attempt.preference || '',
+      limit: SCHOOL_SEARCH_LIMIT
+    }
+    const attemptKey = JSON.stringify(body)
+    if (seenAttempts.has(attemptKey)) continue
+    seenAttempts.add(attemptKey)
+
+    try {
+      const searchRes = await apiClient.post('/formations/search', body)
+      merged = mergeUniqueFormations(merged, searchRes?.data?.formations || [])
+    } catch (error) {
+      lastError = error
+      console.warn('Niveau23 formation search attempt failed:', body, error)
+    }
+    if (merged.length >= MIN_RECOMMENDED_SCHOOLS) break
+  }
+
+  if (merged.length === 0 && lastError) throw lastError
+  return merged.slice(0, SCHOOL_SEARCH_LIMIT)
+}
+
 export default function Niveau23() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
@@ -186,16 +252,14 @@ Rien d'autre.`
 
         console.log('Niveau23 search:', { keywords, city: searchCity, cursusTypes, preference: n22Preference })
 
-        // Search formations with structured filters from N22
+        // Search formations with structured filters from N22, then broaden if the strict match is too short.
         try {
-          const searchRes = await apiClient.post('/formations/search', {
+          const formations = await searchRecommendedSchools({
             keywords: keywords.slice(0, 5),
             commune: searchCity,
-            cursus_types: cursusTypes,
-            preference: n22Preference,
-            limit: 20
+            cursusTypes,
+            preference: n22Preference
           })
-          const formations = searchRes?.data?.formations || []
           console.log('Niveau23 formations found:', formations.length)
           setSchools(formations)
         } catch (searchErr) {

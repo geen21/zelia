@@ -48,13 +48,19 @@ function useTypewriter(message, durationMs) {
 function sanitizeText(raw) {
   if (!raw) return ''
   return String(raw)
-    .replace(/```[\s\S]*?```/g, '')
+    .replace(/```(?:\w+)?\s*([\s\S]*?)```/g, '$1')
     .replace(/\*\*/g, '')
     .trim()
 }
 
 function parsePoints(raw) {
   const cleaned = sanitizeText(raw)
+    .replace(/\r/g, '')
+    .replace(/(?:points\s+)?n[ée]gatifs?\s*[:：-]?/gi, '\nNEGATIFS:\n')
+    .replace(/(?:points\s+)?positifs?\s*[:：-]?/gi, '\nPOSITIFS:\n')
+    .replace(/\s+[•*]\s+/g, '\n- ')
+    .replace(/\s+-\s+/g, '\n- ')
+    .replace(/\s+(\d+[.)])\s+/g, '\n$1 ')
   const lines = cleaned
     .split(/\r?\n/)
     .map(line => line.trim())
@@ -64,20 +70,32 @@ function parsePoints(raw) {
   const pos = []
   let section = ''
 
+  const pushItem = (target, value) => {
+    const item = String(value || '')
+      .replace(/^[-•*\d.)\s]+/, '')
+      .replace(/^[:：-]+\s*/, '')
+      .trim()
+    if (item && !/^(negatifs?|n[ée]gatifs?|positifs?)\s*:?$/i.test(item)) {
+      target.push(item)
+    }
+  }
+
   for (const line of lines) {
     const lower = line.toLowerCase()
     if (lower.includes('negatif') || lower.includes('négatif')) {
       section = 'neg'
+      const inline = line.replace(/.*(?:negatif|négatif)s?\s*[:：-]?/i, '').trim()
+      if (inline) pushItem(neg, inline)
       continue
     }
     if (lower.includes('positif') || lower.includes('positive') || lower.includes('positifs') || lower.includes('positives')) {
       section = 'pos'
+      const inline = line.replace(/.*positif(?:s|ves|ve)?\s*[:：-]?/i, '').trim()
+      if (inline) pushItem(pos, inline)
       continue
     }
-    const item = line.replace(/^[-•*\d.)\s]+/, '').trim()
-    if (!item) continue
-    if (section === 'neg') neg.push(item)
-    else if (section === 'pos') pos.push(item)
+    if (section === 'neg') pushItem(neg, line)
+    else if (section === 'pos') pushItem(pos, line)
   }
 
   if (neg.length >= 3 && pos.length >= 3) {
@@ -249,16 +267,34 @@ export default function Niveau15() {
         `- 3 points maximum par section.\n` +
         `- Aucune phrase d'introduction ou conclusion.`
 
-      const resp = await apiClient.post('/chat/ai', {
-        mode: 'advisor',
-        advisorType: 'points-metier',
-        message,
-        history: []
-      })
+      const requestPoints = async (extraInstruction = '') => {
+        const fullMessage = extraInstruction ? `${message}\n${extraInstruction}` : message
+        const resp = await apiClient.post('/chat/ai', {
+          mode: 'advisor',
+          advisorType: 'points-metier',
+          message: fullMessage,
+          history: []
+        })
+        return sanitizeText(resp?.data?.reply || '')
+      }
 
-      const reply = sanitizeText(resp?.data?.reply || '')
+      let reply = await requestPoints()
       if (!reply) throw new Error('Réponse IA vide')
-      const parsed = parsePoints(reply)
+      let parsed = parsePoints(reply)
+      if ((parsed.negatives || []).length < 3 || (parsed.positives || []).length < 3) {
+        try {
+          reply = await requestPoints('Réponse ultra courte obligatoire: exactement 6 puces au total, 3 sous NEGATIFS puis 3 sous POSITIFS. Chaque puce doit faire moins de 12 mots.')
+          const retryParsed = parsePoints(reply)
+          if ((retryParsed.negatives || []).length > 0 || (retryParsed.positives || []).length > 0) {
+            parsed = retryParsed
+          }
+        } catch (retryError) {
+          console.warn('Niveau15 retry generation failed', retryError)
+        }
+      }
+      if ((parsed.negatives || []).length === 0 && (parsed.positives || []).length === 0) {
+        throw new Error('Réponse IA non exploitable')
+      }
       setNegatives(parsed.negatives || [])
       setPositives(parsed.positives || [])
     } catch (e) {

@@ -167,7 +167,7 @@ export default function ZeliaDiploma({ firstName, lastName, personalityType, com
             marginTop: 18, fontSize: 13, color: '#444', maxWidth: 520,
             lineHeight: 1.6, fontFamily: 'Arial, sans-serif',
           }}>
-            a complété avec succès les <strong>40 niveaux</strong> du parcours d'orientation Zélia,
+            a complété avec succès les <strong>10 niveaux</strong> du parcours d'orientation Zélia,
             démontrant engagement, curiosité et détermination dans la construction de son avenir professionnel.
           </div>
 
@@ -189,7 +189,7 @@ export default function ZeliaDiploma({ firstName, lastName, personalityType, com
               flexDirection: 'column',
             }}>
               <div style={{ fontSize: 10, color: '#c1ff72', fontWeight: 700, fontFamily: 'Arial, sans-serif' }}>ZÉLIA</div>
-              <div style={{ fontSize: 18, color: '#c1ff72', fontWeight: 900, lineHeight: 1 }}>40</div>
+              <div style={{ fontSize: 18, color: '#c1ff72', fontWeight: 900, lineHeight: 1 }}>10</div>
               <div style={{ fontSize: 8, color: '#c1ff72', fontFamily: 'Arial, sans-serif' }}>NIVEAUX</div>
             </div>
 

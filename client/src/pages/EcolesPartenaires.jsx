@@ -84,10 +84,20 @@ export default function EcolesPartenaires() {
     }
   }
 
+  const handleCardKeyDown = (e, formationId) => {
+    if (e.target !== e.currentTarget) return
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    e.preventDefault()
+    navigate(`/app/ecoles-partenaires/${formationId}`)
+  }
+
   const displayList = tab === 'matched' ? matched : formations
   const filtered = cityFilter
     ? displayList.filter((f) => f.city === cityFilter)
     : displayList
+  const matchedVisibleCount = cityFilter
+    ? matched.filter((f) => f.city === cityFilter).length
+    : matched.length
 
   if (loading) {
     return (
@@ -124,7 +134,7 @@ export default function EcolesPartenaires() {
               : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
           }`}
         >
-          ✨ Pour toi{matched.length > 0 ? ` (${matched.length})` : ''}
+          ✨ Pour toi{matchedVisibleCount > 0 ? ` (${matchedVisibleCount})` : ''}
         </button>
         <button
           onClick={() => { setTab('all'); setCityFilter('') }}
@@ -175,11 +185,14 @@ export default function EcolesPartenaires() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((f) => (
-            <button
+            <article
               key={f.id}
               id={`formation-${f.id}`}
+              role="button"
+              tabIndex={0}
               onClick={() => navigate(`/app/ecoles-partenaires/${f.id}`)}
-              className={`bg-white border rounded-2xl p-4 text-left hover:shadow-lg hover:border-gray-300 transition-all group focus:outline-none focus:ring-2 focus:ring-[#c1ff72] ${
+              onKeyDown={(e) => handleCardKeyDown(e, f.id)}
+              className={`bg-white border rounded-2xl p-4 text-left hover:shadow-lg hover:border-gray-300 transition-all group focus:outline-none focus:ring-2 focus:ring-[#c1ff72] cursor-pointer ${
                 highlightId === f.id
                   ? 'border-[#c1ff72] ring-2 ring-[#c1ff72] shadow-lg'
                   : 'border-gray-200'
@@ -238,7 +251,7 @@ export default function EcolesPartenaires() {
                   </button>
                 </div>
               </div>
-            </button>
+            </article>
           ))}
         </div>
       )}

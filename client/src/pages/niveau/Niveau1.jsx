@@ -87,6 +87,20 @@ function useTypewriter(message, durationMs) {
 	return { text, done, skip }
 }
 
+function cleanAiFiche(raw) {
+	return String(raw || '').replace(/\*\*/g, '').trim()
+}
+
+function isCompleteFiche(raw) {
+	const text = cleanAiFiche(raw)
+	if (!text) return false
+	const hasDescription = /(description|pr[ée]sentation|le m[ée]tier|en quoi consiste)/i.test(text)
+	const hasSalary = /(salaire|r[ée]mun[ée]ration|d[ée]butant|m[ée]dian)/i.test(text)
+	const hasStudies = /([ée]coles|[ée]tudes|formations?|dipl[ôo]mes?|parcours)/i.test(text)
+	const endsMidPhrase = /\b(par|de|des|du|à|au|aux|avec|pour|sans|dans|et|ou|la|le|les|un|une|en|sur|vers|chez|qui|que|dont)$/i.test(text)
+	return hasDescription && hasSalary && hasStudies && !endsMidPhrase
+}
+
 export default function Niveau1() {
 	const navigate = useNavigate()
 	const [profile, setProfile] = useState(null)
@@ -139,7 +153,7 @@ export default function Niveau1() {
 
 				const [pRes, rRes] = await Promise.all([
 					usersAPI.getProfile().catch(() => null),
-					apiClient.get('/analysis/my-results', { headers: { 'Cache-Control': 'no-cache' }, params: { _: Date.now() } }).catch((e) => e)
+					apiClient.get('/analysis/my-results', { headers: { 'Cache-Control': 'no-cache' }, params: { optional: '1', _: Date.now() } }).catch((e) => e)
 				])
 				if (!mounted) return
 				const prof = pRes?.data?.profile || null
@@ -250,10 +264,19 @@ Structure EXACTE et dans cet ordre:
 
 Format: titres courts en clair (pas de markdown), listes à puces simples '-' quand pertinent.`
 
-			const resp = await chatAPI.aiChat({ mode: 'advisor', message, history: [], jobTitles: [jobTitle], advisorType: 'fiche-metier' })
-			let reply = resp?.data?.reply || ''
-			// Nettoyage minimal: enlever le gras si l'IA en met quand même
-			reply = reply.replace(/\*\*/g, '')
+			const requestFiche = async (extraInstruction = '') => {
+				const fullMessage = extraInstruction ? `${message}\n\n${extraInstruction}` : message
+				const resp = await chatAPI.aiChat({ mode: 'advisor', message: fullMessage, history: [], jobTitles: [jobTitle], advisorType: 'fiche-metier' })
+				return cleanAiFiche(resp?.data?.reply)
+			}
+
+			let reply = await requestFiche()
+			if (!isCompleteFiche(reply)) {
+				reply = await requestFiche("IMPORTANT: ta réponse précédente était incomplète. Génère cette fois une fiche complète avec les 3 sections demandées, sans t'arrêter au milieu d'une phrase.")
+			}
+			if (!isCompleteFiche(reply)) {
+				throw new Error('Fiche métier incomplète')
+			}
 			setFicheText(reply)
 			// Increase fiche count first so render can react accordingly
 			setFicheCount(c => {
@@ -694,6 +717,19 @@ function FicheMetierCard({ text, jobTitle }) {
 		const sections = []
 		let current = null
 
+		function extractInlineContent(line, sectionKey) {
+			const withoutNumber = line.replace(/^\d+\s*[).:-]?\s*/, '').trim()
+			const inlinePatterns = {
+				description: /^(description(?:\s+du\s+m[ée]tier)?|pr[ée]sentation|le\s+m[ée]tier|en\s+quoi\s+consiste)(?:\s*\([^)]*\))?\s*[:\-–.]?\s*/i,
+				salary: /^(salaire(?:\s+en\s+france)?|r[ée]mun[ée]ration|revenus)(?:\s*\([^)]*\))?\s*[:\-–.]?\s*/i,
+				studies: /^([ée]coles(?:\s*\/\s*[ée]tudes)?(?:\s+pour\s+y\s+arriver)?|[ée]tudes(?:\s+pour\s+y\s+arriver)?|formations?|parcours|dipl[ôo]mes?|pour\s+y\s+arriver|comment\s+y\s+acc[ée]der)(?:\s*\([^)]*\))?\s*[:\-–.]?\s*/i,
+			}
+			const pattern = inlinePatterns[sectionKey]
+			if (!pattern) return ''
+			const content = withoutNumber.replace(pattern, '').trim()
+			return content !== withoutNumber ? content : ''
+		}
+
 		// Heuristics to detect section headers
 		const sectionPatterns = [
 			{ key: 'description', pattern: /^\d*\)?\s*(description|pr[ée]sentation|le m[ée]tier|en quoi consiste)/i, icon: 'description', label: 'Description du métier', color: 'blue' },
@@ -705,7 +741,8 @@ function FicheMetierCard({ text, jobTitle }) {
 			let matched = false
 			for (const sp of sectionPatterns) {
 				if (sp.pattern.test(line)) {
-					current = { ...sp, content: [] }
+					const inlineContent = extractInlineContent(line, sp.key)
+					current = { ...sp, content: inlineContent ? [inlineContent] : [] }
 					sections.push(current)
 					matched = true
 					break
@@ -745,7 +782,7 @@ function FicheMetierCard({ text, jobTitle }) {
 			{sections.map((sec, idx) => {
 				const colors = colorMap[sec.color] || colorMap.blue
 				return (
-					<div key={idx} className={`${colors.bg} ${colors.border} border rounded-xl p-4`}>
+					<div key={idx} className={`${colors.bg} ${colors.border} border rounded-xl p-4 break-words`}>
 						<div className="flex items-center gap-2 mb-2">
 							<span className={`w-8 h-8 rounded-lg flex items-center justify-center ${colors.icon}`}>
 								{sec.icon === 'description' && <FaClipboardList className="w-4 h-4" />}

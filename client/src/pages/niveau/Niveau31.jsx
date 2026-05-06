@@ -48,7 +48,7 @@ function useTypewriter(message, durationMs) {
 function sanitizeAiLines(raw) {
   if (!raw) return []
   const cleaned = String(raw)
-    .replace(/```[\s\S]*?```/g, '')
+    .replace(/```(?:\w+)?\s*([\s\S]*?)```/g, '$1')
     .replace(/\*\*/g, '')
     .replace(/#+\s*/g, '')
     .trim()

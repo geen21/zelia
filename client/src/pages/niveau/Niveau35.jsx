@@ -154,10 +154,6 @@ export default function Niveau35() {
     }
 
     return () => {
-      try {
-        const p = playerRef.current
-        if (p && p.destroy) p.destroy()
-      } catch {}
       playerRef.current = null
       playerReadyRef.current = false
     }
@@ -245,7 +241,15 @@ export default function Niveau35() {
           ) : (
             <div>
               <div className="relative w-full overflow-hidden rounded-xl" style={{ paddingTop: '56.25%' }}>
-                <div id="niv35Player" className="absolute inset-0 w-full h-full" />
+                <iframe
+                  id="niv35Player"
+                  className="absolute inset-0 h-full w-full border-0"
+                  src={`https://www.youtube.com/embed/${VIDEO_ID}?enablejsapi=1&rel=0&modestbranding=1&playsinline=1`}
+                  title={VIDEO_TITLE}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                />
               </div>
               <noscript>
                 <iframe

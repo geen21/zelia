@@ -804,8 +804,8 @@ export default function Profile() {
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-xl font-semibold">Mon Diplôme Zélia (Niveau 40)</h2>
-                <p className="text-text-secondary text-sm">Téléchargez votre diplôme obtenu après avoir complété les 40 niveaux.</p>
+                <h2 className="text-xl font-semibold">Mon Diplôme Zélia (Niveau 10)</h2>
+                <p className="text-text-secondary text-sm">Téléchargez votre diplôme obtenu après avoir complété les 10 niveaux.</p>
               </div>
             </div>
 
@@ -823,9 +823,9 @@ export default function Profile() {
             ) : (
               <div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">
                 <div className="text-text-secondary text-4xl mb-2">🎓</div>
-                <h3 className="text-lg font-semibold mb-2">Terminez le niveau 40</h3>
+                <h3 className="text-lg font-semibold mb-2">Terminez le niveau 10</h3>
                 <p className="text-text-secondary">
-                  Complétez les 40 niveaux du parcours Zélia pour débloquer votre diplôme.
+                  Complétez les 10 niveaux du parcours Zélia pour débloquer votre diplôme.
                 </p>
               </div>
             )}

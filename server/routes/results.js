@@ -6,86 +6,16 @@ const router = express.Router()
 
 // Get latest results for a user
 router.get('/latest', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id
-    const db = supabaseAdmin || supabase
-
-    // Pull user responses (inscription)
-    const { data, error } = await db
-      .from('user_responses')
-      .select('question_id, response, created_at, questionnaire_type')
-      .eq('user_id', userId)
-      .eq('questionnaire_type', 'inscription')
-      .order('created_at', { ascending: true })
-
-    if (error) {
-      return res.status(400).json({ error: error.message })
-    }
-
-    if (!data || data.length === 0) {
-      return res.json({
-        results: null,
-        has_completed_questionnaire: false,
-        message: 'No questionnaire completed yet'
-      })
-    }
-
-    const responses = data.map(r => ({ question_id: r.question_id, answer: r.response }))
-    const analysis = generateResultsFromResponses(responses)
-
-    res.json({
-      results: {
-        questionnaire_type: 'inscription',
-        submitted_at: data[data.length - 1]?.created_at,
-        analysis
-      },
-      has_completed_questionnaire: true
-    })
-  } catch (error) {
-    console.error('Latest results fetch error:', error)
-    res.status(500).json({ error: 'Internal server error' })
-  }
+  return res.status(410).json({
+    error: 'Legacy simple results are disabled. Use /api/analysis/my-results.'
+  })
 })
 
 // Generate results from questionnaire responses
 router.post('/generate', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id
-    const { type = 'inscription' } = req.body
-    const db = supabaseAdmin || supabase
-
-    const { data: rows, error: responseError } = await db
-      .from('user_responses')
-      .select('question_id, response, created_at')
-      .eq('user_id', userId)
-      .eq('questionnaire_type', 'inscription')
-      .order('created_at', { ascending: true })
-
-    if (responseError || !rows || rows.length === 0) {
-      return res.status(404).json({ error: 'No questionnaire responses found' })
-    }
-
-    const responses = rows.map(r => ({ question_id: r.question_id, answer: r.response }))
-    const analysis = generateResultsFromResponses(responses)
-
-    const { error: resultError } = await db
-      .from('user_results')
-      .upsert({
-        user_id: userId,
-        questionnaire_type: 'inscription',
-        skills_data: analysis, // store analysis JSON into skills_data for now
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'user_id,questionnaire_type' })
-
-    if (resultError) {
-      console.error('Results storage error:', resultError)
-    }
-
-    res.json({ message: 'Results generated successfully', analysis, type })
-  } catch (error) {
-    console.error('Results generation error:', error)
-    res.status(500).json({ error: 'Internal server error' })
-  }
+  return res.status(410).json({
+    error: 'Legacy simple results generation is disabled. Use /api/analysis/generate-analysis.'
+  })
 })
 
 // Update user avatar information
@@ -178,37 +108,5 @@ router.post('/avatar/temp', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' })
   }
 })
-
-// Helper function to generate results from questionnaire responses
-function generateResultsFromResponses(responses) {
-  if (!Array.isArray(responses)) {
-    return {
-      personality_type: 'Unknown',
-      strengths: [],
-      recommendations: [],
-      career_matches: []
-    }
-  }
-
-  // Simple analysis based on responses
-  const analysis = {
-    personality_type: 'Analytical',
-    strengths: ['Problem Solving', 'Communication', 'Adaptability'],
-    recommendations: [
-      'Consider roles in technology or consulting',
-      'Develop leadership skills',
-      'Explore continuing education opportunities'
-    ],
-    career_matches: [
-      { title: 'Software Developer', match_percentage: 85 },
-      { title: 'Business Analyst', match_percentage: 78 },
-      { title: 'Project Manager', match_percentage: 72 }
-    ],
-    response_count: responses.length,
-    completion_date: new Date().toISOString()
-  }
-
-  return analysis
-}
 
 export default router

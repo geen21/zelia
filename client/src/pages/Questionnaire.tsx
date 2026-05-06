@@ -27,8 +27,6 @@ export default function Questionnaire() {
     try {
       const payload = { answers: Object.entries(answers).map(([qid, ans]) => ({ question_id: Number(qid), answer: ans })) }
       await axios.post('/api/questionnaire/submit', payload, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
-      // Generate results immediately
-      await axios.post('/api/results/generate', { type: 'unified' }, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
       navigate('/app/results')
     } catch (e) {
       setError('Échec de l\'envoi')

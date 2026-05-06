@@ -157,10 +157,6 @@ export default function Niveau27() {
     }
 
     return () => {
-      try {
-        const p = playerRef.current
-        if (p && p.destroy) p.destroy()
-      } catch {}
       playerRef.current = null
       playerReadyRef.current = false
     }
@@ -252,7 +248,15 @@ export default function Niveau27() {
             <div>
               {/* API-rendered player for end detection */}
               <div className="relative w-full overflow-hidden rounded-xl" style={{ paddingTop: '56.25%' }}>
-                <div id="niv27Player" className="absolute inset-0 w-full h-full" />
+                <iframe
+                  id="niv27Player"
+                  className="absolute inset-0 h-full w-full border-0"
+                  src="https://www.youtube.com/embed/BI9OJDvaR5A?enablejsapi=1&rel=0&modestbranding=1&playsinline=1"
+                  title="Comment se vendre"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                />
               </div>
               {/* Manual finish button */}
               <div className="mt-4">

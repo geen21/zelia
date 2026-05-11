@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import apiClient, { usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
@@ -85,6 +85,7 @@ function useTypewriter(message, durationMs) {
 
 export default function Niveau28() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const [profile, setProfile] = useState(null)
   const [baseAvatarUrl, setBaseAvatarUrl] = useState('')
   const [loading, setLoading] = useState(true)
@@ -433,7 +434,7 @@ const intro = `Re ! En avant pour le niveau 28${prenom ? ` ${prenom}` : ''}. On 
       </div>
 
       {/* Success overlay for Level 27 completion */}
-      {showSuccess && (
+      {showSuccess && !pathname.includes('/outils') && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>

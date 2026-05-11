@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import apiClient, { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { extractBilanJson, formatBilanExtraInfos, normalizeLevelSummaries } from '../../lib/levelBilan'
@@ -69,6 +69,7 @@ const LEVELS_SUMMARY = [
 
 export default function Niveau40() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [profile, setProfile] = useState(null)
@@ -337,7 +338,7 @@ export default function Niveau40() {
         </div>
       </div>
 
-      {showSuccess && (
+      {showSuccess && !pathname.includes('/outils') && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm transition-opacity duration-500">
           <style>{`
             @keyframes fall {

@@ -307,7 +307,7 @@ export default function Niveau12() {
         {/* Right: Game Area */}
         <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">12</div>
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">6</div>
             <h2 className="text-lg md:text-xl font-bold">Métiers et débouchés</h2>
           </div>
 

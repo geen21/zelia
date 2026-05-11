@@ -145,8 +145,16 @@ router.post('/ai', authenticateToken, async (req, res) => {
     const isPointsMetier = advisorType === 'points-metier'
     const isFicheMetier = advisorType === 'fiche-metier'
     const isStudyBudget = advisorType === 'study-budget'
+    const isFilieresGenerator = advisorType === 'filieres-generator'
+    const isGradesEvaluation = advisorType === 'grades-evaluation'
+    const isStructuredJson = isBilan || isStudyBudget || isFilieresGenerator || isGradesEvaluation
+    const usesDirectPrompt = isStructuredJson || isPointsMetier || isFicheMetier
     const sys = isBilan
       ? `Tu es Zélia, coach d'orientation francophone. Tu dois produire un bilan structuré pour l'utilisateur. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans balise markdown, sans backticks. Respecte exactement le schéma demandé dans le message. Le ton doit être encourageant, concret et personnalisé à partir des données fournies.`
+      : isFilieresGenerator
+      ? `Tu es Zélia, conseillère d'orientation francophone. Tu proposes des filières post-bac réalistes. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans markdown et sans backticks. Le JSON doit être uniquement un tableau de 10 objets. Chaque objet contient uniquement "type" et "degree", deux chaînes non vides.`
+      : isGradesEvaluation
+      ? `Tu es Zélia, conseillère d'orientation francophone. Tu évalues la faisabilité de filières à partir de notes scolaires. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans markdown et sans backticks. Le JSON doit contenir uniquement ok et message. ok est un booléen. message est une phrase courte, bienveillante, concrète et en tutoyant l'élève.`
       : isPointsMetier
       ? `Tu es Zélia, conseillère d'orientation francophone. Réponds STRICTEMENT avec deux sections nommées NEGATIFS et POSITIFS. Chaque section contient exactement 3 puces courtes, concrètes et nuancées. N'ajoute aucune introduction, conclusion, markdown de titre, tableau ou bloc de code.`
       : isFicheMetier
@@ -160,7 +168,7 @@ router.post('/ai', authenticateToken, async (req, res) => {
     // Build content for Gemini API
     const parts = []
     parts.push({ text: `[Contexte] ${sys}` })
-    if (!isBilan && !isPointsMetier && !isFicheMetier && !isStudyBudget) {
+    if (!usesDirectPrompt) {
       for (const turn of history.slice(-10)) {
         if (!turn || !turn.content) continue
         parts.push({ text: `${turn.role === 'user' ? 'Etudiant' : 'IA'}: ${turn.content}` })
@@ -173,6 +181,10 @@ router.post('/ai', authenticateToken, async (req, res) => {
 
     const generationConfig = isBilan
       ? { temperature: 0.7, maxOutputTokens: 2048, responseMimeType: 'application/json' }
+      : isFilieresGenerator
+      ? { temperature: 0.35, maxOutputTokens: 2048, responseMimeType: 'application/json' }
+      : isGradesEvaluation
+      ? { temperature: 0.25, maxOutputTokens: 512, responseMimeType: 'application/json' }
       : isPointsMetier
       ? { temperature: 0.25, maxOutputTokens: 1024 }
       : isFicheMetier
@@ -202,7 +214,7 @@ router.post('/ai', authenticateToken, async (req, res) => {
       .trim()
     if (finishReason === 'MAX_TOKENS') {
       console.error('Gemini chat truncated response:', JSON.stringify({ advisorType, mode, maxOutputTokens: generationConfig.maxOutputTokens }))
-      if (isBilan || !reply) {
+      if (isStructuredJson || !reply) {
         return res.status(500).json({ error: 'Réponse IA tronquée' })
       }
       return res.json({ reply, truncated: true })

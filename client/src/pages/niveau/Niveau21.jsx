@@ -54,6 +54,47 @@ function sanitizeText(raw) {
     .trim()
 }
 
+function parseJsonArray(raw) {
+  const cleaned = sanitizeText(raw)
+  const match = cleaned.match(/\[[\s\S]*\]/)
+  if (!match) return []
+  try {
+    const parsed = JSON.parse(match[0])
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function parseJsonObject(raw) {
+  const cleaned = sanitizeText(raw)
+  const match = cleaned.match(/\{[\s\S]*\}/)
+  if (!match) return null
+  try {
+    const parsed = JSON.parse(match[0])
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function normalizeFilieres(raw) {
+  const list = Array.isArray(raw) ? raw : parseJsonArray(raw)
+  return list
+    .map((item) => ({
+      type: typeof item === 'string' ? 'Formation' : sanitizeText(item?.type || item?.field_type || ''),
+      degree: typeof item === 'string' ? sanitizeText(item) : sanitizeText(item?.degree || item?.field_degree || item?.name || '')
+    }))
+    .filter((item) => item.type && item.degree)
+}
+
+function fallbackFaisabilite() {
+  return {
+    ok: true,
+    message: 'Tes choix restent cohérents. On les garde comme pistes de travail et on les affinera dans les prochains niveaux.'
+  }
+}
+
 export default function Niveau21() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -80,6 +121,7 @@ export default function Niveau21() {
   // Faisabilité
   const [faisabilite, setFaisabilite] = useState(null)
   const [faisabiliteLoading, setFaisabiliteLoading] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   const firstName = profile?.first_name || 'toi'
 
@@ -163,21 +205,16 @@ Réponds en JSON strict : un tableau d'objets avec "type" (type d'étude court, 
 Exemple: [{"type":"BTS","degree":"BTS Commerce International"},{"type":"Licence","degree":"Licence en Droit"}]
 Réponds UNIQUEMENT avec le JSON, sans texte autour.`
 
-          const resp = await apiClient.post('/chat/ai', {
-            mode: 'advisor',
-            advisorType: 'filieres-generator',
-            message,
-            history: []
-          })
-
           try {
-            const reply = resp?.data?.reply || ''
-            const jsonMatch = reply.match(/\[[\s\S]*\]/)
-            if (jsonMatch) {
-              filieresData = JSON.parse(jsonMatch[0])
-            }
-          } catch {
-            filieresData = []
+            const resp = await apiClient.post('/chat/ai', {
+              mode: 'advisor',
+              advisorType: 'filieres-generator',
+              message,
+              history: []
+            })
+            filieresData = normalizeFilieres(resp?.data?.reply || '')
+          } catch (generationErr) {
+            console.warn('Niveau21 filieres generation failed', generationErr)
           }
         }
 
@@ -188,10 +225,7 @@ Réponds UNIQUEMENT avec le JSON, sans texte autour.`
             const results = anal?.data?.results || {}
             const studyRecs = results.studyRecommendations || results.study_recommendations || []
             if (Array.isArray(studyRecs) && studyRecs.length > 0) {
-              filieresData = studyRecs.map(item => ({
-                type: sanitizeText(item.type || ''),
-                degree: sanitizeText(item.degree || item.name || '')
-              }))
+              filieresData = normalizeFilieres(studyRecs)
             }
           } catch {
             // fallback below
@@ -303,11 +337,12 @@ Réponds UNIQUEMENT avec le JSON, sans texte autour.`
     setFaisabiliteLoading(true)
 
     try {
-      // Save notes to DB
-      await usersAPI.saveNotes(validNotes)
+      await usersAPI.saveNotes(validNotes).catch((saveNotesErr) => {
+        console.warn('Niveau21 notes save failed', saveNotesErr)
+      })
 
       // Get AI evaluation
-      const selectedFilieresNames = selectedFilieres.map(i => filieres[i]).map(f => `${f.type}: ${f.degree}`).join(', ')
+      const selectedFilieresNames = selectedFilieres.map(i => filieres[i]).filter(Boolean).map(f => `${f.type}: ${f.degree}`).join(', ')
       const notesText = validNotes.map(n => `${n.subject}: ${n.grade}`).join(', ')
 
       const message = `L'élève a choisi les filières suivantes: ${selectedFilieresNames}.
@@ -326,24 +361,18 @@ Réponds UNIQUEMENT avec le JSON.`
         history: []
       })
 
-      try {
-        const reply = resp?.data?.reply || ''
-        const jsonMatch = reply.match(/\{[\s\S]*\}/)
-        if (jsonMatch) {
-          const result = JSON.parse(jsonMatch[0])
-          setFaisabilite({
-            ok: !!result.ok,
-            message: sanitizeText(result.message || (result.ok ? 'Ces filières sont accessibles avec ton profil !' : 'Il faudra peut-être travailler certaines matières.'))
-          })
-        } else {
-          setFaisabilite({ ok: true, message: 'Tes filières semblent accessibles avec de la motivation !' })
-        }
-      } catch {
-        setFaisabilite({ ok: true, message: 'Continue comme ça, tu es sur la bonne voie !' })
+      const result = parseJsonObject(resp?.data?.reply || '')
+      if (result) {
+        setFaisabilite({
+          ok: !!result.ok,
+          message: sanitizeText(result.message || (result.ok ? 'Ces filières sont accessibles avec ton profil.' : 'Il faudra renforcer certaines matières.'))
+        })
+      } else {
+        setFaisabilite(fallbackFaisabilite())
       }
     } catch (err) {
-      console.error('Notes submission error', err)
-      setFaisabilite({ ok: true, message: 'Évaluation enregistrée.' })
+      console.error('Notes evaluation error', err)
+      setFaisabilite(fallbackFaisabilite())
     } finally {
       setFaisabiliteLoading(false)
     }
@@ -352,8 +381,9 @@ Réponds UNIQUEMENT avec le JSON.`
   const onValidate = async () => {
     if (saving) return
     setSaving(true)
+    setSaveError('')
     try {
-      const selectedFilieresData = selectedFilieres.map(i => filieres[i])
+      const selectedFilieresData = selectedFilieres.map(i => filieres[i]).filter(Boolean)
       const validNotes = notes.filter(n => n.subject.trim() && n.grade.trim())
 
       const entries = [
@@ -374,13 +404,20 @@ Réponds UNIQUEMENT avec le JSON.`
         }
       ]
 
-      await usersAPI.saveExtraInfo(entries)
-      // Save selected filieres to user_fields table
-      await usersAPI.saveFields(selectedFilieresData)
+      const saveResults = await Promise.allSettled([
+        usersAPI.saveExtraInfo(entries),
+        usersAPI.saveFields(selectedFilieresData)
+      ])
+      saveResults.forEach((result) => {
+        if (result.status === 'rejected') {
+          console.warn('Niveau21 non-critical save failed', result.reason)
+        }
+      })
       await levelUp({ minLevel: 8, xpReward: XP_PER_LEVEL }) // New level 7 → advances to 8
       setShowSuccess(true)
     } catch (err) {
-      console.error('Niveau21 save error', err)
+      console.error('Niveau21 validation error', err)
+      setSaveError("Impossible de continuer pour le moment. Réessaie dans quelques secondes.")
     } finally {
       setSaving(false)
     }
@@ -562,7 +599,7 @@ Réponds UNIQUEMENT avec le JSON.`
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-xl">{faisabilite.ok ? <FaCircleCheck className="w-5 h-5 text-green-500" /> : <FaTriangleExclamation className="w-5 h-5 text-amber-500" />}</span>
-                      <span className="font-semibold">{faisabilite.ok ? 'C\'est faisable !' : 'À améliorer'}</span>
+                      <span className="font-semibold">{faisabilite.ok ? 'Filières réalistes' : 'À renforcer'}</span>
                     </div>
                     <p>{faisabilite.message}</p>
                   </div>
@@ -578,6 +615,12 @@ Réponds UNIQUEMENT avec le JSON.`
                       ))}
                     </ul>
                   </div>
+
+                  {saveError && (
+                    <div className="mt-4 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+                      {saveError}
+                    </div>
+                  )}
 
                   <button
                     type="button"

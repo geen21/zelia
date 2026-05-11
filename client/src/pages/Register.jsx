@@ -228,6 +228,15 @@ export default function Register() {
     }
   }
 
+  function handleAcceptAll() {
+    setAcceptTerms(true)
+    setNewsletterOptIn(true)
+    setAcceptDataTransfer(true)
+    if (error === 'Vous devez accepter les CGV et CGU pour continuer') {
+      setError('')
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-white text-text-primary flex flex-col items-center justify-center px-4 overflow-hidden">
       <div className="w-full max-w-lg py-4 h-full flex flex-col justify-center overflow-y-auto">
@@ -353,6 +362,13 @@ export default function Register() {
                 <div className="space-y-4">
                   <h2 className="font-semibold text-lg mb-2">Dernière étape</h2>
                   <div className="bg-gray-50 p-4 rounded-lg text-sm space-y-3">
+                    <button
+                      type="button"
+                      onClick={handleAcceptAll}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-100"
+                    >
+                      Tout accepter
+                    </button>
                     <label className="flex items-start gap-3 cursor-pointer">
                       <input
                         type="checkbox"

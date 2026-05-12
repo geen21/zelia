@@ -125,7 +125,7 @@ export default function Niveau3() {
     const prenom = (profile?.first_name || '').trim()
     const namePart = prenom ? ` ${prenom}` : ''
     return [
-      { text: `Re${namePart}, on va déconstruire ensemble des idées reçues du monde du travail (niveau 3).`, durationMs: 2800 },
+      { text: `Re${namePart}, on va déconstruire ensemble des idées reçues du monde du travail.`, durationMs: 2800 },
       { text: 'Je te laisse avec les questions…', durationMs: 1600 },
     ]
   }, [profile])
@@ -312,7 +312,7 @@ export default function Niveau3() {
                     <>{typedIntro}</>
                   ) : (
                     <>
-                      <div className="text-white/70 text-sm mb-2">Niveau 3 · Question {qIdx + 1}/{questions.length}</div>
+                      <div className="text-white/70 text-sm mb-2">Question {qIdx + 1}/{questions.length}</div>
                       <div className="font-semibold">{currentQuestion?.text}</div>
                       {revealed && (
                         <div className="mt-3 text-white/90">
@@ -342,7 +342,7 @@ export default function Niveau3() {
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">🧠</div>
-            <h2 className="text-xl font-bold">Idées reçues · Niveau 3</h2>
+            <h2 className="text-xl font-bold">Idées reçues</h2>
           </div>
 
           {phase === 'intro' ? (
@@ -388,7 +388,7 @@ export default function Niveau3() {
                     onClick={nextQuestion}
                     className="sm:ml-auto px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto"
                   >
-                    {qIdx === questions.length - 1 ? 'Terminer le niveau' : 'Question suivante'}
+                    {qIdx === questions.length - 1 ? 'Terminer' : 'Question suivante'}
                   </button>
                 </div>
               )}
@@ -401,7 +401,7 @@ export default function Niveau3() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 3 réussi !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
             <p className="text-text-secondary mb-4">Bien joué. Tu as déconstruit 6 idées reçues du monde du travail.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
@@ -414,7 +414,7 @@ export default function Niveau3() {
                 onClick={() => navigate('/app/niveau/4')}
                 className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200"
               >
-                Passer au niveau suivant
+                Continuer
               </button>
             </div>
           </div>

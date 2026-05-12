@@ -67,7 +67,7 @@ export default function NiveauTemplate({
           if (level > PAYWALL_LEVEL && !hasPaid && level > nextPlayable) {
             setLockedReason('Ce niveau fait partie du contenu premium. Il sera accessible après activation de l\'abonnement Zélia+.')
           } else if (level > currentLevel + 1) {
-            setLockedReason(`Tu dois d'abord terminer le niveau ${currentLevel + 1} pour débloquer celui-ci.`)
+            setLockedReason(`Tu dois d'abord terminer le module précédent pour débloquer celui-ci.`)
           } else {
             setLockedReason(`Tu dois d'abord finaliser le niveau ${Math.max(1, level - 1)}.`)
           }
@@ -105,7 +105,7 @@ export default function NiveauTemplate({
       setCompleted(true)
     } catch (err) {
       console.error('[NiveauTemplate] levelUp failed', err)
-      setError('Impossible de valider le niveau pour le moment. Réessaie dans un instant.')
+      setError('Impossible de valider le module pour le moment. Réessaie dans un instant.')
     } finally {
       setSaving(false)
     }
@@ -204,7 +204,7 @@ export default function NiveauTemplate({
             <p className="text-text-secondary mb-4">Ton avancée est prise en compte.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate(`/app/niveau/${parseInt(level) + 1}`)} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
+              <button onClick={() => navigate(`/app/niveau/${parseInt(level) + 1}`)} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
             </div>
             {/* Subtle confetti dots */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

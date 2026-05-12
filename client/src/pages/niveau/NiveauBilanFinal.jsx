@@ -133,20 +133,20 @@ export default function NiveauBilanFinal() {
     try {
       const context = extraInfos.length > 0
         ? formatBilanExtraInfos(extraInfos)
-        : 'Aucune donnée spécifique enregistrée pour les niveaux 1-9.'
+        : 'Aucune donnée spécifique enregistrée pour ces modules.'
 
-      const summaryContext = LEVELS_SUMMARY.map(l => `- Niveau ${l.level}: ${l.title} (${l.type})`).join('\n')
+      const summaryContext = LEVELS_SUMMARY.map(l => `- ${l.title} (${l.type})`).join('\n')
 
       const message =
-        `Tu dois produire un bilan final du parcours Zélia pour les niveaux 1 à 9.\n` +
+        `Tu dois produire un bilan final du parcours Zélia pour ces modules fonctionnels.\n` +
         `Modules traversés:\n${summaryContext}\n\n` +
         `Données utilisateur enregistrées (réponses, choix, scores) :\n${context}\n\n` +
         `Réponds UNIQUEMENT en JSON valide (aucun texte avant/après, pas de balises markdown) au format strict suivant :\n` +
-        `{"levelSummaries":[{"level":1,"title":"Exploration des métiers","summary":"..."},{"level":2,"title":"Classement des domaines","summary":"..."}, ... 9 entrées au total]}\n` +
+        `{"levelSummaries":[{"title":"Exploration des métiers","summary":"..."},{"title":"Classement des domaines","summary":"..."}]}\n` +
         `Contraintes :\n` +
-        `- EXACTEMENT 9 objets, un par niveau de 1 à 9, dans l'ordre.\n` +
-        `- Conserve les numéros et titres fournis.\n` +
-        `- Chaque "summary" : 2 à 3 phrases personnalisées qui s'appuient explicitement sur les données utilisateur fournies (cite les choix, métiers, scores, écoles évoqués). Si une donnée manque pour un niveau, résume ce que le niveau a permis de travailler avec un ton encourageant.\n` +
+        `- EXACTEMENT un objet par module, dans l'ordre fourni.\n` +
+        `- N'utilise jamais les mots "niveau" ou "Niveau", ni les anciens numéros de module.\n` +
+        `- Chaque "summary" : 2 à 3 phrases personnalisées qui s'appuient explicitement sur les données utilisateur fournies (cite les choix, métiers, scores, écoles évoqués). Si une donnée manque pour un module, résume ce qu'il a permis de travailler avec un ton encourageant.\n` +
         `- Français clair, ton bienveillant, à la 2e personne du singulier (« tu »).\n` +
         `- Ne mentionne jamais que tu es une IA ni le format JSON.`
 
@@ -192,7 +192,7 @@ export default function NiveauBilanFinal() {
       setShowSuccess(true)
     } catch (e) {
       console.error('NiveauBilanFinal levelUp failed', e)
-      setError('Impossible de valider le niveau.')
+      setError('Impossible de valider le module.')
     } finally {
       setFinishing(false)
     }
@@ -210,14 +210,14 @@ export default function NiveauBilanFinal() {
 
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(18)
-      doc.text('Bilan final Zélia — Niveaux 1 à 9', margin, y)
+      doc.text('Bilan final Zélia — Modules d orientation', margin, y)
       y += 10
 
       bilan.levelSummaries.forEach((section) => {
         if (y > 260) { doc.addPage(); y = margin }
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(12)
-        doc.text(`Niveau ${section.level} - ${section.title || 'Section'}`, margin, y)
+        doc.text(section.title || 'Module', margin, y)
         y += 6
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(10)
@@ -286,7 +286,7 @@ export default function NiveauBilanFinal() {
 
         <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">10</div>
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">✓</div>
             <h2 className="text-lg md:text-xl font-bold">Bilan final</h2>
           </div>
 
@@ -311,7 +311,7 @@ export default function NiveauBilanFinal() {
                 <div className="space-y-4">
                   {levelSummaries.map((section) => (
                     <div key={section.level} className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                      <h3 className="font-semibold mb-2">Niveau {section.level} · {section.title}</h3>
+                      <h3 className="font-semibold mb-2">{section.title}</h3>
                       <p className="text-sm text-gray-700 whitespace-pre-wrap">{section.summary}</p>
                     </div>
                   ))}
@@ -391,7 +391,7 @@ export default function NiveauBilanFinal() {
                   />
                 </div>
                 <div className="absolute -bottom-2 -right-2 bg-black text-[#c1ff72] text-xs font-bold px-3 py-1 rounded-full border-[3px] border-white">
-                  NIV 10
+                  BILAN
                 </div>
               </div>
 

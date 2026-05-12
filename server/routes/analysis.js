@@ -90,14 +90,16 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
     })
 
     // Prepare the prompt for Gemini
-    const prompt = `Vous êtes un conseiller d'orientation professionnel expert qui fournit des analyses détaillées en français, vous ne paraphrasez pas les réponses et questions de l'utilisateur, comme par exemple : (Q18 : "Pas trop"). `
+    const prompt = `Vous êtes un conseiller d'orientation professionnel expert qui fournit des analyses courtes, utiles et chaleureuses en français. `
+      + `Vous devez synthétiser les tendances sans citer les questions, les réponses brutes, ni les numéros. `
+      + `INTERDICTION ABSOLUE d'écrire des références comme Q2, Q14, question 3, réponse 8, item 12, ou toute mention similaire. `
       + `Votre tâche est de générer une réponse structurée qui DOIT IMPÉRATIVEMENT contenir EXACTEMENT les sections suivantes:\n\n`
       + `###Type de personalité###\n`
       + `[Nom de la personalité]\n\n`
   + `###Analyse de personnalité###\n`
-  + `[Analyse approfondie de la personnalité de l'utilisateur un language générique et pédagogique comme le ferait un psychologue. Environ 500 mots]\n\n`
+  + `[Analyse synthétique de la personnalité de l'utilisateur, avec un langage simple et pédagogique. 160 à 220 mots maximum. Ne cite jamais les questions ni les réponses.]\n\n`
       + `###Évaluation des compétences###\n`
-      + `[Évaluation concise des compétences en points clés, maximum 300 mots. Présentez sous forme de liste.]\n\n`
+      + `[Forces principales en points clés, maximum 120 mots. Présentez sous forme de liste courte.]\n\n`
       + `###Recommandations d'emploi###\n`
       + `OBLIGATOIRE : Fournis EXACTEMENT 6 recommandations d'emploi. Cette section ne doit JAMAIS être vide. Pour chaque recommandation, suis le format suivant :\n`
       + `Les métiers proposés ne sont pas forcément uniquement en entreprise : cela peut être tout type de métier.\n`
@@ -109,7 +111,8 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
       + `   Description: [Une courte description claire de cette piste d'étude, en une phrase]\n\n`
       + `1. Utilisez EXACTEMENT les titres de section indiqués ci-dessus avec trois dièses (###).\n`
       + `2. Chaque section est OBLIGATOIRE et doit apparaître dans l'ordre indiqué.\n`
-      + `3. Si vous ne pouvez pas respecter ce format ou si l'une des sections manque.\n`
+      + `3. N'écrivez jamais Q, question, réponse, item ou un numéro de question dans l'analyse finale.\n`
+      + `4. Si vous ne pouvez pas respecter ce format ou si l'une des sections manque.\n`
       + `Répondez uniquement en français et tutoies la personne concernée.\n\n`
       + `Voici les données à analyser :\n\n${formattedData}---\n`
 
@@ -201,6 +204,9 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
       }
     }
 
+    sections.personalityAnalysis = stripQuestionReferences(limitWords(sections.personalityAnalysis, 220))
+    sections.skillsAssessment = stripQuestionReferences(limitWords(sections.skillsAssessment, 120))
+
     // Store the results in user_results table
     const { data: resultData, error: resultError } = await db
       .from('user_results')
@@ -257,6 +263,18 @@ function limitWords(text, maxWords) {
     return text.trim()
   }
   return `${words.slice(0, maxWords).join(' ')}…`
+}
+
+function stripQuestionReferences(text) {
+  if (!text || typeof text !== 'string') return text || ''
+  return text
+    .replace(/\(?\bQ\s*\d+\b\s*:?\)?/gi, '')
+    .replace(/\bquestions?\s*\d+\)?\s*:?/gi, '')
+    .replace(/\bréponses?\s*\d+\)?\s*:?/gi, '')
+    .replace(/\bitems?\s*\d+\)?\s*:?/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([,.;:!?])/g, '$1')
+    .trim()
 }
 
 function stripMbtiTokens(text) {
@@ -820,7 +838,6 @@ function parseStudyRecommendations(text) {
   return studies.slice(0, 6)
 }
 
-// Level 7: evaluate job fit using user_results context and Gemini (legacy level9 alias)
 const evaluateJobHandler = async (req, res) => {
   try {
     const userId = req.user.id
@@ -828,7 +845,7 @@ const evaluateJobHandler = async (req, res) => {
     const contextType = req.body?.context
 
     if (!rawJob || typeof rawJob !== 'string' || rawJob.trim().length < 3) {
-      return res.status(400).json({ error: 'Indique un métier valide (3 caractères minimum).' })
+      return res.status(400).json({ error: 'Indique un metier valide (3 caracteres minimum).' })
     }
 
     const jobTitle = rawJob.trim().slice(0, 120)
@@ -843,20 +860,19 @@ const evaluateJobHandler = async (req, res) => {
       .maybeSingle()
 
     if (error && error.code !== 'PGRST116') {
-  console.error('Level7 evaluate-job fetch error:', error)
-      return res.status(500).json({ error: 'Impossible de récupérer tes résultats.' })
+      console.error('Level7 evaluate-job fetch error:', error)
+      return res.status(500).json({ error: 'Impossible de recuperer tes resultats.' })
     }
 
     if (!results) {
-      return res.status(404).json({ error: 'Complète d’abord ton analyse de profil pour que je puisse te répondre précisément.' })
+      return res.status(404).json({ error: 'Complete d abord ton analyse de profil pour que je puisse te repondre precisement.' })
     }
 
     const safeString = (value, maxLength = 1200) => {
       if (!value) return ''
       if (typeof value === 'string') return value.slice(0, maxLength)
       try {
-        const text = JSON.stringify(value)
-        return text.slice(0, maxLength)
+        return JSON.stringify(value).slice(0, maxLength)
       } catch {
         return ''
       }
@@ -865,10 +881,10 @@ const evaluateJobHandler = async (req, res) => {
     const sections = []
     if (contextType !== 'user_results.job_recommandations') {
       const personality = safeString(results.personality_analysis, 1200)
-      if (personality) sections.push(`Analyse de personnalité: ${personality}`)
+      if (personality) sections.push(`Analyse de personnalite: ${personality}`)
 
       const skills = safeString(results.skills_assessment, 600)
-      if (skills) sections.push(`Compétences observées: ${skills}`)
+      if (skills) sections.push(`Competences observees: ${skills}`)
     }
 
     const jobRecommendations = Array.isArray(results.job_recommendations)
@@ -883,37 +899,31 @@ const evaluateJobHandler = async (req, res) => {
           if (typeof item === 'string') return item
           if (typeof item === 'object' && item.title) {
             const skillsText = Array.isArray(item.skills) && item.skills.length
-              ? ` (compétences: ${item.skills.slice(0, 3).join(', ')})`
+              ? ` (competences: ${item.skills.slice(0, 3).join(', ')})`
               : ''
             return `${item.title}${skillsText}`
           }
           return null
         })
         .filter(Boolean)
-      if (formatted.length) {
-        sections.push(`Métiers qui te correspondent déjà: ${formatted.join('; ')}`)
-      }
+      if (formatted.length) sections.push(`Metiers qui te correspondent deja: ${formatted.join('; ')}`)
     } else if (typeof jobRecommendations === 'string' && jobRecommendations.trim()) {
-      sections.push(`Métiers qui te correspondent déjà: ${jobRecommendations}`)
+      sections.push(`Metiers qui te correspondent deja: ${jobRecommendations}`)
     }
 
     if (!sections.length) {
       const fallback = safeString(results.skills_data, 600)
-      if (fallback) sections.push(`Synthèse de profil: ${fallback}`)
+      if (fallback) sections.push(`Synthese de profil: ${fallback}`)
     }
 
     if (!sections.length) {
       return res.status(404).json({ error: "Je n'ai pas assez d'informations sur ton profil. Relance ton analyse avant de revenir ici." })
     }
 
-    const context = sections.join('\n')
-    const prompt = `Tu es Zélia, conseillère d'orientation bienveillante mais lucide. Tu disposes du profil suivant:\n${context}\n\nAnalyse si la personne est adaptée pour le métier suivant: "${jobTitle}".\nRéponds STRICTEMENT au format: "Oui — explication" ou "Non — explication".\nSi le métier est dans la liste "Métiers qui te correspondent déjà", tu dois répondre "Oui".\nL'explication doit faire au maximum 100 mots, directe et précise, sans proposer d'autres métiers.\nTu dois choisir entre Oui ou Non. Si les informations sont insuffisantes, choisis le verdict le plus probable et précise les conditions manquantes en restant sous 100 mots.`
-
     const geminiApiKey = process.env.GEMINI_API_KEY
-    if (!geminiApiKey) {
-      return res.status(500).json({ error: 'GEMINI_API_KEY manquant' })
-    }
+    if (!geminiApiKey) return res.status(500).json({ error: 'Configuration IA manquante' })
 
+    const prompt = `Tu es Zelia, conseillere d'orientation bienveillante mais lucide. Tu disposes du profil suivant:\n${sections.join('\n')}\n\nAnalyse si la personne est adaptee pour le metier suivant: "${jobTitle}".\nReponds STRICTEMENT au format: "Oui - explication" ou "Non - explication".\nSi le metier est dans la liste "Metiers qui te correspondent deja", tu dois repondre "Oui".\nL'explication doit faire au maximum 100 mots, directe et precise, sans proposer d'autres metiers.`
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`
     const resp = await fetch(geminiUrl, {
       method: 'POST',
@@ -922,8 +932,8 @@ const evaluateJobHandler = async (req, res) => {
     })
 
     if (!resp.ok) {
-  const txt = await resp.text()
-  console.error('Gemini level7 error:', txt)
+      const txt = await resp.text()
+      console.error('Level7 AI error:', txt)
       return res.status(500).json({ error: 'Erreur IA' })
     }
 
@@ -933,25 +943,20 @@ const evaluateJobHandler = async (req, res) => {
       .join('')
       .trim()
 
-    if (!reply) {
-      return res.status(500).json({ error: 'Réponse IA vide' })
-    }
+    if (!reply) return res.status(500).json({ error: 'Reponse IA vide' })
 
-    const verdictMatch = reply.match(/^\s*(oui|non)[\s\-–:]+(.+)/i)
+    const verdictMatch = reply.match(/^\s*(oui|non)[\s\p{Pd}:]+(.+)/iu)
     const fallbackVerdict = /oui/i.test(reply) && !/non/i.test(reply) ? 'oui' : /non/i.test(reply) ? 'non' : null
-
     const verdictValue = verdictMatch ? verdictMatch[1].toLowerCase() : fallbackVerdict
-    let explanation = verdictMatch ? verdictMatch[2].trim() : reply.replace(/^\s*(oui|non)[\s\-–:]+/i, '').trim()
+    let explanation = verdictMatch ? verdictMatch[2].trim() : reply.replace(/^\s*(oui|non)[\s\p{Pd}:]+/iu, '').trim()
 
     if (!verdictValue) {
-  console.warn('Gemini level7 unstructured reply:', reply)
-      return res.status(500).json({ error: 'Réponse IA non comprise' })
+      console.warn('Level7 unstructured AI reply:', reply)
+      return res.status(500).json({ error: 'Reponse IA non comprise' })
     }
 
     const words = explanation.split(/\s+/).filter(Boolean)
-    if (words.length > 100) {
-      explanation = `${words.slice(0, 100).join(' ')}…`
-    }
+    if (words.length > 100) explanation = `${words.slice(0, 100).join(' ')}...`
 
     res.json({
       verdict: verdictValue === 'oui' ? 'Oui' : 'Non',
@@ -964,7 +969,6 @@ const evaluateJobHandler = async (req, res) => {
 }
 
 router.post('/level7/evaluate-job', authenticateToken, evaluateJobHandler)
-// Legacy path kept for backward compatibility
 router.post('/level9/evaluate-job', authenticateToken, evaluateJobHandler)
 
 router.post('/share-image', authenticateToken, async (req, res) => {
@@ -1119,6 +1123,148 @@ router.post('/share-pdf', authenticateToken, async (req, res) => {
   }
 })
 
+router.get('/level10/bilan', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id
+    const db = supabaseAdmin || supabase
+
+    const { data: rows, error: resultsErr } = await db
+      .from('user_results')
+      .select('*')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+
+    if (resultsErr && resultsErr.code !== 'PGRST116') {
+      console.error('level10 bilan: results fetch error:', resultsErr)
+      return res.status(500).json({ error: 'Error fetching results' })
+    }
+
+    const safeRows = Array.isArray(rows) ? rows : []
+    const findByType = (type) => safeRows.find((row) => (row.questionnaire_type || '').toLowerCase() === type)
+    const mbtiRow = findByType('mbti') || null
+    const inscriptionRow = findByType('inscription') || null
+    const primaryRow = mbtiRow || inscriptionRow || null
+
+    const niveau1QuestionIds = [
+      'salary_expectation',
+      'good_salary',
+      'motivation_salary',
+      'explore_another',
+      'why_attraction',
+      'study_length',
+      'team_or_solo',
+      'five_years',
+      'favorite_subjects',
+      'learn_style',
+      'english_level',
+      'proud_project',
+      'geo_constraints',
+      'action_plan'
+    ]
+
+    const [{ data: extraNiv1 }, { data: extraNiv5 }, { data: extraNiv10 }] = await Promise.all([
+      db
+        .from('informations_complementaires')
+        .select('question_id, question_text, answer_text, created_at')
+        .eq('user_id', userId)
+        .in('question_id', niveau1QuestionIds)
+        .order('created_at', { ascending: true }),
+      db
+        .from('informations_complementaires')
+        .select('question_id, question_text, answer_text, created_at')
+        .eq('user_id', userId)
+        .ilike('question_id', 'niv5_%')
+        .order('created_at', { ascending: true }),
+      db
+        .from('informations_complementaires')
+        .select('question_id, question_text, answer_text, created_at')
+        .eq('user_id', userId)
+        .ilike('question_id', 'niv10_%')
+        .order('created_at', { ascending: true })
+    ])
+
+    const englishLevel = (Array.isArray(extraNiv5)
+      ? extraNiv5.find((row) => row.question_id === 'niv5_english_level')
+      : null)?.answer_text || null
+
+    const studyRecommendations = Array.isArray(inscriptionRow?.study_recommendations)
+      ? inscriptionRow.study_recommendations
+      : []
+
+    const jobRecommendations = Array.isArray(primaryRow?.job_recommendations)
+      ? primaryRow.job_recommendations
+      : []
+
+    const personalityAnalysis = primaryRow?.personality_analysis || ''
+    const skillsAssessment = primaryRow?.skills_assessment || ''
+    let summaries = null
+
+    const geminiApiKey = process.env.GEMINI_API_KEY
+    if (geminiApiKey) {
+      const niveau1TextBlock = (Array.isArray(extraNiv1) ? extraNiv1 : [])
+        .map((row) => `- ${row.question_text}: ${row.answer_text || '-'}`)
+        .join('\n')
+
+      const jobTitles = jobRecommendations
+        .map((job) => (typeof job === 'string' ? job : job?.title))
+        .filter(Boolean)
+        .slice(0, 6)
+
+      const studyTitles = studyRecommendations
+        .map((study) => {
+          if (typeof study === 'string') return study
+          const degree = study?.degree || study?.diploma || study?.title || ''
+          const type = study?.type || study?.study_type || study?.label || ''
+          return [degree, type].filter(Boolean).join(' - ') || null
+        })
+        .filter(Boolean)
+        .slice(0, 8)
+
+      const prompt = `Tu es un conseiller d'orientation. Tu dois produire un JSON strict, sans markdown.\n\nDonnees disponibles:\n- Niveau d'anglais: ${englishLevel || 'Non disponible'}\n- Formations: ${studyTitles.length ? studyTitles.join(' | ') : 'Non disponible'}\n- Metiers recommandes: ${jobTitles.length ? jobTitles.join(' | ') : 'Non disponible'}\n\nAnalyse de personnalite:\n${(personalityAnalysis || '').slice(0, 4000)}\n\nEvaluation des competences:\n${(skillsAssessment || '').slice(0, 2000)}\n\nReponses du Niveau 1:\n${niveau1TextBlock || 'Non disponible'}\n\nFormat JSON attendu: {"personalitySummary":"...","niveau1Summary":"...","skillsBilan":"..."}`
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`
+
+      try {
+        const geminiResponse = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        })
+
+        if (geminiResponse.ok) {
+          const geminiData = await geminiResponse.json()
+          const generatedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+          if (generatedText) {
+            const clean = generatedText.replace(/```json/gi, '').replace(/```/g, '').trim()
+            summaries = JSON.parse(clean)
+          }
+        } else {
+          const text = await geminiResponse.text()
+          console.warn('level10 bilan AI error:', text)
+        }
+      } catch (summaryError) {
+        console.warn('level10 bilan AI call failed:', summaryError)
+      }
+    }
+
+    res.json({
+      english: { level: englishLevel },
+      formations: { studyRecommendations },
+      personality: {
+        personalityType: null,
+        personalityAnalysis: personalityAnalysis || null,
+        skillsAssessment: skillsAssessment || null,
+        jobRecommendations
+      },
+      niveau1: { answers: Array.isArray(extraNiv1) ? extraNiv1 : [] },
+      niveau10: { answers: Array.isArray(extraNiv10) ? extraNiv10 : [] },
+      summaries
+    })
+  } catch (error) {
+    console.error('level10 bilan error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 export default router
 
 // New endpoint: get current user's analysis results (authenticated)
@@ -1239,191 +1385,6 @@ router.get('/my-results', authenticateToken, async (req, res) => {
     })
   } catch (error) {
     console.error('Get my results error:', error)
-    res.status(500).json({ error: 'Internal server error' })
-  }
-})
-
-// Niveau 10: competency bilan aggregation endpoint (authenticated)
-router.get('/level10/bilan', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id
-    const db = supabaseAdmin || supabase
-
-    // 1) Fetch results (mbti + inscription) if present
-    const { data: rows, error: resultsErr } = await db
-      .from('user_results')
-      .select('*')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false })
-
-    if (resultsErr && resultsErr.code !== 'PGRST116') {
-      console.error('level10 bilan: results fetch error:', resultsErr)
-      return res.status(500).json({ error: 'Error fetching results' })
-    }
-
-    const safeRows = Array.isArray(rows) ? rows : []
-    const findByType = (type) => safeRows.find(r => (r.questionnaire_type || '').toLowerCase() === type)
-    const mbtiRow = findByType('mbti') || null
-    const inscriptionRow = findByType('inscription') || null
-    const primaryRow = mbtiRow || inscriptionRow || null
-
-    // 2) Fetch extra infos
-    const NIVEAU1_QUESTION_IDS = [
-      'salary_expectation',
-      'good_salary',
-      'motivation_salary',
-      'explore_another',
-      'why_attraction',
-      'study_length',
-      'team_or_solo',
-      'five_years',
-      'favorite_subjects',
-      'learn_style',
-      'english_level',
-      'proud_project',
-      'geo_constraints',
-      'action_plan'
-    ]
-
-    const [{ data: extraNiv1 }, { data: extraNiv5 }, { data: extraNiv10 }] = await Promise.all([
-      db
-        .from('informations_complementaires')
-        .select('question_id, question_text, answer_text, created_at')
-        .eq('user_id', userId)
-        .in('question_id', NIVEAU1_QUESTION_IDS)
-        .order('created_at', { ascending: true }),
-      db
-        .from('informations_complementaires')
-        .select('question_id, question_text, answer_text, created_at')
-        .eq('user_id', userId)
-        .ilike('question_id', 'niv5_%')
-        .order('created_at', { ascending: true }),
-      db
-        .from('informations_complementaires')
-        .select('question_id, question_text, answer_text, created_at')
-        .eq('user_id', userId)
-        .ilike('question_id', 'niv10_%')
-        .order('created_at', { ascending: true })
-    ])
-
-    const englishLevel = (Array.isArray(extraNiv5)
-      ? extraNiv5.find(r => r.question_id === 'niv5_english_level')
-      : null)?.answer_text || null
-
-    const studyRecommendations = Array.isArray(inscriptionRow?.study_recommendations)
-      ? inscriptionRow.study_recommendations
-      : []
-
-    const jobRecommendations = Array.isArray(primaryRow?.job_recommendations)
-      ? primaryRow.job_recommendations
-      : []
-
-    const personalityAnalysis = primaryRow?.personality_analysis || ''
-    const skillsAssessment = primaryRow?.skills_assessment || ''
-
-    // 3) Ask Gemini for summaries (optional if key present)
-    const geminiApiKey = process.env.GEMINI_API_KEY
-    let summaries = null
-
-    if (geminiApiKey) {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`
-
-      const niveau1TextBlock = (Array.isArray(extraNiv1) ? extraNiv1 : [])
-        .map(r => `- ${r.question_text}: ${r.answer_text || '—'}`)
-        .join('\n')
-
-      const jobTitles = jobRecommendations
-        .map(j => (typeof j === 'string' ? j : j?.title))
-        .filter(Boolean)
-        .slice(0, 6)
-
-      const studyTitles = studyRecommendations
-        .map(s => {
-          if (typeof s === 'string') return s
-          const degree = s?.degree || s?.diploma || s?.title || ''
-          const type = s?.type || s?.study_type || s?.label || ''
-          return [degree, type].filter(Boolean).join(' – ') || null
-        })
-        .filter(Boolean)
-        .slice(0, 8)
-
-      const prompt = `Tu es un conseiller d'orientation. Tu dois produire un JSON strict (pas de markdown, pas de texte hors JSON).
-
-Données disponibles:
-- Niveau d'anglais (CEFR): ${englishLevel || 'Non disponible'}
-- Formations/pistes d'études: ${studyTitles.length ? studyTitles.join(' | ') : 'Non disponible'}
-- Métiers recommandés: ${jobTitles.length ? jobTitles.join(' | ') : 'Non disponible'}
-
-Analyse de personnalité (source Zélia):
-${(personalityAnalysis || '').slice(0, 4000)}
-
-Évaluation des compétences (source Zélia):
-${(skillsAssessment || '').slice(0, 2000)}
-
-Réponses du Niveau 1:
-${niveau1TextBlock || 'Non disponible'}
-
-Ta tâche:
-1) Résumer le test de personnalité (5-7 lignes max).
-2) Résumer les réponses du Niveau 1 (5-7 lignes max).
-3) Produire un bilan de compétences (8-12 lignes max) en français, en tutoyant.
-
-Format JSON attendu EXACT:
-{
-  "personalitySummary": "...",
-  "niveau1Summary": "...",
-  "skillsBilan": "..."
-}`
-
-      try {
-        const geminiResponse = await fetch(geminiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        })
-
-        if (geminiResponse.ok) {
-          const geminiData = await geminiResponse.json()
-          const generatedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
-          if (generatedText) {
-            const clean = generatedText
-              .replace(/```json/gi, '')
-              .replace(/```/g, '')
-              .trim()
-            summaries = JSON.parse(clean)
-          }
-        } else {
-          const t = await geminiResponse.text()
-          console.warn('level10 bilan: Gemini error:', t)
-        }
-      } catch (e) {
-        console.warn('level10 bilan: Gemini call failed:', e)
-      }
-    }
-
-    res.json({
-      english: {
-        level: englishLevel
-      },
-      formations: {
-        studyRecommendations
-      },
-      personality: {
-        personalityType: null,
-        personalityAnalysis: personalityAnalysis || null,
-        skillsAssessment: skillsAssessment || null,
-        jobRecommendations
-      },
-      niveau1: {
-        answers: Array.isArray(extraNiv1) ? extraNiv1 : []
-      },
-      niveau10: {
-        answers: Array.isArray(extraNiv10) ? extraNiv10 : []
-      },
-      summaries
-    })
-  } catch (error) {
-    console.error('level10 bilan error:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })

@@ -23,7 +23,6 @@ import {
   PiSmileyBold,
   PiPuzzlePieceBold,
   PiChatDotsBold,
-  PiTrophyBold,
   PiWrenchBold
 } from 'react-icons/pi'
 
@@ -48,27 +47,25 @@ const ICON_MAP = {
   'ph-heart': PiHeartBold,
   'ph-smiley': PiSmileyBold,
   'ph-puzzle-piece': PiPuzzlePieceBold,
-  'ph-chat-dots': PiChatDotsBold,
-  'ph-trophy': PiTrophyBold
+  'ph-chat-dots': PiChatDotsBold
 }
 
 export default function BoiteAOutils() {
   const navigate = useNavigate()
   const [activeCategory, setActiveCategory] = useState(null)
 
-  const filtered = useMemo(() => {
+  const filteredTools = useMemo(() => {
     if (!activeCategory) return TOOLBOX_ITEMS
-    return TOOLBOX_ITEMS.filter((t) => t.category === activeCategory)
+    return TOOLBOX_ITEMS.filter((tool) => tool.category === activeCategory)
   }, [activeCategory])
 
   return (
     <div className="p-2 md:p-6">
       <div className="mb-6">
-        <h1 className="text-xl md:text-2xl font-black mb-1">Boîte à outils</h1>
-        <p className="text-gray-500">Accède librement à tous les outils complémentaires du parcours Zélia.</p>
+        <h1 className="text-xl md:text-2xl font-semibold mb-1">Boîte à outils</h1>
+        <p className="text-gray-500">Vidéos, CV, lettre, mini-jeux et outils d'orientation regroupés par usage.</p>
       </div>
 
-      {/* Category filters */}
       <div className="flex flex-wrap gap-2 mb-6">
         <button
           onClick={() => setActiveCategory(null)}
@@ -95,20 +92,21 @@ export default function BoiteAOutils() {
         ))}
       </div>
 
-      {/* Tools grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((tool) => (
+        {filteredTools.map((tool) => {
+          const Icon = ICON_MAP[tool.icon] || PiWrenchBold
+          return (
           <button
-            key={tool.oldLevel}
-            onClick={() => navigate(`/app/outils/${tool.oldLevel}`)}
-            className="bg-white border border-gray-200 rounded-2xl p-3 text-left hover:shadow-lg hover:border-gray-300 transition-all group"
+            key={tool.id || tool.path}
+            onClick={() => navigate(tool.path)}
+            className="bg-white border border-gray-200 rounded-lg p-3 text-left hover:shadow-lg hover:border-gray-300 transition-all group"
           >
             <div className="flex items-start gap-3">
-              <div className="w-14 h-14 shrink-0 bg-gray-100 rounded-xl flex items-center justify-center group-hover:bg-[#c1ff72] transition-colors">
-                {(() => { const Icon = ICON_MAP[tool.icon] || PiWrenchBold; return <Icon className="w-8 h-8" /> })()}
+              <div className="w-14 h-14 shrink-0 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-[#c1ff72] transition-colors">
+                <Icon className="w-8 h-8" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-sm mb-1 truncate">{tool.title}</h3>
+                <h3 className="font-medium text-sm mb-1 truncate">{tool.title}</h3>
                 <p className="text-xs text-gray-500 line-clamp-2">{tool.description}</p>
                 <span className="inline-block mt-2 text-xs font-medium text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">
                   {tool.category}
@@ -116,10 +114,11 @@ export default function BoiteAOutils() {
               </div>
             </div>
           </button>
-        ))}
+          )
+        })}
       </div>
 
-      {filtered.length === 0 && (
+      {filteredTools.length === 0 && (
         <div className="text-center py-12 text-gray-400">
           Aucun outil dans cette catégorie.
         </div>

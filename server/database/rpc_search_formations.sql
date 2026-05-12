@@ -4,6 +4,7 @@
 
 -- 1. Activer l'extension pg_trgm pour la recherche de texte partielle rapide (si pas déjà active)
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS unaccent;
 
 -- 2. Créer des index ESSENTIELS pour accélérer les recherches sur formation_france
 -- Index GIN sur nmc (nom de la formation) pour la recherche textuelle ILIKE optimisée
@@ -99,19 +100,23 @@ BEGIN
             (
                 SELECT COALESCE(SUM(
                     CASE 
-                        WHEN LOWER(f.nmc) LIKE '%' || k || '%' THEN 6
+                        WHEN unaccent(LOWER(f.nmc)) LIKE '%' || unaccent(k) || '%' THEN 6
                         ELSE 0
                     END +
                     CASE 
-                        WHEN LOWER(f.tc) LIKE '%' || k || '%' THEN 4
+                        WHEN unaccent(LOWER(array_to_string(f.nm, ' '))) LIKE '%' || unaccent(k) || '%' THEN 6
                         ELSE 0
                     END +
                     CASE 
-                        WHEN LOWER(f.etab_nom) LIKE '%' || k || '%' THEN 2
+                        WHEN unaccent(LOWER(f.tc)) LIKE '%' || unaccent(k) || '%' THEN 4
                         ELSE 0
                     END +
                     CASE 
-                        WHEN LOWER(f.commune) LIKE '%' || k || '%' THEN 1
+                        WHEN unaccent(LOWER(f.etab_nom)) LIKE '%' || unaccent(k) || '%' THEN 2
+                        ELSE 0
+                    END +
+                    CASE 
+                        WHEN unaccent(LOWER(f.commune)) LIKE '%' || unaccent(k) || '%' THEN 1
                         ELSE 0
                     END
                 ), 0)
@@ -120,9 +125,9 @@ BEGIN
         FROM formation_france f
         WHERE
             -- Filtre département (optionnel)
-            (p_department IS NULL OR p_department = '' OR f.departement ILIKE '%' || p_department || '%')
+            (p_department IS NULL OR p_department = '' OR unaccent(f.departement) ILIKE '%' || unaccent(p_department) || '%')
             -- Filtre région (optionnel)
-            AND (p_region IS NULL OR p_region = '' OR f.region ILIKE '%' || p_region || '%')
+            AND (p_region IS NULL OR p_region = '' OR unaccent(f.region) ILIKE '%' || unaccent(p_region) || '%')
             -- Au moins un mot-clé doit matcher si des mots-clés sont fournis
             AND (
                 array_length(clean_keywords, 1) IS NULL 
@@ -130,9 +135,10 @@ BEGIN
                 OR EXISTS (
                     SELECT 1 FROM unnest(clean_keywords) AS k
                     WHERE 
-                        LOWER(f.nmc) LIKE '%' || k || '%'
-                        OR LOWER(f.tc) LIKE '%' || k || '%'
-                        OR LOWER(f.etab_nom) LIKE '%' || k || '%'
+                        unaccent(LOWER(f.nmc)) LIKE '%' || unaccent(k) || '%'
+                        OR unaccent(LOWER(array_to_string(f.nm, ' '))) LIKE '%' || unaccent(k) || '%'
+                        OR unaccent(LOWER(f.tc)) LIKE '%' || unaccent(k) || '%'
+                        OR unaccent(LOWER(f.etab_nom)) LIKE '%' || unaccent(k) || '%'
                 )
             )
             -- Exclure les écoles primaires et collèges

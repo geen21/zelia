@@ -251,8 +251,8 @@ export default function Niveau31() {
       if (!lines.length) throw new Error('Réponse IA vide')
       setStudiesLines(lines)
     } catch (e) {
-      console.error('Niveau31 Gemini error', e)
-      const message = e?.response?.data?.error || "Impossible de consulter Gemini pour ce métier. Réessaie dans un instant."
+      console.error('Niveau31 AI error', e)
+      const message = e?.response?.data?.error || "Impossible de consulter Zélia pour ce métier. Réessaie dans un instant."
       setAiError(message)
     } finally {
       setAiLoading(false)
@@ -278,12 +278,12 @@ export default function Niveau31() {
     if (finishing) return
     setFinishing(true)
     try {
-      // Sauvegarder les données du niveau 31
+      // Sauvegarder les données du module
       if (selectedJob && studiesLines.length > 0) {
         await usersAPI.saveExtraInfo([
           {
             question_id: 'niveau31_selected_job',
-            question_text: 'Métier exploré au niveau 31',
+            question_text: 'Métier exploré',
             answer_text: selectedJob
           },
           {
@@ -297,7 +297,7 @@ export default function Niveau31() {
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau31 levelUp failed', e)
-      setAiError('Impossible de valider le niveau pour le moment. Réessaie.')
+      setAiError('Impossible de valider le module pour le moment. Réessaie.')
     } finally {
       setFinishing(false)
     }
@@ -496,11 +496,11 @@ export default function Niveau31() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 31 réussi !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
             <p className="text-text-secondary mb-4">Tu as complété ce niveau avec succès.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/32')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
+              <button onClick={() => navigate('/app/niveau/32')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
             </div>
             {/* Subtle confetti dots */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

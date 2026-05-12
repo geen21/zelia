@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { analysisAPI, usersAPI } from '../lib/api'
 import { resolveAvatarUrl } from '../lib/avatar'
-import { completeQuest, fetchProgression, getDefaultProgression } from '../lib/progression'
 import { generateZeliaShareImage } from '../lib/shareImage'
 import ZeliaDiploma from '../components/ZeliaDiploma'
 
@@ -22,8 +21,6 @@ const normalizeZeliaAnalysis = (analysis) => {
   }
   return normalized
 }
-
-const MIN_LEVEL_FOR_AVATAR = 4
 
 const editableFields = [
   { key: 'firstName', label: 'Prénom', type: 'text', placeholder: 'Votre prénom' },
@@ -91,7 +88,6 @@ export default function Profile() {
   const [authUser, setAuthUser] = useState(null)
   const [analysis, setAnalysis] = useState(null)
   const [extraInfos, setExtraInfos] = useState([])
-  const [progression, setProgression] = useState(getDefaultProgression())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(false)
@@ -121,14 +117,11 @@ export default function Profile() {
             if (err?.response?.status === 404) return null
             throw err
           })
-        const progressionPromise = fetchProgression().catch(() => getDefaultProgression())
-
-        const [profileRes, userRes, extraRes, results, progressionData] = await Promise.all([
+        const [profileRes, userRes, extraRes, results] = await Promise.all([
           profilePromise,
           userPromise,
           extraInfoPromise,
-          resultsPromise,
-          progressionPromise
+          resultsPromise
         ])
 
         if (!active) return
@@ -138,7 +131,6 @@ export default function Profile() {
         setAuthUser(userRes?.data?.user || null)
         setExtraInfos(Array.isArray(extraRes?.data?.entries) ? extraRes.data.entries : [])
   setAnalysis(normalizeZeliaAnalysis(results))
-        setProgression(progressionData || getDefaultProgression())
       } catch (err) {
         console.error('Profile load error', err)
         if (!active) return
@@ -164,7 +156,6 @@ export default function Profile() {
   }, [])
 
   const authUserId = authUser?.id
-  const hasLevelFour = Number(progression?.level || 0) >= MIN_LEVEL_FOR_AVATAR
 
   const avatarUrl = useMemo(() => {
     if (!profile && !analysis) return ''
@@ -221,14 +212,14 @@ export default function Profile() {
 
   const cvPdfUrl = useMemo(() => {
     const entries = Array.isArray(extraInfos) ? extraInfos : []
-    const match = entries.find((row) => row?.question_id === 'niveau17_cv_pdf_url')
+    const match = entries.find((row) => row?.question_id === 'cv_pdf_url')
     const url = match?.answer_text || ''
     return typeof url === 'string' ? url.trim() : ''
   }, [extraInfos])
 
   const cvData = useMemo(() => {
     const entries = Array.isArray(extraInfos) ? extraInfos : []
-    const match = entries.find((row) => row?.question_id === 'niveau17_cv_data')
+    const match = entries.find((row) => row?.question_id === 'cv_data')
     if (!match?.answer_text) return null
     try {
       return JSON.parse(match.answer_text)
@@ -239,22 +230,13 @@ export default function Profile() {
 
   const diplomaDate = useMemo(() => {
     const entries = Array.isArray(extraInfos) ? extraInfos : []
-    const match = entries.find((row) => row?.question_id === 'niveau40_diploma_date')
+    const match = entries.find((row) => row?.question_id === 'diploma_date')
     return match?.answer_text || null
   }, [extraInfos])
 
-  const hasDiploma = Number(progression?.level || 0) >= 40 || !!diplomaDate
+  const hasDiploma = !!diplomaDate || !!resolvedAnalysis
 
-  const handleDiplomaDownloadComplete = useCallback(async () => {
-    try {
-      const result = await completeQuest('level_40')
-      if (result?.progression) {
-        setProgression(result.progression)
-      }
-    } catch (err) {
-      console.error('Failed to mark final quest complete after diploma download', err)
-    }
-  }, [])
+  const handleDiplomaDownloadComplete = useCallback(() => {}, [])
 
   const refreshLatestAnalysis = useCallback(async () => {
     try {
@@ -279,9 +261,9 @@ export default function Profile() {
     async ({ silent = false, force = false } = {}) => {
       if (!isMountedRef.current) return ''
 
-      if (!hasLevelFour || !resolvedAnalysis || !avatarUrl) {
+      if (!resolvedAnalysis || !avatarUrl) {
         if (!silent) {
-          setShareError("Tu dois atteindre le niveau 4 et avoir un avatar pour partager ton analyse.")
+          setShareError("Ton analyse et ton avatar doivent être prêts pour partager ton visuel.")
         }
         setShareImageUrl('')
         return ''
@@ -366,7 +348,6 @@ export default function Profile() {
     [
       authUserId,
       avatarUrl,
-      hasLevelFour,
       profile?.id,
       refreshLatestAnalysis,
       resolvedAnalysis,
@@ -375,7 +356,7 @@ export default function Profile() {
     ]
   )
 
-  const shareReady = hasLevelFour && !!resolvedAnalysis
+  const shareReady = !!resolvedAnalysis && !!avatarUrl
 
   useEffect(() => {
     if (!shareReady) {
@@ -546,43 +527,35 @@ export default function Profile() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card flex flex-col items-center text-center">
-          {hasLevelFour ? (
-            avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt="Avatar utilisateur"
-                className="w-40 h-40 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white"
-              />
-            ) : (
-              <div className="w-40 h-40 rounded-2xl border border-dashed border-gray-300 flex items-center justify-center text-sm text-gray-500">
-                Avatar indisponible
-              </div>
-            )
+        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-card flex flex-col items-center text-center">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt="Avatar utilisateur"
+              className="w-40 h-40 rounded-lg border border-gray-100 shadow-sm object-contain bg-white"
+            />
           ) : (
-            <div className="w-40 h-40 rounded-2xl border border-dashed border-gray-300 flex items-center justify-center px-4 text-sm text-gray-500">
-              Une image apparaitra au niveau 4
+            <div className="w-40 h-40 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-sm text-gray-500">
+              Avatar indisponible
             </div>
           )}
 
           <div className="mt-5 space-y-2 text-sm text-gray-700 w-full">
             <div className="flex items-center justify-between">
-              <span className="text-text-secondary">Niveau actuel</span>
-              <span className="font-semibold">{progression?.level || 1}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-text-secondary">Expérience</span>
-              <span className="font-semibold">{progression?.xp || 0} XP</span>
-            </div>
-            <div className="flex items-center justify-between">
               <span className="text-text-secondary">Profil</span>
               <span className="font-semibold">{profileTypeLabel}</span>
             </div>
+            {email && (
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-text-secondary">Email</span>
+                <span className="font-semibold truncate">{email}</span>
+              </div>
+            )}
           </div>
         </div>
 
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
+          <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-card">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
               <div>
                 <h2 className="text-xl font-semibold">Informations personnelles</h2>
@@ -671,10 +644,10 @@ export default function Profile() {
             </form>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
+          <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-card">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-xl font-semibold">Mon CV (Niveau 17)</h2>
+                <h2 className="text-xl font-semibold">Mon CV</h2>
                 <p className="text-text-secondary text-sm">Retrouvez ici votre CV généré et enregistré.</p>
               </div>
             </div>
@@ -703,7 +676,7 @@ export default function Profile() {
                 <div className="bg-[#f8fff0] border border-[#c1ff72] rounded-xl p-4">
                   <p className="text-sm text-gray-700">
                     <strong>CV généré !</strong> Les données de ton CV ont été enregistrées. 
-                    Pour obtenir le PDF, retourne au <a href="/app/niveau/17" className="text-blue-600 underline">Niveau 17</a> et clique sur "Télécharger en PDF".
+                    Pour obtenir le PDF, ouvre l'outil CV et clique sur "Télécharger en PDF".
                   </p>
                 </div>
                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm">
@@ -714,16 +687,16 @@ export default function Profile() {
               </div>
             ) : (
               <div className="bg-surface border border-line rounded-xl shadow-card p-6 text-sm text-text-secondary">
-                Aucun CV enregistré pour le moment. Termine le Niveau 17 pour le générer.
+                Aucun CV enregistré pour le moment. L'outil CV reste disponible dans la boîte à outils.
               </div>
             )}
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
+          <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-card">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-xl font-semibold">Mon image Niveau 4</h2>
-                <p className="text-text-secondary text-sm">Téléchargez ou partagez votre visuel de personnalité débloqué au niveau 4.</p>
+                <h2 className="text-xl font-semibold">Mon visuel Zélia</h2>
+                <p className="text-text-secondary text-sm">Téléchargez ou partagez votre visuel de personnalité.</p>
               </div>
               {(resolvedAnalysis?.updatedAt || analysis?.updatedAt) && (
                 <span className="text-xs text-text-secondary">
@@ -735,9 +708,9 @@ export default function Profile() {
             {!shareReady ? (
               <div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">
                 <div className="text-text-secondary text-4xl mb-2">✨</div>
-                <h3 className="text-lg font-semibold mb-2">Terminez le niveau 4</h3>
+                <h3 className="text-lg font-semibold mb-2">Analyse en attente</h3>
                 <p className="text-text-secondary">
-                  Débloquez le niveau 4 pour générer votre visuel Zélia prêt à partager sur vos réseaux.
+                  Votre visuel sera disponible dès que votre analyse et votre avatar seront prêts.
                 </p>
               </div>
             ) : (
@@ -801,11 +774,11 @@ export default function Profile() {
             )}
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
+          <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-card">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-xl font-semibold">Mon Diplôme Zélia (Niveau 10)</h2>
-                <p className="text-text-secondary text-sm">Téléchargez votre diplôme obtenu après avoir complété les 10 niveaux.</p>
+                <h2 className="text-xl font-semibold">Mon diplôme Zélia</h2>
+                <p className="text-text-secondary text-sm">Téléchargez votre diplôme quand votre bilan est prêt.</p>
               </div>
             </div>
 
@@ -823,9 +796,9 @@ export default function Profile() {
             ) : (
               <div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">
                 <div className="text-text-secondary text-4xl mb-2">🎓</div>
-                <h3 className="text-lg font-semibold mb-2">Terminez le niveau 10</h3>
+                <h3 className="text-lg font-semibold mb-2">Bilan en attente</h3>
                 <p className="text-text-secondary">
-                  Complétez les 10 niveaux du parcours Zélia pour débloquer votre diplôme.
+                  Votre diplôme apparaîtra quand votre bilan final sera disponible.
                 </p>
               </div>
             )}

@@ -664,7 +664,7 @@ const Activites = () => {
 
                     {ecolesPreview.length === 0 ? (
                         <p className="text-center text-gray-400 text-xs py-2">
-                            Complète les niveaux 2 (domaines) et 7 (filières) pour activer les recommandations personnalisées.
+                            Complète les modules Domaines et Filières pour activer les recommandations personnalisées.
                         </p>
                     ) : (
                         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">

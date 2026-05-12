@@ -27,8 +27,8 @@ export const STRIPE_CONFIG = {
   priceAmount: Number.isFinite(STRIPE_PRICE_AMOUNT) ? STRIPE_PRICE_AMOUNT : 0,
   priceCurrency: STRIPE_PRICE_CURRENCY,
   productName: STRIPE_PRODUCT_NAME,
-  successUrl: process.env.STRIPE_SUCCESS_URL || `${defaultClientUrl}/app/niveau/10?checkout=success`,
-  cancelUrl: process.env.STRIPE_CANCEL_URL || `${defaultClientUrl}/app/niveau/10?checkout=cancelled`,
+  successUrl: process.env.STRIPE_SUCCESS_URL || `${defaultClientUrl}/app/results?checkout=success`,
+  cancelUrl: process.env.STRIPE_CANCEL_URL || `${defaultClientUrl}/app/results?checkout=cancelled`,
   webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || null
 }
 

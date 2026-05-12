@@ -56,8 +56,7 @@ function useTypewriter(message, durationMs) {
   return { text, done, skip }
 }
 
-
-// Resume des niveaux 21-29 (videos et jeux)
+// Resume des modules videos et jeux
 const LEVELS_SUMMARY = [
   { level: 21, title: 'Video : Conseils Orientation', type: 'video' },
   { level: 22, title: 'Video : Les etudes superieures', type: 'video' },
@@ -104,7 +103,7 @@ export default function Niveau30() {
         const extraRes = await usersAPI.getExtraInfo().catch(() => null)
         if (!mounted) return
         const entries = Array.isArray(extraRes?.data?.entries) ? extraRes.data.entries : []
-        // Get all entries from niveau 21-29
+        // Get all entries from the preparation modules
         const filtered = entries.filter((row) => {
           const id = String(row?.question_id || '').toLowerCase()
           return id.startsWith('niveau21') || id.startsWith('niveau_21') ||
@@ -130,7 +129,7 @@ export default function Niveau30() {
   }, [navigate])
 
   const bubble = useMemo(() => {
-    if (phase === STEP_INTRO) return { text: 'Félicitations ! Tu as complété les niveaux 21 à 29. Voici ton bilan final.', durationMs: 2000 }
+    if (phase === STEP_INTRO) return { text: 'Félicitations ! Tu as complété plusieurs modules. Voici ton bilan final.', durationMs: 2000 }
     return { text: 'Voici ton bilan complet', durationMs: 900 }
   }, [phase])
 
@@ -141,26 +140,26 @@ export default function Niveau30() {
     setBilanLoading(true)
     try {
       if (!extraInfos || extraInfos.length === 0) {
-        setBilan({ summary: 'Aucune donnée des niveaux 21 à 29 n\'a été trouvée. Termine d\'abord ces niveaux pour obtenir un bilan personnalisé.' })
+        setBilan({ summary: 'Aucune donnée de module n\'a été trouvée. Termine d\'abord quelques outils pour obtenir un bilan personnalisé.' })
         setBilanLoading(false)
         return
       }
 
       const context = extraInfos.length > 0 
         ? formatBilanExtraInfos(extraInfos) 
-        : 'Aucune donnee specifique enregistree pour les niveaux 21-29.'
+        : 'Aucune donnee specifique enregistree pour ces modules.'
 
-      const summaryContext = LEVELS_SUMMARY.map(l => `- Niveau ${l.level}: ${l.title} (${l.type})`).join('\n')
+      const summaryContext = LEVELS_SUMMARY.map(l => `- ${l.title} (${l.type})`).join('\n')
 
       const message =
-        `Tu dois produire un résumé très court et personnalisé des niveaux 21 à 29.\n` +
+        `Tu dois produire un résumé très court et personnalisé de ces modules fonctionnels.\n` +
         `L'utilisateur a parcouru les modules suivants:\n${summaryContext}\n\n` +
         `Donnees enregistrees de l'utilisateur:\n${context}\n\n` +
         `Reponds UNIQUEMENT en JSON valide au format suivant :\n` +
-        `{"levelSummaries":[{"level":21,"title":"Video : Conseils Orientation","summary":""}]}\n` +
+        `{"levelSummaries":[{"title":"Video : Conseils Orientation","summary":""}]}\n` +
         `Contraintes:\n` +
-        `- Retourne 9 objets, un pour chaque niveau de 21 a 29.\n` +
-        `- Garde exactement les numeros de niveau.\n` +
+        `- Retourne un objet pour chaque module listé.\n` +
+        `- N'utilise jamais les mots "niveau" ou "Niveau", ni les anciens numéros de module.\n` +
         `- Chaque summary doit faire 1 ou 2 phrases courtes, concretes et personnalisees.\n` +
         `- Ne recopie pas les donnees brutes, synthese seulement.\n` +
         `- Sois encourageant et personnalisé.`
@@ -200,7 +199,7 @@ export default function Niveau30() {
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau30 levelUp failed', e)
-      setBilanError('Impossible de valider le niveau pour le moment. Reessaie.')
+      setBilanError('Impossible de valider le module pour le moment. Reessaie.')
     } finally {
       setFinishing(false)
     }
@@ -218,14 +217,14 @@ export default function Niveau30() {
 
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(18)
-      doc.text('Bilan Zélia — Niveaux 21 à 29', margin, y)
+      doc.text('Bilan Zélia — Modules de préparation', margin, y)
       y += 10
 
       bilan.levelSummaries.forEach((item) => {
         if (y > 260) { doc.addPage(); y = margin }
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(12)
-        doc.text(`Niveau ${item.level} - ${item.title}`, margin, y)
+        doc.text(item.title || 'Module', margin, y)
         y += 6
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(10)
@@ -234,7 +233,7 @@ export default function Niveau30() {
         y += lines.length * 5 + 6
       })
 
-      doc.save('zelia-bilan-niveaux-21-29.pdf')
+      doc.save('zelia-bilan-modules-preparation.pdf')
     } catch (e) {
       console.error('PDF generation failed', e)
     } finally {
@@ -308,8 +307,8 @@ export default function Niveau30() {
 
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white text-lg">30</div>
-            <h2 className="text-xl font-bold">Bilan Niveaux 21-29</h2>
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaClipboardList className="w-5 h-5" /></div>
+            <h2 className="text-xl font-bold">Bilan des modules</h2>
           </div>
 
           {/* Resume des modules */}
@@ -318,7 +317,7 @@ export default function Niveau30() {
               <p className="text-text-secondary mb-3">Modules completes :</p>
               {LEVELS_SUMMARY.map((lvl) => (
                 <div key={lvl.level} className="flex items-center gap-3 p-2 rounded-lg bg-gray-50 border border-gray-100">
-                  <div className="w-8 h-8 bg-[#c1ff72] rounded-full flex items-center justify-center text-sm font-bold">{lvl.level}</div>
+                  <div className="w-8 h-8 bg-[#c1ff72] rounded-full flex items-center justify-center text-sm font-bold"><FaClipboardList className="w-4 h-4" /></div>
                   <div className="flex-1">
                     <div className="font-medium text-sm">{lvl.title}</div>
                     <div className="text-xs text-text-secondary capitalize">{lvl.type}</div>
@@ -343,7 +342,7 @@ export default function Niveau30() {
             <div className="space-y-4">
               {levelSummaries.map((item) => (
                 <div key={item.level} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                  <div className="font-semibold">Niveau {item.level} · {item.title}</div>
+                  <div className="font-semibold">{item.title}</div>
                   <div className="mt-2 whitespace-pre-wrap text-text-secondary text-sm">{item.summary || 'Bilan non disponible'}</div>
                 </div>
               ))}
@@ -364,8 +363,8 @@ export default function Niveau30() {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce text-xl">30</div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 30 termine !</h3>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce text-xl"><FaClipboardList className="w-5 h-5" /></div>
+            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
             <p className="text-text-secondary mb-4">Tu as complete le module d'orientation. Bravo pour ton parcours !</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activites</button>

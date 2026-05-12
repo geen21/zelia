@@ -8,7 +8,7 @@ import { FaTrophy } from 'react-icons/fa6'
 const DIALOGUE_STEPS = [
   {
     id: 'intro-1',
-    text: 'Te voilà au niveau 5, tu avances bien !',
+    text: 'Te voilà dans un module important, tu avances bien !',
     durationMs: 1100
   },
   {
@@ -363,7 +363,7 @@ export default function Niveau7() {
       setAnalysisResult({ verdict, explanation })
     } catch (err) {
       console.error('Level 7 evaluation failed', err)
-      const message = err?.response?.data?.error || "Impossible de consulter Gemini pour ce métier. Réessaie dans un instant."
+      const message = err?.response?.data?.error || "Impossible de consulter Zélia pour ce métier. Réessaie dans un instant."
       setEvaluationError(message)
       setAnalysisResult(null)
     } finally {
@@ -385,7 +385,7 @@ export default function Niveau7() {
       setCompleted(true)
     } catch (err) {
       console.error('Niveau7 levelUp failed', err)
-      setError("Impossible de valider le niveau pour le moment. Réessaie dans un instant.")
+      setError("Impossible de valider le module pour le moment. Réessaie dans un instant.")
     } finally {
       setCompletionSaving(false)
     }
@@ -395,7 +395,7 @@ export default function Niveau7() {
     return (
       <div className="p-6 text-center">
         <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-black border-t-transparent" />
-        <p className="mt-2 text-text-secondary">Chargement du niveau 5…</p>
+        <p className="mt-2 text-text-secondary">Chargement du module…</p>
       </div>
     )
   }
@@ -546,7 +546,7 @@ export default function Niveau7() {
                       disabled={completionSaving}
                       className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {completionSaving ? 'Validation…' : 'Valider le niveau 5'}
+                      {completionSaving ? 'Validation…' : 'Valider'}
                     </button>
                   )}
 
@@ -568,11 +568,11 @@ export default function Niveau7() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 5 réussi !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
             <p className="text-text-secondary mb-4">Tu as affronté le verdict de Zélia. Direction le prochain niveau !</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/6')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
+              <button onClick={() => navigate('/app/niveau/6')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
             </div>
             {/* Subtle confetti dots */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

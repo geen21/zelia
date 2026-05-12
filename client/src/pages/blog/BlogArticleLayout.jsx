@@ -118,7 +118,7 @@ export default function BlogArticleLayout({ post, children, aside }) {
                 <ul>
                   <li>Compléter la rédaction définitive.</li>
                   <li>Ajouter les visuels et témoignages prévus.</li>
-                  <li>Relier l'article aux niveaux pertinents dans l'app.</li>
+                  <li>Relier l'article aux outils pertinents dans l'app.</li>
                 </ul>
                 <Link to="/avatar" className="blog-article__cta">Lancer le questionnaire</Link>
               </div>

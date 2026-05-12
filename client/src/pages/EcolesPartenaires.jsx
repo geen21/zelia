@@ -11,7 +11,7 @@ const CITIES = [
   'Toulouse', 'Vannes'
 ]
 
-export default function EcolesPartenaires() {
+export default function EcolesPartenaires({ embedded = false } = {}) {
   const [formations, setFormations] = useState([])
   const [matched, setMatched] = useState([])
   const [userCity, setUserCity] = useState('')
@@ -117,12 +117,14 @@ export default function EcolesPartenaires() {
   }
 
   return (
-    <div className="p-2 md:p-6">
+    <div className={embedded ? 'space-y-6' : 'p-2 md:p-6'}>
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-xl md:text-2xl font-black mb-1">Formations</h1>
-        <p className="text-gray-500 text-sm">Découvre les formations de nos écoles partenaires.</p>
-      </div>
+      {!embedded && (
+        <div className="mb-6">
+          <h1 className="text-xl md:text-2xl font-semibold mb-1">Formations</h1>
+          <p className="text-gray-500 text-sm">Découvre les formations de nos écoles partenaires.</p>
+        </div>
+      )}
 
       {/* Tabs — pill style like the rest of the app */}
       <div className="flex flex-wrap gap-2 mb-5">

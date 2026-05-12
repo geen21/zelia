@@ -1,6 +1,8 @@
 import { progressionAPI } from './api'
+import { isStandaloneToolRoute } from './toolMode'
 
 export const MAX_LEVEL = 10
+export const PAYWALL_LEVEL = 50
 export const XP_PER_LEVEL = 100
 
 const CORE_QUEST_SEQUENCE = [
@@ -111,6 +113,15 @@ export async function fetchProgression() {
 }
 
 export async function levelUp({ minLevel = null, xpReward = 0 } = {}) {
+  if (isStandaloneToolRoute()) {
+    return {
+      previousLevel: null,
+      newLevel: null,
+      xp: 0,
+      questsCompleted: []
+    }
+  }
+
   const current = await fetchProgression()
   const currentLevel = Number(current.level) || 1
   let nextLevel = Math.min(currentLevel + 1, MAX_LEVEL)
@@ -158,6 +169,15 @@ export async function levelUp({ minLevel = null, xpReward = 0 } = {}) {
 
 export async function completeQuest(questId) {
   const normalizedQuestId = String(questId || '').trim()
+
+  if (isStandaloneToolRoute()) {
+    return {
+      updated: false,
+      progression: getDefaultProgression(),
+      questId: normalizedQuestId
+    }
+  }
+
   const current = await fetchProgression()
   const currentLevel = normalizeLevelValue(current.level ?? DEFAULT_PROGRESSION.level)
   const currentXp = clampXpForLevel(currentLevel, current.xp ?? DEFAULT_PROGRESSION.xp)
@@ -213,8 +233,14 @@ export async function completeQuest(questId) {
 export function isLevelAccessible({
   targetLevel,
   progression,
+  hasPaid = false,
 }) {
-  const cleanLevel = Math.max(1, Math.min(Number(targetLevel) || 1, MAX_LEVEL))
+  const requestedLevel = Math.max(1, Math.floor(Number(targetLevel) || 1))
+  if (requestedLevel > MAX_LEVEL) {
+    return hasPaid || requestedLevel <= PAYWALL_LEVEL
+  }
+
+  const cleanLevel = Math.max(1, Math.min(requestedLevel, MAX_LEVEL))
   const progressionLevel = Math.max(1, Number(progression?.level) || 1)
 
   // Allow replay of previously reached levels
@@ -230,8 +256,12 @@ export function isLevelAccessible({
   return false
 }
 
-export function computeNextPlayableLevel({ progression }) {
+export function computeNextPlayableLevel({ progression, hasPaid = false }) {
   const progressionLevel = Math.max(1, Number(progression?.level) || 1)
+
+  if (hasPaid) {
+    return PAYWALL_LEVEL
+  }
 
   if (progressionLevel > MAX_LEVEL) {
     return MAX_LEVEL

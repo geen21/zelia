@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { letterAPI } from '../lib/api'
+import { letterAPI, usersAPI } from '../lib/api'
 
 export default function Lettre(){
 	const [type, setType] = useState('metier') // 'metier' | 'formation'
@@ -49,6 +49,13 @@ export default function Lettre(){
 			}
 			const { data } = await letterAPI.generate(payload)
 			setLetter(data.letter)
+			usersAPI.saveExtraInfo([
+				{
+					question_id: 'lettre_generated',
+					question_text: 'Lettre de motivation générée',
+					answer_text: JSON.stringify({ target: selected?.label || query || '', type, generatedAt: new Date().toISOString() })
+				}
+			]).catch(() => null)
 		} catch (e) {
 			setLetter('Erreur de génération. Réessayez.')
 		} finally {
@@ -75,7 +82,7 @@ export default function Lettre(){
 	return (
 		<div className="space-y-6">
 			<div>
-				<h1 className="text-xl md:text-2xl font-black mb-1">Lettre de motivation</h1>
+				<h1 className="text-xl md:text-2xl font-semibold mb-1">Lettre de motivation</h1>
 				<p className="text-text-secondary">Générée à partir de votre profil</p>
 			</div>
 

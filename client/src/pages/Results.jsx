@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { jwtDecode } from 'jwt-decode'
 import apiClient from '../lib/api.js'
-import { progressionAPI } from '../lib/api.js'
 
 export default function Results() {
 	const navigate = useNavigate()
@@ -11,7 +10,6 @@ export default function Results() {
 	const [error, setError] = useState('')
 	const [avatarUrls, setAvatarUrls] = useState({ type: '', analysis: '', skills: '', jobs: '', studies: '' })
 	const [activeTab, setActiveTab] = useState('orientation') // 'orientation' | 'personality'
-	const [progressionLevel, setProgressionLevel] = useState(null)
 	const RESULT_GENERATION_ATTEMPTS = 3
 	const RESULT_RETRY_DELAY_MS = 1200
 
@@ -30,19 +28,8 @@ export default function Results() {
 
 	useEffect(() => {
 		loadExistingResults()
-		loadProgression()
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [])
-
-	const loadProgression = async () => {
-		try {
-			const resp = await progressionAPI.get().catch(() => null)
-			const level = resp?.data?.level || resp?.data?.progression?.level || null
-			if (level) setProgressionLevel(level)
-		} catch (e) {
-			console.warn('Progression load failed (non-blocking):', e)
-		}
-	}
 
 	const buildAvatarUrl = (base, config, { seed, eyes, mouth } = {}) => {
 		let urlStr = typeof base === 'string' && base.startsWith('http')
@@ -329,7 +316,7 @@ export default function Results() {
 		return (
 			<div className="space-y-6">
 				<div>
-					<h1 className="text-xl md:text-2xl font-black mb-1">Mes Résultats</h1>
+					<h1 className="text-xl md:text-2xl font-semibold mb-1">Mes Résultats</h1>
 					<p className="text-text-secondary">Analyse personnalisée de votre questionnaire</p>
 				</div>
 				{renderTabs()}
@@ -345,7 +332,7 @@ export default function Results() {
 		return (
 			<div className="space-y-6">
 				<div>
-					<h1 className="text-xl md:text-2xl font-black mb-1">Mes Résultats</h1>
+					<h1 className="text-xl md:text-2xl font-semibold mb-1">Mes Résultats</h1>
 					<p className="text-text-secondary">Analyse personnalisée de votre questionnaire</p>
 				</div>
 				{renderTabs()}
@@ -366,7 +353,7 @@ export default function Results() {
 		return (
 			<div className="space-y-6">
 				<div>
-					<h1 className="text-xl md:text-2xl font-black mb-1">Mes Résultats</h1>
+					<h1 className="text-xl md:text-2xl font-semibold mb-1">Mes Résultats</h1>
 					<p className="text-text-secondary">Analyse personnalisée de votre questionnaire</p>
 				</div>
 				{renderTabs()}
@@ -386,18 +373,7 @@ export default function Results() {
 	}
 
 	const ContinueAdventureButton = () => {
-		if (!progressionLevel) return null
-		const isPastLevelTen = progressionLevel >= 10
-		return (
-			<div className="flex justify-center my-4">
-				<button
-					onClick={() => navigate(isPastLevelTen ? '/app/outils' : `/app/niveau/${progressionLevel}`)}
-					className="px-5 py-2.5 bg-[#c1ff72] hover:bg-[#b3ff5d] text-black text-sm rounded-lg border border-gray-200 transition"
-				>
-					{isPastLevelTen ? 'Boîte à outils' : `Continuer l'aventure Zelia – Aller au niveau ${progressionLevel}`}
-				</button>
-			</div>
-		)
+		return null
 	}
 
 	const renderOrientationTab = () => {
@@ -500,19 +476,6 @@ export default function Results() {
 	}
 
 	const renderPersonalityTab = () => {
-		// Gate until level 2
-		if ((progressionLevel || 0) < 2) {
-			return (
-				<div className="bg-yellow-50 border border-yellow-200 rounded-xl p-8 text-center shadow-card">
-					<h2 className="text-xl font-bold text-yellow-800 mb-2">Analyse de personnalité</h2>
-					<p className="text-yellow-700">Sera disponible au niveau 2.</p>
-					{progressionLevel !== null && (
-						<p className="mt-2 text-sm text-yellow-600">Niveau actuel : {progressionLevel}</p>
-					)}
-				</div>
-			)
-		}
-
 		// Personality tab strictly uses MBTI questionnaire results
 		const mbti = analysisData.mbtiResults
 		if (!mbti) {
@@ -646,14 +609,14 @@ export default function Results() {
 			<div>
 				<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
 					<div>
-						<h1 className="text-xl md:text-2xl font-black mb-1">Mes Résultats</h1>
+						<h1 className="text-xl md:text-2xl font-semibold mb-1">Mes Résultats</h1>
 						<p className="text-text-secondary">Analyse personnalisée basée sur vos réponses</p>
 					</div>
 					<button
-						onClick={() => navigate('/app/activites')}
+						onClick={() => navigate('/app/outils')}
 						className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
 					>
-						Retour aux activités
+						Ouvrir la boîte à outils
 					</button>
 				</div>
 				{renderTabs()}

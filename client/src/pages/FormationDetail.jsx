@@ -137,7 +137,7 @@ export default function FormationDetail() {
           </div>
           <div className="min-w-0">
             <p className="text-gray-500 text-sm mb-1">{formation.school_name}</p>
-            <h1 className="text-xl md:text-2xl font-black mb-2 leading-tight">{formation.formation_name}</h1>
+            <h1 className="text-xl md:text-2xl font-semibold mb-2 leading-tight">{formation.formation_name}</h1>
             <div className="flex flex-wrap gap-2">
               {formation.diploma_level && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-200">
@@ -163,14 +163,14 @@ export default function FormationDetail() {
         <div className="lg:col-span-2 space-y-4">
           {descriptionSections.map((section) => (
             <section key={section.title} className="bg-white border border-gray-200 rounded-2xl p-4 md:p-5">
-              <h2 className="text-sm font-black text-gray-900 mb-2">{section.title}</h2>
+              <h2 className="text-sm font-semibold text-gray-900 mb-2">{section.title}</h2>
               <p className="text-sm leading-relaxed text-gray-600">{section.body}</p>
             </section>
           ))}
 
           {prereqLine && (
             <section className="bg-white border border-gray-200 rounded-2xl p-4 md:p-5">
-              <h2 className="text-sm font-black text-gray-900 mb-2">Pré-requis</h2>
+              <h2 className="text-sm font-semibold text-gray-900 mb-2">Pré-requis</h2>
               <p className="text-sm leading-relaxed text-gray-600">
                 {prereqLine.replace('Pré-requis:', '').trim()}
               </p>
@@ -182,7 +182,7 @@ export default function FormationDetail() {
           <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mb-4">
             <FaPaperPlane className="w-5 h-5 text-gray-700" />
           </div>
-          <h2 className="text-sm font-black text-gray-900 mb-1">Demande d'informations</h2>
+          <h2 className="text-sm font-semibold text-gray-900 mb-1">Demande d'informations</h2>
           <p className="text-xs text-gray-500 mb-4">
             {formation.school_name} te recontactera après ta demande.
           </p>

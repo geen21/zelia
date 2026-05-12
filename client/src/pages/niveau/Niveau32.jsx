@@ -231,7 +231,7 @@ Réponds UNIQUEMENT avec le JSON, sans texte autour.`
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau32 levelUp failed', e)
-      setError('Impossible de valider le niveau.')
+      setError('Impossible de valider le module.')
     } finally {
       setFinishing(false)
     }
@@ -302,7 +302,7 @@ Réponds UNIQUEMENT avec le JSON, sans texte autour.`
         {/* Right: Skill Recommendations */}
         <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">32</div>
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">OK</div>
             <h2 className="text-lg md:text-xl font-bold">Compétences à développer</h2>
           </div>
 
@@ -358,12 +358,12 @@ Réponds UNIQUEMENT avec le JSON, sans texte autour.`
       {showSuccess && !pathname.includes('/outils') && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce font-bold">32</div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 32 terminé !</h3>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce font-bold">OK</div>
+            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
             <p className="text-text-secondary mb-4">Tu as identifié des compétences utiles pour avancer vers ton futur métier.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/33')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Niveau suivant</button>
+              <button onClick={() => navigate('/app/niveau/33')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />

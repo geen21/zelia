@@ -57,7 +57,7 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Missing user email' })
     }
 
-    const { note, metadata, source = 'niveau-10', level = 10 } = req.body || {}
+    const { note, metadata, source = 'orientation' } = req.body || {}
 
     const { data: existing, error: existingError } = await db
       .from(TABLE)
@@ -96,7 +96,7 @@ router.post('/', authenticateToken, async (req, res) => {
       source,
       note: note || null,
       status: existing?.status && existing.status !== 'pending' ? existing.status : 'pending',
-      metadata: normalizeMetadata(metadata, { level }),
+      metadata: normalizeMetadata(metadata),
       profile_snapshot: profileSnapshot,
       updated_at: new Date().toISOString()
     }

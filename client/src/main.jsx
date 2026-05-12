@@ -1,6 +1,6 @@
 import React, { Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import './landing.css'
@@ -10,19 +10,15 @@ import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import Questionnaire from './pages/Questionnaire.jsx'
 import Home from './pages/Home.jsx'
-import AvatarCreate from './pages/AvatarCreate.jsx'
 import Results from './pages/Results.jsx'
 import Profile from './pages/Profile.jsx'
 import Layout from './pages/Layout.jsx'
-import Formations from './pages/Formations.jsx'
+import FormationsEcoles from './pages/FormationsEcoles.jsx'
 import Emplois from './pages/Emplois.jsx'
 import MentionsLegales from './pages/MentionsLegales.jsx'
 import ConditionsConfidentialite from './pages/ConditionsConfidentialite.jsx'
-const Activites = lazy(() => import('./pages/Activites.jsx'))
 import Lettre from './pages/Lettre.jsx'
-import Niveau1 from './pages/niveau/Niveau1.jsx'
-import Niveau3 from './pages/niveau/Niveau3.jsx'
-import EmailConfirmation from './pages/EmailConfirmation.jsx'
+import AuthCallback from './pages/AuthCallback.jsx'
 import Chat from './pages/Chat.jsx'
 import BlogIndex from './pages/blog/BlogIndex.jsx'
 import BlogExploreMetiers from './pages/blog/BlogExploreMetiers.jsx'
@@ -33,6 +29,7 @@ import BlogChoisirSesEtudes from './pages/blog/BlogChoisirSesEtudes.jsx'
 import BlogEtudeSalaire from './pages/blog/BlogEtudeSalaire.jsx'
 import TagManager from 'react-gtm-module'
 import { usePageTracking } from './lib/usePageTracking.js'
+import { TOOLBOX_ITEMS } from './lib/levelMapping.js'
 
 const tagManagerArgs = {
     gtmId: 'GTM-TTNGZ2H8'
@@ -40,21 +37,27 @@ const tagManagerArgs = {
 
 TagManager.initialize(tagManagerArgs)
 
-// New 10-level parcours: lazy-load components mapped from old levels
-const Niveau11 = lazy(() => import('./pages/niveau/Niveau11.jsx'))
-const Niveau15 = lazy(() => import('./pages/niveau/Niveau15.jsx'))
-const Niveau7 = lazy(() => import('./pages/niveau/Niveau7.jsx'))
-const Niveau12 = lazy(() => import('./pages/niveau/Niveau12.jsx'))
-const Niveau21 = lazy(() => import('./pages/niveau/Niveau21.jsx'))
-const Niveau22 = lazy(() => import('./pages/niveau/Niveau22.jsx'))
-const Niveau23 = lazy(() => import('./pages/niveau/Niveau23.jsx'))
-const NiveauBilanFinal = lazy(() => import('./pages/niveau/NiveauBilanFinal.jsx'))
+const ConversationalHome = lazy(() => import('./pages/ConversationalHome.jsx'))
 
-// Boite à outils: all old level components for standalone tool access
+// Boîte à outils : les anciens composants restent internes, exposés via des URLs fonctionnelles.
 const toolModules = import.meta.glob([
-  './pages/niveau/Niveau[2-9].jsx',
-  './pages/niveau/Niveau[1-3][0-9].jsx',
-  './pages/niveau/Niveau40.jsx'
+  './pages/niveau/Niveau4.jsx',
+  './pages/niveau/Niveau5.jsx',
+  './pages/niveau/Niveau17.jsx',
+  './pages/niveau/Niveau18.jsx',
+  './pages/niveau/Niveau19.jsx',
+  './pages/niveau/Niveau24.jsx',
+  './pages/niveau/Niveau26.jsx',
+  './pages/niveau/Niveau28.jsx',
+  './pages/niveau/Niveau29.jsx',
+  './pages/niveau/Niveau31.jsx',
+  './pages/niveau/Niveau32.jsx',
+  './pages/niveau/Niveau33.jsx',
+  './pages/niveau/Niveau34.jsx',
+  './pages/niveau/Niveau36.jsx',
+  './pages/niveau/Niveau37.jsx',
+  './pages/niveau/Niveau38.jsx',
+  './pages/niveau/Niveau39.jsx'
 ])
 
 const toolComponents = Object.entries(toolModules).reduce((acc, [path, loader]) => {
@@ -64,22 +67,62 @@ const toolComponents = Object.entries(toolModules).reduce((acc, [path, loader]) 
   if (Number.isNaN(level)) return acc
   acc[level] = lazy(() => loader())
   return acc
-}, /** @type {Record<number, React.LazyExoticComponent<React.ComponentType<any>>>} */ ({}))
+}, {})
 
 const BoiteAOutils = lazy(() => import('./pages/BoiteAOutils.jsx'))
-const EcolesPartenaires = lazy(() => import('./pages/EcolesPartenaires.jsx'))
+const OrientationVideos = lazy(() => import('./pages/OrientationVideos.jsx'))
 const FormationDetail = lazy(() => import('./pages/FormationDetail.jsx'))
 
 loadLegacyStyles()
 
-const toolLevels = Object.keys(toolComponents)
-  .map((level) => Number(level))
-  .sort((a, b) => a - b)
+function toAppChildRoutePath(path) {
+  return String(path || '').replace(/^\/app\/?/, '')
+}
+
+const toolRouteItems = TOOLBOX_ITEMS
+  .filter((tool) => Number.isFinite(tool.componentLevel) && tool.path?.startsWith('/app/outils/'))
+  .map((tool) => ({ ...tool, routePath: toAppChildRoutePath(tool.path) }))
+
+const LEGACY_FUNCTIONAL_REDIRECTS = new Map([
+  [1, '/app'],
+  [3, '/app'],
+  [7, '/app/emplois'],
+  [10, '/app/results'],
+  [11, '/app'],
+  [12, '/app/emplois'],
+  [15, '/app'],
+  [20, '/app/results'],
+  [21, '/app/formations'],
+  [22, '/app/formations'],
+  [23, '/app/ecoles-partenaires'],
+  [30, '/app/results'],
+  [40, '/app/results'],
+  [50, '/app/results']
+])
+
+const legacyToolRedirects = TOOLBOX_ITEMS.reduce((redirects, tool) => {
+  const levels = Array.isArray(tool.legacyLevels) ? tool.legacyLevels : []
+  levels.forEach((level) => {
+    const numericLevel = Number(level)
+    if (Number.isFinite(numericLevel) && tool.path) {
+      redirects.set(numericLevel, tool.path)
+    }
+  })
+  return redirects
+}, new Map(LEGACY_FUNCTIONAL_REDIRECTS))
+
+const legacyToolRedirectRoutes = Array.from(legacyToolRedirects.entries()).sort((a, b) => a[0] - b[0])
 
 // Component to handle page tracking (must be inside BrowserRouter)
 function PageTracker() {
   usePageTracking()
   return null
+}
+
+function LegacyLevelRedirect() {
+  const { level } = useParams()
+  const target = legacyToolRedirects.get(Number(level)) || '/app'
+  return <Navigate to={target} replace />
 }
 
 function App() {
@@ -91,9 +134,10 @@ function App() {
     <Route path="/" element={<Home />} />
   <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/email-confirmation" element={<EmailConfirmation />} />
-  <Route path="/avatar" element={<AvatarCreate />} />
-  <Route path="/questionnaire" element={<Questionnaire />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/avatar" element={<Navigate to="/orientation" replace />} />
+        <Route path="/orientation" element={<Questionnaire />} />
+        <Route path="/questionnaire" element={<Questionnaire />} />
         <Route path="/legal/mentions-legales" element={<MentionsLegales />} />
         <Route path="/legal/conditions" element={<ConditionsConfidentialite />} />
     <Route path="/blog" element={<BlogIndex />} />
@@ -104,51 +148,33 @@ function App() {
     <Route path="/blog/choisir-ses-etudes-sans-pression" element={<BlogChoisirSesEtudes />} />
     <Route path="/blog/etude-salaire-bon-salaire-ados" element={<BlogEtudeSalaire />} />
         <Route path="/app" element={<RequireAuth><Layout /></RequireAuth>}>
-          <Route index element={
-            <Suspense fallback={<div className="p-6 text-center">Chargement des activités…</div>}>
-              <Activites />
-            </Suspense>
-          } />
+          <Route index element={<Suspense fallback={<div className="p-6 text-center">Chargement de Zélia…</div>}><ConversationalHome /></Suspense>} />
           <Route path="profile" element={<Profile />} />
           <Route path="results" element={<Results />} />
-          <Route path="formations" element={<Formations />} />
+          <Route path="formations" element={<FormationsEcoles />} />
           <Route path="emplois" element={<Emplois />} />
-          <Route path="activites" element={
-            <Suspense fallback={<div className="p-6 text-center">Chargement des activités…</div>}>
-              <Activites />
-            </Suspense>
-          } />
+          <Route path="activites" element={<Navigate to="/app" replace />} />
           <Route path="lettre" element={<Lettre />} />
           <Route path="chat" element={<Chat />} />
-          {/* New 10-level parcours */}
-          <Route path="niveau/1" element={<Niveau1 />} />
-          <Route path="niveau/2" element={<Suspense fallback={<div className="p-6 text-center">Chargement du niveau…</div>}><Niveau11 /></Suspense>} />
-          <Route path="niveau/3" element={<Niveau3 />} />
-          <Route path="niveau/4" element={<Suspense fallback={<div className="p-6 text-center">Chargement du niveau…</div>}><Niveau15 /></Suspense>} />
-          <Route path="niveau/5" element={<Suspense fallback={<div className="p-6 text-center">Chargement du niveau…</div>}><Niveau7 /></Suspense>} />
-          <Route path="niveau/6" element={<Suspense fallback={<div className="p-6 text-center">Chargement du niveau…</div>}><Niveau12 /></Suspense>} />
-          <Route path="niveau/7" element={<Suspense fallback={<div className="p-6 text-center">Chargement du niveau…</div>}><Niveau21 /></Suspense>} />
-          <Route path="niveau/8" element={<Suspense fallback={<div className="p-6 text-center">Chargement du niveau…</div>}><Niveau22 /></Suspense>} />
-          <Route path="niveau/9" element={<Suspense fallback={<div className="p-6 text-center">Chargement du niveau…</div>}><Niveau23 /></Suspense>} />
-          <Route path="niveau/10" element={<Suspense fallback={<div className="p-6 text-center">Chargement du niveau…</div>}><NiveauBilanFinal /></Suspense>} />
-          {/* Boite à outils */}
+          <Route path="niveau/:level" element={<LegacyLevelRedirect />} />
           <Route path="outils" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><BoiteAOutils /></Suspense>} />
-          {toolLevels.map((level) => {
-            const Component = toolComponents[level]
+          <Route path="outils/videos-orientation" element={<Suspense fallback={<div className="p-6 text-center">Chargement des vidéos…</div>}><OrientationVideos /></Suspense>} />
+          {toolRouteItems.map((tool) => {
+            const Component = toolComponents[tool.componentLevel]
+            if (!Component) return null
             return (
               <Route
-                key={`tool-${level}`}
-                path={`outils/${level}`}
-                element={
-                  <Suspense fallback={<div className="p-6 text-center">Chargement de l'outil…</div>}>
-                    <Component />
-                  </Suspense>
-                }
+                key={`tool-${tool.id}`}
+                path={tool.routePath}
+                element={<Suspense fallback={<div className="p-6 text-center">Chargement de l'outil…</div>}><Component /></Suspense>}
               />
             )
           })}
-          {/* Ecoles partenaires */}
-          <Route path="ecoles-partenaires" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><EcolesPartenaires /></Suspense>} />
+          {legacyToolRedirectRoutes.map(([level, path]) => (
+            <Route key={`legacy-tool-${level}`} path={`outils/${level}`} element={<Navigate to={path} replace />} />
+          ))}
+          <Route path="outils/:tool" element={<Navigate to="/app/outils" replace />} />
+          <Route path="ecoles-partenaires" element={<FormationsEcoles />} />
           <Route path="ecoles-partenaires/:id" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><FormationDetail /></Suspense>} />
         </Route>
         <Route path="*" element={<Navigate to="/" />} />

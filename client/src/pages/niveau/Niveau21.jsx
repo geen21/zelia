@@ -91,7 +91,7 @@ function normalizeFilieres(raw) {
 function fallbackFaisabilite() {
   return {
     ok: true,
-    message: 'Tes choix restent cohérents. On les garde comme pistes de travail et on les affinera dans les prochains niveaux.'
+    message: 'Tes choix restent cohérents. On les garde comme pistes de travail et on les affinera dans les prochains modules.'
   }
 }
 
@@ -389,17 +389,17 @@ Réponds UNIQUEMENT avec le JSON.`
       const entries = [
         {
           question_id: 'niveau21_filieres',
-          question_text: 'Filières sélectionnées (Niveau 21)',
+          question_text: 'Filières sélectionnées',
           answer_text: JSON.stringify(selectedFilieresData)
         },
         {
           question_id: 'niveau21_notes',
-          question_text: 'Notes par matière (Niveau 21)',
+          question_text: 'Notes par matière',
           answer_text: JSON.stringify(validNotes)
         },
         {
           question_id: 'niveau21_faisabilite',
-          question_text: 'Évaluation faisabilité (Niveau 21)',
+          question_text: 'Évaluation faisabilité',
           answer_text: JSON.stringify(faisabilite)
         }
       ]
@@ -651,11 +651,11 @@ Réponds UNIQUEMENT avec le JSON.`
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 7 réussi !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
             <p className="text-text-secondary mb-4">Tes filières et tes notes sont enregistrées.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/8')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
+              <button onClick={() => navigate('/app/niveau/8')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
             </div>
             {/* Subtle confetti dots */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

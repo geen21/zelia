@@ -243,7 +243,7 @@ export default function Niveau12() {
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau12 levelUp failed', e)
-      setError('Impossible de valider le niveau.')
+      setError('Impossible de valider le module.')
     } finally {
       setFinishing(false)
     }
@@ -296,7 +296,7 @@ export default function Niveau12() {
                 )}
                 {phase === 'result' && (
                   <button onClick={finishLevel} disabled={finishing} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto disabled:opacity-50">
-                    Terminer le niveau
+                    Terminer
                   </button>
                 )}
               </div>
@@ -307,7 +307,7 @@ export default function Niveau12() {
         {/* Right: Game Area */}
         <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">6</div>
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">OK</div>
             <h2 className="text-lg md:text-xl font-bold">Métiers et débouchés</h2>
           </div>
 
@@ -510,7 +510,7 @@ export default function Niveau12() {
                   disabled={finishing}
                   className="w-full px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 font-medium hover:bg-[#b8f566] transition-colors disabled:opacity-50"
                 >
-                  {finishing ? 'Validation...' : 'Terminer le niveau'}
+                  {finishing ? 'Validation...' : 'Terminer'}
                 </button>
               </div>
             </div>
@@ -522,12 +522,12 @@ export default function Niveau12() {
       {showSuccess && !pathname.includes('/outils') && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce font-bold">6</div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 6 terminé !</h3>
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce font-bold">OK</div>
+            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
 			<p className="text-text-secondary mb-4">Tu connais maintenant mieux le marché du travail et ses surprises.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
 			  <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/7')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Niveau suivant</button>
+              <button onClick={() => navigate('/app/niveau/7')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />

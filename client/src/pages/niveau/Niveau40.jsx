@@ -59,7 +59,7 @@ const LEVELS_SUMMARY = [
   { level: 31, title: 'Explorer ses options : compétences', type: 'recherche' },
   { level: 32, title: 'Compétences recommandées par métier', type: 'idées' },
   { level: 33, title: 'Lettre à soi-même', type: 'écriture' },
-  { level: 34, title: 'Gestion du stress', type: 'questionnaire' },
+  { level: 34, title: 'Gérer son stress', type: 'exercices' },
   { level: 35, title: 'Vidéo motivation', type: 'vidéo' },
   { level: 36, title: 'Soft skill : intelligence émotionnelle', type: 'questionnaire' },
   { level: 37, title: 'Quiz compétences', type: 'questionnaire' },
@@ -139,21 +139,21 @@ export default function Niveau40() {
     try {
       const context = extraInfos.length > 0
         ? formatBilanExtraInfos(extraInfos)
-        : 'Aucune donnée spécifique enregistrée pour les niveaux 31-39.'
+        : 'Aucune donnée spécifique enregistrée pour ces modules.'
 
-      const summaryContext = LEVELS_SUMMARY.map(l => `- Niveau ${l.level}: ${l.title} (${l.type})`).join('\n')
+      const summaryContext = LEVELS_SUMMARY.map(l => `- ${l.title} (${l.type})`).join('\n')
 
       const message =
-        `Tu dois produire un bilan final du parcours Zélia pour les niveaux 31 à 39.\n` +
+        `Tu dois produire un bilan final du parcours Zélia pour ces modules fonctionnels.\n` +
         `Modules traversés:\n${summaryContext}\n\n` +
         `Données utilisateur:\n${context}\n\n` +
         `Réponds UNIQUEMENT en JSON valide au format:\n` +
-        `{"levelSummaries":[{"level":31,"title":"Explorer ses options : compétences","summary":""}]}` +
+        `{"levelSummaries":[{"title":"Explorer ses options : compétences","summary":""}]}` +
         `\nContraintes:\n` +
-        `- Retourne 9 objets, un pour chaque niveau de 31 a 39.\n` +
-        `- Garde exactement les numeros de niveau.\n` +
+        `- Retourne un objet pour chaque module listé.\n` +
+        `- N'utilise jamais les mots "niveau" ou "Niveau", ni les anciens numéros de module.\n` +
         `- Chaque summary doit faire 1 ou 2 phrases courtes, concretes et personnalisees.\n` +
-        `- Fais ressortir ce qui a ete travaille sur le niveau concerne.\n` +
+        `- Fais ressortir ce qui a ete travaille sur le module concerne.\n` +
         `- Ton encourageant et clair.`
 
       const resp = await apiClient.post('/chat/ai', {
@@ -199,7 +199,7 @@ export default function Niveau40() {
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau40 levelUp failed', e)
-      setError('Impossible de valider le niveau.')
+      setError('Impossible de valider le module.')
     } finally {
       setFinishing(false)
     }
@@ -217,14 +217,14 @@ export default function Niveau40() {
 
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(18)
-      doc.text('Bilan final Zélia — Niveaux 31 à 39', margin, y)
+      doc.text('Bilan final Zélia — Modules fonctionnels', margin, y)
       y += 10
 
       bilan.levelSummaries.forEach((section) => {
         if (y > 260) { doc.addPage(); y = margin }
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(12)
-        doc.text(`Niveau ${section.level} - ${section.title || 'Section'}`, margin, y)
+        doc.text(section.title || 'Module', margin, y)
         y += 6
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(10)
@@ -233,7 +233,7 @@ export default function Niveau40() {
         y += lines.length * 5 + 6
       })
 
-      doc.save('zelia-bilan-final-niveaux-31-39.pdf')
+      doc.save('zelia-bilan-final-modules.pdf')
     } catch (e) {
       console.error('PDF generation failed', e)
     } finally {
@@ -283,7 +283,7 @@ export default function Niveau40() {
                 )}
                 {phase === STEP_BILAN && (
                   <button onClick={onFinish} disabled={finishing} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto disabled:opacity-50">
-                    Terminer le niveau
+                    Terminer le bilan
                   </button>
                 )}
               </div>
@@ -293,7 +293,7 @@ export default function Niveau40() {
 
         <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">40</div>
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">✓</div>
             <h2 className="text-lg md:text-xl font-bold">Bilan final</h2>
           </div>
 
@@ -318,7 +318,7 @@ export default function Niveau40() {
                 <div className="space-y-4">
                   {levelSummaries.map((section) => (
                     <div key={section.level} className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                      <h3 className="font-semibold mb-2">Niveau {section.level} · {section.title}</h3>
+                      <h3 className="font-semibold mb-2">{section.title}</h3>
                       <p className="text-sm text-gray-700 whitespace-pre-wrap">{section.summary}</p>
                     </div>
                   ))}
@@ -405,7 +405,7 @@ export default function Niveau40() {
                 </div>
                 {/* Level Badge */}
                 <div className="absolute -bottom-2 -right-2 bg-black text-[#c1ff72] text-xs font-bold px-3 py-1 rounded-full border-[3px] border-white">
-                  NIV 40
+                  BILAN
                 </div>
               </div>
 

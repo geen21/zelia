@@ -4,6 +4,147 @@ import { authenticateToken } from '../middleware/auth.js'
 
 const router = express.Router()
 
+const FINAL_SELECTION_QUESTION_ID = 'orientation_final_selection'
+const EXTRA_INFO_MATCHING_LIMIT = 250
+const MAX_MATCHING_SIGNAL_LENGTH = 12000
+
+const PARTNER_CITY_BY_DEPARTMENT_CODE = {
+  '06': 'Nice',
+  '14': 'Caen',
+  '31': 'Toulouse',
+  '33': 'Bordeaux',
+  '34': 'Montpellier',
+  '35': 'Rennes',
+  '38': 'Grenoble',
+  '44': 'Nantes',
+  '49': 'Angers',
+  '54': 'Nancy',
+  '56': 'Vannes',
+  '59': 'Lille',
+  '69': 'Lyon',
+  '74': 'Annecy',
+  '75': 'Paris',
+  '77': 'Melun',
+  '78': 'St-Quentin-en-Yvelines',
+  '91': 'Paris',
+  '92': 'Paris',
+  '93': 'Paris',
+  '94': 'Paris',
+  '95': 'Paris'
+}
+
+function normalizeLocationText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function sameCity(left, right) {
+  const a = normalizeLocationText(left)
+  const b = normalizeLocationText(right)
+  if (!a || !b) return false
+  return a === b || a.includes(b) || b.includes(a)
+}
+
+function getPartnerCityForDepartment(code, departmentName = '') {
+  const normalizedCode = String(code || '').toUpperCase()
+  if (PARTNER_CITY_BY_DEPARTMENT_CODE[normalizedCode]) return PARTNER_CITY_BY_DEPARTMENT_CODE[normalizedCode]
+  const normalizedDepartment = normalizeLocationText(departmentName)
+  return Object.values(PARTNER_CITY_BY_DEPARTMENT_CODE).find((city) => normalizeLocationText(city) === normalizedDepartment) || ''
+}
+
+function firstMatchingText(...values) {
+  for (const value of values) {
+    if (value == null) continue
+    const text = String(value).trim()
+    if (text) return text
+  }
+  return ''
+}
+
+function compactFinalSelectionForMatching(answerText) {
+  const text = answerText != null ? String(answerText) : ''
+  if (!text) return ''
+
+  try {
+    const parsed = JSON.parse(text)
+    const candidates = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(parsed?.candidates)
+        ? parsed.candidates
+        : []
+
+    if (candidates.length > 0) {
+      return candidates
+        .slice(0, 12)
+        .map((candidate) => {
+          const raw = candidate && typeof candidate.raw === 'object' ? candidate.raw : {}
+          return [
+            firstMatchingText(candidate?.title, candidate?.name, raw.nm, raw.nmc, raw.formation_name),
+            firstMatchingText(candidate?.subtitle, raw.etab_nom, raw.school_name, raw.commune),
+            firstMatchingText(candidate?.schoolName, candidate?.school, raw.etab_nom, raw.school_name),
+            firstMatchingText(candidate?.city, raw.commune, raw.city),
+            firstMatchingText(candidate?.region, raw.region)
+          ].filter(Boolean).join(' ')
+        })
+        .filter(Boolean)
+        .join(' ')
+    }
+  } catch {
+    // Legacy plain text stays usable as a matching signal, with a hard cap below.
+  }
+
+  return text.length > MAX_MATCHING_SIGNAL_LENGTH
+    ? text.slice(0, MAX_MATCHING_SIGNAL_LENGTH)
+    : text
+}
+
+function sanitizeMatchingEntry(entry) {
+  const questionId = String(entry?.question_id || '')
+  const answerText = questionId === FINAL_SELECTION_QUESTION_ID
+    ? compactFinalSelectionForMatching(entry?.answer_text)
+    : entry?.answer_text != null && String(entry.answer_text).length > MAX_MATCHING_SIGNAL_LENGTH
+      ? String(entry.answer_text).slice(0, MAX_MATCHING_SIGNAL_LENGTH)
+      : entry?.answer_text
+
+  return {
+    ...entry,
+    question_id: questionId,
+    answer_text: answerText
+  }
+}
+
+async function fetchExtraInfoForMatching(userId) {
+  const selectColumns = 'question_id, answer_text, created_at'
+
+  const { data: regularEntries, error: regularError } = await supabaseAdmin
+    .from('informations_complementaires')
+    .select(selectColumns)
+    .eq('user_id', userId)
+    .neq('question_id', FINAL_SELECTION_QUESTION_ID)
+    .order('created_at', { ascending: false })
+    .limit(EXTRA_INFO_MATCHING_LIMIT)
+
+  if (regularError) throw regularError
+
+  const { data: finalSelectionEntries, error: finalSelectionError } = await supabaseAdmin
+    .from('informations_complementaires')
+    .select(selectColumns)
+    .eq('user_id', userId)
+    .eq('question_id', FINAL_SELECTION_QUESTION_ID)
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  if (finalSelectionError) throw finalSelectionError
+
+  return [...(finalSelectionEntries || []), ...(regularEntries || [])]
+    .map(sanitizeMatchingEntry)
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+}
+
 // GET /api/ecoles/partenaires - List all partner school formations
 router.get('/partenaires', authenticateToken, async (req, res) => {
   try {
@@ -47,16 +188,7 @@ router.get('/matched', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id
 
-    // Fetch user's extra info for matching
-    const { data: extraInfo, error: extraError } = await supabaseAdmin
-      .from('informations_complementaires')
-      .select('question_id, answer_text, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-
-    if (extraError) throw extraError
-
-    const entries = extraInfo || []
+    const entries = await fetchExtraInfoForMatching(userId)
     const entryMap = new Map()
     for (const entry of entries) {
       const questionId = entry?.question_id
@@ -71,6 +203,25 @@ router.get('/matched', authenticateToken, async (req, res) => {
       }
       return ''
     }
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('department, institution_data')
+      .eq('id', userId)
+      .maybeSingle()
+
+    if (profileError && profileError.code !== 'PGRST116') throw profileError
+
+    const institutionData = profile?.institution_data && typeof profile.institution_data === 'object'
+      ? profile.institution_data
+      : {}
+    const studyLocation = pickFirstValue('orientation_study_location')
+    const storedCity = pickFirstValue('orientation_city') || institutionData.city || institutionData.ville || institutionData.commune || ''
+    const departmentCode = pickFirstValue('orientation_department') || profile?.department || ''
+    const departmentName = pickFirstValue('orientation_department_name') || institutionData.department_name || ''
+    const nearHomeCity = studyLocation === 'near_home'
+      ? (storedCity || getPartnerCityForDepartment(departmentCode, departmentName))
+      : ''
 
     // Fetch all formations
     const { data: formations, error: formError } = await supabaseAdmin
@@ -91,9 +242,12 @@ router.get('/matched', authenticateToken, async (req, res) => {
 
     if (analysisError && analysisError.code !== 'PGRST116') throw analysisError
 
-    const userCity = pickFirstValue('niveau22_city', 'niveau22_location', 'niveau22_city_preference')
-    const matched = scoreFormations(formations, entryMap, pickFirstValue, analysisResult?.job_recommendations)
-    res.json({ matched, userCity: userCity || null })
+    const userCity = nearHomeCity || storedCity
+    const matched = scoreFormations(formations, entryMap, pickFirstValue, analysisResult?.job_recommendations, userCity)
+    const filteredMatched = nearHomeCity
+      ? matched.filter((formation) => sameCity(formation.city, nearHomeCity))
+      : matched
+    res.json({ matched: filteredMatched, userCity: userCity || null })
   } catch (e) {
     console.error('GET /ecoles/matched error:', e)
     res.status(500).json({ error: 'Failed to fetch matched formations' })
@@ -151,7 +305,7 @@ function tokenize(text) {
     .filter((t) => t.length >= 3 && !STOPWORDS.has(t))
 }
 
-// Domains (Niveau 11) → sets of *informative* tokens that may appear in
+// Domains → sets of informative tokens that may appear in
 // a formation name. Each token weight is 1; multi-hit formations score higher.
 const DOMAIN_TO_TOKENS = {
   'arts creation': ['design', 'creation', 'artistique', 'graphique', 'motion', 'ux', 'ui'],
@@ -293,19 +447,19 @@ function scoreLevel(userLevelN, formationLevelN) {
   return 0
 }
 
-function scoreFormations(formations, entryMap, pickFirstValue, jobRecommendations) {
+function scoreFormations(formations, entryMap, pickFirstValue, jobRecommendations, userCityOverride = '') {
   // Extract user signals
-  const topDomainsRaw = pickFirstValue('niveau11_top3', 'niveau11_domain_ranking')
+  const topDomainsRaw = pickFirstValue('orientation_strong_subjects')
   const topDomains = parseTopDomains(topDomainsRaw)
-  const userLevelRaw = pickFirstValue('niveau22_level', 'niveau22_study_level')
+  const userLevelRaw = pickFirstValue('orientation_target_level')
   const userLevelN = parseLevel(userLevelRaw)
-  const userCity = pickFirstValue('niveau22_city', 'niveau22_location', 'niveau22_city_preference')
+  const userCity = userCityOverride || pickFirstValue('orientation_city')
 
   const jobKeywordsParts = [
-    pickFirstValue('niveau31_selected_job'),
-    pickFirstValue('niveau14_target_job'),
-    pickFirstValue('niveau17_target_job'),
-    pickFirstValue('niveau21_filieres')
+    pickFirstValue('orientation_final_selection'),
+    pickFirstValue('orientation_refine_job_projection'),
+    pickFirstValue('orientation_refine_study_projection'),
+    pickFirstValue('orientation_refine_main_priority')
   ].filter(Boolean)
   const jobKeywordsRaw = jobKeywordsParts.join(' ')
   const jobRecommendationsRaw = buildJobRecommendationsText(jobRecommendations)

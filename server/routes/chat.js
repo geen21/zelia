@@ -147,7 +147,11 @@ router.post('/ai', authenticateToken, async (req, res) => {
     const isStudyBudget = advisorType === 'study-budget'
     const isFilieresGenerator = advisorType === 'filieres-generator'
     const isGradesEvaluation = advisorType === 'grades-evaluation'
-    const isStructuredJson = isBilan || isStudyBudget || isFilieresGenerator || isGradesEvaluation
+    const isOrientationKeywordSelection = advisorType === 'orientation-keyword-selection'
+    const isOrientationCandidatePreselection = advisorType === 'orientation-candidate-preselection'
+    const isHomeAssistant = advisorType === 'home-orientation-assistant'
+    const isCvBuilder = advisorType === 'cv-builder'
+    const isStructuredJson = isBilan || isStudyBudget || isFilieresGenerator || isGradesEvaluation || isOrientationKeywordSelection || isOrientationCandidatePreselection || isCvBuilder
     const usesDirectPrompt = isStructuredJson || isPointsMetier || isFicheMetier
     const sys = isBilan
       ? `Tu es Zélia, coach d'orientation francophone. Tu dois produire un bilan structuré pour l'utilisateur. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans balise markdown, sans backticks. Respecte exactement le schéma demandé dans le message. Le ton doit être encourageant, concret et personnalisé à partir des données fournies.`
@@ -155,15 +159,23 @@ router.post('/ai', authenticateToken, async (req, res) => {
       ? `Tu es Zélia, conseillère d'orientation francophone. Tu proposes des filières post-bac réalistes. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans markdown et sans backticks. Le JSON doit être uniquement un tableau de 10 objets. Chaque objet contient uniquement "type" et "degree", deux chaînes non vides.`
       : isGradesEvaluation
       ? `Tu es Zélia, conseillère d'orientation francophone. Tu évalues la faisabilité de filières à partir de notes scolaires. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans markdown et sans backticks. Le JSON doit contenir uniquement ok et message. ok est un booléen. message est une phrase courte, bienveillante, concrète et en tutoyant l'élève.`
+      : isOrientationKeywordSelection
+      ? `Tu es Zélia, conseillère d'orientation francophone. Tu produis des mots-clés de recherche pour des tables métiers/formations. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans markdown et sans backticks. Le JSON doit respecter exactement le schéma demandé dans le message.`
+      : isOrientationCandidatePreselection
+      ? `Tu es Zélia, conseillère d'orientation francophone. Tu préselectionnes des propositions à afficher à partir du contexte déjà répondu par l'utilisateur. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans markdown et sans backticks. Pour chaque candidat, answer doit valoir exactement "Oui" ou "Non".`
+      : isCvBuilder
+      ? `Tu es Zélia, experte RH francophone. Tu génères un CV structuré. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans markdown et sans backticks. Respecte exactement le schéma demandé, avec des textes concis pour tenir sur une page A4.`
       : isPointsMetier
       ? `Tu es Zélia, conseillère d'orientation francophone. Réponds STRICTEMENT avec deux sections nommées NEGATIFS et POSITIFS. Chaque section contient exactement 3 puces courtes, concrètes et nuancées. N'ajoute aucune introduction, conclusion, markdown de titre, tableau ou bloc de code.`
       : isFicheMetier
       ? `Tu es Zélia, conseillère d'orientation francophone. Tu rédiges une fiche métier complète, concise et directement exploitable. Réponds STRICTEMENT avec les trois sections demandées, dans l'ordre, sans introduction, sans conclusion, sans markdown de titre et sans bloc de code. Termine toujours tes phrases et ne t'arrête pas avant la section Écoles/études.`
       : isStudyBudget
       ? `Tu es Zélia, conseillère d'orientation francophone. Tu estimes un budget d'études en France. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans markdown et sans backticks. Le JSON doit contenir uniquement min, max et message. min et max sont des nombres entiers en euros. message est une phrase courte.`
+      : isHomeAssistant
+      ? `Tu es Zélia, conseillère d'orientation francophone. Tu connais le contexte utilisateur quand il est fourni dans le message. Réponds en français, en tutoyant l'élève, sans te présenter comme une IA et sans mentionner Gemini. Donne des réponses COURTES comme dans une discussion (2-3 phrases max), rassurantes, concrètes et personnalisées. Termine toujours par une phrase complète avec une ponctuation finale. Si l'élève dit qu'il ne sait pas quoi faire, utilise son profil pour proposer 2 pistes et pose une seule question simple.`
       : mode === 'persona' && persona?.title
       ? `Type de conseiller: ${advisorType || persona.title}. Tu es ${persona.title}. ${titlesText} Réponds en français, en incarnant ce métier (quotidien, contraintes, voies d'accès, perspectives). Donne des réponses COURTES, comme dans une discussion (2-4 phrases max), précises et utiles. Si on te pose des questions personnelles, réponds du point de vue professionnel. Compétences clés: ${(persona.skills||[]).join(', ')}.`
-      : `Type de conseiller: ${advisorType || 'conseiller-ia'}. Tu es un conseiller d'orientation en français. ${titlesText} Donne des réponses COURTES comme dans une discussion (2-4 phrases max), concrètes, bienveillantes et actionnables avec premières étapes.`
+      : `Type de conseiller: ${advisorType || 'zelia'}. Tu es Zélia, conseillère d'orientation en français. ${titlesText} Donne des réponses COURTES comme dans une discussion (2-4 phrases max), concrètes, bienveillantes et actionnables avec premières étapes.`
 
     // Build content for Gemini API
     const parts = []
@@ -185,13 +197,21 @@ router.post('/ai', authenticateToken, async (req, res) => {
       ? { temperature: 0.35, maxOutputTokens: 2048, responseMimeType: 'application/json' }
       : isGradesEvaluation
       ? { temperature: 0.25, maxOutputTokens: 512, responseMimeType: 'application/json' }
+      : isOrientationKeywordSelection
+      ? { temperature: 0.25, maxOutputTokens: 1536, responseMimeType: 'application/json' }
+      : isOrientationCandidatePreselection
+      ? { temperature: 0.15, maxOutputTokens: 2048, responseMimeType: 'application/json' }
+      : isCvBuilder
+      ? { temperature: 0.35, maxOutputTokens: 4096, responseMimeType: 'application/json' }
       : isPointsMetier
       ? { temperature: 0.25, maxOutputTokens: 1024 }
       : isFicheMetier
       ? { temperature: 0.45, maxOutputTokens: 1536 }
       : isStudyBudget
       ? { temperature: 0.2, maxOutputTokens: 512, responseMimeType: 'application/json' }
-      : { temperature: 0.9, maxOutputTokens: 512 }
+      : isHomeAssistant
+      ? { temperature: 0.65, maxOutputTokens: 1024 }
+      : { temperature: 0.75, maxOutputTokens: 1024 }
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`
     const resp = await fetch(geminiUrl, {
@@ -214,10 +234,10 @@ router.post('/ai', authenticateToken, async (req, res) => {
       .trim()
     if (finishReason === 'MAX_TOKENS') {
       console.error('Gemini chat truncated response:', JSON.stringify({ advisorType, mode, maxOutputTokens: generationConfig.maxOutputTokens }))
-      if (isStructuredJson || !reply) {
-        return res.status(500).json({ error: 'Réponse IA tronquée' })
+      if (isCvBuilder && reply) {
+        return res.json({ reply, truncated: true })
       }
-      return res.json({ reply, truncated: true })
+      return res.status(500).json({ error: 'Réponse IA tronquée' })
     }
     if (!reply) {
       console.error('Gemini chat empty response:', JSON.stringify({ finishReason: data?.candidates?.[0]?.finishReason, promptFeedback: data?.promptFeedback || null }))

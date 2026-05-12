@@ -1,374 +1,327 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { fetchProgression } from '../lib/progression'
-import { supportAPI, usersAPI } from '../lib/api'
+import { usersAPI } from '../lib/api'
 import { buildAvatarFromProfile } from '../lib/avatar'
 import { supabase } from '../lib/supabase'
+import { isStandaloneToolRoute, isToolCompletionText } from '../lib/toolMode'
+
+const HOME_NAV_ITEM = { to: '/app', label: "Conseiller d'orientation", icon: 'ph-compass', end: true }
+
+const PRIMARY_NAV_ITEMS = [
+  { to: '/app/outils', label: 'Outils', icon: 'ph-toolbox' },
+  { to: '/app/formations', label: 'Formations et écoles', icon: 'ph-graduation-cap', matches: ['/app/formations', '/app/ecoles-partenaires'] },
+  { to: '/app/emplois', label: 'Métiers', icon: 'ph-briefcase' },
+  { to: '/app/chat', label: 'Chat', icon: 'ph-chats' }
+]
+
+const DESKTOP_NAV_ITEMS = [HOME_NAV_ITEM, ...PRIMARY_NAV_ITEMS]
+
+const BOTTOM_NAV_ITEMS = [
+  { to: '/app/results', label: 'Résultats', icon: 'ph-chart-line-up' }
+]
+
+const MOBILE_NAV_ITEMS = [HOME_NAV_ITEM, ...PRIMARY_NAV_ITEMS, ...BOTTOM_NAV_ITEMS]
+
+const PAGE_LABELS = [
+  { match: '/app/profile', label: 'Profil' },
+  { match: '/app/formations', label: 'Formations et écoles' },
+  { match: '/app/emplois', label: 'Métiers' },
+  { match: '/app/outils', label: 'Outils' },
+  { match: '/app/ecoles-partenaires', label: 'Formations et écoles' },
+  { match: '/app/chat', label: 'Chat' },
+  { match: '/app/lettre', label: 'Lettre' },
+  { match: '/app/results', label: 'Résultats' },
+  { match: '/app', label: "Conseiller d'orientation", exact: true }
+]
+
+function isNavItemActive(item, pathname) {
+  if (item.end) return pathname === item.to
+  const matches = item.matches || [item.to]
+  return matches.some((match) => pathname === match || pathname.startsWith(`${match}/`))
+}
+
+function clearLocalAuthState() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('supabase_auth_token')
+  localStorage.removeItem('zelia_auth_after')
+  localStorage.removeItem('pending_registration_email')
+  localStorage.removeItem('pending_registration_after')
+}
 
 export default function Layout() {
-	const nav = useNavigate()
-	const loc = useLocation()
-	const [sidebarOpen, setSidebarOpen] = useState(false)
-	const [desktopCollapsed, setDesktopCollapsed] = useState(() => {
-		try { return localStorage.getItem('zelia.sidebar.collapsed') === '1' } catch { return false }
-	})
-	useEffect(() => {
-		try { localStorage.setItem('zelia.sidebar.collapsed', desktopCollapsed ? '1' : '0') } catch {}
-	}, [desktopCollapsed])
-	const [dropdownOpen, setDropdownOpen] = useState(false)
-	const dropdownRef = useRef(null)
-  const [level, setLevel] = useState(1)
-	const [bugOpen, setBugOpen] = useState(false)
-	const [bugTitle, setBugTitle] = useState('')
-	const [bugDesc, setBugDesc] = useState('')
-	const [bugSending, setBugSending] = useState(false)
-	const [bugSent, setBugSent] = useState(false)
-	const [avatarUrl, setAvatarUrl] = useState('/static/images/logo-dark.png')
-	const [userName, setUserName] = useState('Utilisateur')
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [avatarUrl, setAvatarUrl] = useState('/static/images/logo-dark.png')
+  const [userName, setUserName] = useState('Utilisateur')
+  const [loggingOut, setLoggingOut] = useState(false)
+  const contentRef = useRef(null)
 
-	useEffect(() => {
-		function handleClickOutside(event) {
-			if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-				setDropdownOpen(false)
-			}
-		}
-		document.addEventListener('mousedown', handleClickOutside)
-		return () => document.removeEventListener('mousedown', handleClickOutside)
-	}, [])
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        const profileResponse = await usersAPI.getProfile().catch(() => null)
+        if (!mounted) return
 
-	// Load user's progression level ("niveau") and profile
-	useEffect(() => {
-		let mounted = true
-		;(async () => {
-			try {
-				const { data: { user } } = await supabase.auth.getUser()
-				if (!mounted) return
+        const profile = profileResponse?.data?.profile
+        if (profile) {
+          if (user) setAvatarUrl(buildAvatarFromProfile(profile, user.id))
+          setUserName(profile.first_name || profile.prenom || 'Utilisateur')
+        }
+      } catch {
+        if (mounted) {
+          setAvatarUrl('/static/images/logo-dark.png')
+          setUserName('Utilisateur')
+        }
+      }
+    })()
+    return () => { mounted = false }
+  }, [])
 
-				const [prog, profRes] = await Promise.all([
-					fetchProgression().catch(() => null),
-					usersAPI.getProfile().catch(() => null)
-				])
+  const pageTitle = useMemo(() => {
+    const found = PAGE_LABELS.find((item) => item.exact ? location.pathname === item.match : location.pathname.startsWith(item.match))
+    return found?.label || "Conseiller d'orientation"
+  }, [location.pathname])
 
-				if (mounted) {
-					if (prog && Number.isFinite(Number(prog.level))) {
-						setLevel(Number(prog.level) || 1)
-					}
-					const profile = profRes?.data?.profile
-					if (profile) {
-						if (user) {
-							setAvatarUrl(buildAvatarFromProfile(profile, user.id))
-						}
-						const name = profile.first_name || profile.prenom || 'Utilisateur'
-						setUserName(name)
-					}
-				}
-			} catch {
-				// Default level stays at 1
-			}
-		})()
-		return () => { mounted = false }
-	}, [])
+  const isChatSurface = location.pathname === '/app' || location.pathname.startsWith('/app/chat')
+  const isToolDetail = isStandaloneToolRoute(location.pathname)
 
-	const active = (path) => {
-		if (path === '/app') {
-			// For dashboard, check if we're exactly at /app or /app/
-			return loc.pathname === '/app' || loc.pathname === '/app/'
-		}
-		return loc.pathname.startsWith(path)
-	}
-	const crumbs = useMemo(() => {
-	const map = [
-			{ match: '/app/profile', label: 'Profil' },
-			{ match: '/app/formations', label: 'Formations' },
-			{ match: '/app/emplois', label: 'Emplois' },
-			{ match: '/app/activites', label: 'Activités' },
-			{ match: '/app/chat', label: 'Chat' },
-			{ match: '/app/lettre', label: 'Lettre' },
-			{ match: '/app/results', label: 'Résultats' },
-		]
-		const found = map.find(m => loc.pathname.startsWith(m.match))
-	return ['\u200B', found?.label || 'Activités']
-	}, [loc.pathname])
+  useEffect(() => {
+    if (!isToolDetail) return undefined
+    const root = contentRef.current
+    if (!root) return undefined
 
-	function logout() {
-		localStorage.removeItem('token')
-		localStorage.removeItem('supabase_auth_token')
-		nav('/')
-	}
+    const decorateCompletionButtons = () => {
+      root.querySelectorAll('button, a').forEach((element) => {
+        if (element.closest('[data-tool-shell-control="true"]')) return
+        if (!isToolCompletionText(element.textContent)) return
+        if (element.textContent.trim() !== 'Terminer') {
+          element.textContent = 'Terminer'
+        }
+        element.setAttribute('aria-label', 'Terminer')
+        if (element.tagName === 'BUTTON' && !element.getAttribute('type')) {
+          element.setAttribute('type', 'button')
+        }
+      })
+    }
 
+    decorateCompletionButtons()
+    const observer = new MutationObserver(decorateCompletionButtons)
+    observer.observe(root, { childList: true, subtree: true, characterData: true })
+    return () => observer.disconnect()
+  }, [isToolDetail, location.pathname])
 
+  function handleToolClickCapture(event) {
+    if (!isToolDetail) return
+    const action = event.target?.closest?.('button, a')
+    if (!action || action.closest('[data-tool-shell-control="true"]')) return
+    if (!isToolCompletionText(action.textContent)) return
 
-	return (
-		<div className="h-screen flex flex-col bg-white text-text-primary overflow-hidden">
-				<BugModal
-					open={bugOpen}
-					onClose={() => { if (!bugSending) setBugOpen(false) }}
-							onSubmit={async ()=>{
-						try {
-							setBugSending(true)
-							const payload = {
-								title: bugTitle,
-								description: bugDesc,
-								location: window.location?.href,
-								userAgent: navigator.userAgent
-							}
-									await supportAPI.reportBug(payload)
-							setBugSent(true)
-							setBugTitle('')
-							setBugDesc('')
-							setTimeout(()=>{ setBugOpen(false); setBugSent(false); }, 1200)
-						} catch (e) {
-									// fallback to mailto if backend not reachable (e.g., 404 on prod host)
-									const subject = encodeURIComponent(bugTitle || 'Bug report (Version BETA 1.0)')
-									const body = encodeURIComponent(`${bugDesc}\n\nURL: ${window.location?.href}\nUA: ${navigator.userAgent}`)
-									window.location.href = `mailto:nicolas.wiegele@zelia.io?subject=${subject}&body=${body}`
-						} finally {
-							setBugSending(false)
-						}
-					}}
-					title={bugTitle}
-					setTitle={setBugTitle}
-					desc={bugDesc}
-					setDesc={setBugDesc}
-					sending={bugSending}
-					sent={bugSent}
-				/>
-			{/* Sidebar */}
-			<aside className={`fixed top-0 left-0 h-full bg-white border-r border-line z-40 transition-all duration-200 ${desktopCollapsed ? 'md:w-16' : 'md:w-64'} w-64 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-				<div className="h-full flex flex-col">
-					<div className={`h-16 flex items-center border-b border-line ${desktopCollapsed ? 'md:justify-center md:px-2' : 'md:px-6'} justify-between px-6`}>
-						<Link to="/app" className="flex items-center justify-center" title="Accueil">
-							<img src="/static/images/logo-dark.png" alt="Logo" className={`${desktopCollapsed ? 'md:h-7' : ''} h-8`} />
-						</Link>
-						<button className="md:hidden p-2 rounded-lg hover:bg-gray-50" onClick={() => setSidebarOpen(false)} aria-label="Fermer la sidebar">
-							<i className="ph ph-x text-xl"></i>
-						</button>
-					</div>
-					<nav className="py-4 flex-1 overflow-y-auto flex flex-col">
-					<SidebarLink
-						to="/app"
-						icon="ph-activity"
-						active={active('/app')}
-						onClick={() => setSidebarOpen(false)}
-						collapsed={desktopCollapsed}
-					>
-						Activités
-					</SidebarLink>
-					<SidebarLink
-						to="/app/formations"
-						icon="ph-graduation-cap"
-						active={active('/app/formations')}
-						onClick={() => setSidebarOpen(false)}
-						collapsed={desktopCollapsed}
-					>
-						Formations
-					</SidebarLink>
-					<SidebarLink
-						to="/app/emplois"
-						icon="ph-briefcase"
-						active={active('/app/emplois')}
-						onClick={() => setSidebarOpen(false)}
-						collapsed={desktopCollapsed}
-					>
-						Emplois
-					</SidebarLink>
-					<SidebarLink
-						to="/app/lettre"
-						icon="ph-file-text"
-						active={active('/app/lettre')}
-						onClick={() => setSidebarOpen(false)}
-						collapsed={desktopCollapsed}
-					>
-						Lettre de motivation
-					</SidebarLink>
-						<SidebarLink
-							to="/app/outils"
-							icon="ph-toolbox"
-							active={active('/app/outils')}
-							onClick={() => setSidebarOpen(false)}
-							collapsed={desktopCollapsed}
-							>
-								Boîte à outils
-							</SidebarLink>
-						<SidebarLink
-							to="/app/ecoles-partenaires"
-							icon="ph-buildings"
-							active={active('/app/ecoles-partenaires')}
-							onClick={() => setSidebarOpen(false)}
-							collapsed={desktopCollapsed}
-							>
-								Écoles recommandées
-							</SidebarLink>
-								<div className="mt-auto">
-									<SidebarLink
-										to="/app/results"
-										icon="ph-chart-line-up"
-										active={active('/app/results')}
-										onClick={() => setSidebarOpen(false)}
-										collapsed={desktopCollapsed}
-									>
-										Mes resultats
-									</SidebarLink>
-									<SidebarLink
-										to="/app/chat"
-										icon="ph-chats"
-										active={active('/app/chat')}
-										onClick={() => setSidebarOpen(false)}
-										collapsed={desktopCollapsed}
-									>
-										Chat
-									</SidebarLink>
-								</div>
-					</nav>
-					<div className={`px-6 pb-3 pt-2 border-t border-line flex flex-col items-center gap-2 text-text-secondary ${desktopCollapsed ? 'md:hidden' : ''}`}>
-						{/* Alpha badge + Report bug */}
-						<div className="flex flex-row items-center justify-center gap-2 text-[11px] uppercase tracking-wide w-full">
-							<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-[#f68fff] text-[#f68fff] whitespace-nowrap">
-								<span className="inline-block w-1.5 h-1.5 rounded-full bg-[#f68fff]"></span>
-								Version BETA 1.0
-							</span>
-							<button onClick={() => setBugOpen(true)} className="text-[#f68fff] hover:underline whitespace-nowrap">Signaler un bug</button>
-						</div>
+    event.preventDefault()
+    event.stopPropagation()
+    event.nativeEvent?.stopImmediatePropagation?.()
+    navigate('/app', { replace: true })
+  }
 
-						<div className="flex items-center justify-center gap-3">
-						<Link to="/legal/mentions-legales" className="group inline-flex h-7 w-7 items-center justify-center rounded-full border border-line transition-colors hover:border-black hover:text-black" title="Mentions légales" aria-label="Mentions légales">
-							<i className="ph ph-identification-card text-sm"></i>
-						</Link>
-						<Link to="/legal/conditions" className="group inline-flex h-7 w-7 items-center justify-center rounded-full border border-line transition-colors hover:border-black hover:text-black" title="CGU &amp; politique de confidentialité" aria-label="CGU et politique de confidentialité">
-							<i className="ph ph-shield-check text-sm"></i>
-						</Link>
-						</div>
-					</div>
-				</div>
-			</aside>
+  async function logout() {
+    if (loggingOut) return
+    setLoggingOut(true)
+    try {
+      await supabase.auth.signOut({ scope: 'local' })
+    } catch (error) {
+      console.warn('Supabase logout failed', error)
+    } finally {
+      clearLocalAuthState()
+      navigate('/login', { replace: true })
+    }
+  }
 
-			{/* Header */}
-			<header className={`sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-line ${desktopCollapsed ? 'md:pl-16' : 'md:pl-64'} shrink-0 transition-all duration-200`}>
-				<div className="h-16 flex items-center justify-between px-4 sm:px-6">
-					<div className="flex items-center gap-3">
-						<button className="md:hidden p-2 rounded-lg border border-line" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Toggle sidebar">
-							<i className="ph ph-list text-xl"></i>
-						</button>
-						<button
-							className="hidden md:inline-flex p-2 rounded-lg border border-line hover:bg-gray-50"
-							onClick={() => setDesktopCollapsed((v) => !v)}
-							aria-label={desktopCollapsed ? 'Déplier la sidebar' : 'Rétracter la sidebar'}
-							title={desktopCollapsed ? 'Déplier la sidebar' : 'Rétracter la sidebar'}
-						>
-							<i className={`ph ${desktopCollapsed ? 'ph-sidebar-simple' : 'ph-sidebar'} text-xl`}></i>
-						</button>
-						<nav className="text-sm text-text-secondary">
-							<span className="text-text-primary font-medium">{crumbs[1]}</span>
-						</nav>
-					</div>
-					<div className="flex items-center gap-3">
-						<div className="hidden md:flex items-center gap-2 px-3 py-2 border border-line rounded-lg w-72">
-							<i className="ph ph-magnifying-glass text-text-secondary"></i>
-							<input className="w-full outline-none text-sm bg-transparent" placeholder="Search shop" />
-							<span className="text-xs text-text-secondary">⌘ K</span>
-						</div>
-						<button className="p-2 rounded-lg hover:bg-gray-50" aria-label="Notifications">
-							<i className="ph ph-bell text-xl"></i>
-						</button>
-						<div className="relative" ref={dropdownRef}>
-							<button className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-50" onClick={() => setDropdownOpen(!dropdownOpen)}>
-								<img src={avatarUrl} className="w-8 h-8 rounded-full bg-white p-1 object-cover" alt="Avatar" />
-								<span className="hidden sm:block text-sm">{userName}</span>
-								<i className="ph ph-caret-down"></i>
-							</button>
-							{dropdownOpen && (
-								<div className="absolute right-0 top-full mt-2 w-48 bg-white border border-line rounded-lg shadow-lg z-50">
-									<div className="py-1">
-										<Link to="/app/profile" onClick={() => setDropdownOpen(false)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2">
-											<i className="ph ph-user"></i>
-											Profil
-										</Link>
-										<button onClick={logout} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2">
-											<i className="ph ph-sign-out"></i>
-											Déconnexion
-										</button>
-									</div>
-								</div>
-							)}
-						</div>
-					</div>
-				</div>
-			</header>
+  const renderDesktopNavItem = (item) => {
+    const isActive = isNavItemActive(item, location.pathname)
+    return (
+      <Link
+        key={item.to}
+        to={item.to}
+        aria-current={isActive ? 'page' : undefined}
+        className={`group flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors ${
+          isActive ? 'bg-black text-white' : 'text-gray-700 hover:bg-[#fffbf7] hover:text-black'
+        }`}
+      >
+        {item.image ? (
+          <img src={item.image} alt="" className="h-5 w-auto" aria-hidden="true" />
+        ) : (
+          <i className={`ph ${item.icon} text-lg`} aria-hidden="true" />
+        )}
+        <span>{item.label}</span>
+      </Link>
+    )
+  }
 
-			{/* Main content */}
-			<main className={`${desktopCollapsed ? 'md:pl-16' : 'md:pl-64'} flex-1 min-h-0 flex flex-col overflow-y-auto transition-all duration-200`}>
-				<div className="px-2 sm:px-6 py-4 flex-1 min-h-0 flex flex-col">
-					<Outlet />
-				</div>
-			</main>
-		</div>
-	)
+  const renderMobileNavItem = (item) => {
+    const isActive = isNavItemActive(item, location.pathname)
+    return (
+      <Link
+        key={item.to}
+        to={item.to}
+        aria-current={isActive ? 'page' : undefined}
+        className={`h-9 px-3 rounded-lg inline-flex items-center gap-2 text-sm font-medium whitespace-nowrap border ${
+          isActive ? 'bg-black text-white border-black' : 'bg-white text-gray-700 border-line'
+        }`}
+      >
+        {item.image ? (
+          <img src={item.image} alt="" className="h-5 w-auto" aria-hidden="true" />
+        ) : (
+          <i className={`ph ${item.icon}`} aria-hidden="true" />
+        )}
+        <span>{item.label}</span>
+      </Link>
+    )
+  }
+
+  return (
+    <>
+    <style>{appShellStyles}</style>
+    <div className="zelia-app-shell h-screen min-h-screen bg-[#fffbf7] text-text-primary overflow-hidden">
+      <aside className="zelia-app-sidebar h-screen min-h-0 flex-col border-r border-line bg-white">
+        <div className="h-16 shrink-0 border-b border-line px-5 flex items-center">
+          <Link to="/app" className="inline-flex" title="Accueil Zélia" aria-label="Accueil Zélia">
+            <img src="/static/images/logo-dark.png" alt="Zelia" className="h-7 w-auto" />
+          </Link>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1" aria-label="Navigation principale desktop">
+          {DESKTOP_NAV_ITEMS.map(renderDesktopNavItem)}
+        </nav>
+
+        <div className="shrink-0 border-t border-line p-3 space-y-2">
+          <nav className="space-y-1" aria-label="Navigation secondaire desktop">
+            {BOTTOM_NAV_ITEMS.map(renderDesktopNavItem)}
+          </nav>
+          <Link
+            to="/app/profile"
+            className="flex min-h-12 items-center gap-3 rounded-lg border border-line bg-[#fffbf7] px-3 py-2 hover:border-black"
+            title="Profil"
+            aria-label="Profil"
+          >
+            <img src={avatarUrl} className="w-9 h-9 rounded-lg bg-white p-1 object-cover" alt="Avatar" />
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-gray-950">{userName}</span>
+              <span className="block text-xs text-text-secondary">Profil</span>
+            </span>
+          </Link>
+          <button
+            type="button"
+            onClick={logout}
+            disabled={loggingOut}
+            className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-line bg-white text-sm font-semibold text-gray-800 hover:border-black disabled:opacity-60"
+          >
+            <i className={`ph ${loggingOut ? 'ph-spinner-gap animate-spin' : 'ph-sign-out'} text-lg`} aria-hidden="true" />
+            <span>Déconnexion</span>
+          </button>
+        </div>
+      </aside>
+
+      <div className="zelia-app-main flex h-screen min-w-0 flex-col overflow-hidden">
+      <header className="sticky top-0 z-30 border-b border-line bg-white/92 backdrop-blur shrink-0 lg:hidden">
+        <div className="h-16 px-4 sm:px-6 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <Link to="/app" className="shrink-0" title="Accueil Zélia" aria-label="Accueil Zélia">
+              <img src="/static/images/logo-dark.png" alt="Zelia" className="h-7 w-auto" />
+            </Link>
+            <div className="hidden sm:block min-w-0">
+              <p className="text-xs uppercase font-medium text-text-secondary tracking-normal">Espace</p>
+              <h1 className="text-base font-semibold truncate">{pageTitle}</h1>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              to="/app/profile"
+              className="h-10 rounded-lg border border-line bg-white pl-1 pr-3 inline-flex items-center gap-2 hover:border-black"
+              title="Profil"
+              aria-label="Profil"
+            >
+              <img src={avatarUrl} className="w-8 h-8 rounded-lg bg-white p-1 object-cover" alt="Avatar" />
+              <span className="hidden sm:block text-sm font-medium max-w-28 truncate">{userName}</span>
+            </Link>
+            <button
+              type="button"
+              onClick={logout}
+              disabled={loggingOut}
+              className="h-10 w-10 rounded-lg border border-line bg-white inline-grid place-items-center hover:border-black"
+              title="Déconnexion"
+              aria-label="Déconnexion"
+            >
+              <i className={`ph ${loggingOut ? 'ph-spinner-gap animate-spin' : 'ph-sign-out'} text-lg`} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+
+        <nav className="flex px-4 pb-3 overflow-x-auto gap-2" aria-label="Navigation principale mobile">
+          {MOBILE_NAV_ITEMS.map(renderMobileNavItem)}
+        </nav>
+      </header>
+
+      <main className={isChatSurface ? 'flex-1 min-h-0 overflow-hidden' : 'flex-1 min-h-0 overflow-y-auto'}>
+        <div ref={contentRef} onClickCapture={handleToolClickCapture} className={isChatSurface ? 'w-full h-full min-h-0 max-w-none overflow-hidden px-3 sm:px-5 lg:px-8 py-3 sm:py-4' : 'w-full max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6'}>
+          {isToolDetail && (
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <Link
+                to="/app/outils"
+                data-tool-shell-control="true"
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-3 text-sm font-medium text-gray-800 hover:border-black"
+              >
+                <i className="ph ph-arrow-left" aria-hidden="true" />
+                <span>Retour aux outils</span>
+              </Link>
+              <button
+                type="button"
+                data-tool-shell-control="true"
+                onClick={() => navigate('/app', { replace: true })}
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-black bg-black px-3 text-sm font-semibold text-white hover:bg-gray-900"
+              >
+                Terminer
+              </button>
+            </div>
+          )}
+          <Outlet />
+        </div>
+      </main>
+      </div>
+    </div>
+    </>
+  )
 }
 
-function SidebarLink({ to, icon, active, children, onClick, locked = false, lockTitle = '', collapsed = false }){
-	const handleClick = (e) => {
-		if (locked) {
-			e.preventDefault()
-			e.stopPropagation()
-		}
-		if (onClick) onClick(e)
-	}
-
-	const label = typeof children === 'string' ? children : ''
-
-	return (
-		<Link
-			to={to}
-			onClick={handleClick}
-			aria-disabled={locked}
-			title={locked ? lockTitle : (collapsed ? label : undefined)}
-			className={`group flex items-center gap-3 px-4 py-2.5 text-sm text-text-primary relative ${active ? 'bg-gray-50' : 'hover:bg-gray-50'} ${locked ? 'pointer-events-auto select-none' : ''} ${collapsed ? 'md:justify-center md:px-2' : ''}`}
-		>
-			<span className={`absolute left-0 top-0 h-full w-1 ${active ? 'bg-black' : 'bg-transparent'} rounded-r`}></span>
-			<div className={`flex items-center gap-3 ${locked ? 'blur-[1px] opacity-60' : ''}`}>
-				<i className={`ph ${icon} text-lg ${active ? 'text-black' : 'text-text-secondary'} group-hover:text-black`}></i>
-				<span className={`${active ? 'font-medium' : ''} ${collapsed ? 'md:hidden' : ''}`}>{children}</span>
-			</div>
-					{locked && !collapsed && (
-						<div className="absolute inset-0 flex items-center justify-end pr-3">
-							<span className="inline-flex items-center gap-1 text-xs text-text-secondary bg-gray-100 border border-line rounded-full px-2 py-0.5">
-								<span className="inline-block h-2 w-2 rounded-full bg-[#f68fff]"></span>
-								{lockTitle}
-							</span>
-						</div>
-					)}
-		</Link>
-	)
+const appShellStyles = `
+.zelia-app-shell {
+  display: flex;
+  width: 100%;
 }
 
-function BugModal({ open, onClose, onSubmit, title, setTitle, desc, setDesc, sending, sent }){
-	if (!open) return null
-	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-			<div className="bg-white w-full max-w-lg rounded-xl border border-line shadow-lg p-5">
-				<div className="flex items-center justify-between mb-3">
-					<h3 className="text-lg font-semibold">Signaler un bug</h3>
-					<button className="p-1 hover:bg-gray-100 rounded" onClick={onClose} aria-label="Fermer">
-						<i className="ph ph-x"></i>
-					</button>
-				</div>
-				<div className="space-y-3">
-					<div>
-						<label className="block text-sm text-text-secondary mb-1">Titre (optionnel)</label>
-						<input className="w-full border border-line rounded-lg px-3 py-2" value={title} onChange={(e)=>setTitle(e.target.value)} placeholder="Ex: Erreur lors de l'enregistrement" />
-					</div>
-					<div>
-						<label className="block text-sm text-text-secondary mb-1">Description</label>
-						<textarea className="w-full border border-line rounded-lg px-3 py-2 min-h-[120px]" value={desc} onChange={(e)=>setDesc(e.target.value)} placeholder="Décrivez brièvement le problème rencontré"></textarea>
-					</div>
-				</div>
-				<div className="flex items-center justify-end gap-2 mt-4">
-					<button className="h-10 px-4 rounded-lg border border-line" onClick={onClose} disabled={sending}>Annuler</button>
-					<button className="h-10 px-4 rounded-lg bg-[#f68fff] text-white disabled:opacity-60" onClick={onSubmit} disabled={sending || !desc.trim()}>
-						{sending ? 'Envoi…' : (sent ? 'Envoyé' : 'Envoyer')}
-					</button>
-				</div>
-			</div>
-		</div>
-	)
+.zelia-app-sidebar {
+  display: none;
 }
+
+.zelia-app-main {
+  flex: 1 1 auto;
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .zelia-app-shell {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+
+  .zelia-app-sidebar {
+    display: flex;
+  }
+
+  .zelia-app-main {
+    grid-column: 2;
+    width: 100%;
+  }
+}
+`

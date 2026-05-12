@@ -9,7 +9,11 @@ router.get('/questions', optionalAuth, async (req, res) => {
   try {
     const db = supabaseAdmin || supabase
     const qType = (req.query.type || req.query.questionnaire_type || 'inscription').toString()
-    // Fetch up to 50 inscription questions from DB
+    const requestedLimit = Number.parseInt(req.query.limit || '50', 10)
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.max(1, Math.min(requestedLimit, 50))
+      : 50
+    // Fetch inscription questions from DB, with a compact limit for the new orientation flow
     // Try selecting expected columns; if it fails due to column mismatch, fall back to selecting all
     let data, error
     {
@@ -18,7 +22,7 @@ router.get('/questions', optionalAuth, async (req, res) => {
         .select('id, content, questionnaire_type')
         .eq('questionnaire_type', qType)
         .order('id', { ascending: true })
-        .limit(50)
+        .limit(limit)
       data = res.data; error = res.error
     }
     if (error && /column .* does not exist/i.test(error.message || '')) {
@@ -26,7 +30,7 @@ router.get('/questions', optionalAuth, async (req, res) => {
         .from('questions')
         .select('*')
         .order('id', { ascending: true })
-        .limit(50)
+        .limit(limit)
       data = res2.data; error = res2.error
     }
 

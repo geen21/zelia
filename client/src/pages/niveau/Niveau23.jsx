@@ -156,11 +156,11 @@ export default function Niveau23() {
         setProfile(prof)
         setAvatarUrl(buildAvatarFromProfile(prof, user.id))
 
-        // Get user's extra info (niveau 21-22)
+        // Get user's extra info from prior modules
         const extraRes = await usersAPI.getExtraInfo().catch(() => null)
         const extraInfo = extraRes?.data?.entries || []
 
-        // Get user's fields (niveau 21)
+        // Get user's fields from prior modules
         const fieldsRes = await usersAPI.getFields().catch(() => null)
         const userFields = fieldsRes?.data?.fields || []
 
@@ -185,7 +185,7 @@ export default function Niveau23() {
         const userDepartment = (prof?.department || '').trim()
         const searchCity = n22City || (n22NearHome === 'Oui' ? userDepartment : '') || userDepartment
 
-        // Build context for Gemini (domain keywords only)
+        // Build context for Zélia (domain keywords only)
         const contextParts = []
         userFields.forEach(f => {
           if (f.field_type || f.field_degree) {
@@ -200,8 +200,8 @@ export default function Niveau23() {
           }
         })
 
-        // Ask Gemini ONLY for domain keywords (not location/level/type)
-        const geminiPrompt = `Tu es un expert en orientation scolaire. Voici le profil d'un étudiant:
+        // Ask Zélia ONLY for domain keywords (not location/level/type)
+        const zeliaPrompt = `Tu es un expert en orientation scolaire. Voici le profil d'un étudiant:
 
 ${contextParts.join('\n')}
 
@@ -223,7 +223,7 @@ Rien d'autre.`
           const aiRes = await apiClient.post('/chat/ai', {
             mode: 'advisor',
             advisorType: 'school-search',
-            message: geminiPrompt,
+            message: zeliaPrompt,
             history: []
           })
           const reply = aiRes?.data?.reply || ''
@@ -235,10 +235,10 @@ Rien d'autre.`
             }
           }
         } catch (err) {
-          console.warn('Gemini query generation failed:', err)
+          console.warn('Zelia query generation failed:', err)
         }
 
-        // Fallback if no keywords from Gemini
+        // Fallback if no keywords from Zélia
         if (keywords.length === 0) {
           userFields.forEach(f => {
             if (f?.field_type) {
@@ -322,12 +322,12 @@ Rien d'autre.`
       const entries = [
         {
           question_id: 'niveau23_schools',
-          question_text: 'Écoles sélectionnées (Niveau 23)',
+          question_text: 'Écoles sélectionnées',
           answer_text: JSON.stringify(selectedSchoolsData.map(s => s.school_name))
         },
         {
           question_id: 'niveau23_contact',
-          question_text: 'Accepte contact écoles (Niveau 23)',
+          question_text: 'Accepte contact écoles',
           answer_text: contactAccepted ? 'Oui' : 'Non'
         }
       ]
@@ -519,11 +519,11 @@ Rien d'autre.`
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 9 réussi !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
             <p className="text-text-secondary mb-4">Tes écoles sont enregistrées.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/10')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
+              <button onClick={() => navigate('/app/niveau/10')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
             </div>
             {/* Subtle confetti dots */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

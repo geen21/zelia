@@ -3,7 +3,10 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { usersAPI } from '../../lib/api'
 import { levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
+import { getNextVideoToolPath, getVideoToolButtonLabel, isVideoToolPath } from '../../lib/videoToolSequence'
 import { FaClapperboard, FaTrophy } from 'react-icons/fa6'
+
+const CURRENT_VIDEO_TOOL_LEVEL = 8
 
 // Helper: build avatar URL from profile preferences, preferring explicit avatar_url
 function buildAvatarFromProfile(profile, seed = 'zelia') {
@@ -271,15 +274,40 @@ export default function Niveau8() {
 
   const [showSuccess, setShowSuccess] = useState(false)
 
-  function finishLevel() {
-    setShowSuccess(true)
+  async function markVideoWatched() {
     // Award XP + increment by exactly one level (or enforce minimum level 8)
+    try {
+      const baseXpReward = 180
+      await levelUp({ minLevel: 8, xpReward: baseXpReward })
+      await usersAPI.saveExtraInfo([
+        {
+          question_id: 'niveau8_video_watched',
+          question_text: 'Vidéo diversité des métiers regardée',
+          answer_text: new Date().toISOString()
+        }
+      ]).catch(() => null)
+    } catch (e) {
+      console.warn('Progression update failed (non-blocking):', e)
+    }
+  }
+
+  function finishLevel() {
+    if (isVideoToolPath(pathname)) {
+      goToNextVideo()
+      return
+    }
+    setShowSuccess(true)
+    markVideoWatched()
+  }
+
+  function goToNextVideo() {
     ;(async () => {
       try {
-        const baseXpReward = 180
-        await levelUp({ minLevel: 8, xpReward: baseXpReward })
+        await markVideoWatched()
       } catch (e) {
         console.warn('Progression update failed (non-blocking):', e)
+      } finally {
+        navigate(getNextVideoToolPath(CURRENT_VIDEO_TOOL_LEVEL))
       }
     })()
   }
@@ -377,7 +405,7 @@ export default function Niveau8() {
                 />
               </noscript>
               <div className="mt-4">
-                <button onClick={finishLevel} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto">J'ai terminé la vidéo</button>
+                <button onClick={finishLevel} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto">{isVideoToolPath(pathname) ? getVideoToolButtonLabel(CURRENT_VIDEO_TOOL_LEVEL) : "J'ai terminé la vidéo"}</button>
               </div>
             </div>
           )}
@@ -385,15 +413,15 @@ export default function Niveau8() {
       </div>
 
       {/* Success overlay for Level 8 completion */}
-      {showSuccess && !pathname.includes('/outils') && (
+      {showSuccess && !isVideoToolPath(pathname) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 8 réussi !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
             <p className="text-text-secondary mb-4">Bravo, tu as regardé la vidéo sur la réalité de l’orientation.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/9')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
+              <button onClick={() => navigate('/app/niveau/9')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />

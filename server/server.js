@@ -245,21 +245,35 @@ app.use((error, req, res, next) => {
   })
 })
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully')
-  process.exit(0)
-})
-
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully')
-  process.exit(0)
-})
-
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   const displayHost = HOST === '0.0.0.0' ? 'all interfaces (0.0.0.0)' : HOST
   console.log(`🚀 Server is running on ${displayHost}:${PORT}`)
   console.log(`📚 API documentation available at http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/api`)
   console.log(`🏥 Health check available at http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/health`)
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`)
 })
+
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use. Stop the existing server before starting a new one.`)
+  } else {
+    console.error('Server listen error:', error)
+  }
+  process.exit(1)
+})
+
+function shutdown(signal, done = () => process.exit(0)) {
+  console.log(`${signal} received, shutting down gracefully`)
+  server.close((error) => {
+    if (error) {
+      console.error('Error while closing server:', error)
+      process.exit(1)
+      return
+    }
+    done()
+  })
+}
+
+process.once('SIGTERM', () => shutdown('SIGTERM'))
+process.once('SIGINT', () => shutdown('SIGINT'))
+process.once('SIGUSR2', () => shutdown('SIGUSR2', () => process.kill(process.pid, 'SIGUSR2')))

@@ -160,7 +160,7 @@ export default function Chat() {
       const reply = res?.data?.reply || "Je n'ai pas pu générer de réponse."
       setAiHistory((prev) => [...prev, { role: 'assistant', content: reply }])
     } catch (e) {
-      setAiHistory((prev) => [...prev, { role: 'assistant', content: 'Erreur IA: ' + (e?.response?.data?.error || e.message) }])
+      setAiHistory((prev) => [...prev, { role: 'assistant', content: 'Erreur de réponse : ' + (e?.response?.data?.error || e.message) }])
     } finally {
       setAiLoading(false)
     }
@@ -194,7 +194,7 @@ export default function Chat() {
               <button
                 className={`px-4 py-2 rounded-full border text-sm ${mode==='ai' ? 'bg-black text-white border-black' : 'bg-white border-gray-200'}`}
                 onClick={() => setMode('ai')}
-              >IA</button>
+              >Conseiller</button>
             </div>
           </div>
         </div>
@@ -205,17 +205,17 @@ export default function Chat() {
               <h2 className="text-xl font-bold text-gray-800">Chat global</h2>
               <span className="text-xs px-2 py-1 rounded-full bg-[#c1ff72] text-black border border-gray-200">Tous les utilisateurs</span>
             </header>
-            <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-white">
+            <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2.5 bg-white">
               {messages.map((m) => (
                 <div key={m.id} className={`flex ${m.user_id === user.id ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[75%] px-3 py-2 rounded-lg border ${m.user_id === user.id ? 'bg-black text-white border-black' : 'bg-white border-gray-200'}`}>
-                    <div className="text-xs mb-1 flex items-center gap-2">
+                  <div className={`max-w-[68%] px-3 py-1.5 rounded-md border text-sm leading-relaxed shadow-none ${m.user_id === user.id ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-50 text-gray-900 border-gray-100'}`}>
+                    <div className="text-[11px] mb-0.5 flex items-center gap-1.5">
                       {isAdminMsg(m.user_email) ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#f68fff] text-white">Admin</span>
+                        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#f68fff] text-white">Admin</span>
                       ) : (
-                        <span className="text-gray-600">{getMessageAuthorLabel(m)}</span>
+                        <span className={m.user_id === user.id ? 'text-gray-300' : 'text-gray-500'}>{getMessageAuthorLabel(m)}</span>
                       )}
-                      <span className="text-gray-400">· {new Date(m.created_at).toLocaleTimeString()}</span>
+                      <span className={m.user_id === user.id ? 'text-gray-400' : 'text-gray-400'}>· {new Date(m.created_at).toLocaleTimeString()}</span>
                     </div>
                     <div className="whitespace-pre-wrap break-words">{m.content}</div>
                   </div>
@@ -238,7 +238,7 @@ export default function Chat() {
         ) : (
           <section className="bg-white rounded-3xl border border-gray-200 shadow-card overflow-hidden flex flex-col flex-1 min-h-0">
             <header className="px-6 py-4 border-b border-gray-200 flex items-center gap-2 flex-wrap">
-              <h2 className="text-xl font-bold text-gray-800 text-center">Conseiller IA</h2>
+              <h2 className="text-xl font-bold text-gray-800 text-center">Conseiller d'orientation</h2>
               {jobs.length > 0 ? (
                 <div className="mt-3 w-full flex flex-wrap items-center justify-center gap-2">
                   <button
@@ -260,17 +260,17 @@ export default function Chat() {
                 <p className="text-sm text-text-secondary text-center mt-1">Conseiller d'orientation</p>
               )}
             </header>
-            <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-white">
+            <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2.5 bg-white">
               {aiHistory.map((m, i) => (
                 <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[75%] px-3 py-2 rounded-lg border ${m.role === 'user' ? 'bg-black text-white border-black' : 'bg-white border-gray-200'}`}>
-                    <div className="text-xs mb-1 text-gray-600">{m.role === 'user' ? 'Vous' : (persona ? persona.title : 'Conseiller IA')}</div>
+                  <div className={`max-w-[68%] px-3 py-1.5 rounded-md border text-sm leading-relaxed shadow-none ${m.role === 'user' ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-50 text-gray-900 border-gray-100'}`}>
+                    <div className={`text-[11px] mb-0.5 ${m.role === 'user' ? 'text-gray-300' : 'text-gray-500'}`}>{m.role === 'user' ? 'Vous' : (persona ? persona.title : 'Conseiller d\'orientation')}</div>
                     <div className="whitespace-pre-wrap break-words">{m.content}</div>
                   </div>
                 </div>
               ))}
               {aiLoading && (
-                <div className="text-sm text-gray-500">L'IA rédige une réponse…</div>
+                <div className="text-sm text-gray-500">Zélia rédige une réponse…</div>
               )}
             </div>
             <footer className="p-4 border-t border-gray-200 bg-white shrink-0">

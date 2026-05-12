@@ -22,6 +22,7 @@ router.post('/register', async (req, res) => {
       age: userData?.age || 18,
       gender: userData?.genre || userData?.gender || '',
       department: userData?.departement || userData?.department || '',
+      department_name: userData?.department_name || userData?.nom_departement || '',
       school: userData?.ecole || userData?.school || '',
       phone_number: userData?.numeroTelephone || userData?.numero_telephone || userData?.phone_number || '',
       newsletter_opt_in: userData?.newsletter_opt_in || false,
@@ -37,14 +38,20 @@ router.post('/register', async (req, res) => {
       questionnaireResponses: questionnaireResponses ? `${questionnaireResponses.length} responses` : 'null'
     })
 
-    const { data, error } = await supabase.auth.signUp({
+    if (!supabaseAdmin?.auth?.admin) {
+      return res.status(500).json({
+        error: 'Supabase admin client is required to create accounts without email validation'
+      })
+    }
+
+    const result = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      options: {
-        data: userMetadata,
-        emailRedirectTo: 'https://zelia.io/' // This will redirect to the home page with hash parameters
-      }
+      email_confirm: true,
+      user_metadata: userMetadata
     })
+    const data = { user: result.data?.user || null, session: null }
+    const error = result.error
 
     if (error) {
       console.error('Supabase signup error:', error)
@@ -57,7 +64,9 @@ router.post('/register', async (req, res) => {
         const userId = data.user.id
 
         // Check if avatar data was stored by trigger
-        const { data: profileCheck } = await supabase
+        const db = supabaseAdmin || supabase
+
+        const { data: profileCheck } = await db
           .from('profiles')
           .select('avatar_json')
           .eq('id', userId)
@@ -65,7 +74,7 @@ router.post('/register', async (req, res) => {
 
         // Store avatar data if not already stored by trigger
         if (avatarData && (!profileCheck || !profileCheck.avatar_json)) {
-          const { error: avatarError } = await supabase
+          const { error: avatarError } = await db
             .from('profiles')
             .update({
               avatar_json: avatarData,
@@ -82,7 +91,7 @@ router.post('/register', async (req, res) => {
         }
 
         // Check if questionnaire responses were stored by trigger
-        const { data: responsesCheck } = await supabase
+        const { data: responsesCheck } = await db
           .from('user_responses')
           .select('id')
           .eq('user_id', userId)
@@ -100,7 +109,7 @@ router.post('/register', async (req, res) => {
             }))
 
           if (rows.length > 0) {
-            const { error: responseError } = await supabase
+            const { error: responseError } = await db
               .from('user_responses')
               .insert(rows)
 
@@ -120,7 +129,8 @@ router.post('/register', async (req, res) => {
     res.status(201).json({
       message: 'User registered successfully',
       user: data.user,
-      session: data.session
+      session: data.session,
+      emailConfirmed: Boolean(supabaseAdmin?.auth?.admin)
     })
   } catch (error) {
     console.error('Registration error:', error)

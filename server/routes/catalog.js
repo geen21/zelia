@@ -13,12 +13,161 @@ function getPagination(query) {
   return { page, pageSize, from, to }
 }
 
+function isStatementTimeout(error) {
+  const message = error?.message || ''
+  return error?.code === '57014' || message.includes('statement timeout') || message.includes('canceling statement')
+}
+
+const ACCENT_KEYWORD_VARIANTS = {
+  ecole: ['école'],
+  ecoles: ['écoles'],
+  evenement: ['événement'],
+  evenements: ['événements'],
+  ingenierie: ['ingénierie'],
+  mecanique: ['mécanique'],
+  medecine: ['médecine'],
+  numerique: ['numérique'],
+  reseau: ['réseau'],
+  reseaux: ['réseaux'],
+  sante: ['santé'],
+  specialisation: ['spécialisation'],
+  developpement: ['développement'],
+  developpeur: ['développeur'],
+  electricite: ['électricité'],
+  electronique: ['électronique'],
+  economie: ['économie'],
+  mathematiques: ['mathématiques'],
+  hotellerie: ['hôtellerie']
+}
+
+const SEARCH_STOPWORDS = new Set(['avec', 'chez', 'dans', 'des', 'du', 'de', 'en', 'et', 'la', 'le', 'les', 'pour', 'sur'])
+
+function stripDiacritics(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+function buildSearchKeywords(query) {
+  const parts = String(query || '')
+    .split(/[^\p{L}\p{N}]+/u)
+    .map((part) => part.trim())
+    .filter((part) => part && !SEARCH_STOPWORDS.has(stripDiacritics(part).toLowerCase()))
+
+  if (!parts.length) return null
+
+  const seen = new Set()
+  const keywords = []
+  const add = (value) => {
+    const clean = String(value || '').trim()
+    if (!clean || seen.has(clean.toLowerCase())) return
+    seen.add(clean.toLowerCase())
+    keywords.push(clean)
+  }
+
+  parts.forEach((part) => {
+    add(part)
+    const ascii = stripDiacritics(part).toLowerCase()
+    ;(ACCENT_KEYWORD_VARIANTS[ascii] || []).forEach(add)
+  })
+
+  return keywords.slice(0, 16)
+}
+
+function buildSearchTextVariants(query) {
+  const raw = String(query || '').trim()
+  if (!raw) return []
+  const words = raw.split(/\s+/).filter(Boolean)
+  const accentWords = words.map((word) => ACCENT_KEYWORD_VARIANTS[stripDiacritics(word).toLowerCase()]?.[0] || word)
+  const variants = [raw, accentWords.join(' ')]
+  return Array.from(new Set(variants.filter(Boolean)))
+}
+
+function mergeRowsById(rows = [], nextRows = []) {
+  const seen = new Set(rows.map((row) => row?.id).filter(Boolean))
+  const merged = [...rows]
+  for (const row of nextRows || []) {
+    const key = row?.id
+    if (key && seen.has(key)) continue
+    if (key) seen.add(key)
+    merged.push(row)
+  }
+  return merged
+}
+
+async function enrichMetierRows(rows = []) {
+  const ids = rows.map((row) => row?.id).filter(Boolean)
+  if (!ids.length) return rows
+
+  const { data, error } = await supabase
+    .from('metiers_france')
+    .select([
+      'id',
+      'description',
+      'contact_urlpostulation',
+      'salaire_commentaire',
+      'secteuractivitelibelle',
+      'qualificationlibelle',
+      'experiencelibelle',
+      'dureetravaillibelle',
+      'entreprise_logo',
+      'contact_coordonnees1',
+      'contextetravail_horaires'
+    ].join(','))
+    .in('id', ids)
+
+  if (error) {
+    console.warn('Catalog metiers enrichment error:', error.message)
+    return rows
+  }
+
+  const detailsById = new Map((data || []).map((row) => [row.id, row]))
+  return rows.map((row) => ({ ...row, ...(detailsById.get(row.id) || {}) }))
+}
+
 // GET /api/catalog/formations/search
 // Supports: q, region, departement, page, page_size
 router.get('/formations/search', optionalAuth, async (req, res) => {
   try {
     const { q, region, departement } = req.query
     const { page, pageSize, from, to } = getPagination(req.query)
+    const normalizedQuery = typeof q === 'string' ? q.trim().replace(/\s+/g, ' ').slice(0, 120) : ''
+    const keywords = buildSearchKeywords(normalizedQuery)
+
+    const runFormationRpc = (keywordList) => supabase.rpc('search_formations', {
+      p_keywords: keywordList,
+      p_department: departement || null,
+      p_region: region || null,
+      p_limit: pageSize,
+      p_offset: from
+    })
+
+    let { data: rpcData, error: rpcError } = await runFormationRpc(keywords)
+
+    if (!rpcError && normalizedQuery && (!rpcData || rpcData.length === 0) && Array.isArray(keywords) && keywords.length > 1) {
+      for (const keyword of keywords) {
+        const retry = await runFormationRpc([keyword])
+        if (retry.error) {
+          rpcError = retry.error
+          break
+        }
+        if (Array.isArray(retry.data) && retry.data.length > 0) {
+          rpcData = retry.data
+          break
+        }
+      }
+    }
+
+    if (!rpcError) {
+      return res.json({
+        items: rpcData || [],
+        total: null,
+        page,
+        page_size: pageSize
+      })
+    }
+
+    console.warn('Catalog formations RPC search error, using fallback:', rpcError.message)
 
     let query = supabase
       .from('formation_france')
@@ -26,17 +175,20 @@ router.get('/formations/search', optionalAuth, async (req, res) => {
 
     if (region) query = query.eq('region', region)
     if (departement) query = query.eq('departement', departement)
-    if (q) {
-      const like = `%${q}%`
-      query = query.or(
-        [
+    if (normalizedQuery) {
+      const filters = buildSearchTextVariants(normalizedQuery).flatMap((variant) => {
+        const like = `%${variant}%`
+        return [
+          `nmc.ilike.${like}`,
+          `tc.ilike.${like}`,
           `etab_nom.ilike.${like}`,
           `code_formation.ilike.${like}`,
           `commune.ilike.${like}`,
           `departement.ilike.${like}`,
           `region.ilike.${like}`
-        ].join(',')
-      )
+        ]
+      })
+      query = query.or(filters.join(','))
     }
 
     // Order: items with nm not null first (NULLS LAST), then recent by id
@@ -78,7 +230,6 @@ router.get('/metiers/search', optionalAuth, async (req, res) => {
 
     // Use the RPC function for optimized search (pg_trgm index + date filtering)
     const rpcParams = {
-      search_term: normalizedQuery || null,
       p_typecontrat: typecontrat || null,
       p_alternance: typeof alternance !== 'undefined' && alternance !== ''
         ? String(alternance).toLowerCase() === 'true'
@@ -88,15 +239,29 @@ router.get('/metiers/search', optionalAuth, async (req, res) => {
       p_offset: from
     }
 
-    const { data, error } = await supabase.rpc('search_metiers', rpcParams)
+    const searchTerms = normalizedQuery ? buildSearchTextVariants(normalizedQuery) : [null]
+    let data = []
+    let error = null
+
+    for (const term of searchTerms) {
+      const result = await supabase.rpc('search_metiers', {
+        ...rpcParams,
+        search_term: term || null
+      })
+      if (result.error) {
+        error = result.error
+        break
+      }
+      data = mergeRowsById(data, result.data || [])
+      if (data.length > pageSize) break
+    }
 
     if (error) {
       console.warn('Catalog metiers RPC search error:', error.message)
       // Fallback to direct query if RPC not found OR on timeout/cancellation
       const shouldFallback =
         error.message.includes('does not exist') ||
-        error.message.includes('statement timeout') ||
-        error.message.includes('canceling statement') ||
+        isStatementTimeout(error) ||
         error.code === '42883' ||
         error.code === '57014'
       if (shouldFallback) {
@@ -107,7 +272,7 @@ router.get('/metiers/search', optionalAuth, async (req, res) => {
 
     const rows = data || []
     const has_more = rows.length > pageSize
-    const items = has_more ? rows.slice(0, pageSize) : rows
+    const items = await enrichMetierRows(has_more ? rows.slice(0, pageSize) : rows)
 
     res.json({ items, has_more, page, page_size: pageSize })
   } catch (err) {
@@ -119,14 +284,16 @@ router.get('/metiers/search', optionalAuth, async (req, res) => {
 // Fallback direct query if RPC function not deployed
 async function fallbackMetiersSearch(req, res, normalizedQuery, typecontrat, alternance, location, page, pageSize, from) {
   const selectCols = [
-    'id', 'intitule', 'romecode', 'dateactualisation', 'typecontrat',
-    'lieutravail_libelle', 'entreprise_nom', 'origineoffre_urlorigine'
+    'id', 'intitule', 'description', 'romecode', 'dateactualisation', 'typecontrat',
+    'experiencelibelle', 'dureetravaillibelle', 'qualificationlibelle', 'secteuractivitelibelle',
+    'lieutravail_libelle', 'entreprise_nom', 'origineoffre_urlorigine', 'contact_urlpostulation',
+    'salaire_commentaire', 'entreprise_logo', 'contact_coordonnees1', 'contextetravail_horaires'
   ].join(',')
 
   const shortQuery = normalizedQuery.length > 0 && normalizedQuery.length <= 4
-  const likePattern = normalizedQuery
-    ? shortQuery ? `${normalizedQuery}%` : `%${normalizedQuery}%`
-    : ''
+  const likePatterns = normalizedQuery
+    ? buildSearchTextVariants(normalizedQuery).map((variant) => shortQuery ? `${variant}%` : `%${variant}%`)
+    : []
 
   let query = supabase.from('metiers_france').select(selectCols, { count: 'none' })
 
@@ -136,7 +303,7 @@ async function fallbackMetiersSearch(req, res, normalizedQuery, typecontrat, alt
   }
 
   if (normalizedQuery) {
-    query = query.ilike('intitule', likePattern)
+    query = query.or(likePatterns.map((pattern) => `intitule.ilike.${pattern}`).join(','))
     const days = shortQuery ? 30 : 60
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
     query = query.gte('dateactualisation', since)
@@ -158,6 +325,9 @@ async function fallbackMetiersSearch(req, res, normalizedQuery, typecontrat, alt
   const { data, error } = await query
   if (error) {
     console.warn('Catalog metiers fallback search error:', error.message)
+    if (isStatementTimeout(error)) {
+      return res.json({ items: [], has_more: false, page, page_size: pageSize })
+    }
     return res.status(400).json({ error: error.message })
   }
 

@@ -211,17 +211,17 @@
 /* Modern brand section */
 .brand-section{ text-align: left; }
 .brand-content{ padding: 20px 0; max-width: 560px; }
-.hero-eyebrow{ display:block; margin:0 0 10px; padding:0; border:0; border-radius:0; background:transparent; color:#5b6472; font-size:14px; font-weight:900; letter-spacing:0.03em; text-transform:uppercase; }
+.hero-eyebrow{ display:block; margin:0 0 10px; padding:0; border:0; border-radius:0; background:transparent; color:#5b6472; font-size:13px; font-weight:600; letter-spacing:0.03em; text-transform:uppercase; }
 .hero-eyebrow::before{ display:none; }
-.brand-title{ font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-weight: 900; font-size: clamp(28px, 3vw, 40px); line-height: 1.12; letter-spacing: 0; color: #000; text-transform: none; margin: 0 0 14px; max-width: 520px; }
+.brand-title{ font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-weight: 650; font-size: clamp(26px, 2.6vw, 34px); line-height: 1.16; letter-spacing: 0; color: #000; text-transform: none; margin: 0 0 14px; max-width: 520px; }
 .accent-text{ color: var(--landing-accent); }
 .no-wrap{ white-space:nowrap; }
-.brand-tagline{ display: inline-flex; align-items: center; gap: 12px; background: var(--brand-strap); color: #000; padding: 10px 14px; border-radius: 8px; font-weight: 800; letter-spacing: 0.02em; transform: none; margin-bottom: 22px; box-shadow: none; }
+.brand-tagline{ display: inline-flex; align-items: center; gap: 12px; background: var(--brand-strap); color: #000; padding: 10px 14px; border-radius: 8px; font-weight: 600; letter-spacing: 0.02em; transform: none; margin-bottom: 22px; box-shadow: none; }
 .tagline-icon{ display: flex; align-items: center; justify-content: center; }
 .tagline-text{ font-size: clamp(11px, 1.4vw, 14px); }
 .brand-lead{ max-width: 520px; margin: 0 0 18px; color:#374151; font-size: clamp(16px, 1.25vw, 18px); line-height: 1.5; }
 .hero-actions{ display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-bottom:18px; }
-.hero-primary-btn, .hero-secondary-btn{ display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding: 11px 16px; border-radius:10px; font-size:14px; font-weight:800; text-decoration:none; border:1px solid #d1d5db; transition: transform .2s ease, box-shadow .2s ease, background .2s ease; }
+.hero-primary-btn, .hero-secondary-btn{ display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding: 11px 16px; border-radius:10px; font-size:14px; font-weight:600; text-decoration:none; border:1px solid #d1d5db; transition: transform .2s ease, box-shadow .2s ease, background .2s ease; }
 .hero-primary-btn{ background:#000; color:#fff; box-shadow:none; }
 .hero-primary-btn:hover{ color:#fff; transform:translateY(-1px); box-shadow:0 10px 18px rgba(0,0,0,0.14); }
 .hero-secondary-btn{ background:#fff; color:#111827; }
@@ -230,11 +230,11 @@
 .landing-proof-item{ display:grid; grid-template-columns:minmax(150px, 190px) 1fr; gap:14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; padding:12px 14px; min-height:auto; }
 .landing-proof-item:last-child{ border-right:0; padding-left:0; }
 .landing-proof-item:not(:first-child){ padding-left:0; }
-.landing-proof-item strong{ display:block; color:#000; font-size: 15px; line-height:1.25; margin-bottom:0; font-weight:900; }
+.landing-proof-item strong{ display:block; color:#000; font-size: 15px; line-height:1.25; margin-bottom:0; font-weight:600; }
 .landing-proof-item span{ display:block; color:#4b5563; font-size:14px; line-height:1.45; font-weight:500; }
 .brand-stats{ margin-bottom: 32px; }
 .stat-item{ background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 16px; padding: 20px; border: 1px solid rgba(0,0,0,0.04); }
-.stat-number{ font-size: 32px; font-weight: 800; color: var(--landing-accent-2); margin-bottom: 4px; }
+.stat-number{ font-size: 28px; font-weight: 650; color: var(--landing-accent-2); margin-bottom: 4px; }
 .stat-label{ font-size: 16px; color: #6b7280; line-height: 1.5; }
 .brand-features{ display: flex; flex-direction: column; gap: 12px; }
 .feature-item{ display: flex; align-items: center; padding: 14px 18px; background: rgba(255,255,255,0.6); border-radius: 10px; border: 1px solid rgba(0,0,0,0.04); transition: all 0.2s ease; }
@@ -243,17 +243,17 @@
 
 .landing-how-section{ padding: 56px 0; background:#fff; border-top:1px solid #e5e7eb; border-bottom:1px solid #e5e7eb; }
 .landing-section-header{ max-width:760px; margin:0 0 24px; text-align:left; }
-.landing-section-kicker{ display:inline-block; margin-bottom:10px; color:#111827; font-size:12px; font-weight:900; letter-spacing:0.04em; text-transform:uppercase; }
-.landing-section-header h2{ font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin:0 0 8px; color:#05080f; font-size:clamp(24px, 2.4vw, 32px); line-height:1.15; font-weight:900; letter-spacing:0; }
+.landing-section-kicker{ display:inline-block; margin-bottom:10px; color:#111827; font-size:12px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; }
+.landing-section-header h2{ font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin:0 0 8px; color:#05080f; font-size:clamp(22px, 2.1vw, 28px); line-height:1.18; font-weight:650; letter-spacing:0; }
 .landing-section-header p{ max-width:620px; margin:0; color:#6b7280; font-size:15px; line-height:1.6; }
 .landing-how-grid{ display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:16px; }
 .landing-how-card{ background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:18px; min-height:190px; box-shadow:0 10px 24px rgba(15,23,42,0.04); }
-.landing-how-step{ display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; margin-bottom:16px; border-radius:10px; background:#f3f4f6; color:#111827; font-size:13px; font-weight:900; }
-.landing-how-card h3{ margin:0 0 10px; color:#111827; font-size:17px; font-weight:900; letter-spacing:0; }
+.landing-how-step{ display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; margin-bottom:16px; border-radius:10px; background:#f3f4f6; color:#111827; font-size:13px; font-weight:600; }
+.landing-how-card h3{ margin:0 0 10px; color:#111827; font-size:17px; font-weight:600; letter-spacing:0; }
 .landing-how-card p{ margin:0; color:#4b5563; font-size:15px; line-height:1.65; }
 .landing-final-cta{ padding: 56px 0 72px; background:#fff; color:#111827; border-top:1px solid #e5e7eb; }
 .landing-final-inner{ display:flex; align-items:center; justify-content:space-between; gap:28px; padding:24px; border:1px solid #e5e7eb; border-radius:16px; background:#fff; box-shadow:0 10px 24px rgba(15,23,42,0.04); }
-.landing-final-inner h2{ margin:0 0 8px; color:#111827; font-size:clamp(24px, 2.6vw, 34px); line-height:1.12; font-weight:900; letter-spacing:0; }
+.landing-final-inner h2{ margin:0 0 8px; color:#111827; font-size:clamp(22px, 2.2vw, 30px); line-height:1.16; font-weight:650; letter-spacing:0; }
 .landing-final-inner p{ max-width:580px; margin:0; color:#4b5563; font-size:17px; line-height:1.6; }
 .landing-final-inner .hero-primary-btn{ background:#000; color:#fff; box-shadow:none; border-color:transparent; white-space:nowrap; }
 .landing-final-inner .hero-primary-btn:hover{ color:#fff; }
@@ -315,8 +315,7 @@
 .levels-section{ padding: 56px 0; background: #fff; }
 .levels-content{ max-width: 1200px; margin: 0 auto; }
 .levels-header{ text-align: center; margin-bottom: 60px; }
-.levels-title{ font-family: "GulfDisplay", "Bricolage Grotesque", "ClashGroteskMedium", system-ui, sans-serif; font-size: clamp(32px, 5vw, 48px); font-weight: 600; color: #000; margin-bottom: 16px; }
-.highlight-niveau{ color: var(--landing-accent-2); font-weight: 700; }
+.levels-title{ font-family: "GulfDisplay", "Bricolage Grotesque", "ClashGroteskMedium", system-ui, sans-serif; font-size: clamp(28px, 4vw, 38px); font-weight: 600; color: #000; margin-bottom: 16px; }
 .levels-subtitle{ font-size: 18px; color: #6b7280; max-width: 600px; margin: 0 auto; line-height: 1.6; }
 .levels-grid{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 32px; }
 .level-card{ position: relative; background: #fff; border-radius: 16px; padding: 18px; border: 1px solid #e5e7eb; transition: all 0.2s ease; cursor: pointer; box-shadow:0 10px 24px rgba(15,23,42,0.04); }
@@ -330,11 +329,11 @@
 .current-badge{ position: absolute; top: -8px; right: -8px; background: var(--landing-accent-2); color: #000; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; box-shadow: none; }
 .levels-cta{ text-align: center; }
 .levels-cta-text{ font-size: 18px; color: #374151; margin-bottom: 24px; font-weight: 500; }
-.levels-cta-btn{ background: var(--landing-accent); color: #000; border: 1px solid #d1d5db; padding: 12px 20px; border-radius: 10px; font-size: 15px; font-weight: 800; cursor: pointer; transition: all 0.2s ease; box-shadow: none; }
+.levels-cta-btn{ background: var(--landing-accent); color: #000; border: 1px solid #d1d5db; padding: 12px 20px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; box-shadow: none; }
 .levels-cta-btn:hover{ background: #a8e652; transform: translateY(-2px); box-shadow: 0 12px 28px rgba(193,255,114,0.4); }
 
 .landing-page .levels-section .landing-section-header{ max-width: 620px; margin-bottom: 28px; }
-.landing-page .levels-section .landing-section-header h2{ font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; font-size: clamp(26px, 2.6vw, 38px) !important; line-height: 1.12 !important; font-weight: 900 !important; letter-spacing: 0 !important; }
+.landing-page .levels-section .landing-section-header h2{ font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; font-size: clamp(22px, 2.2vw, 30px) !important; line-height: 1.16 !important; font-weight: 650 !important; letter-spacing: 0 !important; }
 .landing-page .levels-section .landing-section-header p{ max-width: 560px; font-size: 15px; line-height: 1.55; }
 
 @media (min-width: 992px){
@@ -359,10 +358,10 @@
 .blog-section{ padding: 56px 0; background: #fff; color: #0f172a; border-top:1px solid #e5e7eb; }
 .blog-section__header{ max-width: 620px; margin: 0 0 24px; text-align: left; }
 .blog-section__eyebrow{ display: inline-block; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; font-size: 13px; color: #fb7185; margin-bottom: 12px; }
-.blog-section__title{ font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: clamp(24px, 2.4vw, 32px); font-weight: 900; margin-bottom: 8px; }
+.blog-section__title{ font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: clamp(22px, 2.1vw, 28px); font-weight: 650; margin-bottom: 8px; }
 .blog-section__subtitle{ font-size: 15px; color: #6b7280; margin: 0 0 18px; line-height: 1.6; }
 .blog-section__actions{ display: flex; justify-content: flex-start; }
-.blog-section__cta{ display: inline-flex; align-items: center; gap: 8px; padding: 11px 16px; border-radius: 10px; background: #111827; color: #fff; font-weight: 800; text-decoration: none; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.blog-section__cta{ display: inline-flex; align-items: center; gap: 8px; padding: 11px 16px; border-radius: 10px; background: #111827; color: #fff; font-weight: 600; text-decoration: none; transition: transform 0.2s ease, box-shadow 0.2s ease; }
 .blog-section__cta:hover{ transform: translateY(-2px); box-shadow: 0 14px 28px rgba(15, 23, 42, 0.18); }
 .blog-section__grid{ display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; }
 

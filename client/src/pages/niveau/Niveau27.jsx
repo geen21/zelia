@@ -4,7 +4,10 @@ import { usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 import { buildAvatarFromProfile } from '../../lib/avatar'
+import { getNextVideoToolPath, getVideoToolButtonLabel, isVideoToolPath } from '../../lib/videoToolSequence'
 import { FaClapperboard, FaCheck, FaVideo } from 'react-icons/fa6'
+
+const CURRENT_VIDEO_TOOL_LEVEL = 27
 
 function useTypewriter(message, durationMs) {
   const [text, setText] = useState('')
@@ -87,7 +90,7 @@ export default function Niveau27() {
   }, [navigate])
 
   const messages = useMemo(() => ([
-    { text: `On passe au niveau 27 ${firstName} !`, durationMs: 2000 },
+    { text: `On passe au module suivant ${firstName} !`, durationMs: 2000 },
     { text: "On va t'aider à te vendre auprès des entreprises ou des écoles.", durationMs: 2200 },
     { text: "Nico t'a fait un module vidéo dédié !", durationMs: 1800 },
   ]), [firstName])
@@ -176,14 +179,22 @@ export default function Niveau27() {
       await usersAPI.saveExtraInfo([
         {
           question_id: 'niveau27_video_watched',
-          question_text: 'Vidéo "comment se vendre" regardée (Niveau 27)',
+          question_text: 'Vidéo "comment se vendre" regardée',
           answer_text: 'Oui'
         }
       ])
       await levelUp({ minLevel: 27, xpReward: XP_PER_LEVEL })
+      if (isVideoToolPath(pathname)) {
+        navigate(getNextVideoToolPath(CURRENT_VIDEO_TOOL_LEVEL))
+        return
+      }
       setShowSuccess(true)
     } catch (e) {
       console.warn('Progression update failed:', e)
+      if (isVideoToolPath(pathname)) {
+        navigate(getNextVideoToolPath(CURRENT_VIDEO_TOOL_LEVEL))
+        return
+      }
       setShowSuccess(true) // Show success anyway
     } finally {
       setFinishing(false)
@@ -266,7 +277,7 @@ export default function Niveau27() {
                   disabled={finishing}
                   className="w-full px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 font-medium hover:bg-[#b8f566] transition-colors disabled:opacity-50"
                 >
-                  {finishing ? 'Validation...' : <>J'ai terminé la vidéo <FaCheck className="inline w-3 h-3" /></>}
+                  {finishing ? 'Validation...' : isVideoToolPath(pathname) ? getVideoToolButtonLabel(CURRENT_VIDEO_TOOL_LEVEL) : <>J'ai terminé la vidéo <FaCheck className="inline w-3 h-3" /></>}
                 </button>
               </div>
             </div>
@@ -275,15 +286,15 @@ export default function Niveau27() {
       </div>
 
       {/* Success Popup */}
-      {showSuccess && !pathname.includes('/outils') && (
+      {showSuccess && !isVideoToolPath(pathname) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaVideo className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 27 réussi !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
             <p className="text-text-secondary mb-4">Tu sais maintenant comment te vendre. Continue !</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/28')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
+              <button onClick={() => navigate('/app/niveau/28')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
             </div>
             {/* Subtle confetti dots */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

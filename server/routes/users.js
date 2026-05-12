@@ -4,6 +4,112 @@ import { authenticateToken } from '../middleware/auth.js'
 
 const router = express.Router()
 
+const FINAL_SELECTION_QUESTION_ID = 'orientation_final_selection'
+const EXTRA_INFO_LIMIT = 250
+const FINAL_SELECTION_LIMIT = 12
+const MAX_ANSWER_TEXT_LENGTH = 12000
+
+function firstTextValue(...values) {
+  for (const value of values) {
+    if (value == null) continue
+    const text = String(value).trim()
+    if (text) return text
+  }
+  return ''
+}
+
+function compactFinalSelectionCandidate(candidate) {
+  const raw = candidate && typeof candidate.raw === 'object' ? candidate.raw : {}
+  const compact = {
+    id: firstTextValue(candidate?.id, raw.id, raw.nm, raw.nmc),
+    type: firstTextValue(candidate?.type, raw.type),
+    title: firstTextValue(
+      candidate?.title,
+      candidate?.name,
+      candidate?.formation_name,
+      raw.nm,
+      raw.nmc,
+      raw.formation_name,
+      raw.nom_formation
+    ),
+    subtitle: firstTextValue(candidate?.subtitle, candidate?.description, raw.etab_nom, raw.school_name, raw.commune),
+    sourceTable: firstTextValue(candidate?.sourceTable, raw.source_table, raw.sourceTable),
+    schoolName: firstTextValue(candidate?.schoolName, candidate?.school, raw.etab_nom, raw.school_name),
+    city: firstTextValue(candidate?.city, raw.commune, raw.city),
+    region: firstTextValue(candidate?.region, raw.region),
+    matchScore: firstTextValue(candidate?.matchScore, candidate?.match_score, raw.match_score)
+  }
+
+  return Object.fromEntries(Object.entries(compact).filter(([, value]) => value !== ''))
+}
+
+function compactFinalSelectionAnswer(answerText) {
+  const text = answerText != null ? String(answerText) : ''
+  if (!text) return null
+
+  try {
+    const parsed = JSON.parse(text)
+    const candidates = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(parsed?.candidates)
+        ? parsed.candidates
+        : []
+
+    if (candidates.length > 0) {
+      return JSON.stringify(candidates.slice(0, FINAL_SELECTION_LIMIT).map(compactFinalSelectionCandidate))
+    }
+  } catch {
+    // Keep legacy plain-text answers, but never let a huge blob leave this API.
+  }
+
+  return text.length > MAX_ANSWER_TEXT_LENGTH
+    ? `${text.slice(0, MAX_ANSWER_TEXT_LENGTH)}...`
+    : text
+}
+
+function sanitizeExtraInfoEntry(entry) {
+  const questionId = String(entry?.question_id || '')
+  const answerText = questionId === FINAL_SELECTION_QUESTION_ID
+    ? compactFinalSelectionAnswer(entry?.answer_text)
+    : entry?.answer_text != null && String(entry.answer_text).length > MAX_ANSWER_TEXT_LENGTH
+      ? `${String(entry.answer_text).slice(0, MAX_ANSWER_TEXT_LENGTH)}...`
+      : entry?.answer_text
+
+  return {
+    ...entry,
+    question_id: questionId,
+    answer_text: answerText
+  }
+}
+
+async function fetchExtraInfoEntries(db, userId) {
+  const selectColumns = 'id, user_id, question_id, question_text, answer_text, created_at'
+
+  const { data: regularEntries, error: regularError } = await db
+    .from('informations_complementaires')
+    .select(selectColumns)
+    .eq('user_id', userId)
+    .neq('question_id', FINAL_SELECTION_QUESTION_ID)
+    .order('created_at', { ascending: false })
+    .limit(EXTRA_INFO_LIMIT)
+
+  if (regularError) throw regularError
+
+  const { data: finalSelectionEntries, error: finalSelectionError } = await db
+    .from('informations_complementaires')
+    .select(selectColumns)
+    .eq('user_id', userId)
+    .eq('question_id', FINAL_SELECTION_QUESTION_ID)
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  if (finalSelectionError) throw finalSelectionError
+
+  return [...(finalSelectionEntries || []), ...(regularEntries || [])]
+    .map(sanitizeExtraInfoEntry)
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+}
+
 // Get user profile
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
@@ -85,15 +191,7 @@ router.get('/profile/extra-info', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id
     const db = supabaseAdmin || supabase
-    const { data, error } = await db
-      .from('informations_complementaires')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      return res.status(400).json({ error: error.message })
-    }
+    const data = await fetchExtraInfoEntries(db, userId)
 
     res.json({ entries: data || [] })
   } catch (error) {
@@ -115,7 +213,7 @@ router.post('/profile/extra-info', authenticateToken, async (req, res) => {
 
     const rows = entries
       .filter(e => e && e.question_id && e.question_text)
-      .map(e => ({
+      .map(e => sanitizeExtraInfoEntry({
         user_id: userId,
         question_id: String(e.question_id),
         question_text: String(e.question_text),
@@ -127,6 +225,20 @@ router.post('/profile/extra-info', authenticateToken, async (req, res) => {
     }
 
     const db = supabaseAdmin || supabase
+    const replaceQuestionIds = [...new Set(rows
+      .map(row => row.question_id)
+      .filter(questionId => questionId === FINAL_SELECTION_QUESTION_ID))]
+
+    if (replaceQuestionIds.length > 0) {
+      const { error: deleteError } = await db
+        .from('informations_complementaires')
+        .delete()
+        .eq('user_id', userId)
+        .in('question_id', replaceQuestionIds)
+
+      if (deleteError) return res.status(400).json({ error: deleteError.message })
+    }
+
     const { error } = await db.from('informations_complementaires').insert(rows)
     if (error) return res.status(400).json({ error: error.message })
 
@@ -137,7 +249,7 @@ router.post('/profile/extra-info', authenticateToken, async (req, res) => {
   }
 })
 
-// Save user grades by subject (Niveau 21)
+// Save user grades by subject
 router.post('/profile/notes', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id
@@ -191,7 +303,7 @@ router.get('/profile/notes', authenticateToken, async (req, res) => {
   }
 })
 
-// Save user selected fields/filieres (Niveau 21)
+// Save user selected fields/filieres
 router.post('/profile/fields', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id
@@ -245,7 +357,7 @@ router.get('/profile/fields', authenticateToken, async (req, res) => {
   }
 })
 
-// Save user selected schools (Niveau 23)
+// Save user selected schools
 router.post('/profile/schools', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id

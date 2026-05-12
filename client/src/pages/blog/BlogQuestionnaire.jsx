@@ -125,7 +125,7 @@ export default function BlogQuestionnaire() {
           className="img-fluid rounded my-4 w-100"
         />
         <p>
-          Chaque jour, tu gagnes de l’XP, tu débloques des niveaux, tu rencontres des avatars métiers. Et tu te rends compte que ton orientation, c’est toi qui la façonne.
+          Tu réponds, tu affines, tu compares des pistes, puis tu gardes ce qui te ressemble. Et tu te rends compte que ton orientation, c’est toi qui la façonne.
         </p>
         <p>
           Pour être honnête, on ne t’aide même pas à trouver le travail parfait, le job de tes rêves. On t’aide à trouver le métier idéal, celui qui est fait pour toi, qui te correspond. Un métier ou plusieurs métiers avec le ou lesquel(s) tu pourrais matcher. Parce qu’avant de “choisir ta voie”, tu dois d’abord te rencontrer.

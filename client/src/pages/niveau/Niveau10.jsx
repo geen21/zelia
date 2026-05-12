@@ -247,7 +247,7 @@ export default function Niveau10() {
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau10 levelUp failed', e)
-      setBilanError('Impossible de valider le niveau pour le moment. Réessaie.')
+      setBilanError('Impossible de valider le module pour le moment. Réessaie.')
     } finally {
       setFinishing(false)
     }
@@ -266,7 +266,7 @@ export default function Niveau10() {
 
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(18)
-      doc.text('Bilan Zélia — Niveaux 1 à 9', margin, y)
+      doc.text('Bilan Zélia — Modules d orientation', margin, y)
       y += 10
 
       const addSection = (title, content) => {
@@ -286,10 +286,10 @@ export default function Niveau10() {
       addSection('Anglais', englishLevel || 'Non disponible')
       addSection('Formations', formationsText.length ? formationsText.join(', ') : 'Non disponible')
       addSection('Résumé personnalité', personalitySummary)
-      addSection('Résumé Niveau 1', niveau1Summary)
+      addSection('Résumé de tes premières réponses', niveau1Summary)
       addSection('Bilan compétences', skillsBilan)
 
-      doc.save('zelia-bilan-niveaux-1-9.pdf')
+      doc.save('zelia-bilan-modules-orientation.pdf')
     } catch (e) {
       console.error('PDF generation failed', e)
     } finally {
@@ -449,7 +449,7 @@ export default function Niveau10() {
               </div>
 
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                <div className="font-semibold">Résumé de tes réponses du Niveau 1</div>
+                <div className="font-semibold">Résumé de tes premières réponses</div>
                 <div className="mt-2 whitespace-pre-wrap text-text-secondary">{niveau1Summary || 'Non disponible'}</div>
               </div>
 
@@ -479,11 +479,11 @@ export default function Niveau10() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 10 réussi !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
             <p className="text-text-secondary mb-4">Tu as terminé cette étape avec succès.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/11')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
+              <button onClick={() => navigate('/app/niveau/11')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
             </div>
             {/* Subtle confetti dots */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -953,7 +953,7 @@ function Niveau10Legacy_DISABLED() {
       const { data } = await waitlistAPI.join({
         source: 'niveau-10',
         level: 10,
-        note: 'Inscription déclenchée depuis le CTA du niveau 10',
+        note: 'Inscription déclenchée depuis le CTA du bilan',
         metadata: {
           hasPaid,
           profileId: profile?.id || userId || null
@@ -986,7 +986,7 @@ function Niveau10Legacy_DISABLED() {
       setCompleted(true)
     } catch (err) {
       console.error('Level up failed', err)
-      setError('Impossible de valider le niveau. Réessaie dans un instant.')
+      setError('Impossible de valider le module. Réessaie dans un instant.')
     } finally {
       setSavingProgress(false)
     }
@@ -1179,7 +1179,7 @@ function Niveau10Legacy_DISABLED() {
             </div>
             <h1 className="text-3xl font-extrabold text-gray-900">Active Zélia+ pour débloquer la suite</h1>
             <p className="text-lg text-gray-600">
-              Nous te félicitons pour être arrivé jusqu’ici ! Pour continuer ton aventure et accéder aux niveaux 11 à 50, inscris-toi sur la liste d’attente de Zélia+.
+              Nous te félicitons pour être arrivé jusqu’ici ! Pour continuer ton aventure et accéder aux modules avancés, inscris-toi sur la liste d’attente de Zélia+.
             </p>
           </div>
 
@@ -1200,7 +1200,7 @@ function Niveau10Legacy_DISABLED() {
               <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
                 <p className="font-semibold text-gray-900">Ce que tu obtiens :</p>
                 <ul className="mt-2 list-disc space-y-1 pl-4">
-                  <li>Accès immédiat aux niveaux 11 à 50</li>
+                  <li>Accès immédiat aux modules avancés</li>
                   <li>Ateliers premium (CV, lettre, Parcoursup, oraux)</li>
                   <li>Support prioritaire et mises à jour exclusives</li>
                 </ul>
@@ -1256,7 +1256,7 @@ function Niveau10Legacy_DISABLED() {
                   disabled={savingProgress}
                   className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {savingProgress ? 'Validation…' : 'Valider le niveau 10'}
+                  {savingProgress ? 'Validation…' : 'Valider le bilan'}
                 </button>
                 <button
                   type="button"
@@ -1273,7 +1273,7 @@ function Niveau10Legacy_DISABLED() {
 
         <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-card md:p-8">
           <h2 className="text-xl font-bold text-gray-900">Ce que Zélia+ débloque</h2>
-          <p className="mt-2 text-sm text-gray-500">Ton parcours devient complet et guidé jusqu’aux derniers niveaux.</p>
+          <p className="mt-2 text-sm text-gray-500">Ton parcours devient complet et guidé jusqu’aux derniers modules.</p>
           <ul className="mt-6 space-y-3">
             {benefits.map((benefit) => (
               <li key={benefit.title} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
@@ -1328,7 +1328,7 @@ function Niveau10Legacy_DISABLED() {
                 disabled={savingProgress}
                 className="inline-flex items-center justify-center rounded-xl bg-[#c1ff72] px-5 py-3 text-base font-semibold text-black transition hover:bg-[#b3ff5d] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {savingProgress ? 'Validation…' : 'Valider le niveau 10'}
+                {savingProgress ? 'Validation…' : 'Valider le bilan'}
               </button>
               <button
                 type="button"
@@ -1354,7 +1354,7 @@ function Niveau10Legacy_DISABLED() {
             <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-[#c1ff72] text-2xl shadow-lg">
               <FaRocket className="w-6 h-6 text-white" />
             </div>
-            <h3 className="mt-4 text-2xl font-extrabold text-gray-900">Niveau 10 validé !</h3>
+            <h3 className="mt-4 text-2xl font-extrabold text-gray-900">Bilan validé !</h3>
             <p className="mt-2 text-gray-500">Tu peux maintenant retrouver ton bilan et continuer avec la boîte à outils.</p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
               <button

@@ -4,6 +4,7 @@
 
 -- 1. Activer l'extension pg_trgm pour la recherche de texte partielle rapide (si pas déjà active)
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS unaccent;
 
 -- 2. Créer des index ESSENTIELS pour accélérer les recherches sur 230k entrées
 -- Index GIN sur l'intitulé pour la recherche textuelle ILIKE optimisée
@@ -33,14 +34,22 @@ CREATE OR REPLACE FUNCTION search_metiers(
 RETURNS TABLE (
     id text,
     intitule text,
+    description text,
     romecode text,
     dateactualisation timestamp,
     typecontrat text,
+    experiencelibelle text,
+    dureetravaillibelle text,
+    qualificationlibelle text,
+    secteuractivitelibelle text,
     lieutravail_libelle text,
     entreprise_nom text,
     origineoffre_urlorigine text,
     contact_urlpostulation text,
+    salaire_commentaire text,
     entreprise_logo text,
+    contact_coordonnees1 text,
+    contextetravail_horaires text,
     lieutravail_latitude double precision,
     lieutravail_longitude double precision
 )
@@ -69,14 +78,22 @@ BEGIN
     SELECT
         m.id,
         m.intitule,
+        m.description,
         m.romecode,
         m.dateactualisation,
         m.typecontrat,
+        m.experiencelibelle,
+        m.dureetravaillibelle,
+        m.qualificationlibelle,
+        m.secteuractivitelibelle,
         m.lieutravail_libelle,
         m.entreprise_nom,
         m.origineoffre_urlorigine,
         m.contact_urlpostulation,
+        m.salaire_commentaire,
         m.entreprise_logo,
+        m.contact_coordonnees1,
+        m.contextetravail_horaires,
         CAST(m.lieutravail_latitude AS double precision),
         CAST(m.lieutravail_longitude AS double precision)
     FROM metiers_france m
@@ -84,11 +101,11 @@ BEGIN
         -- Filtre temporel OBLIGATOIRE pour limiter le scan
         m.dateactualisation >= date_limit
         -- Recherche textuelle
-        AND (clean_term = '' OR m.intitule ILIKE '%' || clean_term || '%')
+        AND (clean_term = '' OR unaccent(m.intitule) ILIKE '%' || unaccent(clean_term) || '%')
         -- Filtres optionnels
         AND (p_typecontrat IS NULL OR m.typecontrat = p_typecontrat)
         AND (p_alternance IS NULL OR m.alternance = p_alternance)
-        AND (p_location IS NULL OR p_location = '' OR m.lieutravail_libelle ILIKE '%' || p_location || '%')
+        AND (p_location IS NULL OR p_location = '' OR unaccent(m.lieutravail_libelle) ILIKE '%' || unaccent(p_location) || '%')
     ORDER BY
         m.dateactualisation DESC NULLS LAST,
         m.id DESC

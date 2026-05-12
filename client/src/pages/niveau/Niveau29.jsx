@@ -226,12 +226,12 @@ export default function Niveau29() {
       await usersAPI.saveExtraInfo([
         {
           question_id: 'niveau29_interview_done',
-          question_text: 'Simulation entretien complétée (Niveau 29)',
+          question_text: 'Simulation entretien complétée',
           answer_text: 'Oui'
         },
         {
           question_id: 'niveau29_messages_exchanged',
-          question_text: 'Échanges avec le recruteur (Niveau 29)',
+          question_text: 'Échanges avec le recruteur',
           answer_text: `${messages.filter(m => m.role === 'user').length} réponse(s) donnée(s)`
         }
       ])
@@ -239,7 +239,7 @@ export default function Niveau29() {
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau28 levelUp failed', e)
-      setError('Impossible de valider le niveau pour le moment.')
+      setError('Impossible de valider le module pour le moment.')
     } finally {
       setFinishing(false)
     }
@@ -380,11 +380,11 @@ export default function Niveau29() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 29 réussi !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
             <p className="text-text-secondary mb-4">Tu as survécu à l'entretien d'admission. Bravo pour ton sang-froid !</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/30')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
+              <button onClick={() => navigate('/app/niveau/30')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
             </div>
             {/* Subtle confetti dots */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

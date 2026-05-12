@@ -1,6 +1,7 @@
 // API client utilities for the Zelia application
 import axios from 'axios'
 import { supabase } from './supabase'
+import { buildToolModeResponse, isStandaloneToolRoute } from './toolMode'
 
 const DEFAULT_API_BASE = typeof window !== 'undefined' && window.location?.origin
   ? `${window.location.origin.replace(/\/$/, '')}/api`
@@ -86,13 +87,21 @@ export const usersAPI = {
   getProfile: () => apiClient.get('/users/profile'),
   updateProfile: (profileData) => apiClient.put('/users/profile', profileData),
   getCurrentUser: () => apiClient.get('/users/me'),
-  saveExtraInfo: (entries) => apiClient.post('/users/profile/extra-info', { entries }),
+  saveExtraInfo: (entries) => isStandaloneToolRoute()
+    ? buildToolModeResponse({ entries: Array.isArray(entries) ? entries : [] })
+    : apiClient.post('/users/profile/extra-info', { entries }),
   getExtraInfo: () => apiClient.get('/users/profile/extra-info'),
-  saveNotes: (notes) => apiClient.post('/users/profile/notes', { notes }),
+  saveNotes: (notes) => isStandaloneToolRoute()
+    ? buildToolModeResponse({ notes: Array.isArray(notes) ? notes : [] })
+    : apiClient.post('/users/profile/notes', { notes }),
   getNotes: () => apiClient.get('/users/profile/notes'),
-  saveFields: (fields) => apiClient.post('/users/profile/fields', { fields }),
+  saveFields: (fields) => isStandaloneToolRoute()
+    ? buildToolModeResponse({ fields: Array.isArray(fields) ? fields : [] })
+    : apiClient.post('/users/profile/fields', { fields }),
   getFields: () => apiClient.get('/users/profile/fields'),
-  saveSchools: (schools, contactAccepted) => apiClient.post('/users/profile/schools', { schools, contactAccepted }),
+  saveSchools: (schools, contactAccepted) => isStandaloneToolRoute()
+    ? buildToolModeResponse({ schools: Array.isArray(schools) ? schools : [], contactAccepted })
+    : apiClient.post('/users/profile/schools', { schools, contactAccepted }),
   getSchools: () => apiClient.get('/users/profile/schools'),
 }
 
@@ -150,6 +159,26 @@ export const analysisAPI = {
     })
 }
 
+export const orientationAPI = {
+  getInitialQuestions: (limit = 20) => apiClient.get('/questionnaire/questions', {
+    params: { type: 'inscription', limit }
+  }),
+  submitInitialAnswers: (answers) => apiClient.post('/questionnaire/submit', {
+    answers,
+    questionnaireType: 'inscription'
+  }),
+  generateInitialAnalysis: () => apiClient.post('/analysis/generate-analysis', {}),
+  getResults: () => apiClient.get('/analysis/my-results', {
+    headers: { 'Cache-Control': 'no-cache' },
+    params: { _: Date.now() }
+  }),
+  searchFormations: (params = {}) => apiClient.get('/catalog/formations/search', { params }),
+  searchMetiers: (params = {}) => apiClient.get('/catalog/metiers/search', { params }),
+  getMatchedSchools: () => apiClient.get('/ecoles/matched'),
+  getPartnerSchools: () => apiClient.get('/ecoles/partenaires'),
+  getCurrentUser: () => apiClient.get('/users/me')
+}
+
 export default apiClient
 
 // Chat API
@@ -166,16 +195,17 @@ export const letterAPI = {
   generate: ({ selection, style, emploi_selection, formation_selection }) => apiClient.post('/letter/generate', { selection, style, emploi_selection, formation_selection })
 }
 
-// Progression API
 export const progressionAPI = {
   get: async () => {
-    // we need the user id to construct the route
     const { data: sessionData } = await supabase.auth.getUser()
     const userId = sessionData?.user?.id
     if (!userId) throw new Error('No user')
     return apiClient.get(`/progression/${userId}`)
   },
   update: async ({ level, xp, quests, perks }) => {
+    if (isStandaloneToolRoute()) {
+      return buildToolModeResponse({ level, xp, quests, perks })
+    }
     const { data: sessionData } = await supabase.auth.getUser()
     const userId = sessionData?.user?.id
     if (!userId) throw new Error('No user')

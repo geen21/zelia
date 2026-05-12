@@ -292,7 +292,7 @@ export default function Niveau17() {
   ), [profile])
 
   const steps = useMemo(() => ([
-    { type: 'text', text: `On rentre dans le dur ${firstName}, c'est sûrement l'un des niveaux les plus longs`, durationMs: 2600 },
+    { type: 'text', text: `On rentre dans le dur ${firstName}, c'est sûrement l'un des modules les plus longs`, durationMs: 2600 },
     { type: 'text', text: "On va faire ton CV, bon, c'est moi qui vais le faire, mais il faut que tu m'aides !", durationMs: 2600 },
     { type: 'form', key: 'experience', text: 'Dis-moi tes expériences professionnelles passées (stages, alternance, jobs, etc.)', durationMs: 2200 },
     { type: 'form', key: 'target', text: 'Pour quel métier souhaites-tu postuler ?', durationMs: 1800 },
@@ -478,17 +478,6 @@ export default function Niveau17() {
         `- Ajoute des détails concrets pour remplir une page A4, sans inventer d'entreprise si aucune n'est fournie (utilise "Projet personnel").\n` +
         `- Sois concis, professionnel, et évite toute phrase d'introduction ou de conclusion.`
 
-      const resp = await apiClient.post('/chat/ai', {
-        mode: 'advisor',
-        advisorType: 'cv-builder',
-        message,
-        history: []
-      })
-
-      const raw = resp?.data?.reply || ''
-      console.log('CV AI raw response:', raw)
-      const parsed = extractJson(raw)
-      console.log('CV AI parsed:', parsed)
       const fallback = buildFallbackCv({
         profile,
         targetJob: payload.targetJob,
@@ -499,6 +488,24 @@ export default function Niveau17() {
         skills: cleanSkills,
         languages: cleanLanguages
       })
+
+      let parsed = null
+      try {
+        const resp = await apiClient.post('/chat/ai', {
+          mode: 'advisor',
+          advisorType: 'cv-builder',
+          message,
+          history: []
+        })
+
+        const raw = resp?.data?.reply || ''
+        console.log('CV AI raw response:', raw)
+        parsed = extractJson(raw)
+        console.log('CV AI parsed:', parsed)
+      } catch (aiError) {
+        console.warn('CV AI generation failed, using fallback CV', aiError)
+      }
+
       const cv = parsed && typeof parsed === 'object' ? {
         ...fallback,
         ...parsed,
@@ -1060,7 +1067,7 @@ export default function Niveau17() {
                   className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300"
                   disabled={finishing}
                 >
-                  {finishing ? 'Validation…' : 'Terminer le niveau'}
+                  {finishing ? 'Validation…' : 'Terminer'}
                 </button>
                 {uploadingPdf && <span className="text-sm text-text-secondary">Upload Cloudinary…</span>}
                 {pdfUrl && (

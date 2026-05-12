@@ -9,6 +9,50 @@ function countWords(text) {
   return text.trim().split(/\s+/).filter(Boolean).length
 }
 
+function normalizeEnglishAnswer(text) {
+  return String(text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s']/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function includesAny(text, keywords) {
+  const normalized = normalizeEnglishAnswer(text)
+  return keywords.some((keyword) => normalized.includes(normalizeEnglishAnswer(keyword)))
+}
+
+function countSentences(text) {
+  return String(text || '').split(/[.!?]+/).map((part) => part.trim()).filter(Boolean).length
+}
+
+function countUniqueWords(text) {
+  return new Set(normalizeEnglishAnswer(text).split(/\s+/).filter((word) => word.length > 2)).size
+}
+
+function scoreOpenText(text, { minWords = 20, targetWords = 45, requireOpinion = false } = {}) {
+  const words = countWords(text)
+  const uniqueWords = countUniqueWords(text)
+  const sentences = countSentences(text)
+  const normalized = normalizeEnglishAnswer(text)
+  let score = 0
+
+  if (words >= minWords) score += 6
+  if (words >= targetWords) score += 4
+  if (sentences >= 2) score += 3
+  if (sentences >= 4) score += 3
+  if (uniqueWords >= 14) score += 3
+  if (uniqueWords >= 28) score += 3
+  if (includesAny(normalized, ['because', 'although', 'however', 'therefore', 'for example', 'in my opinion'])) score += 4
+  if (includesAny(normalized, ['will', 'would', 'could', 'should', 'have been', 'used to'])) score += 3
+  if (!/\b(i|you|he|she|we|they)\s+(is|am|are)\s+\w+ed\b/.test(normalized)) score += 2
+  if (requireOpinion && includesAny(normalized, ['i think', 'i believe', 'in my opinion', 'important', 'useful', 'future'])) score += 4
+
+  return Math.min(35, score)
+}
+
 // Reuse helper from other levels (simplified fallback only to avoid duplication)
 function buildAvatarFromProfile(profile, seed = 'zelia') {
   try {
@@ -87,6 +131,7 @@ export default function Niveau5() {
   const [mouthAlt, setMouthAlt] = useState(false)
   const [completed, setCompleted] = useState(false)
   const [englishLevel, setEnglishLevel] = useState('')
+  const [englishAssessment, setEnglishAssessment] = useState(null)
 
   // TTS function
   const speakText = useCallback((text) => {
@@ -126,7 +171,7 @@ export default function Niveau5() {
   }, [navigate])
 
   const dialogue = useMemo(() => ([
-  { type: 'text', text: "Hey! Welcome to Level 5. We're going to test your English skills in a fun conversation. I'll ask you questions, play some audio, and at the end, I'll tell you your CEFR level from A1 to C2. Ready?\n\n*cela ne remplace en aucun cas un test d'anglais.*", durationMs: 3500 },
+  { type: 'text', text: "Hey! Welcome to the English test. We'll check listening, reading, vocabulary, grammar and short writing. At the end, I'll estimate your CEFR level from A1 to C2.\n\n*cela ne remplace en aucun cas un test officiel d'anglais.*", durationMs: 3500 },
     { type: 'text', text: "First, let's test your listening. I'll play a short audio. Listen carefully and answer the question after.", durationMs: 2200 },
     { type: 'audio', text: "Listen: 'Hello, my name is John. I live in London and I work as a teacher. I like reading books and playing football.'\n\nWhat is John's job?", audioText: "Hello, my name is John. I live in London and I work as a teacher. I like reading books and playing football." },
     { type: 'input', id: 'listening1', placeholder: 'Your answer...' },
@@ -137,14 +182,20 @@ export default function Niveau5() {
     { type: 'input', id: 'speaking1', placeholder: 'Describe your hobby in at least 20 words...' },
     { type: 'text', text: "Nice! Reading test. Read this: 'Cats are popular pets. They are independent and playful. Many people love cats because they are cute and fun.'\n\nWhat are cats best described as?\n\nRéponds en donnant les adjectifs exacts.", durationMs: 3000 },
     { type: 'input', id: 'reading1', placeholder: 'Donne les adjectifs exacts...' },
-    { type: 'text', text: "Good. Writing test. Write a short paragraph about your daily routine. Use at least 5 sentences.", durationMs: 1800 },
+    { type: 'text', text: "Inference: 'Maya missed the first train, so she arrived at the interview ten minutes late. She apologized and explained the situation politely.'\n\nWhy was Maya late?", durationMs: 2800 },
+    { type: 'input', id: 'reading2', placeholder: 'Explain briefly in English...' },
+    { type: 'text', text: "Good. Writing test. Write a short paragraph about your daily routine. Use at least 5 sentences and try to link ideas with words like because, then, after or however.", durationMs: 2200 },
     { type: 'input', id: 'writing1', placeholder: 'Write your paragraph...' },
     { type: 'text', text: "Vocabulary: What does 'happy' mean? Choose: a) sad, b) joyful, c) angry", durationMs: 1800 },
     { type: 'input', id: 'vocab1', placeholder: 'a, b, or c...' },
+    { type: 'text', text: "Vocabulary: What does 'reliable' mean? Choose: a) someone you can trust, b) very expensive, c) difficult to understand", durationMs: 2000 },
+    { type: 'input', id: 'vocab2', placeholder: 'a, b, or c...' },
     { type: 'text', text: "Grammar: Fill in the blank: 'I ___ to school every day.' (go, goes, going)", durationMs: 1800 },
     { type: 'input', id: 'grammar1', placeholder: 'Your answer...' },
-    { type: 'text', text: "Conversation: What do you think about learning English? Why is it important? Réponds en détaillant au moins 20 mots.", durationMs: 2000 },
-    { type: 'input', id: 'conversation1', placeholder: 'Share your thoughts in at least 20 words...' },
+    { type: 'text', text: "Grammar: Fill in the blank: 'She has lived in Paris ___ 2020.' (for, since, during)", durationMs: 1800 },
+    { type: 'input', id: 'grammar2', placeholder: 'Your answer...' },
+    { type: 'text', text: "Conversation: What do you think about learning English? Why is it important for your future? Réponds en détaillant au moins 25 mots.", durationMs: 2200 },
+    { type: 'input', id: 'conversation1', placeholder: 'Share your thoughts in at least 25 words...' },
     { type: 'text', text: "Thanks for participating! Now, let's calculate your English level based on your answers.", durationMs: 1800 },
     { type: 'result' },
   ]), [])
@@ -199,7 +250,12 @@ export default function Niveau5() {
     const wordLimitedIds = ['speaking1', 'conversation1']
     if (wordLimitedIds.includes(item.id)) {
       const count = countWords(value)
-      if (count < 20) return { ok: false, message: 'Écris au moins 20 mots.' }
+      const minimum = item.id === 'conversation1' ? 25 : 20
+      if (count < minimum) return { ok: false, message: `Écris au moins ${minimum} mots.` }
+    }
+    if (item.id === 'writing1') {
+      const sentences = countSentences(value)
+      if (sentences < 5) return { ok: false, message: 'Écris au moins 5 phrases.' }
     }
     return { ok: true }
   }, [inputs])
@@ -215,14 +271,16 @@ export default function Niveau5() {
   const currentWordCount = current.type === 'input' ? countWords(inputs[current.id]) : 0
 
   const onNext = () => {
-    if (current.type === 'text' && !typedDone) { skip(); return }
+    if ((current.type === 'text' || current.type === 'audio') && !typedDone) { skip(); return }
     if (!canProceed()) return
     if (idx + 1 < dialogue.length) {
       const nextIdx = idx + 1
       setIdx(nextIdx)
       const nextItem = dialogue[nextIdx]
       if (nextItem && nextItem.type === 'result') {
-        setEnglishLevel(calculateEnglishLevel(inputs))
+        const assessment = calculateEnglishAssessment(inputs)
+        setEnglishAssessment(assessment)
+        setEnglishLevel(assessment.level)
       }
     } else {
       finishLevel()
@@ -241,44 +299,58 @@ export default function Niveau5() {
     return messages[level] || "Your English level is: " + level + "\n\nL'anglais est essentiel pour ton avenir professionnel. Continue à pratiquer !"
   }
 
-  function calculateEnglishLevel(answers) {
-    let score = 0
-    // Listening: check for key words
-    if (answers.listening1?.toLowerCase().includes('teacher') || answers.listening1?.toLowerCase().includes('professor')) score += 25
-    if (answers.listening2?.toLowerCase().includes('park') || answers.listening2?.toLowerCase().includes('garden')) score += 25
-    // Speaking: length, structure, vocabulary
-  const speak = answers.speaking1 || ''
-  const speakWords = countWords(speak)
-    if (speakWords > 20) score += 15
-    if (speak.includes('I') && speak.includes('like')) score += 10
-    if (speak.includes('because') || speak.includes('so')) score += 5
-    // Reading: comprehension
-    const read = answers.reading1?.toLowerCase() || ''
-    if (read.includes('independent') || read.includes('playful') || read.includes('cute') || read.includes('fun')) score += 20
-    // Writing: length, structure, grammar
-  const write = answers.writing1 || ''
-  const writeWords = countWords(write)
-    const sentences = write.split(/[.!?]+/).filter(s => s.trim().length > 0).length
-    if (sentences >= 5) score += 15
-    if (writeWords > 50) score += 10
-    if (write.includes('I ') && write.includes('my ')) score += 5
-    // Vocab: exact
-    if (answers.vocab1?.toLowerCase().trim() === 'b') score += 15
-    // Grammar: exact
-    if (answers.grammar1?.toLowerCase().trim() === 'go') score += 15
-    // Conversation: length, opinion
-  const conv = answers.conversation1 || ''
-  const convWords = countWords(conv)
-    if (convWords > 30) score += 10
-    if (conv.includes('important') || conv.includes('because') || conv.includes('future')) score += 10
+  function calculateEnglishAssessment(answers) {
+    const listening = [
+      includesAny(answers.listening1, ['teacher', 'professor']) ? 15 : 0,
+      includesAny(answers.listening2, ['park', 'picnic']) ? 15 : 0
+    ].reduce((sum, value) => sum + value, 0)
 
-    // Map to CEFR with more levels
-    if (score <= 30) return 'A1'
-    if (score <= 60) return 'A2'
-    if (score <= 90) return 'B1'
-    if (score <= 120) return 'B2'
-    if (score <= 150) return 'C1'
-    return 'C2'
+    const reading = [
+      includesAny(answers.reading1, ['independent']) ? 7 : 0,
+      includesAny(answers.reading1, ['playful']) ? 7 : 0,
+      includesAny(answers.reading1, ['cute', 'fun']) ? 4 : 0,
+      includesAny(answers.reading2, ['missed', 'train']) ? 12 : 0
+    ].reduce((sum, value) => sum + value, 0)
+
+    const vocabulary = [
+      normalizeEnglishAnswer(answers.vocab1) === 'b' || includesAny(answers.vocab1, ['joyful']) ? 15 : 0,
+      normalizeEnglishAnswer(answers.vocab2) === 'a' || includesAny(answers.vocab2, ['trust', 'can trust']) ? 15 : 0
+    ].reduce((sum, value) => sum + value, 0)
+
+    const grammar = [
+      normalizeEnglishAnswer(answers.grammar1) === 'go' ? 15 : 0,
+      normalizeEnglishAnswer(answers.grammar2) === 'since' ? 15 : 0
+    ].reduce((sum, value) => sum + value, 0)
+
+    const speaking = scoreOpenText(answers.speaking1, { minWords: 20, targetWords: 45 })
+    const writing = scoreOpenText(answers.writing1, { minWords: 45, targetWords: 75 })
+    const conversation = scoreOpenText(answers.conversation1, { minWords: 25, targetWords: 55, requireOpinion: true })
+    const production = Math.min(70, speaking + Math.max(writing, conversation))
+    const total = listening + reading + vocabulary + grammar + production
+
+    const level = total < 45 ? 'A1'
+      : total < 75 ? 'A2'
+        : total < 110 ? 'B1'
+          : total < 140 ? 'B2'
+            : total < 165 ? 'C1'
+              : 'C2'
+
+    return {
+      level,
+      score: total,
+      maxScore: 190,
+      skills: {
+        listening,
+        reading,
+        vocabulary,
+        grammar,
+        production
+      }
+    }
+  }
+
+  function calculateEnglishLevel(answers) {
+    return calculateEnglishAssessment(answers).level
   }
 
   function buildNiveau5ExtraInfoEntries({ answers, level }) {
@@ -310,11 +382,20 @@ export default function Niveau5() {
       answer_text: level
     })
 
+    const assessment = calculateEnglishAssessment(answers)
+    entries.push({
+      question_id: 'niv5_english_assessment',
+      question_text: "Score détaillé du test d'anglais",
+      answer_text: JSON.stringify(assessment)
+    })
+
     return entries
   }
 
   function finishLevel() {
-    const level = calculateEnglishLevel(inputs)
+    const assessment = calculateEnglishAssessment(inputs)
+    const level = assessment.level
+    setEnglishAssessment(assessment)
     setEnglishLevel(level)
     setSaving(true)
     ;(async () => {
@@ -370,6 +451,16 @@ export default function Niveau5() {
               {current.type === 'result' && (
                 <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
                   <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">{getLevelMessage(englishLevel)}</div>
+                  {englishAssessment && (
+                    <div className="mt-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
+                      {Object.entries(englishAssessment.skills).map(([skill, value]) => (
+                        <div key={skill} className="rounded-lg bg-white/10 p-2">
+                          <span className="block uppercase text-white/60">{skill}</span>
+                          <strong>{value}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
                 </div>
               )}
@@ -377,7 +468,10 @@ export default function Niveau5() {
                 <div className="space-y-3">
                   <label className="font-medium text-text-primary block">Réponse</label>
                   {(current.id === 'speaking1' || current.id === 'conversation1') && (
-                    <p className="text-sm text-gray-500">20 mots minimum. ({currentWordCount} mots)</p>
+                    <p className="text-sm text-gray-500">{current.id === 'conversation1' ? '25' : '20'} mots minimum. ({currentWordCount} mots)</p>
+                  )}
+                  {current.id === 'writing1' && (
+                    <p className="text-sm text-gray-500">5 phrases minimum. ({countSentences(inputs[current.id])} phrases)</p>
                   )}
                   {current.id === 'reading1' && (
                     <p className="text-sm text-gray-500">Donne exactement les adjectifs du texte.</p>
@@ -404,17 +498,10 @@ export default function Niveau5() {
                 )}
                 <button
                   onClick={onNext}
-                  disabled={!canProceed() || saving}
+                  disabled={saving || (!canProceed() && current.type !== 'text' && current.type !== 'audio')}
                   className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-50"
                 >
-                  {idx + 1 < dialogue.length ? ((current.type === 'text' || current.type === 'audio') && !typedDone ? 'Passer' : 'Suivant') : 'Terminer'}
-                </button>
-                <button
-                  onClick={finishLevel}
-                  disabled={saving}
-                  className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 disabled:opacity-50"
-                >
-                  Passer ce niveau
+                  {idx + 1 < dialogue.length ? ((current.type === 'text' || current.type === 'audio') && !typedDone ? 'Afficher le texte' : 'Suivant') : 'Terminer'}
                 </button>
               </div>
             </div>
@@ -426,11 +513,11 @@ export default function Niveau5() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 5 réussi !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
             <p className="text-text-secondary mb-4">Ton niveau d'anglais est : <strong>{englishLevel}</strong>. Continue à pratiquer pour progresser !</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/6')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
+              <button onClick={() => navigate('/app/niveau/6')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
             </div>
             {/* Subtle confetti dots */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

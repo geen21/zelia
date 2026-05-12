@@ -111,7 +111,7 @@ export default function BlogEtudeSalaire() {
           Spoiler : le salaire rêvé d’un ado est plus raisonnable que tu ne le crois.
         </p>
         <p>
-          Chez Zelia, dans le niveau 2 de notre plateforme d’orientation et de développement pour ados, on demande régulièrement ce qu’ils considèrent être “un bon salaire”.
+          Chez Zelia, dans le parcours d’orientation pour ados, on demande régulièrement ce qu’ils considèrent être “un bon salaire”.
           On pose aussi pas mal de questions au fil de l’eau pour les rendre acteurs de leur orientation : se questionner, s’auto-évaluer, mettre des mots sur leurs priorités.
         </p>
         <p>

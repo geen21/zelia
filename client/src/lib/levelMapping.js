@@ -65,36 +65,30 @@ export function migrateOldLevelToNew(oldLevel) {
   return 9
 }
 
-// All old levels that become standalone tools in the Boite a Outils
-// Excludes levels that are part of the new parcours (1, 3, 7, 11, 12, 15, 21, 22, 23)
+// Functional toolbox entries. Legacy level IDs are kept only for redirects/data compatibility.
 export const TOOLBOX_ITEMS = [
-  { oldLevel: 2, title: "L'importance de l'orientation", category: 'Videos', icon: 'ph-video', description: "Video sur l'importance de l'orientation professionnelle" },
-  { oldLevel: 4, title: 'Test de personnalite', category: 'Quiz', icon: 'ph-brain', description: "Questionnaire de personnalite approfondi avec analyse IA" },
-  { oldLevel: 5, title: "Test d'anglais", category: 'Quiz', icon: 'ph-translate', description: "Evaluation de ton niveau d'anglais (CECR A1-C2)" },
-  { oldLevel: 6, title: 'Recherche de formations', category: 'Orientation', icon: 'ph-magnifying-glass', description: 'Rechercher des formations par mot-cle et region' },
-  { oldLevel: 8, title: 'La diversite des metiers', category: 'Videos', icon: 'ph-video', description: 'Video sur la diversite des metiers et partage' },
-  { oldLevel: 9, title: "Recherche d'emplois", category: 'Exploration', icon: 'ph-briefcase', description: "Rechercher des offres d'emploi reelles" },
-  { oldLevel: 13, title: 'Chat communautaire', category: 'Communication', icon: 'ph-chats', description: 'Echange avec la communaute Zelia' },
-  { oldLevel: 14, title: 'Lettre de motivation', category: 'Documents', icon: 'ph-file-text', description: 'Generation IA de lettre de motivation personnalisee' },
-  { oldLevel: 16, title: 'Video : comment se vendre', category: 'Videos', icon: 'ph-video', description: 'Tutoriel CV par Nicolas' },
-  { oldLevel: 17, title: 'Creation du CV', category: 'Documents', icon: 'ph-identification-card', description: 'Creer et exporter ton CV en PDF' },
-  { oldLevel: 18, title: 'Classement des metiers', category: 'Exploration', icon: 'ph-sort-ascending', description: 'Classe tes metiers preferes par ordre de preference' },
-  { oldLevel: 19, title: "Axes d'amelioration", category: 'Developpement', icon: 'ph-trend-up', description: "5 points d'amelioration personnalises par l'IA" },
-  { oldLevel: 24, title: 'Quiz statistiques orientation', category: 'Quiz', icon: 'ph-chart-pie', description: "Quiz sur les statistiques d'orientation post-bac" },
-  { oldLevel: 25, title: 'Video : etudes post-bac', category: 'Videos', icon: 'ph-video', description: 'Video sur les etudes apres le bac' },
-  { oldLevel: 26, title: 'Infos Parcoursup', category: 'Orientation', icon: 'ph-info', description: 'Tout savoir sur Parcoursup' },
-  { oldLevel: 27, title: "Video : se presenter a l'oral", category: 'Videos', icon: 'ph-video', description: 'Comment se presenter efficacement' },
-  { oldLevel: 28, title: 'Entrainement pitch', category: 'Entretien', icon: 'ph-microphone', description: 'Enregistre ton pitch et recois un feedback IA' },
-  { oldLevel: 29, title: "Simulation d'entretien", category: 'Entretien', icon: 'ph-chats-circle', description: "Simulation d'entretien avec un coach IA exigeant" },
-  { oldLevel: 31, title: "Explorer un parcours d'etudes", category: 'Exploration', icon: 'ph-path', description: 'Decouvre les etudes necessaires pour ton metier' },
-  { oldLevel: 32, title: 'Competences recommandees', category: 'Exploration', icon: 'ph-star', description: 'Competences a developper pour ta carriere' },
-  { oldLevel: 33, title: 'Lettre a soi-meme', category: 'Developpement', icon: 'ph-envelope', description: 'Ecris une lettre a ton futur toi dans 5 ans' },
-  { oldLevel: 34, title: 'Gestion du stress', category: 'Developpement', icon: 'ph-heart', description: 'Decouvre ton profil de gestion du stress' },
-  { oldLevel: 35, title: 'Video motivation', category: 'Videos', icon: 'ph-video', description: 'Video motivationnelle par Nicolas' },
-  { oldLevel: 36, title: 'Intelligence emotionnelle', category: 'Soft Skills', icon: 'ph-smiley', description: "Scenarios interactifs sur l'adaptabilite" },
-  { oldLevel: 37, title: 'Quiz soft skills', category: 'Quiz', icon: 'ph-chart-pie', description: 'Quiz sur les statistiques de recrutement et soft skills' },
-  { oldLevel: 38, title: 'Resolution de problemes', category: 'Soft Skills', icon: 'ph-puzzle-piece', description: "Scenarios de resolution de problemes en entreprise" },
-  { oldLevel: 39, title: 'Feedback', category: 'Autre', icon: 'ph-chat-dots', description: "Donne ton avis sur l'experience Zelia" }
+  { id: 'videos-orientation', legacyLevels: [2, 8, 16, 25, 27, 35], path: '/app/outils/videos-orientation', title: 'Vidéos orientation', category: 'Videos', icon: 'ph-video', description: "Toutes les vidéos d'orientation à suivre au même endroit" },
+  { id: 'personnalite', legacyLevels: [4], componentLevel: 4, path: '/app/outils/personnalite', title: 'Test de personnalite', category: 'Quiz', icon: 'ph-brain', description: "Questionnaire de personnalite approfondi avec analyse IA" },
+  { id: 'anglais', legacyLevels: [5], componentLevel: 5, path: '/app/outils/anglais', title: "Test d'anglais", category: 'Quiz', icon: 'ph-translate', description: "Evaluation de ton niveau d'anglais (CECR A1-C2)" },
+  { id: 'formations', legacyLevels: [6], path: '/app/formations', title: 'Recherche de formations', category: 'Orientation', icon: 'ph-magnifying-glass', description: 'Rechercher des formations par mot-cle et region' },
+  { id: 'emplois', legacyLevels: [9], path: '/app/emplois', title: "Recherche d'emplois", category: 'Exploration', icon: 'ph-briefcase', description: "Rechercher des offres d'emploi reelles" },
+  { id: 'communaute', legacyLevels: [13], path: '/app/chat', title: 'Chat communautaire', category: 'Communication', icon: 'ph-chats', description: 'Echange avec la communaute Zelia' },
+  { id: 'lettre', legacyLevels: [14], path: '/app/lettre', title: 'Lettre de motivation', category: 'Documents', icon: 'ph-file-text', description: 'Generation IA de lettre de motivation personnalisee' },
+  { id: 'cv', legacyLevels: [17], componentLevel: 17, path: '/app/outils/cv', title: 'Creation du CV', category: 'Documents', icon: 'ph-identification-card', description: 'Creer et exporter ton CV en PDF' },
+  { id: 'classement-metiers', legacyLevels: [18], componentLevel: 18, path: '/app/outils/classement-metiers', title: 'Classement des metiers', category: 'Exploration', icon: 'ph-sort-ascending', description: 'Classe tes metiers preferes par ordre de preference' },
+  { id: 'axes-amelioration', legacyLevels: [19], componentLevel: 19, path: '/app/outils/axes-amelioration', title: "Axes d'amelioration", category: 'Developpement', icon: 'ph-trend-up', description: "5 points d'amelioration personnalises par l'IA" },
+  { id: 'quiz-orientation', legacyLevels: [24], componentLevel: 24, path: '/app/outils/quiz-orientation', title: 'Quiz statistiques orientation', category: 'Quiz', icon: 'ph-chart-pie', description: "Quiz sur les statistiques d'orientation post-bac" },
+  { id: 'parcoursup', legacyLevels: [26], componentLevel: 26, path: '/app/outils/parcoursup', title: 'Infos Parcoursup', category: 'Orientation', icon: 'ph-info', description: 'Tout savoir sur Parcoursup' },
+  { id: 'pitch', legacyLevels: [28], componentLevel: 28, path: '/app/outils/pitch', title: 'Entrainement pitch', category: 'Entretien', icon: 'ph-microphone', description: 'Enregistre ton pitch et recois un feedback IA' },
+  { id: 'entretien', legacyLevels: [29], componentLevel: 29, path: '/app/outils/entretien', title: "Simulation d'entretien", category: 'Entretien', icon: 'ph-chats-circle', description: "Simulation d'entretien avec un coach IA exigeant" },
+  { id: 'parcours-etudes', legacyLevels: [31], componentLevel: 31, path: '/app/outils/parcours-etudes', title: "Explorer un parcours d'etudes", category: 'Exploration', icon: 'ph-path', description: 'Decouvre les etudes necessaires pour ton metier' },
+  { id: 'competences', legacyLevels: [32], componentLevel: 32, path: '/app/outils/competences', title: 'Competences recommandees', category: 'Exploration', icon: 'ph-star', description: 'Competences a developper pour ta carriere' },
+  { id: 'lettre-futur', legacyLevels: [33], componentLevel: 33, path: '/app/outils/lettre-futur', title: 'Lettre a soi-meme', category: 'Developpement', icon: 'ph-envelope', description: 'Ecris une lettre a ton futur toi dans 5 ans' },
+  { id: 'stress', legacyLevels: [34], componentLevel: 34, path: '/app/outils/stress', title: 'Gerer son stress', category: 'Developpement', icon: 'ph-heart', description: 'Profil de stress et exercices guides pour faire redescendre la pression' },
+  { id: 'intelligence-emotionnelle', legacyLevels: [36], componentLevel: 36, path: '/app/outils/intelligence-emotionnelle', title: 'Intelligence emotionnelle', category: 'Soft Skills', icon: 'ph-smiley', description: "Scenarios interactifs sur l'adaptabilite" },
+  { id: 'quiz-soft-skills', legacyLevels: [37], componentLevel: 37, path: '/app/outils/quiz-soft-skills', title: 'Quiz soft skills', category: 'Quiz', icon: 'ph-chart-pie', description: 'Quiz sur les statistiques de recrutement et soft skills' },
+  { id: 'resolution-problemes', legacyLevels: [38], componentLevel: 38, path: '/app/outils/resolution-problemes', title: 'Resolution de problemes', category: 'Soft Skills', icon: 'ph-puzzle-piece', description: "Scenarios de resolution de problemes en entreprise" },
+  { id: 'feedback', legacyLevels: [39], componentLevel: 39, path: '/app/outils/feedback', title: 'Feedback', category: 'Autre', icon: 'ph-chat-dots', description: "Donne ton avis sur l'experience Zelia" }
 ]
 
 export const TOOLBOX_CATEGORIES = [

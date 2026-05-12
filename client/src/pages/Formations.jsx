@@ -1,9 +1,8 @@
-import React, { useEffect, useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { supabase } from '../lib/supabase'
 
-export default function Formations(){
+export default function Formations({ embedded = false } = {}){
 	const [q, setQ] = useState('')
 	const [region, setRegion] = useState('')
 	const [departement, setDepartement] = useState('')
@@ -118,21 +117,20 @@ export default function Formations(){
 		try{
 			const effectivePageSize = recommendedOnly ? 50 : 20
 			
-            // Prepare keywords like Niveau6
+			// Prepare keywords for broad formation search.
             const rawKeywords = q
                 ? q.split(/[^\p{L}\p{N}]+/u).map((part) => part.trim()).filter(Boolean)
                 : []
             const keywords = rawKeywords.length > 0 ? rawKeywords.slice(0, 10) : null
 
-			// Use the same RPC function as Level 6 (search_formations)
+			// Use the shared search_formations RPC.
 			const { data, error } = await supabase.rpc('search_formations', {
 				p_keywords: keywords,
 				p_department: departement || null,
 				p_region: region || null,
 				p_limit: effectivePageSize
                 // Note: search_formations as defined in SQL (read earlier) does NOT accept p_offset. 
-                // Level 6 doesn't use offset. Infinite scroll might be limited to first page if RPC doesn't support it.
-                // Assuming the user just wants the "Level 6 experience" which might be "search results".
+				// Infinite scroll might be limited to the first page if the RPC doesn't support offsets.
                 // If Formations.jsx needs pagination, the RPC needs update.
                 // Checking rpc_search_formations.sql content again... it says "p_limit int DEFAULT 20". No offset.
 			})
@@ -301,19 +299,12 @@ useEffect(() => {
 			.no-outline::-webkit-search-results-button,
 			.no-outline::-webkit-search-results-decoration { display: none !important; }
 			`}</style>
-			<div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+			{!embedded && (
 				<div>
-					<h1 className="text-xl md:text-2xl font-black mb-1">Formations</h1>
+					<h1 className="text-xl md:text-2xl font-semibold mb-1">Formations</h1>
 					<p className="text-text-secondary">Explorez les formations en France</p>
 				</div>
-				<Link
-					to="/app/ecoles-partenaires"
-					className="inline-flex items-center gap-2 self-start sm:self-auto px-4 py-2 rounded-full bg-[#c1ff72] text-black font-semibold text-sm border border-gray-200 hover:bg-[#b0f060] transition-colors"
-				>
-					<i className="ph ph-graduation-cap"></i>
-					Formations recommandées pour toi
-				</Link>
-			</div>
+			)}
 
 			{/* Filters */}
 			<div className="bg-surface border border-line rounded-xl shadow-card p-3">

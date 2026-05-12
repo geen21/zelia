@@ -142,7 +142,7 @@ export default function Niveau28() {
 
   const messages = useMemo(() => {
     const prenom = (profile?.first_name || '').trim()
-const intro = `Re ! En avant pour le niveau 28${prenom ? ` ${prenom}` : ''}. On va entrer dans le vif du sujet, avec un module pour apprendre à se présenter à l'oral.`
+const intro = `Re ! En avant${prenom ? ` ${prenom}` : ''}. On va entrer dans le vif du sujet, avec un module pour apprendre à se présenter à l'oral.`
     return ([
       { text: intro, durationMs: 3200 },
       { text: "L’idée c’est de pouvoir te présenter en 1 minute, ce qu’on appelle un “pitch”. Prends le micro et enregistre-toi jusqu’à ce que tu aies une présentation dont tu es fier/fière.", durationMs: 4200 },
@@ -438,11 +438,11 @@ const intro = `Re ! En avant pour le niveau 28${prenom ? ` ${prenom}` : ''}. On 
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 28 réussi !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
             <p className="text-text-secondary mb-4">Félicitations, ton pitch est prêt. Tu sais te présenter efficacement.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/29')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
+              <button onClick={() => navigate('/app/niveau/29')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />

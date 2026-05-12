@@ -128,7 +128,7 @@ export default function Niveau20() {
   }, [navigate])
 
   const bubble = useMemo(() => {
-    if (phase === STEP_INTRO) return { text: "C'est le moment de faire le bilan des niveaux 11 à 19", durationMs: 1600 }
+    if (phase === STEP_INTRO) return { text: "C'est le moment de faire le bilan de tes modules avancés.", durationMs: 1600 }
     return { text: 'Ok voici ton bilan', durationMs: 900 }
   }, [phase])
 
@@ -138,10 +138,10 @@ export default function Niveau20() {
     setBilanError('')
     setBilanLoading(true)
     try {
-      // Si aucune donnée des niveaux 11-19, afficher un message explicite
+      // Si aucune donnée des modules, afficher un message explicite
       if (!extraInfos || extraInfos.length === 0) {
         setBilan({ 
-          summary: 'Aucune donnée des niveaux 11 à 19 n\'a été trouvée. Termine d\'abord les niveaux précédents pour obtenir un bilan personnalisé.'
+          summary: 'Aucune donnée de module n\'a été trouvée. Termine d\'abord quelques outils pour obtenir un bilan personnalisé.'
         })
         setBilanLoading(false)
         return
@@ -149,25 +149,25 @@ export default function Niveau20() {
 
       const context = formatBilanExtraInfos(extraInfos)
       const levelsContext = [
-        'N11: Classement des domaines professionnels',
-        'N12: Débouchés et marché du travail',
-        'N13: Chat communautaire',
-        'N14: Lettre de motivation',
-        'N15: Points positifs et négatifs',
-        'N16: Vidéo : comment se vendre',
-        'N17: Créer son CV',
-        'N18: Classement des métiers',
-        'N19: Axes d\'amélioration'
+        'Classement des domaines professionnels',
+        'Débouchés et marché du travail',
+        'Chat communautaire',
+        'Lettre de motivation',
+        'Points positifs et négatifs',
+        'Vidéo : comment se vendre',
+        'Créer son CV',
+        'Classement des métiers',
+        'Axes d\'amélioration'
       ].join('\n')
 
       const message =
-        `Tu dois produire un résumé très court des niveaux 11 à 19 à partir des informations ci-dessous.\n` +
+        `Tu dois produire un résumé très court de ces modules fonctionnels à partir des informations ci-dessous.\n` +
         `Contexte des modules traversés:\n${levelsContext}\n\n` +
         `Reponds UNIQUEMENT en JSON valide au format suivant :\n` +
-        `{"levelSummaries":[{"level":11,"title":"Classement des domaines","summary":""}]}\n` +
+        `{"levelSummaries":[{"title":"Classement des domaines","summary":""}]}\n` +
         `Contraintes:\n` +
-        `- Retourne 9 objets, un pour chaque niveau de 11 a 19.\n` +
-        `- Garde exactement les numeros de niveau.\n` +
+        `- Retourne un objet pour chaque module listé.\n` +
+        `- N'utilise jamais les mots "niveau" ou "Niveau", ni les anciens numéros de module.\n` +
         `- Chaque summary doit faire 1 ou 2 phrases courtes, concretes et personnalisees.\n` +
         `- Ne recopie pas les donnees brutes, synthese seulement.\n` +
         `- Sois encourageant et personnalisé.\n` +
@@ -208,7 +208,7 @@ export default function Niveau20() {
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau20 levelUp failed', e)
-      setBilanError('Impossible de valider le niveau pour le moment. Réessaie.')
+      setBilanError('Impossible de valider le module pour le moment. Réessaie.')
     } finally {
       setFinishing(false)
     }
@@ -226,14 +226,14 @@ export default function Niveau20() {
 
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(18)
-      doc.text('Bilan Zélia — Niveaux 11 à 19', margin, y)
+      doc.text('Bilan Zélia — Modules avancés', margin, y)
       y += 10
 
       bilan.levelSummaries.forEach((item) => {
         if (y > 260) { doc.addPage(); y = margin }
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(12)
-        doc.text(`Niveau ${item.level} - ${item.title}`, margin, y)
+        doc.text(item.title || 'Module', margin, y)
         y += 6
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(10)
@@ -242,7 +242,7 @@ export default function Niveau20() {
         y += lines.length * 5 + 6
       })
 
-      doc.save('zelia-bilan-niveaux-11-19.pdf')
+      doc.save('zelia-bilan-modules-avances.pdf')
     } catch (e) {
       console.error('PDF generation failed', e)
     } finally {
@@ -333,7 +333,7 @@ export default function Niveau20() {
             <div className="space-y-4">
               {levelSummaries.map((item) => (
                 <div key={item.level} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                  <div className="font-semibold">Niveau {item.level} · {item.title}</div>
+                  <div className="font-semibold">{item.title}</div>
                   <div className="mt-2 whitespace-pre-wrap text-text-secondary">{item.summary || 'Non disponible'}</div>
                 </div>
               ))}
@@ -355,11 +355,11 @@ export default function Niveau20() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
             <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Niveau 20 réussi !</h3>
+            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
             <p className="text-text-secondary mb-4">Tu as terminé cette étape avec succès.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/21')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Passer au niveau suivant</button>
+              <button onClick={() => navigate('/app/niveau/21')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
             </div>
             {/* Subtle confetti dots */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

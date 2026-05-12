@@ -21,7 +21,11 @@ export function extractBilanJson(raw) {
 
 export function formatBilanExtraInfos(entries) {
   return (entries || [])
-    .map((row) => `- [${row.question_id}] ${row.question_text || 'Question'}: ${row.answer_text || '-'}`)
+    .map((row) => {
+      const questionText = sanitizeText(row.question_text || 'Question')
+        .replace(/\s*\([^)]*\)\s*$/g, '')
+      return `- ${questionText}: ${row.answer_text || '-'}`
+    })
     .join('\n')
 }
 
@@ -101,8 +105,17 @@ function buildFallbackSummaryForLevel(rows, title) {
     .filter(Boolean)
     .slice(0, 2)
 
-  if (snippets.length === 0) return `${title}: niveau complete.`
+  if (snippets.length === 0) return `${title}: module complete.`
   return shorten(snippets.join(' '))
+}
+
+function normalizeTitleKey(value) {
+  return sanitizeText(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/gi, ' ')
+    .trim()
+    .toLowerCase()
 }
 
 export function buildFallbackLevelSummaries(entries, levels) {
@@ -129,25 +142,29 @@ export function normalizeLevelSummaries(rawSummaries, levels, fallbackEntries = 
   )
 
   const parsedByLevel = new Map()
+  const parsedByTitle = new Map()
   if (Array.isArray(rawSummaries)) {
     rawSummaries.forEach((item) => {
       const level = Number(item?.level)
-      if (!Number.isFinite(level)) return
-      parsedByLevel.set(level, {
+      const normalized = {
         level,
         title: sanitizeText(item?.title || ''),
         summary: shorten(item?.summary || '')
-      })
+      }
+      if (Number.isFinite(level)) parsedByLevel.set(level, normalized)
+      const titleKey = normalizeTitleKey(item?.title || '')
+      if (titleKey) parsedByTitle.set(titleKey, normalized)
     })
   }
 
   return levels.map((item) => {
     const parsed = parsedByLevel.get(item.level)
+      || parsedByTitle.get(normalizeTitleKey(item.title))
     const fallback = fallbackByLevel.get(item.level)
     return {
       level: item.level,
       title: item.title,
-      summary: parsed?.summary || fallback?.summary || `${item.title}: niveau complete.`
+      summary: parsed?.summary || fallback?.summary || `${item.title}: module complete.`
     }
   })
 }

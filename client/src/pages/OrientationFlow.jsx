@@ -11,6 +11,8 @@ const MAX_FINAL_RESULTS = 14
 const PRESELECTED_CANDIDATES_PER_KIND = 4
 const MAX_PARTNER_FINAL_RESULTS = 4
 const MIN_FINAL_DB_RESULTS = 5
+const CATALOG_SEARCH_CONCURRENCY = 4
+const MAX_FORMATION_QUERY_VARIANTS = 4
 
 const PARTNER_CITY_BY_DEPARTMENT_CODE = {
   '06': 'Nice',
@@ -144,6 +146,39 @@ const INTENT_OPTIONS = [
 
 function randomChoice(items) {
   return items[Math.floor(Math.random() * items.length)]
+}
+
+async function runWithConcurrency(items, limit, mapper) {
+  if (!items.length) return []
+
+  const results = new Array(items.length)
+  let nextIndex = 0
+  const workerCount = Math.min(Math.max(limit, 1), items.length)
+
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex)
+    }
+  }))
+
+  return results
+}
+
+function hasAnySearchTerm(value, terms) {
+  const normalized = normalizeDiversityText(value)
+  return terms.some((term) => new RegExp(`\\b${term}\\b`).test(normalized))
+}
+
+function uniqueSearchQueries(queries) {
+  const seen = new Set()
+  return queries.filter((query) => {
+    const normalized = normalizeDiversityText(query)
+    if (!normalized || seen.has(normalized)) return false
+    seen.add(normalized)
+    return true
+  })
 }
 
 function hexNoHash(hex) {
@@ -557,13 +592,16 @@ function buildTargetedFormationQueries(query, targetLevel) {
   const cleanQuery = cleanDetailText(query, 80)
   if (!cleanQuery) return []
   if (targetLevel >= 8) {
-    return [cleanQuery, `doctorat ${cleanQuery}`, `médecine ${cleanQuery}`, `pharmacie ${cleanQuery}`]
+    if (hasAnySearchTerm(cleanQuery, ['doctorat', 'these', 'phd', 'medecine', 'pharmacie'])) return [cleanQuery]
+    return uniqueSearchQueries([cleanQuery, `doctorat ${cleanQuery}`, `médecine ${cleanQuery}`, `pharmacie ${cleanQuery}`])
   }
   if (targetLevel >= 5) {
-    return [cleanQuery, `master ${cleanQuery}`, `mastère ${cleanQuery}`, `mba ${cleanQuery}`, `msc ${cleanQuery}`, `ingénieur ${cleanQuery}`]
+    if (hasAnySearchTerm(cleanQuery, ['master', 'mastere', 'mba', 'msc', 'ingenieur', 'ingenierie'])) return [cleanQuery]
+    return uniqueSearchQueries([cleanQuery, `master ${cleanQuery}`, `mastère ${cleanQuery}`, `ingénieur ${cleanQuery}`, `mba ${cleanQuery}`])
   }
   if (targetLevel >= 3) {
-    return [cleanQuery, `licence ${cleanQuery}`, `bachelor ${cleanQuery}`, `but ${cleanQuery}`]
+    if (hasAnySearchTerm(cleanQuery, ['licence', 'bachelor', 'but'])) return [cleanQuery]
+    return uniqueSearchQueries([cleanQuery, `licence ${cleanQuery}`, `bachelor ${cleanQuery}`, `but ${cleanQuery}`])
   }
   return [cleanQuery]
 }
@@ -1419,7 +1457,6 @@ export default function OrientationFlow() {
   }
 
   const fetchTableCandidates = async (plans, pageSize = 8, intentValue = intent, searchContext = {}) => {
-    const allCandidates = []
     const shouldSearchFormations = intentValue === 'formations' || intentValue === 'both'
     const shouldSearchJobs = intentValue === 'metiers' || intentValue === 'both'
     const nearHome = searchContext.studyLocation === 'near_home'
@@ -1427,46 +1464,77 @@ export default function OrientationFlow() {
     const formationDepartment = nearHome ? getFormationSearchDepartment(department) : ''
     const preferredLocation = nearHome ? getPreferredNearHomeLocation(department) : ''
     const targetLevel = getTargetStudyLevel(searchContext.profile || searchContext)
+    const requestCache = new Map()
 
-    for (const plan of plans) {
-      const query = plan.query || plan.title || ''
-      if (shouldSearchFormations && plan.kind !== 'metier') {
-        try {
-          const queries = buildTargetedFormationQueries(query, targetLevel)
-          const requestedPageSize = targetLevel >= 5 ? Math.max(pageSize, 36) : pageSize
-          let formationCandidates = []
-
-          for (const formationQuery of queries) {
-            const response = await orientationAPI.searchFormations({
-              q: formationQuery,
-              page_size: requestedPageSize,
-              ...(formationDepartment ? { departement: formationDepartment } : {})
-            })
-            const normalized = (response.data?.items || []).map((item, index) => normalizeFormation(item, `${formationQuery}-${index}`))
-            formationCandidates = mergeUniqueCandidates(formationCandidates, normalized)
-            if (!targetLevel || filterCandidatesByTargetStudyLevel(formationCandidates, searchContext.profile || searchContext).length >= pageSize) break
-          }
-
-          allCandidates.push(...filterCandidatesByTargetStudyLevel(formationCandidates, searchContext.profile || searchContext))
-        } catch (searchError) {
-          console.warn('Formation candidate search failed', query, searchError)
-        }
+    const getCachedRequest = (key, requestFactory) => {
+      if (!requestCache.has(key)) {
+        requestCache.set(key, requestFactory())
       }
-      if (shouldSearchJobs && plan.kind !== 'formation') {
-        try {
-          const response = await orientationAPI.searchMetiers({
-            q: query,
-            page_size: pageSize,
-            ...(preferredLocation ? { location: preferredLocation } : {})
-          })
-          allCandidates.push(...(response.data?.items || []).map((item, index) => normalizeJob(item, `${query}-${index}`)))
-        } catch (searchError) {
-          console.warn('Metier candidate search failed', query, searchError)
+      return requestCache.get(key)
+    }
+
+    const searchFormationQuery = async (formationQuery, requestedPageSize) => {
+      const cacheKey = `formation|${formationQuery}|${requestedPageSize}|${formationDepartment}`
+      const response = await getCachedRequest(cacheKey, () => orientationAPI.searchFormations({
+        q: formationQuery,
+        page_size: requestedPageSize,
+        ...(formationDepartment ? { departement: formationDepartment } : {})
+      }))
+      return (response.data?.items || []).map((item, index) => normalizeFormation(item, `${formationQuery}-${index}`))
+    }
+
+    const collectFormationCandidates = async (plan) => {
+      const query = plan.query || plan.title || ''
+      try {
+        const queries = buildTargetedFormationQueries(query, targetLevel).slice(0, MAX_FORMATION_QUERY_VARIANTS)
+        const requestedPageSize = targetLevel >= 5 ? Math.max(pageSize, 24) : pageSize
+        let formationCandidates = []
+        const queryWaves = queries.length > 1
+          ? [[queries[0]], queries.slice(1)]
+          : [queries]
+
+        for (const queryWave of queryWaves.filter((wave) => wave.length > 0)) {
+          const waveResults = await Promise.all(queryWave.map((formationQuery) => searchFormationQuery(formationQuery, requestedPageSize)))
+          formationCandidates = mergeUniqueCandidates(formationCandidates, ...waveResults)
+          if (!targetLevel || filterCandidatesByTargetStudyLevel(formationCandidates, searchContext.profile || searchContext).length >= pageSize) break
         }
+
+        return filterCandidatesByTargetStudyLevel(formationCandidates, searchContext.profile || searchContext)
+      } catch (searchError) {
+        console.warn('Formation candidate search failed', query, searchError)
+        return []
       }
     }
 
-    return diversifyCandidates(mergeUniqueCandidates(allCandidates))
+    const collectJobCandidates = async (plan) => {
+      const query = plan.query || plan.title || ''
+      try {
+        const cacheKey = `metier|${query}|${pageSize}|${preferredLocation}`
+        const response = await getCachedRequest(cacheKey, () => orientationAPI.searchMetiers({
+          q: query,
+          page_size: pageSize,
+          ...(preferredLocation ? { location: preferredLocation } : {})
+        }))
+        return (response.data?.items || []).map((item, index) => normalizeJob(item, `${query}-${index}`))
+      } catch (searchError) {
+        console.warn('Metier candidate search failed', query, searchError)
+        return []
+      }
+    }
+
+    const searchTasks = []
+
+    for (const plan of plans) {
+      if (shouldSearchFormations && plan.kind !== 'metier') {
+        searchTasks.push(() => collectFormationCandidates(plan))
+      }
+      if (shouldSearchJobs && plan.kind !== 'formation') {
+        searchTasks.push(() => collectJobCandidates(plan))
+      }
+    }
+
+    const candidateGroups = await runWithConcurrency(searchTasks, CATALOG_SEARCH_CONCURRENCY, (searchTask) => searchTask())
+    return diversifyCandidates(mergeUniqueCandidates(...candidateGroups))
   }
 
   const resolveCandidatesThroughCatalog = async (candidates, pageSize, intentValue, searchContext = {}) => {
@@ -1696,7 +1764,7 @@ export default function OrientationFlow() {
     const likedSource = options.likedOverride || likedProposals
     localStorage.setItem('orientation_micro_profile', JSON.stringify(profile))
     setPhase('finalSearch')
-    setBusyMessage('Zélia cherche dans les tables formations et métiers')
+    setBusyMessage('Je réfléchis')
     setError('')
 
     try {
@@ -1720,8 +1788,10 @@ export default function OrientationFlow() {
         department,
         profile
       }
-      const planDbCandidates = await fetchTableCandidates(plans, 12, intent, searchContext)
-      const swipeDbCandidates = liked.length ? await resolveCandidatesThroughCatalog(liked, 8, intent, searchContext) : []
+      const [planDbCandidates, swipeDbCandidates] = await Promise.all([
+        fetchTableCandidates(plans, 12, intent, searchContext),
+        liked.length ? resolveCandidatesThroughCatalog(liked, 8, intent, searchContext) : Promise.resolve([])
+      ])
       const likedDatabaseCandidates = filterCandidatesByTargetStudyLevel(liked.filter(isDatabaseCandidate), profile)
       let dbCandidates = filterCandidatesByTargetStudyLevel(filterRejectedCandidates(
         mergeUniqueCandidates(swipeDbCandidates, likedDatabaseCandidates, planDbCandidates),

@@ -41,6 +41,28 @@ const ACCENT_KEYWORD_VARIANTS = {
 }
 
 const SEARCH_STOPWORDS = new Set(['avec', 'chez', 'dans', 'des', 'du', 'de', 'en', 'et', 'la', 'le', 'les', 'pour', 'sur'])
+const FORMATION_SEARCH_CACHE_TTL_MS = 5 * 60 * 1000
+const FORMATION_SEARCH_CACHE_MAX_ENTRIES = 250
+const FORMATION_SEARCH_KEYWORD_LIMIT = 8
+const FORMATION_SEARCH_COLUMNS = [
+  'id',
+  'nmc',
+  'nm',
+  'etab_nom',
+  'etab_uai',
+  'region',
+  'departement',
+  'commune',
+  'tc',
+  'tf',
+  'fiche',
+  'etab_url',
+  'annee',
+  'image',
+  'email',
+  'code_formation'
+].join(',')
+const formationSearchCache = new Map()
 
 function stripDiacritics(value) {
   return String(value || '')
@@ -81,6 +103,91 @@ function buildSearchTextVariants(query) {
   const accentWords = words.map((word) => ACCENT_KEYWORD_VARIANTS[stripDiacritics(word).toLowerCase()]?.[0] || word)
   const variants = [raw, accentWords.join(' ')]
   return Array.from(new Set(variants.filter(Boolean)))
+}
+
+function buildFormationSearchKeywords(query) {
+  const keywords = buildSearchKeywords(query) || null
+  return Array.isArray(keywords) && keywords.length
+    ? keywords.slice(0, FORMATION_SEARCH_KEYWORD_LIMIT)
+    : null
+}
+
+function escapePostgrestFilterValue(value) {
+  return String(value || '').replace(/,/g, '\\,').replace(/%/g, '\\%').replace(/_/g, '\\_')
+}
+
+function makePagePayload(rows, page, pageSize) {
+  const sourceRows = Array.isArray(rows) ? rows : []
+  const hasMore = sourceRows.length > pageSize
+  return {
+    items: hasMore ? sourceRows.slice(0, pageSize) : sourceRows,
+    total: null,
+    has_more: hasMore,
+    page,
+    page_size: pageSize
+  }
+}
+
+function getCachedFormationSearch(cacheKey) {
+  const cached = formationSearchCache.get(cacheKey)
+  if (!cached) return null
+  if (Date.now() - cached.createdAt > FORMATION_SEARCH_CACHE_TTL_MS) {
+    formationSearchCache.delete(cacheKey)
+    return null
+  }
+  return cached.payload
+}
+
+function setCachedFormationSearch(cacheKey, payload) {
+  if (formationSearchCache.size >= FORMATION_SEARCH_CACHE_MAX_ENTRIES) {
+    const firstKey = formationSearchCache.keys().next().value
+    if (firstKey) formationSearchCache.delete(firstKey)
+  }
+  formationSearchCache.set(cacheKey, { createdAt: Date.now(), payload })
+}
+
+function buildFormationFallbackTerms(normalizedQuery) {
+  if (!normalizedQuery) return []
+  const variants = buildSearchTextVariants(normalizedQuery)
+  const keywords = buildFormationSearchKeywords(normalizedQuery) || []
+  return Array.from(new Set([...variants, ...keywords.slice(0, 4)]))
+    .map((term) => term.trim())
+    .filter((term) => term.length >= 2)
+    .slice(0, 6)
+}
+
+async function runFormationFallbackSearch({ normalizedQuery, region, departement, from, pageSize }) {
+  let query = supabase
+    .from('formation_france')
+    .select(FORMATION_SEARCH_COLUMNS, { count: 'none' })
+
+  if (region) query = query.ilike('region', `%${escapePostgrestFilterValue(region)}%`)
+  if (departement) {
+    const safeDepartment = escapePostgrestFilterValue(departement)
+    query = query.or(`departement.ilike.%${safeDepartment}%,commune.ilike.%${safeDepartment}%`)
+  }
+
+  const fallbackTerms = buildFormationFallbackTerms(normalizedQuery)
+  if (fallbackTerms.length) {
+    const filters = fallbackTerms.flatMap((term) => {
+      const safeTerm = escapePostgrestFilterValue(term)
+      return [
+        `nmc.ilike.%${safeTerm}%`,
+        `tc.ilike.%${safeTerm}%`,
+        `etab_nom.ilike.%${safeTerm}%`,
+        `code_formation.ilike.%${safeTerm}%`,
+        `commune.ilike.%${safeTerm}%`,
+        `departement.ilike.%${safeTerm}%`,
+        `region.ilike.%${safeTerm}%`
+      ]
+    })
+    query = query.or(filters.join(','))
+  }
+
+  return query
+    .order('annee', { ascending: false, nullsFirst: false })
+    .order('id', { ascending: true })
+    .range(from, from + pageSize)
 }
 
 function mergeRowsById(rows = [], nextRows = []) {
@@ -130,82 +237,66 @@ async function enrichMetierRows(rows = []) {
 router.get('/formations/search', optionalAuth, async (req, res) => {
   try {
     const { q, region, departement } = req.query
-    const { page, pageSize, from, to } = getPagination(req.query)
+    const { page, pageSize, from } = getPagination(req.query)
     const normalizedQuery = typeof q === 'string' ? q.trim().replace(/\s+/g, ' ').slice(0, 120) : ''
-    const keywords = buildSearchKeywords(normalizedQuery)
+    const keywords = buildFormationSearchKeywords(normalizedQuery)
+    const cacheKey = JSON.stringify({ q: normalizedQuery, region: region || '', departement: departement || '', page, pageSize })
+    const cachedPayload = getCachedFormationSearch(cacheKey)
+
+    if (cachedPayload) {
+      return res.json(cachedPayload)
+    }
 
     const runFormationRpc = (keywordList) => supabase.rpc('search_formations', {
       p_keywords: keywordList,
       p_department: departement || null,
       p_region: region || null,
-      p_limit: pageSize,
+      p_limit: pageSize + 1,
       p_offset: from
     })
 
-    let { data: rpcData, error: rpcError } = await runFormationRpc(keywords)
+    const { data: rpcData, error: rpcError } = await runFormationRpc(keywords)
 
-    if (!rpcError && normalizedQuery && (!rpcData || rpcData.length === 0) && Array.isArray(keywords) && keywords.length > 1) {
-      for (const keyword of keywords) {
-        const retry = await runFormationRpc([keyword])
-        if (retry.error) {
-          rpcError = retry.error
-          break
-        }
-        if (Array.isArray(retry.data) && retry.data.length > 0) {
-          rpcData = retry.data
-          break
-        }
-      }
+    if (!rpcError && Array.isArray(rpcData) && rpcData.length > 0) {
+      const payload = makePagePayload(rpcData, page, pageSize)
+      setCachedFormationSearch(cacheKey, payload)
+      return res.json(payload)
     }
 
     if (!rpcError) {
-      return res.json({
-        items: rpcData || [],
-        total: null,
-        page,
-        page_size: pageSize
-      })
+      const fallback = normalizedQuery
+        ? await runFormationFallbackSearch({ normalizedQuery, region, departement, from, pageSize })
+        : { data: rpcData || [], error: null }
+
+      if (fallback.error) {
+        if (isStatementTimeout(fallback.error)) {
+          const payload = makePagePayload([], page, pageSize)
+          setCachedFormationSearch(cacheKey, payload)
+          return res.json(payload)
+        }
+        return res.status(400).json({ error: fallback.error.message })
+      }
+
+      const payload = makePagePayload(fallback.data || [], page, pageSize)
+      setCachedFormationSearch(cacheKey, payload)
+      return res.json(payload)
     }
 
     console.warn('Catalog formations RPC search error, using fallback:', rpcError.message)
 
-    let query = supabase
-      .from('formation_france')
-      .select('*', { count: 'exact' })
-
-    if (region) query = query.eq('region', region)
-    if (departement) query = query.eq('departement', departement)
-    if (normalizedQuery) {
-      const filters = buildSearchTextVariants(normalizedQuery).flatMap((variant) => {
-        const like = `%${variant}%`
-        return [
-          `nmc.ilike.${like}`,
-          `tc.ilike.${like}`,
-          `etab_nom.ilike.${like}`,
-          `code_formation.ilike.${like}`,
-          `commune.ilike.${like}`,
-          `departement.ilike.${like}`,
-          `region.ilike.${like}`
-        ]
-      })
-      query = query.or(filters.join(','))
+    const fallback = await runFormationFallbackSearch({ normalizedQuery, region, departement, from, pageSize })
+    if (fallback.error) {
+      if (isStatementTimeout(fallback.error)) {
+        const payload = makePagePayload([], page, pageSize)
+        setCachedFormationSearch(cacheKey, payload)
+        return res.json(payload)
+      }
+      return res.status(400).json({ error: fallback.error.message })
     }
 
-    // Order: items with nm not null first (NULLS LAST), then recent by id
-    query = query
-      .order('nm', { ascending: true, nullsFirst: false })
-      .order('id', { ascending: false })
-      .range(from, to)
-
-    const { data, error, count } = await query
-    if (error) return res.status(400).json({ error: error.message })
-
-    res.json({
-      items: data || [],
-      total: count ?? 0,
-      page,
-      page_size: pageSize
-    })
+    const payload = makePagePayload(fallback.data || [], page, pageSize)
+    setCachedFormationSearch(cacheKey, payload)
+    return res.json(payload)
   } catch (err) {
     console.error('Catalog formations search error:', err)
     res.status(500).json({ error: 'Internal server error' })

@@ -16,6 +16,14 @@ CREATE INDEX IF NOT EXISTS idx_formation_france_etab_trgm ON formation_france US
 -- Index GIN sur tc (type de cursus) 
 CREATE INDEX IF NOT EXISTS idx_formation_france_tc_trgm ON formation_france USING gin (tc gin_trgm_ops);
 
+-- Index GIN sur commune et code de formation pour les recherches catalogue rapides
+CREATE INDEX IF NOT EXISTS idx_formation_france_commune_trgm ON formation_france USING gin (commune gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_formation_france_code_formation_trgm ON formation_france USING gin (code_formation gin_trgm_ops);
+
+-- Index GIN sur département/région quand le filtre arrive sous forme de texte libre
+CREATE INDEX IF NOT EXISTS idx_formation_france_departement_trgm ON formation_france USING gin (departement gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_formation_france_region_trgm ON formation_france USING gin (region gin_trgm_ops);
+
 -- Index sur le département pour les filtres géographiques
 CREATE INDEX IF NOT EXISTS idx_formation_france_departement ON formation_france (departement);
 
@@ -100,23 +108,23 @@ BEGIN
             (
                 SELECT COALESCE(SUM(
                     CASE 
-                        WHEN unaccent(LOWER(f.nmc)) LIKE '%' || unaccent(k) || '%' THEN 6
+                        WHEN f.nmc ILIKE '%' || k || '%' THEN 6
                         ELSE 0
                     END +
                     CASE 
-                        WHEN unaccent(LOWER(array_to_string(f.nm, ' '))) LIKE '%' || unaccent(k) || '%' THEN 6
+                        WHEN array_to_string(f.nm, ' ') ILIKE '%' || k || '%' THEN 6
                         ELSE 0
                     END +
                     CASE 
-                        WHEN unaccent(LOWER(f.tc)) LIKE '%' || unaccent(k) || '%' THEN 4
+                        WHEN f.tc ILIKE '%' || k || '%' THEN 4
                         ELSE 0
                     END +
                     CASE 
-                        WHEN unaccent(LOWER(f.etab_nom)) LIKE '%' || unaccent(k) || '%' THEN 2
+                        WHEN f.etab_nom ILIKE '%' || k || '%' THEN 2
                         ELSE 0
                     END +
                     CASE 
-                        WHEN unaccent(LOWER(f.commune)) LIKE '%' || unaccent(k) || '%' THEN 1
+                        WHEN f.commune ILIKE '%' || k || '%' THEN 1
                         ELSE 0
                     END
                 ), 0)
@@ -125,9 +133,9 @@ BEGIN
         FROM formation_france f
         WHERE
             -- Filtre département (optionnel)
-            (p_department IS NULL OR p_department = '' OR unaccent(f.departement) ILIKE '%' || unaccent(p_department) || '%')
+            (p_department IS NULL OR p_department = '' OR f.departement ILIKE '%' || p_department || '%' OR f.commune ILIKE '%' || p_department || '%')
             -- Filtre région (optionnel)
-            AND (p_region IS NULL OR p_region = '' OR unaccent(f.region) ILIKE '%' || unaccent(p_region) || '%')
+            AND (p_region IS NULL OR p_region = '' OR f.region ILIKE '%' || p_region || '%')
             -- Au moins un mot-clé doit matcher si des mots-clés sont fournis
             AND (
                 array_length(clean_keywords, 1) IS NULL 
@@ -135,10 +143,11 @@ BEGIN
                 OR EXISTS (
                     SELECT 1 FROM unnest(clean_keywords) AS k
                     WHERE 
-                        unaccent(LOWER(f.nmc)) LIKE '%' || unaccent(k) || '%'
-                        OR unaccent(LOWER(array_to_string(f.nm, ' '))) LIKE '%' || unaccent(k) || '%'
-                        OR unaccent(LOWER(f.tc)) LIKE '%' || unaccent(k) || '%'
-                        OR unaccent(LOWER(f.etab_nom)) LIKE '%' || unaccent(k) || '%'
+                        f.nmc ILIKE '%' || k || '%'
+                        OR array_to_string(f.nm, ' ') ILIKE '%' || k || '%'
+                        OR f.tc ILIKE '%' || k || '%'
+                        OR f.etab_nom ILIKE '%' || k || '%'
+                        OR f.code_formation ILIKE '%' || k || '%'
                 )
             )
             -- Exclure les écoles primaires et collèges

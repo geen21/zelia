@@ -8,8 +8,8 @@ const ANSWERS_PROGRESS_VERSION = `orientation-flow-${QUESTION_LIMIT}`
 const DRAG_THRESHOLD = 96
 const MAX_PROPOSAL_DECK = 24
 const MAX_FINAL_RESULTS = 14
-const AI_FORMATION_DECK_SIZE = 10
-const AI_FORMATION_KEYWORD_COUNT = 8
+const AI_FORMATION_DECK_SIZE = 8
+const AI_FORMATION_KEYWORD_COUNT = 6
 const AI_JOB_DECK_SIZE = 10
 const AI_FINAL_JOB_COUNT = 5
 const AI_RETRY_ATTEMPTS = 3
@@ -924,12 +924,33 @@ function normalizeAiFormationCandidates(value, limit = AI_FORMATION_DECK_SIZE) {
     .slice(0, limit)
 }
 
+function compactPromptText(value, maxLength = 650) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  if (text.length <= maxLength) return text
+  return `${text.slice(0, maxLength).trim()}...`
+}
+
+function compactMicroProfileForAi(profile = {}) {
+  return JSON.stringify({
+    budget: profile.budget || '',
+    grade_confidence: profile.grade_confidence || '',
+    school_level: profile.school_level || '',
+    target_level: profile.target_level || '',
+    study_location: profile.study_location || '',
+    strong_subjects: Array.isArray(profile.strong_subjects)
+      ? profile.strong_subjects.slice(0, 6)
+      : profile.strong_subjects || ''
+  })
+}
+
 function buildAiFormationDeckPrompt({ analysis, microProfile, department, count = AI_FORMATION_DECK_SIZE }) {
   const block = getAnalysisBlock(analysis) || {}
   const targetLevel = String(microProfile?.target_level || '').trim()
+  const studyRecommendations = (block.studyRecommendations || []).map(pickStudyTitle).filter(Boolean).slice(0, 6).join(' | ') || 'aucune'
+  const jobRecommendations = (block.jobRecommendations || []).map(pickJobTitle).filter(Boolean).slice(0, 6).join(' | ') || 'aucun'
   return `Tu es Zélia. Propose un deck de pistes de formations à swiper pour affiner l'orientation de l'utilisateur.
 Retourne uniquement un JSON valide: un tableau de ${count} objets exactement.
-Schéma obligatoire: [{"title":"Piste de formation précise","summary":"phrase courte sur le contenu","why":"pourquoi cette piste colle au profil","keywords":["mot-clé formation_france.nm","mot-clé etab_nom"],"schoolTypes":["type d'établissement"],"constraints":["point à vérifier"],"level":"niveau visé","matchScore":82}].
+Schéma obligatoire: [{"title":"Piste de formation précise","summary":"max 12 mots","why":"max 16 mots","keywords":["2 à 4 mots"],"schoolTypes":["type court"],"constraints":["point court"],"level":"niveau visé","matchScore":82}].
 
 Règles:
 - Ces propositions servent uniquement aux swipes gauche/droite, elles ne sont pas la liste finale.
@@ -938,23 +959,24 @@ Règles:
 - Utilise des intitulés proches des formations françaises réelles: BTS, BUT, Licence, Double licence, DN MADE, PASS/LAS, IFSI, formation d'ingénieur, école de commerce, diplôme d'université, formation professionnelle, BTS agricole, CPES, C.M.I.
 - Prends en compte aussi les voies concrètes, techniques, manuelles et de terrain quand le profil s'y prête: bâtiment, industrie, maintenance, agriculture, hôtellerie-restauration, esthétique, santé, social, environnement, audiovisuel.
 - Varie les univers pour apprendre des swipes: scientifique, technique, manuel, soin, social, commerce, gestion, création, numérique, environnement, culture.
-- Les keywords doivent ressembler à des recherches utiles dans formation_france.nm ou formation_france.etab_nom, par exemple "BUT génie civil", "BTS métiers eau", "DN MADE graphisme", "IFSI", "CFA bâtiment", "lycée agricole", "école ingénieur".
+- Les keywords doivent être courts et utiles, par exemple "BUT génie civil", "DN MADE graphisme", "IFSI", "CFA bâtiment", "école ingénieur".
 ${targetLevel && targetLevel !== 'open' ? `- Niveau d'études visé: ${targetLevel}. Respecte ce niveau sauf si le profil montre une forte hésitation.` : ''}
 - matchScore est un entier entre 55 et 96.
 
-Analyse personnalité: ${block.personalityAnalysis || ''}
-Forces: ${block.skillsAssessment || ''}
-Formations déjà suggérées dans le bilan: ${(block.studyRecommendations || []).map(pickStudyTitle).filter(Boolean).join(' | ') || 'aucune'}
-Métiers déjà suggérés dans le bilan: ${(block.jobRecommendations || []).map(pickJobTitle).filter(Boolean).join(' | ') || 'aucun'}
-Contexte complémentaire: ${JSON.stringify(microProfile || {})}
+Analyse personnalité: ${compactPromptText(block.personalityAnalysis, 650)}
+Forces: ${compactPromptText(block.skillsAssessment, 450)}
+Formations déjà suggérées dans le bilan: ${studyRecommendations}
+Métiers déjà suggérés dans le bilan: ${jobRecommendations}
+Contexte complémentaire: ${compactMicroProfileForAi(microProfile)}
 Département/localisation: ${department?.name || department?.code || department?.city || 'non précisé'}`
 }
 
 function buildFinalFormationKeywordPrompt({ analysis, microProfile, department, likedProposals, rejectedProposals, anchorTerms = [], count = AI_FORMATION_KEYWORD_COUNT }) {
   const block = getAnalysisBlock(analysis) || {}
   const targetLevel = String(microProfile?.target_level || '').trim()
-  const likedText = likedProposals.map((item) => `${item.title} - ${item.subtitle || item.raw?.why || ''} - ${(item.raw?.keywords || []).join(', ')}`).join(' | ') || 'aucun'
-  const rejectedText = rejectedProposals.map((item) => `${item.title} - ${item.subtitle || item.raw?.why || ''}`).join(' | ') || 'aucun'
+  const likedText = likedProposals.slice(0, 8).map((item) => compactPromptText(`${item.title} - ${item.subtitle || item.raw?.why || ''} - ${(item.raw?.keywords || []).join(', ')}`, 180)).join(' | ') || 'aucun'
+  const rejectedText = rejectedProposals.slice(0, 10).map((item) => compactPromptText(`${item.title} - ${item.subtitle || item.raw?.why || ''}`, 140)).join(' | ') || 'aucun'
+  const studyRecommendations = (block.studyRecommendations || []).map(pickStudyTitle).filter(Boolean).slice(0, 6).join(' | ') || 'aucune'
 
   return `Tu es Zélia. Génère maintenant les mots-clés de recherche pour trouver les vraies formations.
 Retourne uniquement un JSON valide: un tableau de ${count} objets exactement.
@@ -975,10 +997,10 @@ ${anchorTerms.length ? `- Mots-clés de famille détectés dans les swipes gard�
 ${targetLevel && targetLevel !== 'open' ? `- Niveau d'études visé: ${targetLevel}. Si l'objectif est Bac +5, privilégie master, mastère, MBA, MSc, formation ingénieur ou école de commerce. N'utilise BTS, BUT ou Bac+3 que si les swipes gardés vont clairement dans ce sens.` : ''}
 - Couvre aussi les formations concrètes, techniques, manuelles et de terrain si le profil ou les swipes les rendent pertinentes.
 
-Analyse personnalité: ${block.personalityAnalysis || ''}
-Forces: ${block.skillsAssessment || ''}
-StudyRecommendations: ${(block.studyRecommendations || []).map(pickStudyTitle).filter(Boolean).join(' | ') || 'aucune'}
-Contexte complémentaire: ${JSON.stringify(microProfile || {})}
+Analyse personnalité: ${compactPromptText(block.personalityAnalysis, 650)}
+Forces: ${compactPromptText(block.skillsAssessment, 450)}
+StudyRecommendations: ${studyRecommendations}
+Contexte complémentaire: ${compactMicroProfileForAi(microProfile)}
 Département/localisation: ${department?.name || department?.code || department?.city || 'non précisé'}
 Swipes formations gardés: ${likedText}
 Swipes formations refusés: ${rejectedText}`

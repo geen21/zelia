@@ -7,6 +7,33 @@ dotenv.config()
 
 const router = express.Router()
 
+const GEMINI_STRUCTURED_RETRY_ATTEMPTS = 3
+const GEMINI_RETRY_DELAY_MS = 350
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function buildGeminiAttemptConfig(generationConfig, attempt, shouldExpandOutput) {
+  if (!shouldExpandOutput || attempt <= 1) {
+    return generationConfig
+  }
+
+  const baseMaxOutputTokens = Number(generationConfig.maxOutputTokens) || 1024
+  const multiplier = attempt === 2 ? 1.5 : 2
+  return {
+    ...generationConfig,
+    maxOutputTokens: Math.min(8192, Math.ceil(baseMaxOutputTokens * multiplier))
+  }
+}
+
+function logGeminiChatFailure(message, details, body = '') {
+  const bodyPreview = typeof body === 'string' && body
+    ? ` ${body.slice(0, 700)}`
+    : ''
+  console.error(message, JSON.stringify(details), bodyPreview)
+}
+
 function buildDisplayName(message, profile) {
   const firstName = profile?.first_name?.trim()
   return {
@@ -210,17 +237,17 @@ router.post('/ai', authenticateToken, async (req, res) => {
       : isGradesEvaluation
       ? { temperature: 0.25, maxOutputTokens: 512, responseMimeType: 'application/json' }
       : isOrientationKeywordSelection
-      ? { temperature: 0.25, maxOutputTokens: 1536, responseMimeType: 'application/json' }
+      ? { temperature: 0.25, maxOutputTokens: 3072, responseMimeType: 'application/json' }
       : isOrientationCandidatePreselection
-      ? { temperature: 0.15, maxOutputTokens: 2048, responseMimeType: 'application/json' }
+      ? { temperature: 0.15, maxOutputTokens: 4096, responseMimeType: 'application/json' }
       : isOrientationFormationDeck
-      ? { temperature: 0.55, maxOutputTokens: 3072, responseMimeType: 'application/json' }
+      ? { temperature: 0.5, maxOutputTokens: 4096, responseMimeType: 'application/json' }
       : isOrientationFormationKeywords
-      ? { temperature: 0.25, maxOutputTokens: 2048, responseMimeType: 'application/json' }
+      ? { temperature: 0.25, maxOutputTokens: 3072, responseMimeType: 'application/json' }
       : isOrientationJobDeck
-      ? { temperature: 0.55, maxOutputTokens: 3072, responseMimeType: 'application/json' }
+      ? { temperature: 0.5, maxOutputTokens: 4096, responseMimeType: 'application/json' }
       : isOrientationJobFinal
-      ? { temperature: 0.35, maxOutputTokens: 3072, responseMimeType: 'application/json' }
+      ? { temperature: 0.35, maxOutputTokens: 4096, responseMimeType: 'application/json' }
       : isCvBuilder
       ? { temperature: 0.35, maxOutputTokens: 4096, responseMimeType: 'application/json' }
       : isPointsMetier
@@ -234,36 +261,98 @@ router.post('/ai', authenticateToken, async (req, res) => {
       : { temperature: 0.75, maxOutputTokens: 1024 }
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`
-    const resp = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts }], generationConfig })
-    })
+    const geminiAttempts = isStructuredJson ? GEMINI_STRUCTURED_RETRY_ATTEMPTS : 1
+    let lastGeminiError = 'Erreur IA temporaire'
 
-    if (!resp.ok) {
-      const t = await resp.text()
-      console.error('Gemini chat error:', t)
-      return res.status(500).json({ error: 'Erreur IA' })
-    }
-    const data = await resp.json()
-    const finishReason = data?.candidates?.[0]?.finishReason
-    const reply = (data?.candidates?.[0]?.content?.parts || [])
-      .map((part) => part?.text || '')
-      .filter(Boolean)
-      .join('\n')
-      .trim()
-    if (finishReason === 'MAX_TOKENS') {
-      console.error('Gemini chat truncated response:', JSON.stringify({ advisorType, mode, maxOutputTokens: generationConfig.maxOutputTokens }))
-      if (isCvBuilder && reply) {
-        return res.json({ reply, truncated: true })
+    for (let attempt = 1; attempt <= geminiAttempts; attempt += 1) {
+      const attemptGenerationConfig = buildGeminiAttemptConfig(generationConfig, attempt, isStructuredJson)
+      const logDetails = {
+        advisorType,
+        mode,
+        attempt,
+        attempts: geminiAttempts,
+        maxOutputTokens: attemptGenerationConfig.maxOutputTokens
       }
-      return res.status(500).json({ error: 'Réponse IA tronquée' })
+
+      let resp
+      try {
+        resp = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts }], generationConfig: attemptGenerationConfig })
+        })
+      } catch (fetchError) {
+        lastGeminiError = 'Erreur IA temporaire'
+        logGeminiChatFailure('Gemini chat fetch failed:', { ...logDetails, message: fetchError?.message || String(fetchError) })
+        if (attempt < geminiAttempts) {
+          await wait(GEMINI_RETRY_DELAY_MS * attempt)
+          continue
+        }
+        return res.status(502).json({ error: lastGeminiError })
+      }
+
+      if (!resp.ok) {
+        const responseBody = await resp.text()
+        lastGeminiError = 'Erreur IA temporaire'
+        logGeminiChatFailure('Gemini chat error:', { ...logDetails, status: resp.status }, responseBody)
+        if (attempt < geminiAttempts) {
+          await wait(GEMINI_RETRY_DELAY_MS * attempt)
+          continue
+        }
+        return res.status(502).json({ error: lastGeminiError })
+      }
+
+      let geminiData
+      try {
+        geminiData = await resp.json()
+      } catch (parseError) {
+        lastGeminiError = 'Réponse IA illisible'
+        logGeminiChatFailure('Gemini chat JSON parse failed:', { ...logDetails, message: parseError?.message || String(parseError) })
+        if (attempt < geminiAttempts) {
+          await wait(GEMINI_RETRY_DELAY_MS * attempt)
+          continue
+        }
+        return res.status(502).json({ error: lastGeminiError })
+      }
+
+      const finishReason = geminiData?.candidates?.[0]?.finishReason
+      const reply = (geminiData?.candidates?.[0]?.content?.parts || [])
+        .map((part) => part?.text || '')
+        .filter(Boolean)
+        .join('\n')
+        .trim()
+
+      if (finishReason === 'MAX_TOKENS') {
+        lastGeminiError = 'Réponse IA tronquée'
+        logGeminiChatFailure('Gemini chat truncated response:', logDetails)
+        if (attempt < geminiAttempts) {
+          await wait(GEMINI_RETRY_DELAY_MS * attempt)
+          continue
+        }
+        if (isCvBuilder && reply) {
+          return res.json({ reply, truncated: true })
+        }
+        return res.status(502).json({ error: lastGeminiError })
+      }
+
+      if (!reply) {
+        lastGeminiError = 'Réponse IA vide'
+        logGeminiChatFailure('Gemini chat empty response:', {
+          ...logDetails,
+          finishReason,
+          promptFeedback: geminiData?.promptFeedback || null
+        })
+        if (attempt < geminiAttempts) {
+          await wait(GEMINI_RETRY_DELAY_MS * attempt)
+          continue
+        }
+        return res.status(502).json({ error: lastGeminiError })
+      }
+
+      return res.json({ reply })
     }
-    if (!reply) {
-      console.error('Gemini chat empty response:', JSON.stringify({ finishReason: data?.candidates?.[0]?.finishReason, promptFeedback: data?.promptFeedback || null }))
-      return res.status(500).json({ error: 'Réponse IA vide' })
-    }
-    res.json({ reply })
+
+    res.status(502).json({ error: lastGeminiError })
   } catch (e) {
     console.error('AI chat route error:', e)
     res.status(500).json({ error: 'Erreur serveur' })

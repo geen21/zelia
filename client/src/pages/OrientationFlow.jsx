@@ -2001,16 +2001,25 @@ export default function OrientationFlow() {
   }
 
   const getAiFormationDeckCandidates = async (profile, department, count = AI_FORMATION_DECK_SIZE) => {
-    return retryAsync(async () => {
+    const targetLevel = getTargetStudyLevel(profile)
+    const retryLevelInstruction = targetLevel >= 5
+      ? `\n\nTentative suivante: la proposition précédente ne contenait pas assez de formations compatibles avec ${profile?.target_level || 'le niveau vise'}. Génère uniquement des formations Bac +5 ou plus: master, mastère, MBA, MSc, école spécialisée, école d'ingénieur ou cycle long. Évite BTS, BUT, DUT, Bac +2 et Bac +3.`
+      : targetLevel
+        ? `\n\nTentative suivante: la proposition précédente ne respectait pas assez le niveau ${profile?.target_level || 'vise'}. Génère uniquement des formations compatibles avec ce niveau.`
+        : ''
+
+    return retryAsync(async (attempt) => {
       const response = await chatAPI.aiChat({
         mode: 'advisor',
         advisorType: 'orientation-formation-deck',
-        message: buildAiFormationDeckPrompt({ analysis: analysisData, microProfile: profile, department, count }),
+        message: `${buildAiFormationDeckPrompt({ analysis: analysisData, microProfile: profile, department, count })}${attempt > 1 ? retryLevelInstruction : ''}`,
         history: []
       })
       const candidates = normalizeAiFormationCandidates(parseJsonFromReply(response?.data?.reply), count)
       if (!candidates.length) throw new Error('Gemini n’a pas généré de propositions formations exploitables')
-      return candidates
+      const levelCompatibleCandidates = filterCandidatesByTargetStudyLevel(candidates, profile)
+      if (!levelCompatibleCandidates.length) throw new Error('Gemini n’a pas généré de propositions formations compatibles avec le niveau visé')
+      return levelCompatibleCandidates
     }, {
       attempts: AI_RETRY_ATTEMPTS,
       label: 'Deck formations Gemini',

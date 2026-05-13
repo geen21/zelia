@@ -10,8 +10,8 @@ const MAX_PROPOSAL_DECK = 24
 const MAX_FINAL_RESULTS = 14
 const AI_FORMATION_DECK_SIZE = 8
 const AI_FORMATION_KEYWORD_COUNT = 6
-const AI_JOB_DECK_SIZE = 10
-const AI_FINAL_JOB_COUNT = 5
+const AI_JOB_DECK_SIZE = 5
+const AI_FINAL_JOB_COUNT = 8
 const AI_RETRY_ATTEMPTS = 3
 const CATALOG_RETRY_ATTEMPTS = 3
 const PRESELECTED_CANDIDATES_PER_KIND = 4
@@ -1058,17 +1058,6 @@ function normalizeAiJobCandidates(value, limit = AI_JOB_DECK_SIZE) {
     .slice(0, limit)
 }
 
-function buildAiJobFallbackCandidates(analysis, extraText = '', limit = AI_FINAL_JOB_COUNT) {
-  const plans = buildFallbackPlans('metiers', analysis, extraText)
-  return normalizeAiJobCandidates(plans.map((plan, index) => ({
-    title: plan.title || plan.query,
-    summary: plan.reason || 'Métier compatible avec ton profil',
-    why: plan.reason || 'Cette piste reprend des signaux forts de ton profil.',
-    skills: String(plan.query || '').split(/\s+/).filter(Boolean).slice(0, 4),
-    matchScore: 74 - index
-  })), limit)
-}
-
 function buildAiJobDeckPrompt({ analysis, microProfile, department, count = AI_JOB_DECK_SIZE }) {
   const block = getAnalysisBlock(analysis) || {}
   return `Tu es Zélia. Propose un deck de métiers à swiper pour affiner l'orientation de l'utilisateur.
@@ -1103,10 +1092,13 @@ Schéma obligatoire: [{"title":"Métier précis","summary":"pourquoi c'est une p
 
 Règles:
 - Ne te base pas sur metier_france ni sur une base de données.
+- Les métiers retournés doivent être une nouvelle liste affinée: ne recopie jamais exactement les métiers swipés, même ceux gardés.
+- Utilise les métiers gardés comme signaux de famille, de compétences, d'environnement et de motivation, puis propose des métiers proches mais distincts.
 - Considère vraiment tous les métiers possibles, y compris manuels, artisanaux, techniques, de terrain, du soin, du bâtiment, de l'industrie, de l'agriculture, du service et pas seulement les métiers de bureau ou numériques.
 - Ne repropose jamais un métier refusé ni un métier trop proche d'un refus.
-- Si l'utilisateur a tout refusé, repars du profil et propose 5 directions nouvelles.
-- Les 5 métiers doivent être plus précis que les propositions de swipe.
+- Si un seul métier a été gardé, propose ${count} métiers distincts qui ressemblent à ce match par les tâches, les compétences ou l'environnement.
+- Si l'utilisateur a tout refusé, repars du profil et propose ${count} directions nouvelles.
+- Les ${count} métiers doivent être plus précis que les propositions de swipe et distincts les uns des autres.
 - Varie les niveaux d'études et les environnements quand c'est cohérent avec le profil.
 - Si les oui/non montrent une attirance pour le concret, le geste, le terrain ou l'autonomie, inclure au moins un métier manuel ou artisanal dans la liste finale.
 - matchScore est un entier entre 65 et 98.
@@ -2034,9 +2026,7 @@ export default function OrientationFlow() {
   }
 
   const getAiJobDeckCandidates = async (profile, department, count = AI_JOB_DECK_SIZE) => {
-    const extraText = Object.values(profile || {}).flat().join(' ')
-    const fallbackCandidates = buildAiJobFallbackCandidates(analysisData, extraText, count)
-    try {
+    return retryAsync(async () => {
       const response = await chatAPI.aiChat({
         mode: 'advisor',
         advisorType: 'orientation-job-deck',
@@ -2044,45 +2034,51 @@ export default function OrientationFlow() {
         history: []
       })
       const candidates = normalizeAiJobCandidates(parseJsonFromReply(response?.data?.reply), count)
-      return candidates.length ? candidates : fallbackCandidates
-    } catch (jobDeckError) {
-      console.warn('Zelia job deck generation failed, using profile fallback jobs', jobDeckError)
-      return fallbackCandidates
-    }
+      if (candidates.length < count) throw new Error(`Gemini n'a généré que ${candidates.length}/${count} métiers à swiper`)
+      return candidates
+    }, {
+      attempts: 2,
+      label: 'Deck métiers Gemini',
+      isValidResult: (candidates) => Array.isArray(candidates) && candidates.length >= count
+    })
   }
 
   const getFinalAiJobCandidates = async (profile, department, liked = [], rejected = [], count = AI_FINAL_JOB_COUNT) => {
-    const extraText = Object.values(profile || {}).flat().join(' ')
     const likedJobs = liked.filter((candidate) => candidate?.type === 'metier')
-    const fallbackCandidates = mergeUniqueCandidates(
-      likedJobs,
-      buildAiJobFallbackCandidates(analysisData, extraText, count)
-    ).slice(0, count)
+    const rejectedJobs = rejected.filter((candidate) => candidate?.type === 'metier')
+    const swipedJobs = mergeUniqueCandidates(likedJobs, rejectedJobs)
 
-    try {
+    return retryAsync(async (attempt) => {
+      const retryInstruction = attempt > 1
+        ? `\n\nTentative suivante: la liste précédente n'était pas assez distincte des swipes ou ne contenait pas ${count} métiers exploitables. Génère exactement ${count} nouveaux métiers, sans reprendre les titres swipés.`
+        : ''
       const response = await chatAPI.aiChat({
         mode: 'advisor',
         advisorType: 'orientation-job-final',
-        message: buildAiFinalJobsPrompt({
+        message: `${buildAiFinalJobsPrompt({
           analysis: analysisData,
           microProfile: profile,
           department,
           likedProposals: likedJobs,
-          rejectedProposals: rejected.filter((candidate) => candidate?.type === 'metier'),
+          rejectedProposals: rejectedJobs,
           count
-        }),
+        })}${retryInstruction}`,
         history: []
       })
-      const candidates = filterRejectedCandidates(
+      const candidates = diversifyCandidates(filterRejectedCandidates(
         normalizeAiJobCandidates(parseJsonFromReply(response?.data?.reply), count),
-        rejected,
-        likedJobs
-      )
-      return mergeUniqueCandidates(candidates, fallbackCandidates).slice(0, count)
-    } catch (finalJobError) {
-      console.warn('Zelia final job refinement failed, using liked/fallback jobs', finalJobError)
-      return fallbackCandidates
-    }
+        swipedJobs,
+        []
+      ), { maxPerJobTitle: 1 }).slice(0, count)
+      if (candidates.length < count) {
+        throw new Error(`Gemini n'a généré que ${candidates.length}/${count} métiers distincts après filtrage des swipes`)
+      }
+      return candidates
+    }, {
+      attempts: 2,
+      label: 'Affinage métiers Gemini',
+      isValidResult: (candidates) => Array.isArray(candidates) && candidates.length >= count
+    })
   }
 
   const preselectCandidatesWithAi = async (candidates, profile, nextIntent, options = {}) => {
@@ -2193,6 +2189,9 @@ export default function OrientationFlow() {
           : deck.slice(0, MAX_PROPOSAL_DECK)
       deck = filterCandidatesByTargetStudyLevel(deck, profile)
       if (!deck.length) {
+        if (nextIntent === 'metiers') {
+          throw new Error('Aucune proposition métiers Gemini exploitable')
+        }
         if (nextIntent === 'formations' || nextIntent === 'both') {
           throw new Error('Aucune proposition formations exploitable après vérification du niveau visé')
         }
@@ -2210,8 +2209,7 @@ export default function OrientationFlow() {
           raw: plan
         }))
         const fallbackDeck = mergeUniqueCandidates(
-          fallbackPlanDeck,
-          nextIntent !== 'formations' ? buildAiJobFallbackCandidates(analysisData, extraText, AI_JOB_DECK_SIZE) : []
+          fallbackPlanDeck
         )
         deck = filterCandidatesByTargetStudyLevel(balanceCandidatesForIntent(
           fallbackDeck,
@@ -2303,7 +2301,7 @@ export default function OrientationFlow() {
     const likedSource = options.likedOverride || likedProposals
     localStorage.setItem('orientation_micro_profile', JSON.stringify(profile))
     setPhase('finalSearch')
-    setBusyMessage('Je réfléchis')
+    setBusyMessage(intent === 'metiers' ? "J'affine tes métiers avec tes swipes" : 'Je réfléchis')
     setError('')
 
     try {
@@ -2369,7 +2367,9 @@ export default function OrientationFlow() {
       console.error('Final search error', finalError)
       setFinalCandidates([])
       setCheckedIds([])
-      setError("Je n'ai pas réussi à trouver des formations cohérentes après plusieurs tentatives. Réessaie dans quelques instants.")
+      setError(intent === 'metiers'
+        ? "Je n'ai pas réussi à affiner des métiers cohérents après plusieurs tentatives. Réessaie dans quelques instants."
+        : "Je n'ai pas réussi à trouver des formations cohérentes après plusieurs tentatives. Réessaie dans quelques instants.")
     } finally {
       setBusyMessage('')
     }
@@ -2607,7 +2607,7 @@ export default function OrientationFlow() {
           <span className="orientation-pill">Validé</span>
           <h1>{hasMetierRecap ? 'Voilà, on a une vraie base pour commencer. Je te propose ces métiers.' : 'Voilà, on a une vraie base pour avancer.'}</h1>
           <p>{hasMetierRecap
-            ? "J'ai rapproché ta sélection des métiers disponibles et gardé les infos utiles : description, lieu, contact et lien quand ils existent."
+            ? "J'ai affiné tes swipes avec ton profil pour te proposer des métiers distincts et proches de tes matchs."
             : "J'ai gardé tes choix et je t'ai ajouté les infos utiles : description, lieu, niveau, contact et lien quand la base les fournit."}</p>
 
           {recapCandidates.length > 0 ? (

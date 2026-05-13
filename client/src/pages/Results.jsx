@@ -370,6 +370,76 @@ export default function Results() {
 			.slice(0, 6)
 	}
 
+	const normalizeSkillValues = (...values) => {
+		return values
+			.flatMap((value) => {
+				if (Array.isArray(value)) return value
+				if (typeof value === 'string') return value.split(/[;,•·]/)
+				return []
+			})
+			.map((value) => cleanCandidateText(value, 54))
+			.filter(Boolean)
+			.filter((value, index, array) => array.findIndex((candidate) => candidate.toLowerCase() === value.toLowerCase()) === index)
+			.slice(0, 5)
+	}
+
+	const normalizeJobRecommendation = (job) => {
+		if (!job) return null
+
+		const title = typeof job === 'string'
+			? cleanCandidateText(job, 120)
+			: cleanCandidateText(firstText(job.title, job.name, job.label, job.metier, job.intitule), 120)
+
+		if (!title) return null
+
+		return {
+			title,
+			skills: typeof job === 'object'
+				? normalizeSkillValues(job.skills, job.competences, job.tags, job.focus)
+				: []
+		}
+	}
+
+	const getFinalSelectionJobRecommendations = () => {
+		return orientationSelections
+			.filter((selection) => selection.type === 'metier')
+			.map((selection) => normalizeJobRecommendation({
+				title: selection.title,
+				skills: selection.tags
+			}))
+			.filter(Boolean)
+			.slice(0, 6)
+	}
+
+	const getFinalSelectionStudyRecommendations = () => {
+		return orientationSelections
+			.filter((selection) => selection.type === 'formation')
+			.map((selection) => ({
+				degree: cleanCandidateText(selection.title, 160),
+				type: firstText(selection.description, selection.subtitle, inferStudyDescription(selection.title))
+			}))
+			.filter((study) => study.degree)
+			.filter((study, index, array) => array.findIndex((candidate) => candidate.degree.toLowerCase() === study.degree.toLowerCase()) === index)
+			.slice(0, 6)
+	}
+
+	const buildOrientationDisplayData = (data) => {
+		if (!data) return data
+
+		const finalJobs = getFinalSelectionJobRecommendations()
+		const finalStudies = getFinalSelectionStudyRecommendations()
+		const fallbackJobs = Array.isArray(data.jobRecommendations)
+			? data.jobRecommendations.map(normalizeJobRecommendation).filter(Boolean).slice(0, 6)
+			: []
+		const fallbackStudies = normalizeStudyRecommendations(data.studyRecommendations)
+
+		return {
+			...data,
+			jobRecommendations: finalJobs.length ? finalJobs : fallbackJobs,
+			studyRecommendations: finalStudies.length ? finalStudies : fallbackStudies
+		}
+	}
+
 	const sanitizeResultsForDisplay = (results) => {
 		if (!results || typeof results !== 'object') return results
 		const clone = { ...results }
@@ -541,7 +611,7 @@ export default function Results() {
 	}
 
 	const renderOrientationTab = () => {
-		const data = analysisData?.inscriptionResults || analysisData // fallback if only simple results
+		const data = buildOrientationDisplayData(analysisData?.inscriptionResults || analysisData) // fallback if only simple results
 		if (!data) {
 			return (
 				<div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">

@@ -14,13 +14,10 @@ const AI_JOB_DECK_SIZE = 10
 const AI_FINAL_JOB_COUNT = 5
 const AI_RETRY_ATTEMPTS = 3
 const CATALOG_RETRY_ATTEMPTS = 3
-const MAX_VALIDATED_JOB_RESULTS = 5
-const VALIDATED_JOB_RESULTS_PER_QUERY = 3
 const PRESELECTED_CANDIDATES_PER_KIND = 4
 const MAX_PARTNER_FINAL_RESULTS = 4
 const CATALOG_SEARCH_CONCURRENCY = 4
 const MAX_FORMATION_QUERY_VARIANTS = 4
-const JOB_SEARCH_STOPWORDS = new Set(['metier', 'responsable', 'assistant', 'assistante', 'charge', 'chargee', 'chef', 'cheffe', 'agent', 'agente', 'technicien', 'technicienne', 'specialiste', 'consultant', 'consultante', 'expert', 'experte', 'de', 'du', 'des', 'en', 'et', 'a', 'au', 'aux', 'le', 'la', 'les'])
 const FORMATION_ANCHOR_STOPWORDS = new Set(['formation', 'formations', 'piste', 'parcours', 'etude', 'etudes', 'ecole', 'ecoles', 'universite', 'lycee', 'cfa', 'iut', 'cnam', 'greta', 'diplome', 'metier', 'metiers', 'professionnel', 'professionnelle', 'initiale', 'alternance', 'bts', 'but', 'dut', 'licence', 'bachelor', 'master', 'mastere', 'mba', 'msc', 'ingenieur', 'de', 'du', 'des', 'en', 'et', 'a', 'au', 'aux', 'le', 'la', 'les', 'pour', 'avec', 'dans', 'niveau', 'vise'])
 const FORMATION_THEME_EXPANSIONS = [
   {
@@ -1046,34 +1043,6 @@ function normalizeAiJobCandidate(item, index) {
   }
 }
 
-function normalizeJob(item, index, sourceCandidate = null) {
-  const title = cleanDetailText(item?.intitule || item?.title || sourceCandidate?.title || 'Métier', 120)
-  const subtitle = cleanDetailText([
-    item?.typecontrat,
-    item?.lieutravail_libelle,
-    item?.entreprise_nom
-  ].filter(Boolean).join(' - ') || item?.romecode || sourceCandidate?.subtitle || 'Métier proposé', 180)
-  const catalogScore = item?.score !== undefined && item?.score !== null
-    ? normalizeCatalogRelevanceScore(item.score)
-    : normalizePercentageMatchScore(item?.match_score)
-
-  return {
-    id: `metier-${item?.id || aiJobSlug(title, index)}-${index}`,
-    rawId: item?.id || null,
-    type: 'metier',
-    title,
-    subtitle,
-    source: 'Métier proposé',
-    sourceTable: 'metiers_france',
-    logoKind: 'metier',
-    matchScore: catalogScore || sourceCandidate?.matchScore || null,
-    raw: {
-      ...item,
-      matched_from: sourceCandidate?.title || sourceCandidate?.raw?.title || ''
-    }
-  }
-}
-
 function normalizeAiJobCandidates(value, limit = AI_JOB_DECK_SIZE) {
   const items = Array.isArray(value) ? value : Array.isArray(value?.jobs) ? value.jobs : []
   const seen = new Set()
@@ -1148,24 +1117,6 @@ Contexte complémentaire: ${JSON.stringify(microProfile || {})}
 Département/localisation: ${department?.name || department?.code || department?.city || 'non précisé'}
 Swipes gardés: ${likedText}
 Swipes refusés: ${rejectedText}`
-}
-
-function buildValidatedJobSearchQueries(candidate) {
-  const title = cleanDetailText(candidate?.title || candidate?.raw?.title || candidate?.raw?.intitule, 100)
-  if (!title) return []
-
-  const words = normalizeDiversityText(title)
-    .split(' ')
-    .filter((word) => word.length >= 3)
-  const significantWords = words.filter((word) => !JOB_SEARCH_STOPWORDS.has(word))
-  const coreQuery = significantWords.join(' ')
-  const firstPair = significantWords.slice(0, 2).join(' ')
-  const lastPair = significantWords.slice(-2).join(' ')
-  const firstWord = significantWords[0] || ''
-
-  return uniqueSearchQueries([title, coreQuery, firstPair, lastPair, firstWord])
-    .filter((query) => query.length >= 2)
-    .slice(0, 4)
 }
 
 function normalizePartnerFormation(item, index) {
@@ -1591,7 +1542,7 @@ function diversifyCandidates(candidates = [], { maxPerFormation = 1, maxPerSchoo
 }
 
 function isDatabaseCandidate(candidate) {
-  return candidate?.sourceTable === 'formation_france' || candidate?.sourceTable === 'metiers_france'
+  return candidate?.sourceTable === 'formation_france'
 }
 
 function isConcreteFinalCandidate(candidate) {
@@ -2134,41 +2085,6 @@ export default function OrientationFlow() {
     }
   }
 
-  const resolveValidatedJobCandidates = async (selectedCandidates, profile, department) => {
-    const selectedJobs = selectedCandidates.filter((candidate) => candidate?.type === 'metier')
-    if (!selectedJobs.length) return []
-
-    const preferredLocation = profile?.study_location === 'near_home'
-      ? getPreferredNearHomeLocation(department)
-      : ''
-    const requestCache = new Map()
-
-    const searchTasks = selectedJobs.flatMap((sourceCandidate) => (
-      buildValidatedJobSearchQueries(sourceCandidate).map((query) => async () => {
-        try {
-          const cacheKey = `validated-metier|${query}|${preferredLocation}`
-          if (!requestCache.has(cacheKey)) {
-            requestCache.set(cacheKey, orientationAPI.searchMetiers({
-              q: query,
-              page_size: VALIDATED_JOB_RESULTS_PER_QUERY,
-              ...(preferredLocation ? { location: preferredLocation } : {})
-            }))
-          }
-          const response = await requestCache.get(cacheKey)
-          return (response.data?.items || []).map((item, index) => normalizeJob(item, `${aiJobSlug(query, index)}-${index}`, sourceCandidate))
-        } catch (searchError) {
-          console.warn('Validated metier catalog search failed', query, searchError)
-          return []
-        }
-      })
-    ))
-
-    if (!searchTasks.length) return []
-    const candidateGroups = await runWithConcurrency(searchTasks, CATALOG_SEARCH_CONCURRENCY, (searchTask) => searchTask())
-    return diversifyCandidates(mergeUniqueCandidates(...candidateGroups), { maxPerJobTitle: 1 })
-      .slice(0, MAX_VALIDATED_JOB_RESULTS)
-  }
-
   const preselectCandidatesWithAi = async (candidates, profile, nextIntent, options = {}) => {
     const perKind = options.perKind || PRESELECTED_CANDIDATES_PER_KIND
     const maxCount = options.maxCount || (nextIntent === 'both'
@@ -2469,34 +2385,9 @@ export default function OrientationFlow() {
   const validateFinalSelection = async () => {
     const selectedCandidates = finalCandidates
       .filter((candidate) => checkedIds.includes(candidate.id))
-    const selectedJobs = selectedCandidates.filter((candidate) => candidate?.type === 'metier')
-    let confirmedCandidates = selectedCandidates
 
     setError('')
-    if (selectedJobs.length) {
-      setPhase('finalSearch')
-      setBusyMessage('Je cherche des métiers concrets à partir de ta sélection')
-      try {
-        const profile = sanitizeMicroProfileForIntent(microProfile, intent)
-        const department = await resolveUserDepartment()
-        const catalogJobs = await resolveValidatedJobCandidates(selectedCandidates, profile, department)
-        const resolvedJobs = catalogJobs.length
-          ? diversifyCandidates(mergeUniqueCandidates(catalogJobs, selectedJobs), { maxPerJobTitle: 1 }).slice(0, MAX_VALIDATED_JOB_RESULTS)
-          : selectedJobs
-        confirmedCandidates = mergeUniqueCandidates(
-          selectedCandidates.filter((candidate) => candidate?.type !== 'metier'),
-          resolvedJobs
-        )
-        setFinalCandidates(confirmedCandidates)
-        setCheckedIds(confirmedCandidates.map((candidate) => candidate.id))
-      } catch (validationSearchError) {
-        console.warn('Validated job search failed, keeping selected jobs', validationSearchError)
-      } finally {
-        setBusyMessage('')
-      }
-    }
-
-    const selected = confirmedCandidates.map(serializeFinalCandidate)
+    const selected = selectedCandidates.map(serializeFinalCandidate)
     localStorage.setItem('orientation_final_selection', JSON.stringify(selected))
     await usersAPI.saveExtraInfo([{ question_id: 'orientation_final_selection', question_text: 'Sélection finale', answer_text: JSON.stringify(selected) }]).catch(() => null)
     setPhase('confirmed')

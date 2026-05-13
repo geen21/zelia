@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { chatAPI, orientationAPI, usersAPI } from '../lib/api.js'
+import {
+  AI_FINAL_JOB_COUNT,
+  AI_JOB_DECK_SIZE,
+  buildAiFinalJobsPrompt,
+  buildAiJobDeckPrompt,
+  normalizeAiJobCandidates
+} from '../lib/orientationJobs.js'
+import './OrientationFlow.css'
 
 const QUESTION_LIMIT = 40
 const ANSWERS_PROGRESS_KEY = 'answers_progress'
@@ -10,8 +18,6 @@ const MAX_PROPOSAL_DECK = 24
 const MAX_FINAL_RESULTS = 14
 const AI_FORMATION_DECK_SIZE = 8
 const AI_FORMATION_KEYWORD_COUNT = 6
-const AI_JOB_DECK_SIZE = 5
-const AI_FINAL_JOB_COUNT = 8
 const AI_RETRY_ATTEMPTS = 3
 const CATALOG_RETRY_ATTEMPTS = 3
 const PRESELECTED_CANDIDATES_PER_KIND = 4
@@ -1006,109 +1012,6 @@ Swipes formations refusés: ${rejectedText}`
 function aiJobSlug(value, index) {
   const slug = normalizeDiversityText(value).replace(/\s+/g, '-')
   return slug || `metier-${index}`
-}
-
-function normalizeAiJobCandidate(item, index) {
-  const title = cleanDetailText(item?.title || item?.metier || item?.job || item?.name, 90)
-  if (!title) return null
-
-  const summary = cleanDetailText(item?.summary || item?.description || item?.why || item?.reason, 220)
-  const why = cleanDetailText(item?.why || item?.reason || item?.fit || '', 260)
-  const skills = compactTags([item?.skills, item?.competences, item?.strengths]).slice(0, 5)
-  const constraints = compactTags([item?.constraints, item?.contraintes, item?.watchOut, item?.points_attention]).slice(0, 4)
-  const training = cleanDetailText(item?.training || item?.studies || item?.formation || item?.access || '', 160)
-  const subtitle = cleanDetailText([
-    summary,
-    skills.length ? skills.slice(0, 3).join(' · ') : ''
-  ].filter(Boolean).join(' - '), 180)
-
-  return {
-    id: `ai-metier-${aiJobSlug(title, index)}-${index}`,
-    rawId: null,
-    type: 'metier',
-    title,
-    subtitle: subtitle || 'Métier proposé selon ton profil',
-    source: 'Suggestion Zélia',
-    sourceTable: 'gemini_metiers',
-    logoKind: 'metier',
-    matchScore: normalizePercentageMatchScore(item?.matchScore ?? item?.match_score ?? item?.score),
-    raw: {
-      title,
-      summary,
-      why,
-      skills,
-      constraints,
-      training
-    }
-  }
-}
-
-function normalizeAiJobCandidates(value, limit = AI_JOB_DECK_SIZE) {
-  const items = Array.isArray(value) ? value : Array.isArray(value?.jobs) ? value.jobs : []
-  const seen = new Set()
-  return items
-    .map(normalizeAiJobCandidate)
-    .filter(Boolean)
-    .filter((candidate) => {
-      const key = getCandidateJobDecisionKey(candidate)
-      if (!key || seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
-    .slice(0, limit)
-}
-
-function buildAiJobDeckPrompt({ analysis, microProfile, department, count = AI_JOB_DECK_SIZE }) {
-  const block = getAnalysisBlock(analysis) || {}
-  return `Tu es Zélia. Propose un deck de métiers à swiper pour affiner l'orientation de l'utilisateur.
-Retourne uniquement un JSON valide: un tableau de ${count} objets exactement.
-Schéma obligatoire: [{"title":"Métier précis","summary":"phrase courte sur le quotidien","why":"pourquoi ce métier colle au profil","skills":["compétence 1","compétence 2"],"constraints":["point à vérifier"],"training":"voie d'accès simple","matchScore":82}].
-
-Règles:
-- Les métiers doivent correspondre au profil, pas à une base de données.
-- Tous les types de métiers doivent être pris en compte: manuel, artisanal, technique, terrain, soin, service, social, commerce, création, numérique, industrie, agriculture, bâtiment, recherche et métiers de bureau.
-- Le deck doit contenir au moins 2 métiers manuels, artisanaux ou de terrain si le profil ne les exclut pas clairement, par exemple plomberie, électricité, cuisine, mécanique, menuiserie, aide-soignant, paysagisme ou métiers du bâtiment.
-- N'utilise pas metier_france et ne mentionne aucune table.
-- Évite les intitulés trop vagues comme manager, consultant ou commercial sans spécialité.
-- Varie les univers pour apprendre des swipes: concret, manuel, relationnel, créatif, analytique, organisation, technique.
-- Les métiers doivent être réalistes en France pour un élève ou étudiant.
-- matchScore est un entier entre 55 et 96.
-
-Analyse personnalité: ${block.personalityAnalysis || ''}
-Forces: ${block.skillsAssessment || ''}
-Métiers déjà suggérés dans le bilan: ${(block.jobRecommendations || []).map(pickJobTitle).filter(Boolean).join(' | ') || 'aucun'}
-Contexte complémentaire: ${JSON.stringify(microProfile || {})}
-Département/localisation: ${department?.name || department?.code || department?.city || 'non précisé'}`
-}
-
-function buildAiFinalJobsPrompt({ analysis, microProfile, department, likedProposals, rejectedProposals, count = AI_FINAL_JOB_COUNT }) {
-  const block = getAnalysisBlock(analysis) || {}
-  const likedText = likedProposals.map((item) => `${item.title} - ${item.subtitle || item.raw?.why || ''}`).join(' | ') || 'aucun'
-  const rejectedText = rejectedProposals.map((item) => `${item.title} - ${item.subtitle || item.raw?.why || ''}`).join(' | ') || 'aucun'
-
-  return `Tu es Zélia. Affine maintenant comme un Akinator: les métiers gardés indiquent ce qui attire l'utilisateur, les métiers refusés indiquent ce qu'il faut éviter.
-Retourne uniquement un JSON valide: un tableau de ${count} métiers idéaux exactement.
-Schéma obligatoire: [{"title":"Métier précis","summary":"pourquoi c'est une piste idéale","why":"lien direct avec les oui/non","skills":["compétence 1","compétence 2"],"constraints":["point à vérifier"],"training":"première voie d'accès","matchScore":88}].
-
-Règles:
-- Ne te base pas sur metier_france ni sur une base de données.
-- Les métiers retournés doivent être une nouvelle liste affinée: ne recopie jamais exactement les métiers swipés, même ceux gardés.
-- Utilise les métiers gardés comme signaux de famille, de compétences, d'environnement et de motivation, puis propose des métiers proches mais distincts.
-- Considère vraiment tous les métiers possibles, y compris manuels, artisanaux, techniques, de terrain, du soin, du bâtiment, de l'industrie, de l'agriculture, du service et pas seulement les métiers de bureau ou numériques.
-- Ne repropose jamais un métier refusé ni un métier trop proche d'un refus.
-- Si un seul métier a été gardé, propose ${count} métiers distincts qui ressemblent à ce match par les tâches, les compétences ou l'environnement.
-- Si l'utilisateur a tout refusé, repars du profil et propose ${count} directions nouvelles.
-- Les ${count} métiers doivent être plus précis que les propositions de swipe et distincts les uns des autres.
-- Varie les niveaux d'études et les environnements quand c'est cohérent avec le profil.
-- Si les oui/non montrent une attirance pour le concret, le geste, le terrain ou l'autonomie, inclure au moins un métier manuel ou artisanal dans la liste finale.
-- matchScore est un entier entre 65 et 98.
-
-Analyse personnalité: ${block.personalityAnalysis || ''}
-Forces: ${block.skillsAssessment || ''}
-Contexte complémentaire: ${JSON.stringify(microProfile || {})}
-Département/localisation: ${department?.name || department?.code || department?.city || 'non précisé'}
-Swipes gardés: ${likedText}
-Swipes refusés: ${rejectedText}`
 }
 
 function normalizePartnerFormation(item, index) {
@@ -2158,10 +2061,13 @@ export default function OrientationFlow() {
     localStorage.setItem('orientation_micro_profile', JSON.stringify(profile))
     setError('')
     setPhase('proposalSearch')
-    setBusyMessage('Zélia présélectionne tes pistes')
+    setBusyMessage(nextIntent === 'metiers' ? 'Zélia prépare tes métiers à swiper' : 'Zélia présélectionne tes pistes')
     try {
-      const department = await resolveUserDepartment()
-      await saveMicroProfile(profile, department)
+      const department = nextIntent === 'metiers'
+        ? (userDepartment || {})
+        : await resolveUserDepartment()
+      const savePromise = saveMicroProfile(profile, department)
+      if (nextIntent !== 'metiers') await savePromise
       const extraText = Object.values(profile).flat().join(' ')
       let deck = []
 
@@ -2224,6 +2130,7 @@ export default function OrientationFlow() {
       setLikedProposals([])
       setProposalHistory([])
       setPhase('proposals')
+      if (nextIntent === 'metiers') savePromise.catch(() => null)
     } catch (proposalError) {
       console.error('Proposal deck error', proposalError)
       setError('Impossible de charger les propositions pour le moment.')
@@ -2301,12 +2208,15 @@ export default function OrientationFlow() {
     const likedSource = options.likedOverride || likedProposals
     localStorage.setItem('orientation_micro_profile', JSON.stringify(profile))
     setPhase('finalSearch')
-    setBusyMessage(intent === 'metiers' ? "J'affine tes métiers avec tes swipes" : 'Je réfléchis')
+    setBusyMessage(intent === 'metiers' ? 'Zélia affine 8 métiers avec tes swipes' : 'Je réfléchis')
     setError('')
 
     try {
-      const department = await resolveUserDepartment()
-      await saveMicroProfile(profile, department)
+      const department = intent === 'metiers'
+        ? (userDepartment || {})
+        : await resolveUserDepartment()
+      const savePromise = saveMicroProfile(profile, department)
+      if (intent !== 'metiers') await savePromise
       const rejectedProposals = historySource.filter((item) => !item.keep).map((item) => item.candidate)
       const liked = likedSource
 
@@ -2315,6 +2225,7 @@ export default function OrientationFlow() {
         setFinalCandidates(finalJobs)
         setCheckedIds(finalJobs.map((candidate) => candidate.id))
         setPhase('final')
+        savePromise.catch(() => null)
         return
       }
 
@@ -2674,7 +2585,6 @@ export default function OrientationFlow() {
 
   return (
     <main className="orientation-flow">
-      <style>{orientationStyles}</style>
       <header className="orientation-topbar">
         <img src="/static/images/logo-dark.png" alt="Zélia" />
         <div className="flow-progress"><span style={{ width: `${progress}%` }} /></div>
@@ -2684,257 +2594,3 @@ export default function OrientationFlow() {
   )
 }
 
-const orientationStyles = `
-.orientation-flow {
-  min-height: 100vh;
-  height: 100vh;
-  overflow-x: hidden;
-  overflow-y: auto;
-  background: #fffbf7;
-  color: #000;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-  display: flex;
-  flex-direction: column;
-}
-.orientation-topbar {
-  height: 64px;
-  display: grid;
-  grid-template-columns: auto minmax(120px, 280px);
-  gap: 18px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px clamp(16px, 4vw, 44px) 0;
-  flex: 0 0 auto;
-}
-.orientation-topbar img { height: 28px; width: auto; display: block; }
-.flow-progress { height: 8px; border-radius: 999px; background: rgba(0,0,0,.08); overflow: hidden; }
-.flow-progress span { display: block; height: 100%; background: #c1ff72; border-radius: inherit; transition: width .25s ease; }
-.orientation-stage {
-  flex: 0 0 auto;
-  min-height: calc(100vh - 64px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  padding: 18px 16px 24px;
-}
-.orientation-card {
-  width: min(680px, calc(100vw - 32px));
-  min-height: clamp(320px, calc(100vh - 210px), 560px);
-  overflow: visible;
-  background: #fff;
-  border: 1px solid rgba(0,0,0,.08);
-  border-radius: 8px;
-  box-shadow: 0 22px 70px rgba(0,0,0,.08);
-  padding: clamp(22px, 5vw, 46px);
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  gap: 24px;
-  transition: transform .18s ease, opacity .18s ease;
-  touch-action: pan-y;
-  user-select: none;
-}
-.swipe-card { cursor: grab; will-change: transform; }
-.swipe-card { justify-content: center; }
-.swipe-card:active { cursor: grabbing; }
-.orientation-pill,
-.source-badge {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 5px 10px;
-  border-radius: 999px;
-  background: #c1ff72;
-  color: #000;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-.source-badge.metier { background: #111827; color: #c1ff72; }
-.source-badge.partner { background: #f68fff; color: #000; }
-.orientation-card h1 {
-  margin: 0;
-  font-size: 40px;
-  line-height: 1.1;
-  letter-spacing: 0;
-  font-weight: 650;
-  overflow-wrap: anywhere;
-}
-.orientation-card p { margin: 0; color: #4b5563; font-size: 17px; line-height: 1.5; }
-.orientation-actions { display: flex; align-items: center; justify-content: center; gap: 24px; margin-top: 20px; }
-.round-action {
-  width: 72px;
-  height: 72px;
-  border-radius: 999px;
-  border: 1px solid rgba(0,0,0,.1);
-  display: inline-grid;
-  place-items: center;
-  background: #fff;
-  box-shadow: 0 14px 36px rgba(0,0,0,.1);
-  font-size: 30px;
-  color: #000;
-}
-.round-action.accept { background: #c1ff72; }
-.round-action.reject { background: #fff; color: #f68fff; }
-.primary-action,
-.secondary-action {
-  min-width: min(420px, calc(100vw - 32px));
-  min-height: 54px;
-  padding: 0 24px;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 16px;
-}
-.primary-action { border: 0; background: #000; color: #fff; box-shadow: 0 16px 34px rgba(0,0,0,.18); }
-.secondary-action { border: 1px solid rgba(0,0,0,.12); background: #fff; color: #000; box-shadow: 0 12px 28px rgba(0,0,0,.08); }
-.avatar-actions { width: min(420px, calc(100vw - 32px)); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.avatar-actions .primary-action,
-.avatar-actions .secondary-action { min-width: 0; width: 100%; }
-.avatar-card { align-items: center; }
-.avatar-card h1 { text-align: center; font-size: 32px; }
-.avatar-preview { width: min(320px, 70vw); height: min(320px, 70vw); object-fit: contain; border-radius: 8px; background: #f8fafc; }
-.message-card { align-items: flex-start; }
-.message-avatar { width: 92px; height: 92px; object-fit: contain; border-radius: 8px; background: #f8fafc; border: 1px solid rgba(0,0,0,.08); }
-.personality-stage { justify-content: flex-start; padding-top: 28px; }
-.personality-card { min-height: auto; user-select: text; gap: 18px; }
-.personality-card .recommendation-list { gap: 16px; }
-.dialogue-card { min-height: auto; }
-.assistant-dialogue { display: grid; grid-template-columns: auto 1fr; align-items: end; gap: 16px; width: 100%; }
-.dialogue-avatar,
-.candidate-avatar { width: 94px; height: 94px; object-fit: contain; border-radius: 8px; background: #f8fafc; border: 1px solid rgba(0,0,0,.08); flex: 0 0 auto; }
-.speech-bubble { position: relative; display: grid; gap: 14px; background: #fffbf7; border: 1px solid rgba(0,0,0,.08); border-radius: 8px; padding: 20px; }
-.speech-bubble::before { content: ''; position: absolute; left: -9px; bottom: 24px; width: 16px; height: 16px; background: #fffbf7; border-left: 1px solid rgba(0,0,0,.08); border-bottom: 1px solid rgba(0,0,0,.08); transform: rotate(45deg); }
-.candidate-speaker { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 14px; }
-.candidate-speaker p { margin: 0; color: #111827; background: #f8fff0; border: 1px solid #c1ff72; border-radius: 8px; padding: 12px 14px; font-size: 15px; font-weight: 600; }
-.choice-grid,
-.intent-grid,
-.recommendation-list,
-.final-list { display: grid; gap: 12px; width: 100%; }
-.choice-grid { grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); }
-.choice-chip,
-.intent-button {
-  min-height: 54px;
-  border-radius: 8px;
-  border: 1px solid rgba(0,0,0,.1);
-  background: #fff;
-  color: #000;
-  font-weight: 600;
-  text-align: left;
-  padding: 14px 16px;
-}
-.choice-chip.active { background: #c1ff72; border-color: #a7ec4e; }
-.intent-button { display: flex; align-items: center; gap: 12px; font-size: 15px; }
-.intent-button i { font-size: 24px; color: #f68fff; }
-.recommendation-row,
-.final-row {
-  display: grid;
-  grid-template-columns: auto 1fr auto auto;
-  gap: 12px;
-  align-items: center;
-  border: 1px solid rgba(0,0,0,.08);
-  border-radius: 8px;
-  padding: 14px;
-  background: #fffbf7;
-}
-.recommendation-row { grid-template-columns: 92px 1fr; align-items: start; background: #fff; }
-.recommendation-row.analysis { border-color: rgba(246,143,255,.45); background: #fff7fd; }
-.recommendation-row.forces { border-color: rgba(193,255,114,.9); background: #f8fff0; }
-.recommendation-row span,
-.final-row small { color: #6b7280; font-size: 12px; font-weight: 700; }
-.recommendation-row strong,
-.final-row strong { display: block; color: #000; font-size: 16px; white-space: pre-wrap; }
-.recommendation-row .analysis-value { font-weight: 500; line-height: 1.55; }
-.final-row input { width: 20px; height: 20px; accent-color: #c1ff72; }
-.final-row b { background: #f68fff; color: #000; border-radius: 999px; padding: 4px 8px; font-size: 11px; }
-.final-row em { background: #c1ff72; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-style: normal; font-weight: 700; }
-.partner-row { border-color: #f68fff; background: #fff7fd; }
-.confirmed-stage { justify-content: flex-start; padding-top: 28px; }
-.confirmed-card { width: min(900px, calc(100vw - 32px)); min-height: auto; user-select: text; gap: 18px; }
-.confirmed-card h1 { font-size: 34px; }
-.confirmed-list { display: grid; gap: 12px; width: 100%; }
-.confirmed-detail {
-  display: grid;
-  gap: 10px;
-  border: 1px solid rgba(0,0,0,.08);
-  border-radius: 8px;
-  background: #fffbf7;
-  padding: 16px;
-}
-.confirmed-detail.partner { border-color: rgba(246,143,255,.5); background: #fff7fd; }
-.confirmed-detail.job { border-color: rgba(17,24,39,.16); background: #f8fafc; }
-.confirmed-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.confirmed-detail-head span,
-.confirmed-detail-head em {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  border-radius: 999px;
-  padding: 4px 9px;
-  font-size: 11px;
-  font-style: normal;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-.confirmed-detail-head span { background: #c1ff72; color: #000; }
-.confirmed-detail-head em { background: #111827; color: #fff; }
-.confirmed-detail h2 { margin: 0; font-size: 21px; line-height: 1.2; letter-spacing: 0; overflow-wrap: anywhere; }
-.confirmed-detail strong { color: #374151; font-size: 14px; line-height: 1.35; }
-.confirmed-detail p { color: #4b5563; font-size: 15px; line-height: 1.5; }
-.confirmed-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.confirmed-tags small { border-radius: 999px; background: #fff; border: 1px solid rgba(0,0,0,.08); padding: 5px 9px; color: #374151; font-size: 12px; font-weight: 700; }
-.confirmed-detail a { justify-self: start; display: inline-flex; align-items: center; gap: 7px; color: #000; font-size: 14px; font-weight: 800; text-decoration: none; }
-.confirmed-detail a:hover { text-decoration: underline; }
-.match-score { color: #111827; background: #c1ff72; padding: 8px 12px; border-radius: 8px; align-self: flex-start; }
-.spinner { width: 42px; height: 42px; border-radius: 999px; border: 3px solid rgba(0,0,0,.12); border-top-color: #000; animation: spin .85s linear infinite; }
-.empty-state { color: #6b7280; }
-@keyframes spin { to { transform: rotate(360deg); } }
-@media (max-width: 640px) {
-  .orientation-topbar { grid-template-columns: 86px 1fr; padding-top: 14px; }
-  .orientation-topbar img { height: 23px; }
-  .orientation-card { min-height: clamp(300px, calc(100vh - 190px), 520px); padding: 24px; }
-  .orientation-card h1 { font-size: 28px; }
-  .avatar-card h1 { font-size: 25px; }
-  .orientation-card p { font-size: 16px; }
-  .round-action { width: 64px; height: 64px; }
-  .assistant-dialogue,
-  .candidate-speaker { grid-template-columns: 1fr; justify-items: start; }
-  .speech-bubble::before { display: none; }
-  .dialogue-avatar,
-  .candidate-avatar { width: 72px; height: 72px; }
-  .recommendation-row { grid-template-columns: 1fr; }
-  .final-row { grid-template-columns: auto 1fr; }
-  .final-row b,
-  .final-row em { justify-self: start; }
-  .confirmed-stage { padding-top: 16px; }
-  .confirmed-card { padding: 22px; }
-  .confirmed-card h1 { font-size: 27px; }
-  .confirmed-detail { padding: 14px; }
-  .confirmed-detail h2 { font-size: 18px; }
-  .confirmed-detail-head { align-items: flex-start; flex-direction: column; }
-}
-@media (max-height: 560px) {
-  .orientation-topbar { height: 44px; padding-top: 10px; }
-  .orientation-topbar img { height: 23px; }
-  .orientation-stage { min-height: calc(100vh - 44px); gap: 10px; padding: 8px 16px 12px; }
-  .orientation-card { min-height: auto; padding: 14px 18px; gap: 10px; }
-  .orientation-card h1 { font-size: 22px; line-height: 1.12; }
-  .avatar-card h1 { font-size: 20px; }
-  .orientation-card p { font-size: 14px; line-height: 1.35; }
-  .message-avatar { width: 52px; height: 52px; }
-  .dialogue-avatar,
-  .candidate-avatar { width: 52px; height: 52px; }
-  .avatar-preview { width: min(180px, 52vw); height: min(180px, 52vw); }
-  .primary-action,
-  .secondary-action { min-height: 42px; font-size: 14px; }
-  .orientation-actions { margin-top: 0; }
-  .round-action { width: 58px; height: 58px; font-size: 25px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .orientation-card,
-  .flow-progress span,
-  .spinner { transition: none !important; animation: none !important; }
-}
-`

@@ -245,9 +245,9 @@ router.post('/ai', authenticateToken, async (req, res) => {
       : isOrientationFormationKeywords
       ? { temperature: 0.25, maxOutputTokens: 3072, responseMimeType: 'application/json' }
       : isOrientationJobDeck
-      ? { temperature: 0.5, maxOutputTokens: 4096, responseMimeType: 'application/json' }
+      ? { temperature: 0.45, maxOutputTokens: 1536, responseMimeType: 'application/json' }
       : isOrientationJobFinal
-      ? { temperature: 0.35, maxOutputTokens: 4096, responseMimeType: 'application/json' }
+      ? { temperature: 0.3, maxOutputTokens: 2048, responseMimeType: 'application/json' }
       : isCvBuilder
       ? { temperature: 0.35, maxOutputTokens: 4096, responseMimeType: 'application/json' }
       : isPointsMetier

@@ -4,13 +4,14 @@ import Formations from './Formations.jsx'
 import EcolesPartenaires from './EcolesPartenaires.jsx'
 
 const TABS = [
-  { id: 'formations', label: 'Formations', to: '/app/formations', icon: 'ph-graduation-cap' },
-  { id: 'ecoles', label: 'Écoles partenaires', to: '/app/ecoles-partenaires', icon: 'ph-buildings' }
+  { id: 'ecoles', label: 'Écoles partenaires', to: '/app/formations', icon: 'ph-buildings' },
+  { id: 'formations', label: 'Formations', to: '/app/formations?tab=formations', icon: 'ph-graduation-cap' }
 ]
 
 export default function FormationsEcoles() {
   const location = useLocation()
-  const activeTab = location.pathname.startsWith('/app/ecoles-partenaires') ? 'ecoles' : 'formations'
+  const searchParams = new URLSearchParams(location.search)
+  const activeTab = searchParams.get('tab') === 'formations' ? 'formations' : 'ecoles'
 
   return (
     <div className="space-y-5">

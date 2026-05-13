@@ -6,6 +6,14 @@ import { buildContextualAdvisorMessage, buildUserContextSummary, normalizeExtraI
 import { ORIENTATION_VIDEO_COMPLETION_ID, ORIENTATION_VIDEO_ITEMS, ORIENTATION_VIDEO_TOOL_PATH } from '../lib/videoToolSequence'
 
 const ORIENTATION_VIDEO_DONE_IDS = ORIENTATION_VIDEO_ITEMS.map((video) => video.questionId)
+const CUSTOM_JOB_BUBBLES_STORAGE_KEY = 'zelia_custom_job_bubbles'
+
+const DEFAULT_EXPERT_BUBBLES = [
+  { id: 'default-developpeur-web', title: 'Développeur web', skills: ['code', 'produit', 'projets'] },
+  { id: 'default-chef-projet', title: 'Chef de projet', skills: ['organisation', 'équipe', 'clients'] },
+  { id: 'default-psychologue', title: 'Psychologue', skills: ['écoute', 'analyse', 'humain'] },
+  { id: 'default-infirmier', title: 'Infirmier', skills: ['soin', 'rythme', 'relationnel'] }
+]
 
 const ACTIONS = [
   { id: 'bilan', label: 'Mon bilan', detail: 'Relire ton analyse et tes pistes principales.', to: '/app/results', icon: 'ph-sparkle', doneWhen: 'hasResults' },
@@ -22,7 +30,7 @@ const ACTIONS = [
   { id: 'stress', label: 'Gérer son stress', detail: 'Comprendre ton profil et tester des exercices anti-stress.', to: '/app/outils/stress', icon: 'ph-heart', doneIds: ['niveau34_stress_profile'] },
   { id: 'softskills', label: 'Soft skills', detail: 'Travailler adaptabilité et intelligence émotionnelle.', to: '/app/outils/intelligence-emotionnelle', icon: 'ph-smiley', doneIds: ['niveau36_adaptability_completed'] },
   { id: 'problem', label: 'Problèmes', detail: 'T’entraîner à résoudre des situations concrètes.', to: '/app/outils/resolution-problemes', icon: 'ph-puzzle-piece', doneIds: ['niveau38_problem_solving_completed'] },
-  { id: 'chat', label: 'Communauté', detail: 'Discuter avec Zélia ou la communauté.', to: '/app/chat', icon: 'ph-chats', doneIds: ['niveau13_chat_discovered', 'niveau13_messages_sent'] }
+  { id: 'chat', label: 'Communauté', detail: 'Discuter avec les autres utilisateurs de Zélia.', to: '/app/chat', icon: 'ph-chats', doneIds: ['niveau13_chat_discovered', 'niveau13_messages_sent'] }
 ]
 
 const ACTION_GROUPS = [
@@ -53,6 +61,139 @@ function getStoredAvatarUrl() {
   }
 }
 
+function cleanBubbleText(value, maxLength = 90) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!text) return ''
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1).trim()}...` : text
+}
+
+function normalizeBubbleKey(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function parseMaybeJson(value) {
+  if (!value || typeof value !== 'string') return null
+  try {
+    return JSON.parse(value)
+  } catch {
+    return null
+  }
+}
+
+function normalizeSkillList(value) {
+  const rawItems = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split(/[;,]/)
+      : []
+
+  return rawItems
+    .map((item) => cleanBubbleText(item, 34))
+    .filter(Boolean)
+    .filter((item, index, array) => array.findIndex((candidate) => candidate.toLowerCase() === item.toLowerCase()) === index)
+    .slice(0, 3)
+}
+
+function normalizeJobBubble(item, index = 0, source = 'recommended') {
+  if (!item) return null
+  const title = typeof item === 'string'
+    ? cleanBubbleText(item, 64)
+    : cleanBubbleText(item.title || item.name || item.label || item.metier || item.intitule || item.job || '', 64)
+
+  if (!title) return null
+
+  const skills = typeof item === 'object'
+    ? normalizeSkillList(item.skills || item.competences || item.tags || item.focus || item.description)
+    : []
+
+  return {
+    id: `${source}-${normalizeBubbleKey(title) || index}`,
+    title,
+    skills,
+    source,
+    custom: source === 'custom'
+  }
+}
+
+function mergeJobBubbles(...groups) {
+  const seen = new Set()
+  const merged = []
+  groups.flat().filter(Boolean).forEach((bubble, index) => {
+    const normalized = normalizeJobBubble(bubble, index, bubble.source || 'recommended')
+    if (!normalized) return
+    const key = normalizeBubbleKey(normalized.title)
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    merged.push(normalized)
+  })
+  return merged
+}
+
+function extractJobBubblesFromResults(results) {
+  const sources = [
+    results?.jobRecommendations,
+    results?.job_recommendations,
+    results?.inscriptionResults?.jobRecommendations,
+    results?.inscriptionResults?.job_recommendations,
+    results?.mbtiResults?.jobRecommendations,
+    results?.mbtiResults?.job_recommendations
+  ]
+
+  return mergeJobBubbles(...sources.filter(Array.isArray).map((items) => items.map((item, index) => normalizeJobBubble(item, index, 'recommended'))))
+}
+
+function extractOrientationJobBubbles(extraInfoEntries) {
+  const finalEntry = extraInfoEntries.find((entry) => String(entry?.question_id || '').toLowerCase() === 'orientation_final_selection')
+  const parsed = parseMaybeJson(finalEntry?.answer_text)
+  const candidates = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(parsed?.candidates)
+      ? parsed.candidates
+      : []
+
+  const jobs = candidates
+    .filter((candidate) => {
+      const raw = candidate?.raw && typeof candidate.raw === 'object' ? candidate.raw : {}
+      const type = String(candidate?.type || raw.type || '').toLowerCase()
+      const sourceTable = String(candidate?.sourceTable || raw.sourceTable || raw.source_table || '').toLowerCase()
+      return type === 'metier' || sourceTable.includes('metiers')
+    })
+    .map((candidate, index) => {
+      const raw = candidate?.raw && typeof candidate.raw === 'object' ? candidate.raw : {}
+      const detail = candidate?.detail && typeof candidate.detail === 'object' ? candidate.detail : {}
+      return normalizeJobBubble({
+        title: detail.title || candidate?.title || raw.intitule,
+        skills: detail.tags || raw.secteuractivitelibelle || raw.typecontrat
+      }, index, 'selection')
+    })
+
+  return mergeJobBubbles(jobs)
+}
+
+function loadCustomJobBubbles() {
+  try {
+    const parsed = parseMaybeJson(localStorage.getItem(CUSTOM_JOB_BUBBLES_STORAGE_KEY))
+    return Array.isArray(parsed)
+      ? mergeJobBubbles(parsed.map((item, index) => normalizeJobBubble(item, index, 'custom'))).slice(0, 6)
+      : []
+  } catch {
+    return []
+  }
+}
+
+function saveCustomJobBubbles(bubbles) {
+  try {
+    localStorage.setItem(CUSTOM_JOB_BUBBLES_STORAGE_KEY, JSON.stringify(bubbles))
+  } catch {
+    // Local persistence is optional.
+  }
+}
+
 function isActionDone(action, extraInfoEntries, hasResults) {
   if (action.doneWhen === 'hasResults' && hasResults) return true
   const ids = new Set(extraInfoEntries.map((entry) => String(entry?.question_id || '').toLowerCase()))
@@ -66,6 +207,13 @@ export default function ConversationalHome() {
   const [avatarUrl, setAvatarUrl] = useState(() => getStoredAvatarUrl() || buildAdvisorAvatarUrl())
   const [userContextSummary, setUserContextSummary] = useState('')
   const [extraInfoEntries, setExtraInfoEntries] = useState([])
+  const [recommendedJobs, setRecommendedJobs] = useState([])
+  const [selectionJobs, setSelectionJobs] = useState([])
+  const [customJobBubbles, setCustomJobBubbles] = useState(() => loadCustomJobBubbles())
+  const [selectedExpert, setSelectedExpert] = useState(null)
+  const [expertCustomizerOpen, setExpertCustomizerOpen] = useState(false)
+  const [customJobTitle, setCustomJobTitle] = useState('')
+  const [customJobFocus, setCustomJobFocus] = useState('')
   const [hasResults, setHasResults] = useState(false)
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -99,6 +247,8 @@ export default function ConversationalHome() {
         const entries = normalizeExtraInfoEntries(extraRes)
         const resolvedAvatar = resolveAvatarUrl({ profile, analysis: results, seed: userId })
         setExtraInfoEntries(entries)
+        setRecommendedJobs(extractJobBubblesFromResults(results))
+        setSelectionJobs(extractOrientationJobBubbles(entries))
         setHasResults(Boolean(results))
         setUserContextSummary(buildUserContextSummary({ profile, results, extraInfos: entries }))
         if (resolvedAvatar) setAvatarUrl(resolvedAvatar)
@@ -135,6 +285,56 @@ export default function ConversationalHome() {
     actions.filter((action) => action.done).length
   ), [actions])
 
+  const expertBubbles = useMemo(() => {
+    const merged = mergeJobBubbles(customJobBubbles, selectionJobs, recommendedJobs).slice(0, 8)
+    return merged.length ? merged : DEFAULT_EXPERT_BUBBLES
+  }, [customJobBubbles, selectionJobs, recommendedJobs])
+
+  const buildAdvisorContext = () => [
+    userContextSummary,
+    selectedExpert ? `Expert métier sélectionné: ${selectedExpert.title}. Angles utiles: ${(selectedExpert.skills || []).join(', ') || 'quotidien, études, débouchés'}.` : ''
+  ].filter(Boolean).join('\n')
+
+  const selectExpert = (expert) => {
+    setSelectedExpert(expert)
+    setMessages((current) => [
+      ...current,
+      {
+        role: 'assistant',
+        expertTitle: expert?.title || '',
+        content: expert
+          ? `Très bien, je prends la casquette ${expert.title}. On peut parler du quotidien, des études, du salaire ou des débouchés.`
+          : "Je reviens en conseiller général d'orientation."
+      }
+    ])
+  }
+
+  const addCustomJobBubble = () => {
+    const bubble = normalizeJobBubble({ title: customJobTitle, skills: customJobFocus }, Date.now(), 'custom')
+    if (!bubble) return
+
+    setCustomJobBubbles((current) => {
+      const next = mergeJobBubbles([bubble], current).filter((item) => item.custom).slice(0, 6)
+      saveCustomJobBubbles(next)
+      return next
+    })
+    setCustomJobTitle('')
+    setCustomJobFocus('')
+    setExpertCustomizerOpen(false)
+    selectExpert(bubble)
+  }
+
+  const removeCustomJobBubble = (bubble) => {
+    setCustomJobBubbles((current) => {
+      const next = current.filter((item) => normalizeBubbleKey(item.title) !== normalizeBubbleKey(bubble.title))
+      saveCustomJobBubbles(next)
+      return next
+    })
+    if (selectedExpert && normalizeBubbleKey(selectedExpert.title) === normalizeBubbleKey(bubble.title)) {
+      setSelectedExpert(null)
+    }
+  }
+
   const sendMessage = async () => {
     const text = input.trim()
     if (!text || loading) return
@@ -144,12 +344,14 @@ export default function ConversationalHome() {
     setLoading(true)
     try {
       const response = await chatAPI.aiChat({
-        mode: 'advisor',
-        advisorType: 'home-orientation-assistant',
-        message: buildContextualAdvisorMessage(text, userContextSummary),
-        history: nextMessages.slice(-10)
+        mode: selectedExpert ? 'persona' : 'advisor',
+        advisorType: selectedExpert?.title || 'home-orientation-assistant',
+        persona: selectedExpert ? { title: selectedExpert.title, skills: selectedExpert.skills || [] } : undefined,
+        jobTitles: expertBubbles.map((expert) => expert.title),
+        message: buildContextualAdvisorMessage(text, buildAdvisorContext()),
+        history: nextMessages.slice(-10).map((message) => ({ role: message.role, content: message.content }))
       })
-      setMessages((current) => [...current, { role: 'assistant', content: response?.data?.reply || "Je n'ai pas pu répondre pour le moment." }])
+      setMessages((current) => [...current, { role: 'assistant', expertTitle: selectedExpert?.title || '', content: response?.data?.reply || "Je n'ai pas pu répondre pour le moment." }])
     } catch (error) {
       setMessages((current) => [...current, { role: 'assistant', content: "Je n'arrive pas à répondre maintenant. Tu peux choisir une bulle pour avancer." }])
     } finally {
@@ -184,6 +386,35 @@ export default function ConversationalHome() {
     </button>
   )
 
+  const renderExpertBubble = (expert) => {
+    const isActive = selectedExpert && normalizeBubbleKey(selectedExpert.title) === normalizeBubbleKey(expert.title)
+    return (
+      <div key={expert.id} className="conversation-expert-row">
+        <button
+          type="button"
+          className={`conversation-expert-bubble ${isActive ? 'is-active' : ''} ${expert.custom ? 'is-custom' : ''}`}
+          onClick={() => selectExpert(expert)}
+        >
+          <i className="ph ph-briefcase" aria-hidden="true" />
+          <span>
+            <strong>{expert.title}</strong>
+            {(expert.skills || []).length > 0 && <small>{expert.skills.join(' · ')}</small>}
+          </span>
+        </button>
+        {expert.custom && (
+          <button
+            type="button"
+            className="conversation-expert-remove"
+            onClick={() => removeCustomJobBubble(expert)}
+            aria-label={`Retirer ${expert.title}`}
+          >
+            <i className="ph ph-x" aria-hidden="true" />
+          </button>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="conversation-home">
       <style>{styles}</style>
@@ -196,19 +427,76 @@ export default function ConversationalHome() {
           </div>
         </header>
 
-        <div className="conversation-messages" aria-live="polite">
-          {messages.map((message, index) => (
-            <div key={`${message.role}-${index}`} className={`conversation-message ${message.role}`}>
-              {message.role === 'assistant' && <img src={avatarUrl} alt="" aria-hidden="true" />}
-              <p>{message.content}</p>
+        <div className="conversation-body">
+          <div className="conversation-messages" aria-live="polite">
+            {messages.map((message, index) => (
+              <div key={`${message.role}-${index}`} className={`conversation-message ${message.role}`}>
+                {message.role === 'assistant' && <img src={avatarUrl} alt="" aria-hidden="true" />}
+                <div className="conversation-message-stack">
+                  {message.role === 'assistant' && message.expertTitle && <span>{message.expertTitle}</span>}
+                  <p>{message.content}</p>
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div className="conversation-message assistant">
+                <img src={avatarUrl} alt="" aria-hidden="true" />
+                <div className="conversation-message-stack">
+                  {selectedExpert && <span>{selectedExpert.title}</span>}
+                  <p>Zélia réfléchit...</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <aside className="conversation-expert-panel" aria-label="Experts métiers">
+            <div className="conversation-expert-header">
+              <span>Experts métiers</span>
+              <button
+                type="button"
+                onClick={() => setExpertCustomizerOpen((current) => !current)}
+                aria-label="Personnaliser les bulles métiers"
+              >
+                <i className="ph ph-sliders-horizontal" aria-hidden="true" />
+              </button>
             </div>
-          ))}
-          {loading && (
-            <div className="conversation-message assistant">
-              <img src={avatarUrl} alt="" aria-hidden="true" />
-              <p>Zélia réfléchit...</p>
+
+            <div className="conversation-expert-list">
+              <div className="conversation-expert-row">
+                <button
+                  type="button"
+                  className={`conversation-expert-bubble is-general ${!selectedExpert ? 'is-active' : ''}`}
+                  onClick={() => selectExpert(null)}
+                >
+                  <i className="ph ph-compass" aria-hidden="true" />
+                  <span>
+                    <strong>Général</strong>
+                    <small>orientation · choix · étapes</small>
+                  </span>
+                </button>
+              </div>
+              {expertBubbles.map(renderExpertBubble)}
             </div>
-          )}
+
+            {expertCustomizerOpen && (
+              <div className="conversation-expert-customizer">
+                <input
+                  value={customJobTitle}
+                  onChange={(event) => setCustomJobTitle(event.target.value)}
+                  placeholder="Métier"
+                />
+                <input
+                  value={customJobFocus}
+                  onChange={(event) => setCustomJobFocus(event.target.value)}
+                  onKeyDown={(event) => { if (event.key === 'Enter') addCustomJobBubble() }}
+                  placeholder="Sujets"
+                />
+                <button type="button" onClick={addCustomJobBubble} disabled={!customJobTitle.trim()}>
+                  Ajouter
+                </button>
+              </div>
+            )}
+          </aside>
         </div>
 
         <div className="conversation-actions conversation-actions-desktop">
@@ -323,6 +611,12 @@ const styles = `
   font-weight: 650;
   letter-spacing: 0;
 }
+.conversation-body {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 14px;
+}
 .conversation-messages {
   min-height: 0;
   overflow-y: auto;
@@ -339,6 +633,28 @@ const styles = `
 .conversation-message.user {
   justify-content: flex-end;
 }
+.conversation-message-stack {
+  max-width: min(560px, 76%);
+  display: grid;
+  gap: 3px;
+}
+.conversation-message.user .conversation-message-stack {
+  justify-items: end;
+}
+.conversation-message-stack span {
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
 .conversation-message img {
   width: 30px;
   height: 30px;
@@ -348,7 +664,7 @@ const styles = `
   flex: 0 0 auto;
 }
 .conversation-message p {
-  max-width: min(560px, 76%);
+  max-width: none;
   margin: 0;
   border-radius: 8px;
   padding: 9px 11px;
@@ -361,6 +677,171 @@ const styles = `
   background: #111827;
   color: #fff;
   border-color: #111827;
+}
+.conversation-expert-panel {
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  align-self: stretch;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  border-left: 1px solid #e0f2fe;
+  padding: 2px 0 2px 14px;
+}
+.conversation-expert-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.conversation-expert-header span {
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+.conversation-expert-header button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  display: grid;
+  place-items: center;
+}
+.conversation-expert-list {
+  display: grid;
+  gap: 8px;
+}
+.conversation-expert-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+.conversation-expert-bubble {
+  min-height: 54px;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #172554;
+  padding: 7px 13px 7px 8px;
+  text-align: left;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.7);
+}
+.conversation-expert-bubble:hover {
+  border-color: #6366f1;
+  background: #e0e7ff;
+}
+.conversation-expert-bubble.is-active {
+  border-color: #111827;
+  background: #111827;
+  color: #fff;
+}
+.conversation-expert-bubble.is-custom {
+  border-color: #f9a8d4;
+  background: #fdf2f8;
+  color: #831843;
+}
+.conversation-expert-bubble.is-custom.is-active {
+  border-color: #831843;
+  background: #831843;
+  color: #fff;
+}
+.conversation-expert-bubble.is-general {
+  border-color: #d1fae5;
+  background: #ecfdf5;
+  color: #064e3b;
+}
+.conversation-expert-bubble.is-general.is-active {
+  border-color: #064e3b;
+  background: #064e3b;
+  color: #fff;
+}
+.conversation-expert-bubble i {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.86);
+  color: #4f46e5;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+}
+.conversation-expert-bubble.is-active i {
+  color: #111827;
+}
+.conversation-expert-bubble span {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.conversation-expert-bubble strong,
+.conversation-expert-bubble small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.conversation-expert-bubble strong {
+  font-size: 13px;
+  font-weight: 800;
+}
+.conversation-expert-bubble small {
+  font-size: 11px;
+  opacity: .78;
+}
+.conversation-expert-remove {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #fbcfe8;
+  border-radius: 999px;
+  background: #fff;
+  color: #be185d;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+}
+.conversation-expert-customizer {
+  display: grid;
+  gap: 7px;
+  border: 1px dashed #c7d2fe;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 8px;
+}
+.conversation-expert-customizer input {
+  min-width: 0;
+  height: 36px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  padding: 0 10px;
+  font-size: 13px;
+  outline: none;
+}
+.conversation-expert-customizer input:focus {
+  border-color: #111827;
+}
+.conversation-expert-customizer button {
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: #4f46e5;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+.conversation-expert-customizer button:disabled {
+  opacity: .45;
 }
 .conversation-actions {
   display: grid;
@@ -472,6 +953,46 @@ const styles = `
   .conversation-header img {
     width: 50px;
     height: 50px;
+  }
+  .conversation-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 8px;
+  }
+  .conversation-expert-panel {
+    order: -1;
+    border-left: 0;
+    border-bottom: 1px solid #e0f2fe;
+    padding: 0 0 8px;
+    gap: 7px;
+    overflow: hidden;
+  }
+  .conversation-expert-list {
+    display: flex;
+    gap: 7px;
+    overflow-x: auto;
+    padding-bottom: 1px;
+    scrollbar-width: none;
+  }
+  .conversation-expert-list::-webkit-scrollbar {
+    display: none;
+  }
+  .conversation-expert-row {
+    flex: 0 0 auto;
+    width: min(220px, 78vw);
+  }
+  .conversation-expert-bubble {
+    min-height: 48px;
+    width: 100%;
+    padding: 6px 11px 6px 7px;
+  }
+  .conversation-expert-bubble i {
+    width: 30px;
+    height: 30px;
+    font-size: 16px;
+  }
+  .conversation-expert-customizer {
+    grid-template-columns: 1fr;
   }
   .conversation-messages {
     padding: 2px;
@@ -593,7 +1114,7 @@ const styles = `
   .conversation-messages {
     padding: 8px 6px;
   }
-  .conversation-message p {
+  .conversation-message-stack {
     max-width: min(720px, 68%);
   }
 }

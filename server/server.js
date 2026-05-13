@@ -236,6 +236,12 @@ app.use('*', (req, res) => {
 // Global error handler
 app.use((error, req, res, next) => {
   console.error('Global error handler:', error)
+
+  if (error?.type === 'entity.too.large' || error?.status === 413) {
+    return res.status(413).json({
+      error: 'Payload trop lourd. Réduis la taille du fichier puis réessaie.'
+    })
+  }
   
   res.status(error.status || 500).json({
     error: process.env.NODE_ENV === 'production' 

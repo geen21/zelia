@@ -149,9 +149,13 @@ router.post('/ai', authenticateToken, async (req, res) => {
     const isGradesEvaluation = advisorType === 'grades-evaluation'
     const isOrientationKeywordSelection = advisorType === 'orientation-keyword-selection'
     const isOrientationCandidatePreselection = advisorType === 'orientation-candidate-preselection'
+    const isOrientationFormationDeck = advisorType === 'orientation-formation-deck'
+    const isOrientationFormationKeywords = advisorType === 'orientation-formation-keywords'
+    const isOrientationJobDeck = advisorType === 'orientation-job-deck'
+    const isOrientationJobFinal = advisorType === 'orientation-job-final'
     const isHomeAssistant = advisorType === 'home-orientation-assistant'
     const isCvBuilder = advisorType === 'cv-builder'
-    const isStructuredJson = isBilan || isStudyBudget || isFilieresGenerator || isGradesEvaluation || isOrientationKeywordSelection || isOrientationCandidatePreselection || isCvBuilder
+    const isStructuredJson = isBilan || isStudyBudget || isFilieresGenerator || isGradesEvaluation || isOrientationKeywordSelection || isOrientationCandidatePreselection || isOrientationFormationDeck || isOrientationFormationKeywords || isOrientationJobDeck || isOrientationJobFinal || isCvBuilder
     const usesDirectPrompt = isStructuredJson || isPointsMetier || isFicheMetier
     const sys = isBilan
       ? `Tu es Zélia, coach d'orientation francophone. Tu dois produire un bilan structuré pour l'utilisateur. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans balise markdown, sans backticks. Respecte exactement le schéma demandé dans le message. Le ton doit être encourageant, concret et personnalisé à partir des données fournies.`
@@ -163,6 +167,14 @@ router.post('/ai', authenticateToken, async (req, res) => {
       ? `Tu es Zélia, conseillère d'orientation francophone. Tu produis des mots-clés de recherche pour des tables métiers/formations. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans markdown et sans backticks. Le JSON doit respecter exactement le schéma demandé dans le message.`
       : isOrientationCandidatePreselection
       ? `Tu es Zélia, conseillère d'orientation francophone. Tu préselectionnes des propositions à afficher à partir du contexte déjà répondu par l'utilisateur. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans markdown et sans backticks. Pour chaque candidat, answer doit valoir exactement "Oui" ou "Non".`
+      : isOrientationFormationDeck
+      ? `Tu es Zélia, conseillère d'orientation francophone. Tu proposes directement des pistes de formations à swiper, uniquement à partir du profil utilisateur et sans interroger ni mentionner de base de données. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans markdown et sans backticks. Le JSON doit respecter exactement le schéma demandé dans le message.`
+      : isOrientationFormationKeywords
+      ? `Tu es Zélia, conseillère d'orientation francophone. Tu transformes un profil et des swipes de formations en mots-clés de recherche pour formation_france.nm et formation_france.etab_nom. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans markdown et sans backticks. Le JSON doit être uniquement la liste de requêtes demandée.`
+      : isOrientationJobDeck
+      ? `Tu es Zélia, conseillère d'orientation francophone. Tu proposes directement des métiers à swiper, uniquement à partir du profil utilisateur et sans utiliser ni mentionner de base de données métiers. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans markdown et sans backticks. Le JSON doit respecter exactement le schéma demandé dans le message.`
+      : isOrientationJobFinal
+      ? `Tu es Zélia, conseillère d'orientation francophone. Tu affines des métiers après des swipes oui/non, façon Akinator: les refus écartent des familles, les oui renforcent des signaux. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans markdown et sans backticks. Le JSON doit être uniquement la liste finale demandée.`
       : isCvBuilder
       ? `Tu es Zélia, experte RH francophone. Tu génères un CV structuré. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans markdown et sans backticks. Respecte exactement le schéma demandé, avec des textes concis pour tenir sur une page A4.`
       : isPointsMetier
@@ -201,6 +213,14 @@ router.post('/ai', authenticateToken, async (req, res) => {
       ? { temperature: 0.25, maxOutputTokens: 1536, responseMimeType: 'application/json' }
       : isOrientationCandidatePreselection
       ? { temperature: 0.15, maxOutputTokens: 2048, responseMimeType: 'application/json' }
+      : isOrientationFormationDeck
+      ? { temperature: 0.55, maxOutputTokens: 3072, responseMimeType: 'application/json' }
+      : isOrientationFormationKeywords
+      ? { temperature: 0.25, maxOutputTokens: 2048, responseMimeType: 'application/json' }
+      : isOrientationJobDeck
+      ? { temperature: 0.55, maxOutputTokens: 3072, responseMimeType: 'application/json' }
+      : isOrientationJobFinal
+      ? { temperature: 0.35, maxOutputTokens: 3072, responseMimeType: 'application/json' }
       : isCvBuilder
       ? { temperature: 0.35, maxOutputTokens: 4096, responseMimeType: 'application/json' }
       : isPointsMetier

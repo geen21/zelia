@@ -49,9 +49,10 @@ const SCHOOL_SEARCH_LIMIT = 20
 const MIN_RECOMMENDED_SCHOOLS = 5
 
 function formationKey(formation) {
+  const nm = Array.isArray(formation?.nm) ? formation.nm.find(Boolean) : formation?.nm
   return String(
     formation?.id ||
-    `${formation?.etab_nom || ''}-${formation?.nmc || ''}-${formation?.commune || ''}-${formation?.tc || ''}`
+    `${formation?.etab_nom || ''}-${nm || formation?.nmc || ''}-${formation?.commune || ''}-${formation?.tc || ''}`
   ).trim().toLowerCase()
 }
 
@@ -468,8 +469,8 @@ Rien d'autre.`
                         <div className="text-sm text-text-secondary">
                           {school.commune}{school.departement ? `, ${school.departement}` : ''}
                         </div>
-                        {school.nmc && (
-                          <div className="text-xs text-gray-500 mt-1 truncate">{school.nmc}</div>
+                        {(Array.isArray(school.nm) ? school.nm.find(Boolean) : school.nm || school.nmc) && (
+                          <div className="text-xs text-gray-500 mt-1 truncate">{Array.isArray(school.nm) ? school.nm.find(Boolean) : school.nm || school.nmc}</div>
                         )}
                         {school.tc && (
                           <div className="text-xs text-blue-600 mt-1">{school.tc}</div>

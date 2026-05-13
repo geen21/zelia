@@ -6,9 +6,23 @@
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS unaccent;
 
+-- PostgreSQL n'autorise dans un index d'expression que des fonctions IMMUTABLE.
+-- array_to_string(text[], text) n'est pas marquée IMMUTABLE, donc on l'encapsule.
+CREATE OR REPLACE FUNCTION public.formation_nm_text(p_nm text[])
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+AS $$
+    SELECT COALESCE(array_to_string(p_nm, ' '), '')
+$$;
+
 -- 2. Créer des index ESSENTIELS pour accélérer les recherches sur formation_france
 -- Index GIN sur nmc (nom de la formation) pour la recherche textuelle ILIKE optimisée
 CREATE INDEX IF NOT EXISTS idx_formation_france_nmc_trgm ON formation_france USING gin (nmc gin_trgm_ops);
+
+-- Index GIN sur nm (libellé exact de formation) pour la recherche principale
+CREATE INDEX IF NOT EXISTS idx_formation_france_nm_trgm ON formation_france USING gin (public.formation_nm_text(nm) gin_trgm_ops);
 
 -- Index GIN sur etab_nom (nom de l'établissement)
 CREATE INDEX IF NOT EXISTS idx_formation_france_etab_trgm ON formation_france USING gin (etab_nom gin_trgm_ops);
@@ -108,11 +122,11 @@ BEGIN
             (
                 SELECT COALESCE(SUM(
                     CASE 
-                        WHEN f.nmc ILIKE '%' || k || '%' THEN 6
+                        WHEN public.formation_nm_text(f.nm) ILIKE '%' || k || '%' THEN 8
                         ELSE 0
                     END +
                     CASE 
-                        WHEN array_to_string(f.nm, ' ') ILIKE '%' || k || '%' THEN 6
+                        WHEN f.nmc ILIKE '%' || k || '%' THEN 3
                         ELSE 0
                     END +
                     CASE 
@@ -143,8 +157,8 @@ BEGIN
                 OR EXISTS (
                     SELECT 1 FROM unnest(clean_keywords) AS k
                     WHERE 
-                        f.nmc ILIKE '%' || k || '%'
-                        OR array_to_string(f.nm, ' ') ILIKE '%' || k || '%'
+                        public.formation_nm_text(f.nm) ILIKE '%' || k || '%'
+                        OR f.nmc ILIKE '%' || k || '%'
                         OR f.tc ILIKE '%' || k || '%'
                         OR f.etab_nom ILIKE '%' || k || '%'
                         OR f.code_formation ILIKE '%' || k || '%'
@@ -241,6 +255,7 @@ BEGIN
         -- Recherche textuelle
         AND (
             clean_keyword = '' 
+            OR public.formation_nm_text(f.nm) ILIKE '%' || clean_keyword || '%'
             OR f.nmc ILIKE '%' || clean_keyword || '%'
             OR f.tc ILIKE '%' || clean_keyword || '%'
             OR f.etab_nom ILIKE '%' || clean_keyword || '%'

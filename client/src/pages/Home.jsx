@@ -38,9 +38,9 @@ export default function Home() {
   }, [location.hash, navigate])
 
   const proof = [
-    'Métiers et formations adaptés à ton profil',
-    'Recherche près de chez toi si tu le souhaites',
-    'Écoles partenaires clairement identifiées'
+    'Des pistes qui collent vraiment à ce que tu aimes',
+    'Des formations à garder sous la main pour comparer',
+    'Des écoles repérées quand elles peuvent te correspondre'
   ]
 
   return (

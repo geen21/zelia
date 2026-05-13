@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { jwtDecode } from 'jwt-decode'
-import apiClient from '../lib/api.js'
+import apiClient, { usersAPI } from '../lib/api.js'
 
 export default function Results() {
 	const navigate = useNavigate()
 	const [analysisData, setAnalysisData] = useState(null)
+	const [orientationSelections, setOrientationSelections] = useState([])
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState('')
 	const [avatarUrls, setAvatarUrls] = useState({ type: '', analysis: '', skills: '', jobs: '', studies: '' })
-	const [activeTab, setActiveTab] = useState('orientation') // 'orientation' | 'personality'
+	const [activeTab, setActiveTab] = useState('orientation') // 'orientation' | 'personality' | 'final-selection'
 	const RESULT_GENERATION_ATTEMPTS = 3
 	const RESULT_RETRY_DELAY_MS = 1200
 
@@ -94,12 +95,161 @@ export default function Results() {
 		return hasUsableResults(sanitized) ? sanitized : null
 	}
 
+	const cleanCandidateText = (value, maxLength = 180) => {
+		if (value === undefined || value === null) return ''
+		const text = String(value).replace(/\s+/g, ' ').trim()
+		if (!text) return ''
+		return text.length > maxLength ? `${text.slice(0, maxLength - 1).trim()}...` : text
+	}
+
+	const firstText = (...values) => {
+		for (const value of values) {
+			const text = cleanCandidateText(value, 240)
+			if (text) return text
+		}
+		return ''
+	}
+
+	const parseMaybeJson = (value) => {
+		if (!value || typeof value !== 'string') return null
+		try {
+			return JSON.parse(value)
+		} catch {
+			return null
+		}
+	}
+
+	const normalizeExtraInfoEntries = (response) => {
+		if (Array.isArray(response?.data?.entries)) return response.data.entries
+		if (Array.isArray(response?.data)) return response.data
+		if (Array.isArray(response)) return response
+		return []
+	}
+
+	const normalizeExternalHref = (value) => {
+		const href = String(value || '').trim()
+		if (!href) return ''
+		if (/^https?:\/\//i.test(href) || /^mailto:/i.test(href)) return href
+		if (/^www\./i.test(href)) return `https://${href}`
+		return ''
+	}
+
+	const normalizeOrientationSelection = (candidate, index) => {
+		if (typeof candidate === 'string') {
+			const title = cleanCandidateText(candidate)
+			return title ? { id: `selection-${index}`, type: 'selection', typeLabel: 'Résultat', title, subtitle: '', description: '', tags: [], link: '', linkLabel: '' } : null
+		}
+
+		if (!candidate || typeof candidate !== 'object') return null
+
+		const raw = candidate.raw && typeof candidate.raw === 'object' ? candidate.raw : {}
+		const detail = candidate.detail && typeof candidate.detail === 'object' ? candidate.detail : {}
+		const sourceTable = firstText(candidate.sourceTable, candidate.source_table, raw.sourceTable, raw.source_table).toLowerCase()
+		const type = firstText(candidate.type, raw.type).toLowerCase()
+		const isMetier = type === 'metier' || sourceTable.includes('metiers')
+		const isFormation = !isMetier
+		const rawNm = Array.isArray(raw.nm) ? raw.nm.find(Boolean) : raw.nm
+		const compactFormationTitle = isFormation && !detail.title && !rawNm && candidate.subtitle
+			? String(candidate.subtitle).split(' - ')[0]
+			: ''
+
+		const title = cleanCandidateText(firstText(
+			detail.title,
+			rawNm,
+			candidate.formation_name,
+			raw.formation_name,
+			compactFormationTitle,
+			candidate.title,
+			candidate.name,
+			raw.nmc,
+			raw.intitule
+		), 160)
+
+		const subtitle = cleanCandidateText(firstText(
+			detail.subtitle,
+			compactFormationTitle ? candidate.title : '',
+			candidate.subtitle,
+			candidate.schoolName,
+			candidate.school,
+			raw.etab_nom,
+			raw.school_name,
+			candidate.city,
+			raw.commune
+		), 220)
+
+		const tags = [
+			...(Array.isArray(detail.tags) ? detail.tags : []),
+			candidate.source,
+			candidate.region,
+			raw.region,
+			candidate.matchScore ? `${candidate.matchScore}% match` : ''
+		]
+			.map((tag) => cleanCandidateText(tag, 48))
+			.filter(Boolean)
+			.filter((tag, tagIndex, allTags) => allTags.findIndex((item) => item.toLowerCase() === tag.toLowerCase()) === tagIndex)
+			.slice(0, 4)
+
+		return {
+			id: firstText(candidate.id, candidate.rawId, raw.id) || `selection-${index}`,
+			type: isMetier ? 'metier' : 'formation',
+			typeLabel: cleanCandidateText(detail.typeLabel || (isMetier ? 'Métier' : candidate.partner ? 'Formation partenaire' : 'Formation'), 60),
+			title,
+			subtitle,
+			description: cleanCandidateText(detail.description || candidate.description || raw.description, 320),
+			tags,
+			link: normalizeExternalHref(detail.link || candidate.link || raw.etab_url || raw.fiche || raw.contact_urlpostulation),
+			linkLabel: cleanCandidateText(detail.linkLabel || candidate.linkLabel || (isMetier ? 'Voir l’offre' : 'Voir la fiche'), 40)
+		}
+	}
+
+	const normalizeOrientationSelections = (value) => {
+		const parsed = Array.isArray(value) ? value : parseMaybeJson(value)
+		const candidates = Array.isArray(parsed)
+			? parsed
+			: Array.isArray(parsed?.candidates)
+				? parsed.candidates
+				: []
+
+		return candidates
+			.map(normalizeOrientationSelection)
+			.filter((candidate) => candidate && candidate.title)
+			.slice(0, 16)
+	}
+
+	const fetchOrientationSelections = async () => {
+		const localSelections = typeof window !== 'undefined'
+			? normalizeOrientationSelections(localStorage.getItem('orientation_final_selection'))
+			: []
+
+		const response = await usersAPI.getExtraInfo()
+		const entries = normalizeExtraInfoEntries(response)
+		const finalEntry = entries.find((entry) => String(entry?.question_id || '').toLowerCase() === 'orientation_final_selection')
+		const remoteSelections = normalizeOrientationSelections(finalEntry?.answer_text)
+
+		return remoteSelections.length ? remoteSelections : localSelections
+	}
+
 	const loadExistingResults = async () => {
 		setLoading(true)
 		setError('')
 		setAnalysisData(null)
+		setOrientationSelections([])
+
+		let savedOrientationSelections = []
 
 		try {
+			try {
+				savedOrientationSelections = await fetchOrientationSelections()
+				setOrientationSelections(savedOrientationSelections)
+			} catch (selectionErr) {
+				if (selectionErr.response?.status === 401) {
+					setError('Utilisateur non authentifié')
+					setLoading(false)
+					return
+				}
+				console.warn('Error loading orientation selections:', selectionErr)
+			}
+
 			for (let attempt = 1; attempt <= RESULT_GENERATION_ATTEMPTS; attempt++) {
 				try {
 					const existing = await fetchStoredResults()
@@ -134,6 +284,11 @@ export default function Results() {
 						return
 					}
 					if (genErr.response?.status === 404) {
+						if (savedOrientationSelections.length) {
+							setActiveTab('final-selection')
+							setLoading(false)
+							return
+						}
 						setError('Complète d’abord le questionnaire pour générer tes résultats.')
 						setLoading(false)
 						return
@@ -146,11 +301,20 @@ export default function Results() {
 				}
 			}
 
+			if (savedOrientationSelections.length) {
+				setActiveTab('final-selection')
+				setLoading(false)
+				return
+			}
+
 			setError("L'analyse n'a pas pu être générée pour le moment. Réessaie dans quelques secondes.")
 			setLoading(false)
 		} catch (err) {
 			if (err.response?.status === 401) {
 				setError('Utilisateur non authentifié')
+				setLoading(false)
+			} else if (savedOrientationSelections.length) {
+				setActiveTab('final-selection')
 				setLoading(false)
 			} else {
 				console.error('Error loading results:', err)
@@ -349,7 +513,7 @@ export default function Results() {
 		)
 	}
 
-	if (!analysisData) {
+	if (!analysisData && orientationSelections.length === 0) {
 		return (
 			<div className="space-y-6">
 				<div>
@@ -377,8 +541,15 @@ export default function Results() {
 	}
 
 	const renderOrientationTab = () => {
-		const data = analysisData.inscriptionResults || analysisData // fallback if only simple results
-		if (!data) return null
+		const data = analysisData?.inscriptionResults || analysisData // fallback if only simple results
+		if (!data) {
+			return (
+				<div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">
+					<h2 className="text-lg font-semibold mb-2">Aucun bilan d'orientation disponible</h2>
+					<p className="text-text-secondary">Tu peux retrouver tes formations et métiers validés dans l'onglet dédié.</p>
+				</div>
+			)
+		}
 		return (
 			<div className="space-y-6">
 				{data.personalityType && (
@@ -477,7 +648,7 @@ export default function Results() {
 
 	const renderPersonalityTab = () => {
 		// Personality tab strictly uses MBTI questionnaire results
-		const mbti = analysisData.mbtiResults
+		const mbti = analysisData?.mbtiResults
 		if (!mbti) {
 			return (
 				<div className="bg-blue-50 border border-blue-200 rounded-xl p-8 text-center shadow-card">
@@ -585,9 +756,75 @@ export default function Results() {
 		)
 	}
 
+	const renderFinalSelectionTab = () => {
+		if (!orientationSelections.length) {
+			return (
+				<div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">
+					<div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+						<i className="ph ph-list-checks text-2xl text-gray-700" aria-hidden="true" />
+					</div>
+					<h2 className="text-lg font-semibold mb-2">Aucune sélection enregistrée</h2>
+					<p className="text-text-secondary mb-4">Quand tu valides des formations ou métiers dans le flow d'orientation, ils apparaissent ici.</p>
+					<button
+						onClick={() => navigate('/orientation')}
+						className="px-5 py-2.5 bg-black text-white text-sm rounded-full font-medium hover:bg-gray-800 transition"
+					>
+						Relancer l'orientation
+					</button>
+				</div>
+			)
+		}
+
+		const formations = orientationSelections.filter((selection) => selection.type === 'formation')
+		const metiers = orientationSelections.filter((selection) => selection.type === 'metier')
+
+		return (
+			<div className="space-y-6">
+				<div className="bg-surface border border-line rounded-xl shadow-card p-6">
+					<div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
+						<div>
+							<h2 className="text-xl font-bold">Formations & métiers gardés</h2>
+							<p className="text-sm text-text-secondary mt-1">Ta dernière sélection validée dans le flow d'orientation.</p>
+						</div>
+						<div className="flex gap-2 text-xs text-text-secondary">
+							<span className="px-3 py-1 rounded-full bg-teal-50 border border-teal-200">{formations.length} formations</span>
+							<span className="px-3 py-1 rounded-full bg-orange-50 border border-orange-200">{metiers.length} métiers</span>
+						</div>
+					</div>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+						{orientationSelections.map((selection) => (
+							<div key={selection.id} className={`border rounded-lg p-4 ${selection.type === 'metier' ? 'bg-orange-50 border-orange-200' : 'bg-teal-50 border-teal-200'}`}>
+								<div className="flex items-start justify-between gap-3 mb-2">
+									<span className={`text-xs font-medium px-2 py-1 rounded-full ${selection.type === 'metier' ? 'bg-orange-100 text-orange-800' : 'bg-teal-100 text-teal-800'}`}>
+										{selection.typeLabel}
+									</span>
+									{selection.link && (
+										<a href={selection.link} target="_blank" rel="noreferrer" className="text-xs font-medium text-gray-700 hover:text-black underline underline-offset-2">
+											{selection.linkLabel}
+										</a>
+									)}
+								</div>
+								<h3 className={`font-semibold mb-1 ${selection.type === 'metier' ? 'text-orange-950' : 'text-teal-950'}`}>{selection.title}</h3>
+								{selection.subtitle && <p className={`text-sm ${selection.type === 'metier' ? 'text-orange-800' : 'text-teal-800'}`}>{selection.subtitle}</p>}
+								{selection.description && <p className="text-sm text-gray-700 mt-3 leading-relaxed">{selection.description}</p>}
+								{selection.tags.length > 0 && (
+									<div className="flex flex-wrap gap-2 mt-3">
+										{selection.tags.map((tag) => (
+											<span key={tag} className="px-2 py-1 rounded-full bg-white/70 border border-white text-xs text-gray-700">{tag}</span>
+										))}
+									</div>
+								)}
+							</div>
+						))}
+					</div>
+				</div>
+			</div>
+		)
+	}
+
 	function renderTabs() {
 		return (
-			<div className="flex gap-3 mt-4">
+			<div className="flex flex-wrap gap-3 mt-4">
 				<button
 					className={`px-4 py-2 rounded-full text-sm font-medium border transition ${activeTab === 'orientation' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}
 					onClick={() => setActiveTab('orientation')}
@@ -599,6 +836,12 @@ export default function Results() {
 					onClick={() => setActiveTab('personality')}
 				>
 					Analyse de personnalité
+				</button>
+				<button
+					className={`px-4 py-2 rounded-full text-sm font-medium border transition ${activeTab === 'final-selection' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}
+					onClick={() => setActiveTab('final-selection')}
+				>
+					Formations & métiers
 				</button>
 			</div>
 		)
@@ -621,7 +864,7 @@ export default function Results() {
 				</div>
 				{renderTabs()}
 			</div>
-			{activeTab === 'orientation' ? renderOrientationTab() : renderPersonalityTab()}
+			{activeTab === 'final-selection' ? renderFinalSelectionTab() : activeTab === 'orientation' ? renderOrientationTab() : renderPersonalityTab()}
 		</div>
 	)
 }

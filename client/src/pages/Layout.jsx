@@ -10,8 +10,7 @@ const HOME_NAV_ITEM = { to: '/app', label: "Conseiller d'orientation", icon: 'ph
 const PRIMARY_NAV_ITEMS = [
   { to: '/app/outils', label: 'Outils', icon: 'ph-toolbox' },
   { to: '/app/formations', label: 'Formations et écoles', icon: 'ph-graduation-cap', matches: ['/app/formations', '/app/ecoles-partenaires'] },
-  { to: '/app/emplois', label: 'Métiers', icon: 'ph-briefcase' },
-  { to: '/app/chat', label: 'Chat', icon: 'ph-chats' }
+  { to: '/app/chat', label: 'Communauté', icon: 'ph-chats' }
 ]
 
 const DESKTOP_NAV_ITEMS = [HOME_NAV_ITEM, ...PRIMARY_NAV_ITEMS]
@@ -28,7 +27,7 @@ const PAGE_LABELS = [
   { match: '/app/emplois', label: 'Métiers' },
   { match: '/app/outils', label: 'Outils' },
   { match: '/app/ecoles-partenaires', label: 'Formations et écoles' },
-  { match: '/app/chat', label: 'Chat' },
+  { match: '/app/chat', label: 'Communauté' },
   { match: '/app/lettre', label: 'Lettre' },
   { match: '/app/results', label: 'Résultats' },
   { match: '/app', label: "Conseiller d'orientation", exact: true }

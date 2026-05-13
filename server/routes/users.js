@@ -20,10 +20,12 @@ function firstTextValue(...values) {
 
 function compactFinalSelectionCandidate(candidate) {
   const raw = candidate && typeof candidate.raw === 'object' ? candidate.raw : {}
+  const detail = candidate && typeof candidate.detail === 'object' ? candidate.detail : {}
   const compact = {
     id: firstTextValue(candidate?.id, raw.id, raw.nm, raw.nmc),
     type: firstTextValue(candidate?.type, raw.type),
     title: firstTextValue(
+      detail.title,
       candidate?.title,
       candidate?.name,
       candidate?.formation_name,
@@ -32,12 +34,14 @@ function compactFinalSelectionCandidate(candidate) {
       raw.formation_name,
       raw.nom_formation
     ),
-    subtitle: firstTextValue(candidate?.subtitle, candidate?.description, raw.etab_nom, raw.school_name, raw.commune),
+    subtitle: firstTextValue(detail.subtitle, candidate?.subtitle, candidate?.description, raw.etab_nom, raw.school_name, raw.commune),
     sourceTable: firstTextValue(candidate?.sourceTable, raw.source_table, raw.sourceTable),
     schoolName: firstTextValue(candidate?.schoolName, candidate?.school, raw.etab_nom, raw.school_name),
     city: firstTextValue(candidate?.city, raw.commune, raw.city),
     region: firstTextValue(candidate?.region, raw.region),
-    matchScore: firstTextValue(candidate?.matchScore, candidate?.match_score, raw.match_score)
+    matchScore: firstTextValue(candidate?.matchScore, candidate?.match_score, raw.match_score),
+    link: firstTextValue(detail.link, candidate?.link, raw.etab_url, raw.fiche, raw.contact_urlpostulation),
+    linkLabel: firstTextValue(detail.linkLabel, candidate?.linkLabel)
   }
 
   return Object.fromEntries(Object.entries(compact).filter(([, value]) => value !== ''))

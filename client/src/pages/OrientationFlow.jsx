@@ -12,11 +12,12 @@ const AI_FORMATION_DECK_SIZE = 10
 const AI_FORMATION_KEYWORD_COUNT = 8
 const AI_JOB_DECK_SIZE = 10
 const AI_FINAL_JOB_COUNT = 5
+const AI_RETRY_ATTEMPTS = 3
+const CATALOG_RETRY_ATTEMPTS = 3
 const MAX_VALIDATED_JOB_RESULTS = 5
 const VALIDATED_JOB_RESULTS_PER_QUERY = 3
 const PRESELECTED_CANDIDATES_PER_KIND = 4
 const MAX_PARTNER_FINAL_RESULTS = 4
-const MIN_FINAL_DB_RESULTS = 5
 const CATALOG_SEARCH_CONCURRENCY = 4
 const MAX_FORMATION_QUERY_VARIANTS = 4
 const JOB_SEARCH_STOPWORDS = new Set(['metier', 'responsable', 'assistant', 'assistante', 'charge', 'chargee', 'chef', 'cheffe', 'agent', 'agente', 'technicien', 'technicienne', 'specialiste', 'consultant', 'consultante', 'expert', 'experte', 'de', 'du', 'des', 'en', 'et', 'a', 'au', 'aux', 'le', 'la', 'les'])
@@ -178,6 +179,26 @@ async function runWithConcurrency(items, limit, mapper) {
   }))
 
   return results
+}
+
+async function retryAsync(action, { attempts = 3, label = 'operation', isValidResult = () => true } = {}) {
+  let lastError = null
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const result = await action(attempt)
+      if (isValidResult(result)) return result
+      lastError = new Error(`${label} returned an invalid result`)
+    } catch (error) {
+      lastError = error
+    }
+
+    if (attempt < attempts) {
+      console.warn(`${label} failed, retrying ${attempt + 1}/${attempts}`, lastError)
+    }
+  }
+
+  throw lastError || new Error(`${label} failed`)
 }
 
 function hasAnySearchTerm(value, terms) {
@@ -903,17 +924,6 @@ function normalizeAiFormationCandidates(value, limit = AI_FORMATION_DECK_SIZE) {
     .slice(0, limit)
 }
 
-function buildAiFormationFallbackCandidates(analysis, extraText = '', limit = AI_FORMATION_DECK_SIZE) {
-  const plans = buildFallbackPlans('formations', analysis, extraText)
-  return normalizeAiFormationCandidates(plans.map((plan, index) => ({
-    title: plan.title || plan.query,
-    summary: plan.reason || 'Formation compatible avec ton profil',
-    why: plan.reason || 'Cette piste reprend des signaux forts de ton profil.',
-    keywords: String(plan.query || '').split(/\s+/).filter(Boolean).slice(0, 5),
-    matchScore: 76 - index
-  })), limit)
-}
-
 function buildAiFormationDeckPrompt({ analysis, microProfile, department, count = AI_FORMATION_DECK_SIZE }) {
   const block = getAnalysisBlock(analysis) || {}
   const targetLevel = String(microProfile?.target_level || '').trim()
@@ -940,7 +950,7 @@ Contexte complémentaire: ${JSON.stringify(microProfile || {})}
 Département/localisation: ${department?.name || department?.code || department?.city || 'non précisé'}`
 }
 
-function buildFinalFormationKeywordPrompt({ analysis, microProfile, department, likedProposals, rejectedProposals, count = AI_FORMATION_KEYWORD_COUNT }) {
+function buildFinalFormationKeywordPrompt({ analysis, microProfile, department, likedProposals, rejectedProposals, anchorTerms = [], count = AI_FORMATION_KEYWORD_COUNT }) {
   const block = getAnalysisBlock(analysis) || {}
   const targetLevel = String(microProfile?.target_level || '').trim()
   const likedText = likedProposals.map((item) => `${item.title} - ${item.subtitle || item.raw?.why || ''} - ${(item.raw?.keywords || []).join(', ')}`).join(' | ') || 'aucun'
@@ -958,6 +968,7 @@ Règles:
 - Tu peux aussi utiliser des mots d'etab_nom quand ils aident: "IFSI", "IUT", "CFA", "lycée agricole", "université", "école ingénieur", "école commerce", "CNAM", "GRETA".
 - Appuie-toi fortement sur les studyRecommendations, le profil, les swipes gardés et les swipes refusés.
 - Si au moins une formation a été gardée, toutes les query doivent rester dans la même famille métier/formation que ces swipes gardés. N'élargis pas aux autres studyRecommendations.
+${anchorTerms.length ? `- Mots-clés de famille détectés dans les swipes gardés: ${anchorTerms.slice(0, 12).join(', ')}. Toutes les query doivent reprendre au moins un de ces axes.` : ''}
 - Exemple: si la formation gardée touche à l'audiovisuel, les query doivent rester sur cinéma, audiovisuel, ingénieur son, montage, cadrage, image, réalisation ou métiers du son.
 - Ne repropose pas une famille clairement refusée, ni une requête trop proche d'un refus.
 - Si tout a été refusé, repars du profil et propose de nouvelles recherches réalistes.
@@ -1921,18 +1932,25 @@ export default function OrientationFlow() {
 
     const getCachedRequest = (key, requestFactory) => {
       if (!requestCache.has(key)) {
-        requestCache.set(key, requestFactory())
+        requestCache.set(key, requestFactory().catch((requestError) => {
+          requestCache.delete(key)
+          throw requestError
+        }))
       }
       return requestCache.get(key)
     }
 
     const searchFormationQuery = async (formationQuery, requestedPageSize) => {
       const cacheKey = `formation|${formationQuery}|${requestedPageSize}|${formationDepartment}`
-      const response = await getCachedRequest(cacheKey, () => orientationAPI.searchFormations({
-        q: formationQuery,
-        page_size: requestedPageSize,
-        ...(formationDepartment ? { departement: formationDepartment } : {})
-      }))
+      const response = await retryAsync(() => getCachedRequest(cacheKey, () => orientationAPI.searchFormations({
+          q: formationQuery,
+          page_size: requestedPageSize,
+          ...(formationDepartment ? { departement: formationDepartment } : {})
+        })), {
+        attempts: CATALOG_RETRY_ATTEMPTS,
+        label: `Recherche formation "${formationQuery}"`,
+        isValidResult: (result) => Array.isArray(result?.data?.items)
+      })
       return (response.data?.items || []).map((item, index) => normalizeFormation(item, `${formationQuery}-${index}`))
     }
 
@@ -1955,7 +1973,7 @@ export default function OrientationFlow() {
         return filterCandidatesByTargetStudyLevel(formationCandidates, searchContext.profile || searchContext)
       } catch (searchError) {
         console.warn('Formation candidate search failed', query, searchError)
-        return []
+        throw searchError
       }
     }
 
@@ -1982,25 +2000,8 @@ export default function OrientationFlow() {
     return fetchTableCandidates(plans, pageSize, intentValue, searchContext)
   }
 
-  const getAiPlans = async (prompt, fallbackPlans, nextIntent) => {
-    try {
-      const response = await chatAPI.aiChat({
-        mode: 'advisor',
-        advisorType: 'orientation-keyword-selection',
-        message: prompt,
-        history: []
-      })
-      return normalizePlans(parseJsonFromReply(response?.data?.reply), nextIntent, fallbackPlans)
-    } catch (planError) {
-      console.warn('Zelia plan generation failed, using fallback plans', planError)
-      return fallbackPlans
-    }
-  }
-
   const getAiFormationDeckCandidates = async (profile, department, count = AI_FORMATION_DECK_SIZE) => {
-    const extraText = Object.values(profile || {}).flat().join(' ')
-    const fallbackCandidates = buildAiFormationFallbackCandidates(analysisData, extraText, count)
-    try {
+    return retryAsync(async () => {
       const response = await chatAPI.aiChat({
         mode: 'advisor',
         advisorType: 'orientation-formation-deck',
@@ -2008,27 +2009,21 @@ export default function OrientationFlow() {
         history: []
       })
       const candidates = normalizeAiFormationCandidates(parseJsonFromReply(response?.data?.reply), count)
-      return candidates.length ? candidates : fallbackCandidates
-    } catch (formationDeckError) {
-      console.warn('Zelia formation deck generation failed, using profile fallback formations', formationDeckError)
-      return fallbackCandidates
-    }
+      if (!candidates.length) throw new Error('Gemini n’a pas généré de propositions formations exploitables')
+      return candidates
+    }, {
+      attempts: AI_RETRY_ATTEMPTS,
+      label: 'Deck formations Gemini',
+      isValidResult: (candidates) => Array.isArray(candidates) && candidates.length > 0
+    })
   }
 
   const getFinalFormationSearchPlans = async (profile, department, liked = [], rejected = [], count = AI_FORMATION_KEYWORD_COUNT) => {
-    const extraText = Object.values(profile || {}).flat().join(' ')
     const likedFormations = liked.filter((candidate) => candidate?.type === 'formation')
     const rejectedFormations = rejected.filter((candidate) => candidate?.type === 'formation')
     const anchorTerms = extractFormationAnchorTerms(likedFormations)
-    const anchorFallbackPlans = buildFormationAnchorPlans(likedFormations, count)
-    const fallbackPlans = likedFormations.length
-      ? (anchorFallbackPlans.length ? anchorFallbackPlans : buildCatalogPlansFromCandidates(likedFormations)).slice(0, count)
-      : uniquePlans([
-        ...buildLevelFallbackPlans('formations', profile, analysisData, extraText),
-        ...buildFallbackPlans('formations', analysisData, extraText)
-      ]).slice(0, count)
 
-    try {
+    return retryAsync(async () => {
       const response = await chatAPI.aiChat({
         mode: 'advisor',
         advisorType: 'orientation-formation-keywords',
@@ -2038,18 +2033,22 @@ export default function OrientationFlow() {
           department,
           likedProposals: likedFormations,
           rejectedProposals: rejectedFormations,
+          anchorTerms,
           count
         }),
         history: []
       })
-      const aiPlans = normalizePlans(parseJsonFromReply(response?.data?.reply), 'formations', fallbackPlans).slice(0, count)
+      const aiPlans = normalizePlans(parseJsonFromReply(response?.data?.reply), 'formations', []).slice(0, count)
+      if (!aiPlans.length) throw new Error('Gemini n’a pas généré de mots-clés formations exploitables')
       if (!likedFormations.length) return aiPlans
       const anchoredAiPlans = filterFormationPlansByAnchorTerms(aiPlans, anchorTerms)
-      return uniquePlans([...anchoredAiPlans, ...fallbackPlans]).slice(0, count)
-    } catch (formationPlanError) {
-      console.warn('Zelia formation keyword generation failed, using fallback formation plans', formationPlanError)
-      return fallbackPlans
-    }
+      if (!anchoredAiPlans.length) throw new Error('Les mots-clés Gemini ne respectent pas les formations gardées')
+      return anchoredAiPlans.slice(0, count)
+    }, {
+      attempts: AI_RETRY_ATTEMPTS,
+      label: 'Mots-clés formations Gemini',
+      isValidResult: (plans) => Array.isArray(plans) && plans.length > 0
+    })
   }
 
   const getAiJobDeckCandidates = async (profile, department, count = AI_JOB_DECK_SIZE) => {
@@ -2221,7 +2220,6 @@ export default function OrientationFlow() {
       const department = await resolveUserDepartment()
       await saveMicroProfile(profile, department)
       const extraText = Object.values(profile).flat().join(' ')
-      const fallbackPlans = buildFallbackPlans(nextIntent, analysisData, extraText)
       let deck = []
 
       if (nextIntent === 'metiers') {
@@ -2248,6 +2246,10 @@ export default function OrientationFlow() {
           : deck.slice(0, MAX_PROPOSAL_DECK)
       deck = filterCandidatesByTargetStudyLevel(deck, profile)
       if (!deck.length) {
+        if (nextIntent === 'formations' || nextIntent === 'both') {
+          throw new Error('Aucune proposition formations exploitable après vérification du niveau visé')
+        }
+        const fallbackPlans = buildFallbackPlans(nextIntent, analysisData, extraText)
         const fallbackSourcePlans = buildLevelFallbackPlans(nextIntent, profile, analysisData, extraText)
         const fallbackPlanDeck = (fallbackSourcePlans.length ? fallbackSourcePlans : fallbackPlans).map((plan, index) => ({
           id: `fallback-${index}`,
@@ -2262,7 +2264,6 @@ export default function OrientationFlow() {
         }))
         const fallbackDeck = mergeUniqueCandidates(
           fallbackPlanDeck,
-          nextIntent !== 'metiers' ? buildAiFormationFallbackCandidates(analysisData, extraText, AI_FORMATION_DECK_SIZE) : [],
           nextIntent !== 'formations' ? buildAiJobFallbackCandidates(analysisData, extraText, AI_JOB_DECK_SIZE) : []
         )
         deck = filterCandidatesByTargetStudyLevel(balanceCandidatesForIntent(
@@ -2363,7 +2364,6 @@ export default function OrientationFlow() {
       await saveMicroProfile(profile, department)
       const rejectedProposals = historySource.filter((item) => !item.keep).map((item) => item.candidate)
       const liked = likedSource
-      const extraText = Object.values(profile).flat().join(' ')
 
       if (intent === 'metiers') {
         const finalJobs = await getFinalAiJobCandidates(profile, department, liked, rejectedProposals, AI_FINAL_JOB_COUNT)
@@ -2373,52 +2373,46 @@ export default function OrientationFlow() {
         return
       }
 
-      const formationPlans = await getFinalFormationSearchPlans(profile, department, liked, rejectedProposals, AI_FORMATION_KEYWORD_COUNT)
       const likedFormations = liked.filter((candidate) => candidate?.type === 'formation')
       const hasLikedFormations = likedFormations.length > 0
-      const fallbackPlans = uniquePlans([
-        ...formationPlans,
-        ...buildCatalogPlansFromCandidates(likedFormations),
-        ...(hasLikedFormations
-          ? buildFormationAnchorPlans(likedFormations, AI_FORMATION_KEYWORD_COUNT)
-          : [
-            ...buildLevelFallbackPlans('formations', profile, analysisData, extraText),
-            ...buildFallbackPlans('formations', analysisData, extraText)
-          ])
-      ])
       const searchContext = {
         studyLocation: profile.study_location,
         department,
         profile
       }
-      const [planDbCandidates, swipeDbCandidates, finalAiJobs] = await Promise.all([
-        fetchTableCandidates(formationPlans, 12, 'formations', searchContext),
-        hasLikedFormations
-          ? resolveCandidatesThroughCatalog(likedFormations, 8, 'formations', searchContext)
-          : Promise.resolve([]),
-        intent === 'both' ? getFinalAiJobCandidates(profile, department, liked, rejectedProposals, AI_FINAL_JOB_COUNT) : Promise.resolve([])
-      ])
-      const likedDatabaseCandidates = filterCandidatesByTargetStudyLevel(liked.filter(isDatabaseCandidate), profile)
-      let dbCandidates = filterCandidatesByTargetStudyLevel(filterRejectedCandidates(
-        mergeUniqueCandidates(swipeDbCandidates, likedDatabaseCandidates, planDbCandidates),
-        rejectedProposals,
-        liked
-      ), profile)
+      const finalAiJobs = intent === 'both'
+        ? await getFinalAiJobCandidates(profile, department, liked, rejectedProposals, AI_FINAL_JOB_COUNT)
+        : []
 
-      if (dbCandidates.length < MIN_FINAL_DB_RESULTS) {
-        const retryCandidates = await fetchTableCandidates(fallbackPlans, 20, 'formations', searchContext)
-        dbCandidates = filterCandidatesByTargetStudyLevel(filterRejectedCandidates(
-          mergeUniqueCandidates(dbCandidates, retryCandidates),
+      const dbCandidates = await retryAsync(async () => {
+        const formationPlans = await getFinalFormationSearchPlans(profile, department, liked, rejectedProposals, AI_FORMATION_KEYWORD_COUNT)
+        const [planDbCandidates, swipeDbCandidates] = await Promise.all([
+          fetchTableCandidates(formationPlans, 12, 'formations', searchContext),
+          hasLikedFormations
+            ? resolveCandidatesThroughCatalog(likedFormations, 8, 'formations', searchContext)
+            : Promise.resolve([])
+        ])
+        const likedDatabaseCandidates = filterCandidatesByTargetStudyLevel(liked.filter(isDatabaseCandidate), profile)
+        let strictCandidates = filterCandidatesByTargetStudyLevel(filterRejectedCandidates(
+          mergeUniqueCandidates(swipeDbCandidates, likedDatabaseCandidates, planDbCandidates),
           rejectedProposals,
           liked
         ), profile)
-      }
 
-      if (hasLikedFormations) {
-        dbCandidates = filterCandidatesByFormationAnchors(dbCandidates, likedFormations)
-      }
+        if (hasLikedFormations) {
+          strictCandidates = filterCandidatesByFormationAnchors(strictCandidates, likedFormations)
+        }
 
-      dbCandidates = diversifyCandidates(dbCandidates, { maxPerFormation: 1, maxPerSchool: 2 })
+        strictCandidates = diversifyCandidates(strictCandidates, { maxPerFormation: 1, maxPerSchool: 2 })
+        if (!strictCandidates.length) {
+          throw new Error('Aucune formation concrete trouvee avec les mots-cles valides')
+        }
+        return strictCandidates
+      }, {
+        attempts: AI_RETRY_ATTEMPTS,
+        label: 'Recherche finale formations',
+        isValidResult: (candidates) => Array.isArray(candidates) && candidates.length > 0
+      })
 
       const finalList = composeFinalCandidates(mergeUniqueCandidates(dbCandidates, finalAiJobs), [], intent)
       setFinalCandidates(finalList)
@@ -2426,14 +2420,9 @@ export default function OrientationFlow() {
       setPhase('final')
     } catch (finalError) {
       console.error('Final search error', finalError)
-      const fallbackList = filterRejectedCandidates(
-        filterCandidatesByTargetStudyLevel(diversifyCandidates(likedSource.filter(isConcreteFinalCandidate)), profile),
-        (options.historyOverride || proposalHistory).filter((item) => !item.keep).map((item) => item.candidate),
-        likedSource
-      )
-      setFinalCandidates(fallbackList)
-      setCheckedIds(fallbackList.map((candidate) => candidate.id))
-      setPhase('final')
+      setFinalCandidates([])
+      setCheckedIds([])
+      setError("Je n'ai pas réussi à trouver des formations cohérentes après plusieurs tentatives. Réessaie dans quelques instants.")
     } finally {
       setBusyMessage('')
     }

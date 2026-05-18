@@ -252,4 +252,5 @@
   .orientation-card,
   .flow-progress span,
   .spinner { transition: none !important; animation: none !important; }
-}
+}
+

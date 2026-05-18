@@ -47,6 +47,7 @@ function useTypewriter(message, durationMs) {
 
 const SCHOOL_SEARCH_LIMIT = 20
 const MIN_RECOMMENDED_SCHOOLS = 5
+const SCHOOL_LOADING_MESSAGE = 'Ne quitte pas la page, on cherche parmi 35 000 formations rien que pour toi ;)'
 
 function formationKey(formation) {
   const nm = Array.isArray(formation?.nm) ? formation.nm.find(Boolean) : formation?.nm
@@ -130,7 +131,7 @@ export default function Niveau23() {
   const firstName = profile?.first_name || 'toi'
 
   const dialogueText = (() => {
-    if (phase === 'loading') return 'Chargement des écoles...'
+    if (phase === 'loading') return SCHOOL_LOADING_MESSAGE
     if (phase === 'intro') return `Bon avec tout ce qu'on s'est dit ${firstName}, je peux désormais te proposer une liste d'écoles qui te correspondent bien !`
     if (phase === 'list') return 'Voici la liste :'
     if (phase === 'selected') return 'Super, si ces écoles te plaisent, on peut te mettre directement en lien avec elles !'
@@ -347,7 +348,7 @@ Rien d'autre.`
     return (
       <div className="p-6 text-center">
         <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargement des écoles…</p>
+        <p className="mt-2 text-text-secondary">{SCHOOL_LOADING_MESSAGE}</p>
       </div>
     )
   }

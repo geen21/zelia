@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
-import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
+import { XP_PER_LEVEL, completeQuest, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 
 function useTypewriter(message, durationMs) {
@@ -225,6 +225,23 @@ export default function Niveau38() {
     e.preventDefault()
   }
 
+  const onTouchEndList = (e) => {
+    if (!draggingId || showFeedback) return
+    const touch = e.changedTouches?.[0]
+    const target = touch
+      ? document.elementFromPoint(touch.clientX, touch.clientY)
+      : e.target
+    const dropTarget = target?.closest?.('[data-drag-id]')
+    const dropId = dropTarget?.getAttribute('data-drag-id')
+
+    if (dropId && dropId !== draggingId) {
+      onDrop(dropId)
+      return
+    }
+
+    setDraggingId(null)
+  }
+
   const onDrop = (id) => {
     if (!draggingId || draggingId === id) return
     const next = [...dragItems]
@@ -266,7 +283,12 @@ export default function Niveau38() {
         }
       ]).catch(e => console.warn('saveExtraInfo N38 failed', e))
       
-      await levelUp({ minLevel: 38, xpReward: XP_PER_LEVEL })
+      await levelUp({ minLevel: 38, xpReward: XP_PER_LEVEL }).catch(e => console.warn('levelUp N38 failed', e))
+      await completeQuest('tool:resolution-problemes').catch(e => console.warn('completeQuest N38 failed', e))
+      if (pathname.includes('/outils')) {
+        navigate('/app/outils')
+        return
+      }
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau38 levelUp failed', e)
@@ -296,7 +318,7 @@ export default function Niveau38() {
   const renderOptions = () => {
     if (currentSituation.type === 'drag') {
       return (
-        <div className="space-y-2" onTouchMove={onTouchMoveList}>
+        <div className="space-y-2" onTouchMove={onTouchMoveList} onTouchEnd={onTouchEndList}>
           {draggingId && !showFeedback && (
             <div className="lg:hidden text-center py-2 bg-gray-100 rounded-lg border border-dashed border-gray-300">
               <span className="text-sm">Déplace : <strong>{dragItems.find((item) => item.id === draggingId)?.text || 'élément'}</strong></span>
@@ -306,12 +328,13 @@ export default function Niveau38() {
           {dragItems.map((item, index) => (
             <div
               key={item.id}
+              data-drag-id={item.id}
               draggable={!showFeedback}
               onDragStart={() => onDragStart(item.id)}
+              onDragEnd={() => setDraggingId(null)}
               onDragOver={onDragOver}
               onDrop={() => onDrop(item.id)}
               onTouchStart={() => onTouchStartItem(item.id)}
-              onTouchEnd={() => draggingId && draggingId !== item.id && onDrop(item.id)}
               className={`flex items-center gap-2 p-2 md:p-3 rounded-lg border ${showFeedback ? 'bg-gray-50 border-gray-200' : draggingId === item.id ? 'bg-gray-100 border-black opacity-70' : 'bg-white border-gray-200 cursor-move hover:border-[#c1ff72]'}`}
             >
               <span className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold flex-shrink-0">{index + 1}</span>

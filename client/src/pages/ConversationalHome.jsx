@@ -7,6 +7,7 @@ import { ORIENTATION_VIDEO_COMPLETION_ID, ORIENTATION_VIDEO_ITEMS, ORIENTATION_V
 
 const ORIENTATION_VIDEO_DONE_IDS = ORIENTATION_VIDEO_ITEMS.map((video) => video.questionId)
 const CUSTOM_JOB_BUBBLES_STORAGE_KEY = 'zelia_custom_job_bubbles'
+const DEFAULT_PERSONA_QUOTA_LIMIT = 5
 
 const DEFAULT_EXPERT_BUBBLES = [
   { id: 'default-developpeur-web', title: 'Développeur web', skills: ['code', 'produit', 'projets'] },
@@ -211,6 +212,7 @@ export default function ConversationalHome() {
   const [selectionJobs, setSelectionJobs] = useState([])
   const [customJobBubbles, setCustomJobBubbles] = useState(() => loadCustomJobBubbles())
   const [selectedExpert, setSelectedExpert] = useState(null)
+  const [personaQuotas, setPersonaQuotas] = useState({})
   const [expertCustomizerOpen, setExpertCustomizerOpen] = useState(false)
   const [customJobTitle, setCustomJobTitle] = useState('')
   const [customJobFocus, setCustomJobFocus] = useState('')
@@ -259,6 +261,23 @@ export default function ConversationalHome() {
     return () => { active = false }
   }, [])
 
+  useEffect(() => {
+    let active = true
+    if (!selectedExpert?.title) return () => { active = false }
+
+    chatAPI.getPersonaQuota(selectedExpert.title)
+      .then((response) => {
+        if (!active || !response?.data?.quota) return
+        setPersonaQuotas((current) => ({
+          ...current,
+          [normalizeBubbleKey(selectedExpert.title)]: response.data.quota
+        }))
+      })
+      .catch(() => null)
+
+    return () => { active = false }
+  }, [selectedExpert?.title])
+
   const actions = useMemo(() => (
     ACTIONS.map((action) => ({
       ...action,
@@ -284,6 +303,10 @@ export default function ConversationalHome() {
   const completedActionsCount = useMemo(() => (
     actions.filter((action) => action.done).length
   ), [actions])
+
+  const selectedExpertKey = selectedExpert ? normalizeBubbleKey(selectedExpert.title) : ''
+  const selectedExpertQuota = selectedExpertKey ? personaQuotas[selectedExpertKey] : null
+  const selectedExpertLimitReached = Boolean(selectedExpert && selectedExpertQuota?.remaining === 0)
 
   const expertBubbles = useMemo(() => {
     const merged = mergeJobBubbles(customJobBubbles, selectionJobs, recommendedJobs).slice(0, 8)
@@ -338,6 +361,14 @@ export default function ConversationalHome() {
   const sendMessage = async () => {
     const text = input.trim()
     if (!text || loading) return
+    if (selectedExpertLimitReached) {
+      setMessages((current) => [...current, {
+        role: 'assistant',
+        expertTitle: selectedExpert?.title || '',
+        content: `Tu as utilisé tes ${selectedExpertQuota?.limit || DEFAULT_PERSONA_QUOTA_LIMIT} questions pour ${selectedExpert?.title}. Choisis un autre métier pour continuer.`
+      }])
+      return
+    }
     setInput('')
     const nextMessages = [...messages, { role: 'user', content: text }]
     setMessages(nextMessages)
@@ -351,9 +382,24 @@ export default function ConversationalHome() {
         message: buildContextualAdvisorMessage(text, buildAdvisorContext()),
         history: nextMessages.slice(-10).map((message) => ({ role: message.role, content: message.content }))
       })
+      if (selectedExpert && response?.data?.quota) {
+        setPersonaQuotas((current) => ({
+          ...current,
+          [normalizeBubbleKey(selectedExpert.title)]: response.data.quota
+        }))
+      }
       setMessages((current) => [...current, { role: 'assistant', expertTitle: selectedExpert?.title || '', content: response?.data?.reply || "Je n'ai pas pu répondre pour le moment." }])
     } catch (error) {
-      setMessages((current) => [...current, { role: 'assistant', content: "Je n'arrive pas à répondre maintenant. Tu peux choisir une bulle pour avancer." }])
+      if (selectedExpert && error?.response?.data?.quota) {
+        setPersonaQuotas((current) => ({
+          ...current,
+          [normalizeBubbleKey(selectedExpert.title)]: error.response.data.quota
+        }))
+      }
+      const content = error?.response?.status === 429
+        ? `Tu as utilisé tes ${error.response.data?.quota?.limit || DEFAULT_PERSONA_QUOTA_LIMIT} questions pour ${selectedExpert?.title}. Choisis un autre métier pour continuer.`
+        : "Je n'arrive pas à répondre maintenant. Tu peux choisir une bulle pour avancer."
+      setMessages((current) => [...current, { role: 'assistant', expertTitle: selectedExpert?.title || '', content }])
     } finally {
       setLoading(false)
     }
@@ -388,6 +434,10 @@ export default function ConversationalHome() {
 
   const renderExpertBubble = (expert) => {
     const isActive = selectedExpert && normalizeBubbleKey(selectedExpert.title) === normalizeBubbleKey(expert.title)
+    const quota = personaQuotas[normalizeBubbleKey(expert.title)]
+    const quotaText = quota
+      ? `${quota.remaining}/${quota.limit} questions`
+      : `${DEFAULT_PERSONA_QUOTA_LIMIT} questions max`
     return (
       <div key={expert.id} className="conversation-expert-row">
         <button
@@ -399,6 +449,7 @@ export default function ConversationalHome() {
           <span>
             <strong>{expert.title}</strong>
             {(expert.skills || []).length > 0 && <small>{expert.skills.join(' · ')}</small>}
+            <small className="conversation-expert-quota">{quotaText}</small>
           </span>
         </button>
         {expert.custom && (
@@ -549,9 +600,9 @@ export default function ConversationalHome() {
             value={input}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={(event) => { if (event.key === 'Enter') sendMessage() }}
-            placeholder="Demande à Zélia : CV, formation, métier, lettre..."
+            placeholder={selectedExpertLimitReached ? `Limite atteinte pour ${selectedExpert?.title}` : 'Demande à Zélia : CV, formation, métier, lettre...'}
           />
-          <button type="button" onClick={sendMessage} disabled={loading || !input.trim()} aria-label="Envoyer">
+          <button type="button" onClick={sendMessage} disabled={loading || !input.trim() || selectedExpertLimitReached} aria-label="Envoyer">
             <i className="ph ph-paper-plane-tilt" aria-hidden="true" />
           </button>
         </footer>
@@ -798,6 +849,10 @@ const styles = `
 .conversation-expert-bubble small {
   font-size: 11px;
   opacity: .78;
+}
+.conversation-expert-bubble .conversation-expert-quota {
+  opacity: .95;
+  font-weight: 800;
 }
 .conversation-expert-remove {
   width: 28px;

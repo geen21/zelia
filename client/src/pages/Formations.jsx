@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
-import { supabase } from '../lib/supabase'
+import apiClient from '../lib/api'
+
+const FORMATION_LOADING_MESSAGE = 'Ne quitte pas la page, on cherche parmi 35 000 formations rien que pour toi ;)'
 
 export default function Formations({ embedded = false } = {}){
 	const [q, setQ] = useState('')
@@ -12,6 +14,7 @@ export default function Formations({ embedded = false } = {}){
 	const [selected, setSelected] = useState([])
 	const [openMenuId, setOpenMenuId] = useState(null)
 	const [loading, setLoading] = useState(false)
+	const [searchError, setSearchError] = useState('')
 	const [recommendedOnly, setRecommendedOnly] = useState(false)
 	// page size derived from toggle; no separate state needed
 	const [studyRecs, setStudyRecs] = useState() // [{type, degree}]
@@ -114,6 +117,7 @@ export default function Formations({ embedded = false } = {}){
 
 	async function load(p = page){
 		setLoading(true)
+		setSearchError('')
 		try{
 			const effectivePageSize = recommendedOnly ? 50 : 20
 			
@@ -121,32 +125,26 @@ export default function Formations({ embedded = false } = {}){
             const rawKeywords = q
                 ? q.split(/[^\p{L}\p{N}]+/u).map((part) => part.trim()).filter(Boolean)
                 : []
-            const keywords = rawKeywords.length > 0 ? rawKeywords.slice(0, 10) : null
+            const keywords = rawKeywords.length > 0 ? rawKeywords.slice(0, 10) : []
 
-			// Use the shared search_formations RPC.
-			const { data, error } = await supabase.rpc('search_formations', {
-				p_keywords: keywords,
-				p_department: departement || null,
-				p_region: region || null,
-				p_limit: effectivePageSize
-                // Note: search_formations as defined in SQL (read earlier) does NOT accept p_offset. 
-				// Infinite scroll might be limited to the first page if the RPC doesn't support offsets.
-                // If Formations.jsx needs pagination, the RPC needs update.
-                // Checking rpc_search_formations.sql content again... it says "p_limit int DEFAULT 20". No offset.
+			const { data } = await apiClient.post('/formations/search', {
+				keywords,
+				department: departement || '',
+				region: region || '',
+				limit: effectivePageSize
 			})
 
-			if (error) throw error
-
-            const items = data || []
+            const items = data?.formations || []
 			setItems(items)
-			// RPC doesn't return total
-			// setTotal(data.total) 
+			setTotal(data?.total ?? items.length)
             setPage(p)
 			setSelected([])
 			setOpenMenuId(null)
 		} catch (err) {
             console.error('Formation search error', err)
+            setSearchError("La recherche de formations n'a pas abouti. Essaie avec un mot-clé plus large ou relance la recherche.")
             setItems([])
+            setTotal(0)
         } finally {
 			setLoading(false)
 		}
@@ -357,10 +355,17 @@ useEffect(() => {
 							</tr>
 						</thead>
 						<tbody>
+							{searchError && !loading && (
+								<tr>
+									<td colSpan={7} className="px-4 py-4 text-center text-red-700 bg-red-50 border-b border-red-100">
+										{searchError}
+									</td>
+								</tr>
+							)}
 							{loading && (
 								<tr>
 									<td colSpan={7} className="px-4 py-6 text-center text-text-secondary">
-										<span className="inline-flex items-center gap-2 text-sm"><i className="ph ph-circle-notch animate-spin"></i>Chargement des résultats…</span>
+										<span className="inline-flex items-center gap-2 text-sm"><i className="ph ph-circle-notch animate-spin"></i>{FORMATION_LOADING_MESSAGE}</span>
 									</td>
 								</tr>
 							)}

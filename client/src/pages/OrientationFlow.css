@@ -161,7 +161,10 @@
 .final-row strong { display: block; color: #000; font-size: 16px; white-space: pre-wrap; }
 .recommendation-row .analysis-value { font-weight: 500; line-height: 1.55; }
 .final-row input { width: 20px; height: 20px; accent-color: #c1ff72; }
-.final-row b { background: #f68fff; color: #000; border-radius: 999px; padding: 4px 8px; font-size: 11px; }
+.final-row b { border-radius: 999px; padding: 4px 8px; font-size: 11px; }
+.final-row .job-kind { background: #111827; color: #c1ff72; }
+.final-row .formation-kind { background: #c1ff72; color: #000; }
+.final-row .partner-kind { background: #f68fff; color: #000; }
 .final-row em { background: #c1ff72; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-style: normal; font-weight: 700; }
 .partner-row { border-color: #f68fff; background: #fff7fd; }
 .confirmed-stage { justify-content: flex-start; padding-top: 28px; }

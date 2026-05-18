@@ -241,6 +241,7 @@ export default function Results() {
 			try {
 				savedOrientationSelections = await fetchOrientationSelections()
 				setOrientationSelections(savedOrientationSelections)
+				if (savedOrientationSelections.length) setActiveTab('final-selection')
 			} catch (selectionErr) {
 				if (selectionErr.response?.status === 401) {
 					setError('Utilisateur non authentifié')

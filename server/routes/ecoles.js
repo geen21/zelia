@@ -295,8 +295,27 @@ const TOKEN_ALIASES = new Map([
   ['utilisateurs', 'utilisateur'],
   ['developpeur', 'developpement'],
   ['developpeuse', 'developpement'],
-  ['developper', 'developpement']
+  ['developper', 'developpement'],
+  ['dev', 'developpement'],
+  ['code', 'developpement'],
+  ['coding', 'developpement'],
+  ['programmation', 'developpement'],
+  ['programmeur', 'developpement'],
+  ['programmeuse', 'developpement'],
+  ['cybersecurite', 'cyber'],
+  ['cybersecurity', 'cyber']
 ])
+
+const RELATED_TOKEN_EXPANSIONS = {
+  informatique: ['digital', 'developpement', 'web', 'logiciel', 'data'],
+  digital: ['informatique', 'numerique', 'web', 'developpement'],
+  numerique: ['digital', 'informatique', 'web', 'developpement'],
+  developpement: ['informatique', 'web', 'logiciel', 'application'],
+  web: ['digital', 'informatique', 'developpement'],
+  logiciel: ['informatique', 'developpement'],
+  data: ['informatique', 'digital', 'ia'],
+  cyber: ['informatique', 'reseau', 'securite']
+}
 
 function tokenize(text) {
   return normalize(text)
@@ -310,7 +329,7 @@ function tokenize(text) {
 const DOMAIN_TO_TOKENS = {
   'arts creation': ['design', 'creation', 'artistique', 'graphique', 'motion', 'ux', 'ui'],
   'sciences recherche': ['data', 'analyst', 'recherche', 'big', 'ia'],
-  'technologie numerique': ['informatique', 'developpeur', 'developpement', 'web', 'cyber', 'reseau', 'sio', 'full', 'stack', 'data', 'ia'],
+  'technologie numerique': ['informatique', 'developpeur', 'developpement', 'web', 'cyber', 'reseau', 'sio', 'full', 'stack', 'data', 'ia', 'logiciel', 'application', 'programmation', 'cloud'],
   'sante bien etre': [],
   'education formation': [],
   'commerce vente': ['affaires', 'business', 'entrepreneuriat'],
@@ -381,6 +400,9 @@ function buildUserTokenBag({ topDomains, jobKeywordsRaw, jobRecommendationsRaw }
     if (!token || token.length < 3) return
     if (STOPWORDS.has(token)) return
     bag.set(token, (bag.get(token) || 0) + weight)
+    ;(RELATED_TOKEN_EXPANSIONS[token] || []).forEach((relatedToken) => {
+      bag.set(relatedToken, (bag.get(relatedToken) || 0) + Math.max(1, weight * 0.6))
+    })
   }
 
   // Domains: rank-weighted (top1 stronger than top3)
@@ -402,6 +424,7 @@ function buildUserTokenBag({ topDomains, jobKeywordsRaw, jobRecommendationsRaw }
 function scoreFormationContent(formation, userBag) {
   if (userBag.size === 0) return { raw: 0, hits: 0 }
   const weightedFields = [
+    { text: formation.school_name, multiplier: 1 },
     { text: formation.formation_name, multiplier: 3 },
     { text: formation.domain, multiplier: 2 },
     { text: formation.description, multiplier: 1 }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
-import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
+import { XP_PER_LEVEL, completeQuest, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 
 function useTypewriter(message, durationMs) {
@@ -279,7 +279,12 @@ export default function Niveau36() {
         }
       ]).catch(e => console.warn('saveExtraInfo N36 failed', e))
       
-      await levelUp({ minLevel: 36, xpReward: XP_PER_LEVEL })
+      await levelUp({ minLevel: 36, xpReward: XP_PER_LEVEL }).catch(e => console.warn('levelUp N36 failed', e))
+      await completeQuest('tool:intelligence-emotionnelle').catch(e => console.warn('completeQuest N36 failed', e))
+      if (pathname.includes('/outils')) {
+        navigate('/app/outils')
+        return
+      }
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau36 levelUp failed', e)

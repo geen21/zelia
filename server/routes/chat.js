@@ -9,6 +9,9 @@ const router = express.Router()
 
 const GEMINI_STRUCTURED_RETRY_ATTEMPTS = 3
 const GEMINI_RETRY_DELAY_MS = 350
+const PERSONA_CHAT_LIMIT = 5
+const PERSONA_QUOTA_WINDOW_MS = 24 * 60 * 60 * 1000
+const personaQuotaCounters = new Map()
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -32,6 +35,44 @@ function logGeminiChatFailure(message, details, body = '') {
     ? ` ${body.slice(0, 700)}`
     : ''
   console.error(message, JSON.stringify(details), bodyPreview)
+}
+
+function normalizeQuotaKey(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function getPersonaQuotaSubject({ mode, persona, advisorType }) {
+  if (mode !== 'persona') return ''
+  return normalizeQuotaKey(persona?.title || advisorType)
+}
+
+function getPersonaQuotaEntry(userId, subject, now = Date.now()) {
+  const key = `${userId}:${subject}`
+  const existing = personaQuotaCounters.get(key)
+
+  if (existing && existing.expiresAt > now) {
+    return { key, entry: existing }
+  }
+
+  const entry = { count: 0, expiresAt: now + PERSONA_QUOTA_WINDOW_MS }
+  personaQuotaCounters.set(key, entry)
+  return { key, entry }
+}
+
+function buildPersonaQuotaPayload(subject, entry) {
+  const used = Math.min(entry?.count || 0, PERSONA_CHAT_LIMIT)
+  return {
+    subject,
+    limit: PERSONA_CHAT_LIMIT,
+    used,
+    remaining: Math.max(0, PERSONA_CHAT_LIMIT - used),
+    resetAt: entry?.expiresAt ? new Date(entry.expiresAt).toISOString() : null
+  }
 }
 
 function buildDisplayName(message, profile) {
@@ -124,6 +165,28 @@ router.get('/messages/:id', authenticateToken, async (req, res) => {
   }
 })
 
+router.delete('/messages/me', authenticateToken, async (req, res) => {
+  try {
+    const db = supabaseAdmin || supabaseClient
+    const { data, error } = await db
+      .from('global_chat')
+      .delete()
+      .eq('user_id', req.user.id)
+      .select('id')
+
+    if (error) {
+      console.error('Chat delete my messages error:', error)
+      return res.status(500).json({ error: 'Erreur lors de la suppression des messages' })
+    }
+
+    const deletedIds = (data || []).map((message) => message.id).filter(Boolean)
+    res.json({ deletedIds, deletedCount: deletedIds.length })
+  } catch (e) {
+    console.error('Chat delete my messages route error:', e)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
 // POST /api/chat/message  — insert a global chat message (bypasses RLS)
 router.post('/message', authenticateToken, async (req, res) => {
   try {
@@ -153,6 +216,21 @@ router.post('/message', authenticateToken, async (req, res) => {
   }
 })
 
+router.get('/ai/quota', authenticateToken, async (req, res) => {
+  try {
+    const subject = normalizeQuotaKey(req.query.persona || req.query.advisorType)
+    if (!subject) {
+      return res.status(400).json({ error: 'Persona requis' })
+    }
+
+    const { entry } = getPersonaQuotaEntry(req.user.id, subject)
+    res.json({ quota: buildPersonaQuotaPayload(subject, entry) })
+  } catch (e) {
+    console.error('AI quota route error:', e)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
 // POST /api/chat/ai
 // body: { mode: 'persona'|'advisor', persona?: {title, skills[]}, message: string, history?: [{role, content}] }
 router.post('/ai', authenticateToken, async (req, res) => {
@@ -165,6 +243,22 @@ router.post('/ai', authenticateToken, async (req, res) => {
     const geminiApiKey = process.env.GEMINI_API_KEY
     if (!geminiApiKey) {
       return res.status(500).json({ error: 'GEMINI_API_KEY manquant' })
+    }
+
+    const quotaSubject = getPersonaQuotaSubject({ mode, persona, advisorType })
+    let quotaKey = ''
+    let quotaEntry = null
+    if (quotaSubject) {
+      const quota = getPersonaQuotaEntry(req.user.id, quotaSubject)
+      quotaKey = quota.key
+      quotaEntry = quota.entry
+      if (quotaEntry.count >= PERSONA_CHAT_LIMIT) {
+        return res.status(429).json({
+          error: 'Limite atteinte pour ce métier. Choisis un autre métier ou reviens plus tard.',
+          code: 'PERSONA_QUOTA_EXCEEDED',
+          quota: buildPersonaQuotaPayload(quotaSubject, quotaEntry)
+        })
+      }
     }
 
     const titlesText = Array.isArray(jobTitles) && jobTitles.length ? `Titres métiers disponibles: ${jobTitles.join(', ')}.` : ''
@@ -213,7 +307,7 @@ router.post('/ai', authenticateToken, async (req, res) => {
       : isHomeAssistant
       ? `Tu es Zélia, conseillère d'orientation francophone. Tu connais le contexte utilisateur quand il est fourni dans le message. Réponds en français, en tutoyant l'élève, sans te présenter comme une IA et sans mentionner Gemini. Donne des réponses COURTES comme dans une discussion (2-3 phrases max), rassurantes, concrètes et personnalisées. Termine toujours par une phrase complète avec une ponctuation finale. Si l'élève dit qu'il ne sait pas quoi faire, utilise son profil pour proposer 2 pistes et pose une seule question simple.`
       : mode === 'persona' && persona?.title
-      ? `Type de conseiller: ${advisorType || persona.title}. Tu es ${persona.title}. ${titlesText} Réponds en français, en incarnant ce métier (quotidien, contraintes, voies d'accès, perspectives). Donne des réponses COURTES, comme dans une discussion (2-4 phrases max), précises et utiles. Si on te pose des questions personnelles, réponds du point de vue professionnel. Compétences clés: ${(persona.skills||[]).join(', ')}.`
+      ? `Type de conseiller: ${advisorType || persona.title}. Tu es ${persona.title}. ${titlesText} Réponds en français, en incarnant ce métier (quotidien, contraintes, voies d'accès, perspectives). Donne des réponses COURTES, comme dans une discussion (2-4 phrases max), précises et utiles. Si on te demande ce que tu n'aimes pas dans ton métier, réponds par 2 ou 3 contraintes concrètes du quotidien, sans bloquer ni refuser. Si on te pose des questions personnelles, réponds du point de vue professionnel. Compétences clés: ${(persona.skills||[]).join(', ')}.`
       : `Type de conseiller: ${advisorType || 'zelia'}. Tu es Zélia, conseillère d'orientation en français. ${titlesText} Donne des réponses COURTES comme dans une discussion (2-4 phrases max), concrètes, bienveillantes et actionnables avec premières étapes.`
 
     // Build content for Gemini API
@@ -347,6 +441,12 @@ router.post('/ai', authenticateToken, async (req, res) => {
           continue
         }
         return res.status(502).json({ error: lastGeminiError })
+      }
+
+      if (quotaEntry && quotaKey) {
+        quotaEntry.count = Math.min(PERSONA_CHAT_LIMIT, quotaEntry.count + 1)
+        personaQuotaCounters.set(quotaKey, quotaEntry)
+        return res.json({ reply, quota: buildPersonaQuotaPayload(quotaSubject, quotaEntry) })
       }
 
       return res.json({ reply })

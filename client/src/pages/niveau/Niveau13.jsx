@@ -90,6 +90,8 @@ export default function Niveau13() {
   const [aiHistory, setAiHistory] = useState([])
   const [aiInput, setAiInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
+  const [clearingMessages, setClearingMessages] = useState(false)
+  const [chatNotice, setChatNotice] = useState('')
   const listRef = useRef(null)
 
   const firstName = profile?.first_name || 'toi'
@@ -187,6 +189,7 @@ export default function Niveau13() {
     const text = input.trim()
     if (!text || !user) return
     setInput('')
+    setChatNotice('')
     try {
       const { data } = await chatAPI.sendMessage(text)
       if (data?.message) {
@@ -194,6 +197,28 @@ export default function Niveau13() {
       }
     } catch {
       setInput(text)
+    }
+  }
+
+  const handleClearMyMessages = async () => {
+    if (!user || clearingMessages) return
+    const confirmed = window.confirm('Effacer tous tes messages du chat communauté ?')
+    if (!confirmed) return
+    setClearingMessages(true)
+    setChatNotice('')
+    try {
+      const { data } = await chatAPI.clearMyMessages()
+      const deletedIds = new Set(data?.deletedIds || [])
+      setMessages((prev) => prev.filter((message) => {
+        if (deletedIds.size > 0) return !deletedIds.has(message.id)
+        return message.user_id !== user.id
+      }))
+      setChatNotice('Tes messages ont été effacés.')
+    } catch (e) {
+      console.error('Clear my chat messages failed', e)
+      setChatNotice("Impossible d'effacer tes messages pour le moment.")
+    } finally {
+      setClearingMessages(false)
     }
   }
 
@@ -339,6 +364,13 @@ export default function Niveau13() {
                     <h2 className="text-xl font-bold">Chat Zélia</h2>
                   </div>
                   <div className="flex items-center gap-2">
+                    {mode === 'student' && (
+                      <button
+                        className="px-3 py-1.5 rounded-full border text-sm bg-white border-gray-200 disabled:opacity-50"
+                        onClick={handleClearMyMessages}
+                        disabled={clearingMessages || !messages.some((message) => message.user_id === user?.id)}
+                      >{clearingMessages ? 'Effacement…' : 'Effacer mes messages'}</button>
+                    )}
                     <button
                       className={`px-3 py-1.5 rounded-full border text-sm ${mode==='student' ? 'bg-black text-white border-black' : 'bg-white border-gray-200'}`}
                       onClick={() => setMode('student')}
@@ -373,6 +405,7 @@ export default function Niveau13() {
                     ))}
                   </div>
                   <div className="p-4 border-t border-gray-200 bg-white">
+                    {chatNotice && <p className="mb-2 text-xs text-gray-500">{chatNotice}</p>}
                     <div className="flex gap-2">
                       <input
                         className="flex-1 border border-gray-200 rounded-lg px-3 py-2 outline-none"

@@ -22,6 +22,7 @@ const AI_RETRY_ATTEMPTS = 3
 const CATALOG_RETRY_ATTEMPTS = 3
 const PRESELECTED_CANDIDATES_PER_KIND = 4
 const MAX_PARTNER_FINAL_RESULTS = 4
+const FORMATION_SEARCH_WAITING_MESSAGE = 'Ne quitte pas la page, on cherche parmi 35 000 formations rien que pour toi ;)'
 const CATALOG_SEARCH_CONCURRENCY = 4
 const MAX_FORMATION_QUERY_VARIANTS = 4
 const FORMATION_ANCHOR_STOPWORDS = new Set(['formation', 'formations', 'piste', 'parcours', 'etude', 'etudes', 'ecole', 'ecoles', 'universite', 'lycee', 'cfa', 'iut', 'cnam', 'greta', 'diplome', 'metier', 'metiers', 'professionnel', 'professionnelle', 'initiale', 'alternance', 'bts', 'but', 'dut', 'licence', 'bachelor', 'master', 'mastere', 'mba', 'msc', 'ingenieur', 'de', 'du', 'des', 'en', 'et', 'a', 'au', 'aux', 'le', 'la', 'les', 'pour', 'avec', 'dans', 'niveau', 'vise'])
@@ -2061,7 +2062,7 @@ export default function OrientationFlow() {
     localStorage.setItem('orientation_micro_profile', JSON.stringify(profile))
     setError('')
     setPhase('proposalSearch')
-    setBusyMessage(nextIntent === 'metiers' ? 'Zélia prépare tes métiers à swiper' : 'Zélia présélectionne tes pistes')
+    setBusyMessage(nextIntent === 'metiers' ? 'Zélia prépare tes métiers à swiper' : FORMATION_SEARCH_WAITING_MESSAGE)
     try {
       const department = nextIntent === 'metiers'
         ? (userDepartment || {})
@@ -2208,7 +2209,7 @@ export default function OrientationFlow() {
     const likedSource = options.likedOverride || likedProposals
     localStorage.setItem('orientation_micro_profile', JSON.stringify(profile))
     setPhase('finalSearch')
-    setBusyMessage(intent === 'metiers' ? 'Zélia affine 8 métiers avec tes swipes' : 'Je réfléchis')
+    setBusyMessage(intent === 'metiers' ? 'Zélia affine 8 métiers avec tes swipes' : FORMATION_SEARCH_WAITING_MESSAGE)
     setError('')
 
     try {
@@ -2270,7 +2271,22 @@ export default function OrientationFlow() {
         isValidResult: (candidates) => Array.isArray(candidates) && candidates.length > 0
       })
 
-      const finalList = composeFinalCandidates(mergeUniqueCandidates(dbCandidates, finalAiJobs), [], intent)
+      const partnerCandidates = await orientationAPI.getMatchedSchools()
+        .then((response) => (response?.data?.matched || []).map(normalizePartnerFormation))
+        .catch((partnerError) => {
+          console.warn('Matched partner schools failed', partnerError)
+          return []
+        })
+      const selectedPartnerCandidates = selectPartnerCandidatesForFinal(
+        partnerCandidates,
+        profile,
+        department,
+        rejectedProposals,
+        liked,
+        MAX_PARTNER_FINAL_RESULTS
+      )
+
+      const finalList = composeFinalCandidates(mergeUniqueCandidates(dbCandidates, finalAiJobs), selectedPartnerCandidates, intent)
       setFinalCandidates(finalList)
       setCheckedIds(finalList.slice(0, Math.min(5, finalList.length)).map((candidate) => candidate.id))
       setPhase('final')
@@ -2413,10 +2429,10 @@ export default function OrientationFlow() {
           {currentProposal.type === 'formation' ? (
             <div className="candidate-speaker">
               {renderAvatarFace('candidate-avatar')}
-              <p>{currentProposal.source}</p>
+              <p>{currentProposal.partner ? 'Formation partenaire' : 'Formation'} · {currentProposal.source}</p>
             </div>
           ) : (
-            <span className={`source-badge ${currentProposal.logoKind}`}>{currentProposal.source}</span>
+            <span className={`source-badge ${currentProposal.logoKind}`}>Métier · {currentProposal.source}</span>
           )}
           <h1>{display.title}</h1>
           <p>{display.subtitle}</p>
@@ -2494,7 +2510,8 @@ export default function OrientationFlow() {
                   <strong>{display.title}</strong>
                   <small>{display.subtitle}</small>
                 </span>
-                {candidate.partner && <b>Partenaire</b>}
+                <b className={candidate.type === 'metier' ? 'job-kind' : 'formation-kind'}>{candidate.type === 'metier' ? 'Métier' : 'Formation'}</b>
+                {candidate.partner && <b className="partner-kind">Partenaire</b>}
                 {candidate.matchScore && <em>{candidate.matchScore}%</em>}
               </label>
             )

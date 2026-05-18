@@ -118,6 +118,39 @@ function parsePoints(raw) {
   }
 }
 
+function buildFallbackPoints(jobTitle) {
+  const title = String(jobTitle || 'ce métier').trim() || 'ce métier'
+  return {
+    negatives: [
+      `Des périodes de pression quand les demandes autour de ${title} s'accumulent.`,
+      'Des tâches répétitives ou administratives peuvent prendre de la place.',
+      'Il faut accepter de continuer à apprendre quand le métier évolue.'
+    ],
+    positives: [
+      `Un quotidien concret où tu vois mieux l'impact de ton travail en ${title}.`,
+      'Des compétences transférables qui peuvent ouvrir plusieurs portes.',
+      'Une progression possible avec l’expérience, les projets et les spécialisations.'
+    ]
+  }
+}
+
+function completePoints(parsed, jobTitle) {
+  const fallback = buildFallbackPoints(jobTitle)
+  const fill = (items, fallbackItems) => {
+    const values = Array.isArray(items) ? items.filter(Boolean) : []
+    for (const item of fallbackItems) {
+      if (values.length >= 3) break
+      values.push(item)
+    }
+    return values.slice(0, 3)
+  }
+
+  return {
+    negatives: fill(parsed?.negatives, fallback.negatives),
+    positives: fill(parsed?.positives, fallback.positives)
+  }
+}
+
 function normalizeJobSuggestions(profile, rawRecommendations) {
   const homePreference = (profile?.home_preference || '').trim()
   const isQuestionnaire = homePreference.toLowerCase() === 'questionnaire'
@@ -293,15 +326,14 @@ export default function Niveau15() {
           console.warn('Niveau15 retry generation failed', retryError)
         }
       }
-      if ((parsed.negatives || []).length === 0 && (parsed.positives || []).length === 0) {
-        throw new Error('Réponse IA non exploitable')
-      }
-      setNegatives(parsed.negatives || [])
-      setPositives(parsed.positives || [])
+      const completed = completePoints(parsed, jobTitle)
+      setNegatives(completed.negatives)
+      setPositives(completed.positives)
     } catch (e) {
       console.error('Niveau15 generation error', e)
-      const msg = e?.response?.data?.error || 'Impossible de générer les points. Réessaie.'
-      setGenerateError(msg)
+      const fallback = buildFallbackPoints(jobTitle)
+      setNegatives(fallback.negatives)
+      setPositives(fallback.positives)
     } finally {
       setGenerating(false)
     }

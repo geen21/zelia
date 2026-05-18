@@ -74,6 +74,12 @@ export function questIdForLevel(level) {
   return QUEST_ID_BY_LEVEL.get(clamped) || null
 }
 
+export function legacyQuestIdForLevel(level) {
+  const numericLevel = Number(level)
+  if (!Number.isFinite(numericLevel) || numericLevel <= MAX_LEVEL) return null
+  return `level_${Math.floor(numericLevel)}`
+}
+
 export function questLabel(id) {
   if (!id) return ''
   if (QUEST_LABEL_BY_ID.has(id)) return QUEST_LABEL_BY_ID.get(id)
@@ -150,6 +156,11 @@ export async function levelUp({ minLevel = null, xpReward = 0 } = {}) {
     }
   }
 
+  const legacyQuestId = legacyQuestIdForLevel(minLevel)
+  if (legacyQuestId) {
+    newlyCompletedQuests.push(legacyQuestId)
+  }
+
   const updatedQuests = Array.from(new Set([...existingQuests, ...newlyCompletedQuests]))
 
   await progressionAPI.update({
@@ -169,8 +180,9 @@ export async function levelUp({ minLevel = null, xpReward = 0 } = {}) {
 
 export async function completeQuest(questId) {
   const normalizedQuestId = String(questId || '').trim()
+  const isExplicitToolQuest = normalizedQuestId.startsWith('tool:')
 
-  if (isStandaloneToolRoute()) {
+  if (isStandaloneToolRoute() && !isExplicitToolQuest) {
     return {
       updated: false,
       progression: getDefaultProgression(),

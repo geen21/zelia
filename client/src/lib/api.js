@@ -186,6 +186,8 @@ export const chatAPI = {
   getMessages: (params = {}) => apiClient.get('/chat/messages', { params }),
   getMessageById: (id) => apiClient.get(`/chat/messages/${id}`),
   sendMessage: (content) => apiClient.post('/chat/message', { content }),
+  clearMyMessages: () => apiClient.delete('/chat/messages/me'),
+  getPersonaQuota: (persona) => apiClient.get('/chat/ai/quota', { params: { persona } }),
   aiChat: (payload = {}) => apiClient.post('/chat/ai', payload)
 }
 

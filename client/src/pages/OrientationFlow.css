@@ -111,6 +111,30 @@
 .avatar-preview { width: min(320px, 70vw); height: min(320px, 70vw); object-fit: contain; border-radius: 8px; background: #f8fafc; }
 .message-card { align-items: flex-start; }
 .message-avatar { width: 92px; height: 92px; object-fit: contain; border-radius: 8px; background: #f8fafc; border: 1px solid rgba(0,0,0,.08); }
+.identity-card { gap: 18px; user-select: text; }
+.identity-card h1 { font-size: 32px; }
+.identity-search-status { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 8px; background: #fffbf7; border: 1px solid rgba(0,0,0,.08); }
+.identity-search-status p { font-size: 14px; color: #374151; line-height: 1.35; }
+.identity-status-dot { width: 11px; height: 11px; border-radius: 999px; flex: 0 0 auto; background: #f68fff; box-shadow: 0 0 0 5px rgba(246,143,255,.16); }
+.identity-status-dot.ready { background: #c1ff72; box-shadow: 0 0 0 5px rgba(193,255,114,.24); }
+.identity-form-grid { display: grid; gap: 12px; width: 100%; }
+.identity-form-grid label { display: grid; gap: 7px; color: #111827; font-size: 13px; font-weight: 700; }
+.identity-form-grid input,
+.identity-form-grid select {
+  width: 100%;
+  min-height: 50px;
+  border: 1px solid rgba(0,0,0,.12);
+  border-radius: 8px;
+  background: #fff;
+  color: #000;
+  font: inherit;
+  font-size: 16px;
+  padding: 0 14px;
+}
+.identity-form-grid input:focus,
+.identity-form-grid select:focus { outline: 2px solid rgba(193,255,114,.95); outline-offset: 2px; }
+.identity-error { color: #b42318 !important; font-size: 14px !important; line-height: 1.35 !important; }
+.identity-submit { width: 100%; min-width: 0; }
 .personality-stage { justify-content: flex-start; padding-top: 28px; }
 .personality-card { min-height: auto; user-select: text; gap: 18px; }
 .personality-card .recommendation-list { gap: 16px; }
@@ -212,6 +236,7 @@
   .orientation-topbar img { height: 23px; }
   .orientation-card { min-height: clamp(300px, calc(100vh - 190px), 520px); padding: 24px; }
   .orientation-card h1 { font-size: 28px; }
+  .identity-card h1 { font-size: 26px; }
   .avatar-card h1 { font-size: 25px; }
   .orientation-card p { font-size: 16px; }
   .round-action { width: 64px; height: 64px; }
@@ -237,8 +262,15 @@
   .orientation-stage { min-height: calc(100vh - 44px); gap: 10px; padding: 8px 16px 12px; }
   .orientation-card { min-height: auto; padding: 14px 18px; gap: 10px; }
   .orientation-card h1 { font-size: 22px; line-height: 1.12; }
+  .identity-card h1 { font-size: 21px; }
   .avatar-card h1 { font-size: 20px; }
   .orientation-card p { font-size: 14px; line-height: 1.35; }
+  .identity-card { gap: 9px; }
+  .identity-search-status { padding: 9px 11px; }
+  .identity-form-grid { gap: 8px; }
+  .identity-form-grid label { gap: 5px; }
+  .identity-form-grid input,
+  .identity-form-grid select { min-height: 40px; font-size: 14px; }
   .message-avatar { width: 52px; height: 52px; }
   .dialogue-avatar,
   .candidate-avatar { width: 52px; height: 52px; }

@@ -25,6 +25,10 @@ const MAX_PARTNER_FINAL_RESULTS = 4
 const FORMATION_SEARCH_WAITING_MESSAGE = 'Ne quitte pas la page, on cherche parmi 35 000 formations rien que pour toi ;)'
 const CATALOG_SEARCH_CONCURRENCY = 4
 const MAX_FORMATION_QUERY_VARIANTS = 4
+const PROFILE_IDENTITY_KEY = 'orientation_profile_identity'
+const PROFILE_IDENTITY_COMPLETE_KEY = 'orientation_profile_identity_complete'
+const DEFAULT_PROFILE_IDENTITY = { firstName: '', lastName: '', gender: '' }
+const GENDER_OPTIONS = ['Femme', 'Homme', 'Non-binaire', 'Autre', 'Préfère ne pas répondre']
 const FORMATION_ANCHOR_STOPWORDS = new Set(['formation', 'formations', 'piste', 'parcours', 'etude', 'etudes', 'ecole', 'ecoles', 'universite', 'lycee', 'cfa', 'iut', 'cnam', 'greta', 'diplome', 'metier', 'metiers', 'professionnel', 'professionnelle', 'initiale', 'alternance', 'bts', 'but', 'dut', 'licence', 'bachelor', 'master', 'mastere', 'mba', 'msc', 'ingenieur', 'de', 'du', 'des', 'en', 'et', 'a', 'au', 'aux', 'le', 'la', 'les', 'pour', 'avec', 'dans', 'niveau', 'vise'])
 const FORMATION_THEME_EXPANSIONS = [
   {
@@ -272,6 +276,29 @@ function getStoredJson(key, fallback) {
     return raw ? JSON.parse(raw) : fallback
   } catch {
     return fallback
+  }
+}
+
+function normalizeProfileIdentity(value = {}) {
+  return {
+    firstName: String(value.firstName || value.first_name || value.prenom || '').trim(),
+    lastName: String(value.lastName || value.last_name || value.nom || '').trim(),
+    gender: String(value.gender || value.genre || '').trim()
+  }
+}
+
+function isProfileIdentityComplete(value = {}) {
+  const identity = normalizeProfileIdentity(value)
+  return Boolean(identity.firstName && identity.lastName && identity.gender)
+}
+
+function mergeProfileIdentity(current = DEFAULT_PROFILE_IDENTITY, incoming = DEFAULT_PROFILE_IDENTITY) {
+  const currentIdentity = normalizeProfileIdentity(current)
+  const incomingIdentity = normalizeProfileIdentity(incoming)
+  return {
+    firstName: currentIdentity.firstName || incomingIdentity.firstName,
+    lastName: currentIdentity.lastName || incomingIdentity.lastName,
+    gender: currentIdentity.gender || incomingIdentity.gender
   }
 }
 
@@ -1543,6 +1570,7 @@ function phaseIndex(phase) {
     'intent',
     'searchIntro',
     'info',
+    'profileIdentity',
     'proposalSearch',
     'proposals',
     'finalSearch',
@@ -1554,6 +1582,8 @@ function phaseIndex(phase) {
 export default function OrientationFlow() {
   const navigate = useNavigate()
   const dragStartRef = useRef(null)
+  const proposalSearchReadyRef = useRef(false)
+  const [initialProfileIdentity] = useState(() => normalizeProfileIdentity(getStoredJson(PROFILE_IDENTITY_KEY, DEFAULT_PROFILE_IDENTITY)))
   const [phase, setPhase] = useState('questions')
   const [questions, setQuestions] = useState([])
   const [questionIndex, setQuestionIndex] = useState(0)
@@ -1576,6 +1606,14 @@ export default function OrientationFlow() {
   const [finalCandidates, setFinalCandidates] = useState([])
   const [checkedIds, setCheckedIds] = useState([])
   const [busyMessage, setBusyMessage] = useState('')
+  const [profileIdentity, setProfileIdentity] = useState(initialProfileIdentity)
+  const [profileIdentityComplete, setProfileIdentityComplete] = useState(() => (
+    localStorage.getItem(PROFILE_IDENTITY_COMPLETE_KEY) === 'true' && isProfileIdentityComplete(initialProfileIdentity)
+  ))
+  const profileIdentityCompleteRef = useRef(profileIdentityComplete)
+  const [profileIdentitySaving, setProfileIdentitySaving] = useState(false)
+  const [profileIdentityError, setProfileIdentityError] = useState('')
+  const [proposalSearchReady, setProposalSearchReady] = useState(false)
 
   const currentQuestion = questions[questionIndex]
   const currentProposal = proposalCandidates[proposalIndex]
@@ -1588,6 +1626,22 @@ export default function OrientationFlow() {
       analysisBlock.skillsAssessment ? { label: 'Forces', value: String(analysisBlock.skillsAssessment), tone: 'forces' } : null
     ].filter(Boolean)
   }, [analysisBlock])
+
+  const hydrateProfileIdentity = useCallback((profile) => {
+    const incomingIdentity = normalizeProfileIdentity(profile)
+    if (!incomingIdentity.firstName && !incomingIdentity.lastName && !incomingIdentity.gender) return
+
+    setProfileIdentity((current) => {
+      const nextIdentity = mergeProfileIdentity(current, incomingIdentity)
+      localStorage.setItem(PROFILE_IDENTITY_KEY, JSON.stringify(nextIdentity))
+      if (isProfileIdentityComplete(nextIdentity)) {
+        profileIdentityCompleteRef.current = true
+        setProfileIdentityComplete(true)
+        localStorage.setItem(PROFILE_IDENTITY_COMPLETE_KEY, 'true')
+      }
+      return nextIdentity
+    })
+  }, [])
 
   const zeliaSpeaking = phase === 'searchIntro' || phase === 'analysis' || phase === 'proposalSearch' || phase === 'finalSearch'
   const displayedAvatarUrl = useMemo(() => {
@@ -1646,6 +1700,7 @@ export default function OrientationFlow() {
       await saveAvatarToProfile()
       const profileResponse = await usersAPI.getProfile().catch(() => null)
       const profileDepartment = profileResponse?.data?.profile?.department || ''
+      hydrateProfileIdentity(profileResponse?.data?.profile || {})
       if (profileDepartment) {
         setUserDepartment((current) => ({ code: profileDepartment, name: current.name || profileDepartment }))
       }
@@ -1661,7 +1716,7 @@ export default function OrientationFlow() {
     } finally {
       setBusyMessage('')
     }
-  }, [answers, isAuthenticated, saveAvatarToProfile])
+  }, [answers, hydrateProfileIdentity, isAuthenticated, saveAvatarToProfile])
 
   useEffect(() => {
     let cancelled = false
@@ -1779,6 +1834,7 @@ export default function OrientationFlow() {
     if (userDepartment?.code || userDepartment?.name) return userDepartment
     const profileResponse = await usersAPI.getProfile().catch(() => null)
     const profile = profileResponse?.data?.profile || {}
+    hydrateProfileIdentity(profile)
     const institutionData = profile.institution_data && typeof profile.institution_data === 'object'
       ? profile.institution_data
       : {}
@@ -2061,7 +2117,11 @@ export default function OrientationFlow() {
     setMicroProfile(profile)
     localStorage.setItem('orientation_micro_profile', JSON.stringify(profile))
     setError('')
-    setPhase('proposalSearch')
+  proposalSearchReadyRef.current = false
+  setProposalSearchReady(false)
+  setProfileIdentityError('')
+  const shouldCollectIdentity = !profileIdentityCompleteRef.current
+  setPhase(shouldCollectIdentity ? 'profileIdentity' : 'proposalSearch')
     setBusyMessage(nextIntent === 'metiers' ? 'Zélia prépare tes métiers à swiper' : FORMATION_SEARCH_WAITING_MESSAGE)
     try {
       const department = nextIntent === 'metiers'
@@ -2130,7 +2190,9 @@ export default function OrientationFlow() {
       setProposalIndex(0)
       setLikedProposals([])
       setProposalHistory([])
-      setPhase('proposals')
+      proposalSearchReadyRef.current = true
+      setProposalSearchReady(true)
+      if (profileIdentityCompleteRef.current) setPhase('proposals')
       if (nextIntent === 'metiers') savePromise.catch(() => null)
     } catch (proposalError) {
       console.error('Proposal deck error', proposalError)
@@ -2201,6 +2263,43 @@ export default function OrientationFlow() {
     await usersAPI.saveExtraInfo(entries).catch((saveError) => {
       console.warn('Micro profile save failed', saveError)
     })
+  }
+
+  const updateProfileIdentityField = (field, value) => {
+    const nextIdentity = { ...profileIdentity, [field]: value }
+    setProfileIdentity(nextIdentity)
+    localStorage.setItem(PROFILE_IDENTITY_KEY, JSON.stringify(nextIdentity))
+    if (profileIdentityError) setProfileIdentityError('')
+  }
+
+  const submitProfileIdentity = async (event) => {
+    event.preventDefault()
+    const identity = normalizeProfileIdentity(profileIdentity)
+    if (!isProfileIdentityComplete(identity)) {
+      setProfileIdentityError('Complète les trois champs pour continuer.')
+      return
+    }
+
+    setProfileIdentitySaving(true)
+    setProfileIdentityError('')
+    try {
+      await usersAPI.updateProfile({
+        first_name: identity.firstName,
+        last_name: identity.lastName,
+        gender: identity.gender
+      })
+      setProfileIdentity(identity)
+      localStorage.setItem(PROFILE_IDENTITY_KEY, JSON.stringify(identity))
+      localStorage.setItem(PROFILE_IDENTITY_COMPLETE_KEY, 'true')
+      profileIdentityCompleteRef.current = true
+      setProfileIdentityComplete(true)
+      setPhase(proposalSearchReadyRef.current ? 'proposals' : 'proposalSearch')
+    } catch (profileError) {
+      console.error('Profile identity save failed', profileError)
+      setProfileIdentityError(profileError?.response?.data?.error || "Impossible d'enregistrer ces infos pour le moment.")
+    } finally {
+      setProfileIdentitySaving(false)
+    }
   }
 
   const runFinalSearch = async (profileOverride = microProfile, options = {}) => {
@@ -2494,6 +2593,57 @@ export default function OrientationFlow() {
     )
   }
 
+  const renderProfileIdentity = () => (
+    <div className="orientation-stage compact identity-stage">
+      <form className="orientation-card identity-card" onSubmit={submitProfileIdentity}>
+        {renderAvatarFace()}
+        <span className="orientation-pill">Profil</span>
+        <h1>Dis-moi qui tu es.</h1>
+        <div className="identity-search-status">
+          <span className={`identity-status-dot ${proposalSearchReady ? 'ready' : ''}`} aria-hidden="true" />
+          <p>{proposalSearchReady ? 'Tes propositions sont prêtes.' : (busyMessage || 'Zélia prépare tes propositions.')}</p>
+        </div>
+        <div className="identity-form-grid">
+          <label>
+            <span>Prénom</span>
+            <input
+              type="text"
+              value={profileIdentity.firstName}
+              onChange={(event) => updateProfileIdentityField('firstName', event.target.value)}
+              autoComplete="given-name"
+              required
+            />
+          </label>
+          <label>
+            <span>Nom</span>
+            <input
+              type="text"
+              value={profileIdentity.lastName}
+              onChange={(event) => updateProfileIdentityField('lastName', event.target.value)}
+              autoComplete="family-name"
+              required
+            />
+          </label>
+          <label>
+            <span>Genre</span>
+            <select
+              value={profileIdentity.gender}
+              onChange={(event) => updateProfileIdentityField('gender', event.target.value)}
+              required
+            >
+              <option value="">Choisir</option>
+              {GENDER_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+            </select>
+          </label>
+        </div>
+        {profileIdentityError && <p className="identity-error" role="alert">{profileIdentityError}</p>}
+        <button className="primary-action identity-submit" type="submit" disabled={profileIdentitySaving}>
+          {profileIdentitySaving ? 'Enregistrement...' : proposalSearchReady ? 'Voir les propositions' : 'Continuer'}
+        </button>
+      </form>
+    </div>
+  )
+
   const renderFinal = () => (
     <div className="orientation-stage compact final-stage">
       <div className="orientation-card final-card">
@@ -2595,6 +2745,7 @@ export default function OrientationFlow() {
     if (phase === 'proposals') return renderProposals()
     if (phase === 'searchIntro') return renderSearchIntro()
     if (phase === 'info') return renderMicroInfo()
+    if (phase === 'profileIdentity') return renderProfileIdentity()
     if (phase === 'final') return renderFinal()
     if (phase === 'confirmed') return renderConfirmed()
     return null

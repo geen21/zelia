@@ -8,6 +8,8 @@ dotenv.config()
 const router = express.Router()
 
 const GEMINI_STRUCTURED_RETRY_ATTEMPTS = 3
+const ORIENTATION_FLOW_STRUCTURED_RETRY_ATTEMPTS = 1
+const ORIENTATION_FLOW_GEMINI_TIMEOUT_MS = 8000
 const GEMINI_RETRY_DELAY_MS = 350
 const PERSONA_CHAT_LIMIT = 5
 const PERSONA_QUOTA_WINDOW_MS = 24 * 60 * 60 * 1000
@@ -355,7 +357,10 @@ router.post('/ai', authenticateToken, async (req, res) => {
       : { temperature: 0.75, maxOutputTokens: 1024 }
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`
-    const geminiAttempts = isStructuredJson ? GEMINI_STRUCTURED_RETRY_ATTEMPTS : 1
+    const isOrientationFlowStructured = isOrientationFormationDeck || isOrientationFormationKeywords || isOrientationJobDeck || isOrientationJobFinal
+    const geminiAttempts = isStructuredJson
+      ? (isOrientationFlowStructured ? ORIENTATION_FLOW_STRUCTURED_RETRY_ATTEMPTS : GEMINI_STRUCTURED_RETRY_ATTEMPTS)
+      : 1
     let lastGeminiError = 'Erreur IA temporaire'
 
     for (let attempt = 1; attempt <= geminiAttempts; attempt += 1) {
@@ -370,9 +375,13 @@ router.post('/ai', authenticateToken, async (req, res) => {
 
       let resp
       try {
+        const signal = isOrientationFlowStructured && typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+          ? AbortSignal.timeout(ORIENTATION_FLOW_GEMINI_TIMEOUT_MS)
+          : undefined
         resp = await fetch(geminiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal,
           body: JSON.stringify({ contents: [{ parts }], generationConfig: attemptGenerationConfig })
         })
       } catch (fetchError) {

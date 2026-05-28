@@ -3,12 +3,10 @@ import axios from 'axios'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import {
-  buildAuthCallbackUrl,
   buildProfileFromSupabaseUser,
   getOnboardingCache,
   persistAuthSessionAndOnboarding,
-  rememberRegistrationConsent,
-  rememberAuthAfter
+  rememberRegistrationConsent
 } from '../lib/authFlow'
 
 const DEPARTMENTS = [
@@ -86,26 +84,6 @@ export default function Register() {
     setError('')
   }
 
-  async function continueWithGoogle() {
-    if (!validateRegistrationBasics() || loading) return
-    setError('')
-    setLoading('google')
-    rememberAuthAfter(after)
-
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: buildAuthCallbackUrl(after),
-        queryParams: { prompt: 'select_account' }
-      }
-    })
-
-    if (oauthError) {
-      setError(oauthError.message || 'Connexion Google impossible')
-      setLoading('')
-    }
-  }
-
   async function handleEmailRegister(event) {
     event.preventDefault()
     if (!validateRegistrationBasics() || loading) return
@@ -173,34 +151,32 @@ export default function Register() {
   }
 
   return (
-    <main className="min-h-screen bg-[#fffbf7] text-black flex items-center justify-center px-4 py-8">
+    <main className="min-h-[100svh] bg-[#fffbf7] text-black flex items-center justify-center px-4 py-3 sm:py-8 overflow-hidden">
       <div className="w-full max-w-md">
-        <Link to="/" className="inline-flex mb-8" aria-label="Accueil Zelia">
-          <img src="/static/images/logo-dark.png" alt="Zelia" className="h-8 w-auto" />
+        <Link to="/" className="inline-flex mb-3 sm:mb-8" aria-label="Accueil Zelia">
+          <img src="/static/images/logo-dark.png" alt="Zelia" className="h-6 sm:h-8 w-auto" />
         </Link>
 
-        <div className="bg-white border border-line rounded-lg shadow-card p-6 sm:p-7">
-          <div className="mb-6">
+        <div className="bg-white border border-line rounded-lg shadow-card p-4 sm:p-7">
+          <div className="mb-3 sm:mb-6">
             <p className="text-xs uppercase font-medium text-text-secondary tracking-normal mb-2">Compte Supabase</p>
-            <h1 className="text-2xl font-semibold leading-tight mb-2">Créer ton espace</h1>
-            <p className="text-sm text-text-secondary">
-              Google est le plus rapide. Aucune validation email ne bloque l'accès.
-            </p>
+            <h1 className="text-xl sm:text-2xl font-semibold leading-tight mb-1 sm:mb-2">Créer ton espace</h1>
+            <p className="text-xs sm:text-sm text-text-secondary">Ton parcours sera rattaché à ce compte.</p>
           </div>
 
           {hasOrientationCache && (
-            <div className="mb-4 rounded-lg border border-[#c1ff72] bg-[#f8fff0] px-4 py-3 text-sm font-medium">
+            <div className="mb-3 sm:mb-4 rounded-lg border border-[#c1ff72] bg-[#f8fff0] px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium">
               Ton parcours est prêt, il sera rattaché à ton compte après connexion.
             </div>
           )}
 
-          <div className="mb-5 space-y-3">
+          <div className="mb-3 sm:mb-5 space-y-2 sm:space-y-3">
             <label className="block">
               <span className="block text-xs font-medium text-text-secondary mb-1">Département</span>
               <select
                 value={departmentCode}
                 onChange={(event) => setDepartmentCode(event.target.value)}
-                className="w-full h-11 rounded-lg border border-line px-3 outline-none bg-white focus:border-black"
+                className="w-full h-10 sm:h-11 rounded-lg border border-line px-3 outline-none bg-white focus:border-black text-sm sm:text-base"
                 required
               >
                 <option value="">Choisir mon département</option>
@@ -210,11 +186,11 @@ export default function Register() {
               </select>
             </label>
 
-            <div className="space-y-2 rounded-lg bg-[#fffbf7] border border-line p-3 text-xs text-text-secondary">
+            <div className="space-y-1.5 sm:space-y-2 rounded-lg bg-[#fffbf7] border border-line p-2.5 sm:p-3 text-xs text-text-secondary">
               <button
                 type="button"
                 onClick={acceptAll}
-                className="h-8 px-3 rounded-lg border border-gray-200 bg-white text-black text-xs font-semibold hover:border-black"
+                className="h-7 sm:h-8 px-3 rounded-lg border border-gray-200 bg-white text-black text-xs font-semibold hover:border-black"
               >
                 Tout valider
               </button>
@@ -233,25 +209,9 @@ export default function Register() {
             </div>
           </div>
 
-          {error && <div className="mb-4 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+          {error && <div className="mb-3 sm:mb-4 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs sm:text-sm text-red-700">{error}</div>}
 
-          <button
-            type="button"
-            onClick={continueWithGoogle}
-            disabled={Boolean(loading)}
-            className="w-full h-12 rounded-lg border border-gray-200 bg-white text-black font-semibold inline-flex items-center justify-center gap-3 hover:border-black disabled:opacity-60"
-          >
-            <span className="inline-grid place-items-center w-6 h-6 rounded-full bg-black text-white text-xs font-semibold">G</span>
-            {loading === 'google' ? 'Ouverture de Google...' : 'Continuer avec Google'}
-          </button>
-
-          <div className="my-5 flex items-center gap-3 text-xs uppercase font-medium text-text-secondary">
-            <span className="h-px flex-1 bg-line" />
-            <span>Email</span>
-            <span className="h-px flex-1 bg-line" />
-          </div>
-
-          <form onSubmit={handleEmailRegister} className="space-y-3">
+          <form onSubmit={handleEmailRegister} className="space-y-2 sm:space-y-3">
             <label className="block">
               <span className="block text-xs font-medium text-text-secondary mb-1">Email</span>
               <input
@@ -259,7 +219,7 @@ export default function Register() {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="toi@email.com"
-                className="w-full h-11 rounded-lg border border-line px-3 outline-none focus:border-black"
+                className="w-full h-10 sm:h-11 rounded-lg border border-line px-3 outline-none focus:border-black text-sm sm:text-base"
                 autoComplete="email"
               />
             </label>
@@ -270,7 +230,7 @@ export default function Register() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="6 caractères minimum"
-                className="w-full h-11 rounded-lg border border-line px-3 outline-none focus:border-black"
+                className="w-full h-10 sm:h-11 rounded-lg border border-line px-3 outline-none focus:border-black text-sm sm:text-base"
                 autoComplete="new-password"
               />
             </label>
@@ -278,14 +238,14 @@ export default function Register() {
             <button
               type="submit"
               disabled={Boolean(loading)}
-              className="w-full h-12 rounded-lg bg-black text-white font-semibold disabled:opacity-60"
+              className="w-full h-11 sm:h-12 rounded-lg bg-black text-white font-semibold disabled:opacity-60"
             >
               {loading === 'email' ? 'Création...' : 'Créer avec email'}
             </button>
           </form>
         </div>
 
-        <p className="mt-4 text-center text-sm text-text-secondary">
+        <p className="mt-3 sm:mt-4 text-center text-xs sm:text-sm text-text-secondary">
           Déjà un compte ? <Link to={`/login${after ? `?after=${after}` : ''}`} className="text-black font-medium underline">Se connecter</Link>
         </p>
       </div>

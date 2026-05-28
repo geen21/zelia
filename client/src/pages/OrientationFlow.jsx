@@ -19,14 +19,21 @@ const MAX_FINAL_RESULTS = 14
 const AI_FORMATION_DECK_SIZE = 8
 const AI_FORMATION_KEYWORD_COUNT = 6
 const AI_RETRY_ATTEMPTS = 3
-const CATALOG_RETRY_ATTEMPTS = 3
+const CATALOG_RETRY_ATTEMPTS = 2
 const PRESELECTED_CANDIDATES_PER_KIND = 4
 const MAX_PARTNER_FINAL_RESULTS = 4
 const FORMATION_SEARCH_WAITING_MESSAGE = 'Ne quitte pas la page, on cherche parmi 35 000 formations rien que pour toi ;)'
 const CATALOG_SEARCH_CONCURRENCY = 4
-const MAX_FORMATION_QUERY_VARIANTS = 4
+const MAX_FORMATION_QUERY_VARIANTS = 2
+const FINAL_FORMATION_SEARCH_PLAN_COUNT = 4
+const FINAL_FORMATION_PAGE_SIZE = 10
+const FORMATION_DECK_AI_TIMEOUT_MS = 9000
+const FORMATION_KEYWORDS_AI_TIMEOUT_MS = 8000
+const JOB_DECK_AI_TIMEOUT_MS = 9000
+const JOB_FINAL_AI_TIMEOUT_MS = 9000
 const PROFILE_IDENTITY_KEY = 'orientation_profile_identity'
 const PROFILE_IDENTITY_COMPLETE_KEY = 'orientation_profile_identity_complete'
+const PROFILE_IDENTITY_COMPLETED_INTENTS_KEY = 'orientation_profile_identity_completed_intents'
 const DEFAULT_PROFILE_IDENTITY = { firstName: '', lastName: '', gender: '' }
 const GENDER_OPTIONS = ['Femme', 'Homme', 'Non-binaire', 'Autre', 'Préfère ne pas répondre']
 const FORMATION_ANCHOR_STOPWORDS = new Set(['formation', 'formations', 'piste', 'parcours', 'etude', 'etudes', 'ecole', 'ecoles', 'universite', 'lycee', 'cfa', 'iut', 'cnam', 'greta', 'diplome', 'metier', 'metiers', 'professionnel', 'professionnelle', 'initiale', 'alternance', 'bts', 'but', 'dut', 'licence', 'bachelor', 'master', 'mastere', 'mba', 'msc', 'ingenieur', 'de', 'du', 'des', 'en', 'et', 'a', 'au', 'aux', 'le', 'la', 'les', 'pour', 'avec', 'dans', 'niveau', 'vise'])
@@ -209,6 +216,24 @@ async function retryAsync(action, { attempts = 3, label = 'operation', isValidRe
   throw lastError || new Error(`${label} failed`)
 }
 
+function requestAiChatWithTimeout(payload, timeoutMs, label = 'Requête IA') {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+  let timeoutId = null
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      controller?.abort()
+      reject(new Error(`${label} trop longue`))
+    }, timeoutMs)
+  })
+
+  return Promise.race([
+    chatAPI.aiChat(payload, controller ? { signal: controller.signal } : {}),
+    timeout
+  ]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId)
+  })
+}
+
 function hasAnySearchTerm(value, terms) {
   const normalized = normalizeDiversityText(value)
   return terms.some((term) => new RegExp(`\\b${term}\\b`).test(normalized))
@@ -290,6 +315,50 @@ function normalizeProfileIdentity(value = {}) {
 function isProfileIdentityComplete(value = {}) {
   const identity = normalizeProfileIdentity(value)
   return Boolean(identity.firstName && identity.lastName && identity.gender)
+}
+
+function getCompletedProfileIdentityIntents() {
+  const stored = getStoredJson(PROFILE_IDENTITY_COMPLETED_INTENTS_KEY, [])
+  return new Set(Array.isArray(stored) ? stored.filter(Boolean) : [])
+}
+
+function hasCompletedProfileIdentityForIntent(intentValue) {
+  const completed = getCompletedProfileIdentityIntents()
+  return completed.has(intentValue) || completed.has('both')
+}
+
+function markProfileIdentityCompleteForIntent(intentValue) {
+  const completed = getCompletedProfileIdentityIntents()
+  if (intentValue) completed.add(intentValue)
+  if (intentValue === 'both') {
+    completed.add('formations')
+    completed.add('metiers')
+  }
+  localStorage.setItem(PROFILE_IDENTITY_COMPLETED_INTENTS_KEY, JSON.stringify([...completed]))
+}
+
+function getProfileIdentityDisclaimer(intentValue) {
+  if (intentValue === 'metiers') {
+    return {
+      title: 'Pourquoi ces informations ?',
+      text: 'Elles servent à enregistrer ton parcours métier dans ton espace et à personnaliser la restitution. Le genre aide seulement Zélia à formuler les textes correctement, il ne filtre pas les métiers proposés.',
+      note: 'Tes réponses restent liées à ton compte et ne sont pas utilisées pour limiter tes choix.'
+    }
+  }
+
+  if (intentValue === 'both') {
+    return {
+      title: 'Pourquoi ces informations ?',
+      text: 'Elles servent à enregistrer tes choix de formations et de métiers dans ton espace, puis à préparer une restitution claire et personnalisée. Le genre aide seulement Zélia à adapter le ton des textes.',
+      note: 'Tes données ne servent pas à réduire artificiellement les propositions.'
+    }
+  }
+
+  return {
+    title: 'Pourquoi ces informations ?',
+    text: 'Elles servent à enregistrer ton parcours formation dans ton espace et à préparer des propositions cohérentes avec ton profil. Le genre aide seulement Zélia à formuler les textes correctement.',
+    note: 'Tes réponses restent confidentielles et ne sont pas revendues.'
+  }
 }
 
 function mergeProfileIdentity(current = DEFAULT_PROFILE_IDENTITY, incoming = DEFAULT_PROFILE_IDENTITY) {
@@ -953,6 +1022,76 @@ function normalizeAiFormationCandidates(value, limit = AI_FORMATION_DECK_SIZE) {
       return true
     })
     .slice(0, limit)
+}
+
+function normalizeFallbackFormationPlan(plan, index) {
+  const title = cleanDetailText(plan?.title || plan?.query || '', 120)
+  if (!title) return null
+
+  const query = cleanDetailText(plan?.query || title, 90)
+  const reason = cleanDetailText(plan?.reason || 'Piste cohérente avec ton profil', 220)
+  return {
+    id: `fallback-formation-${aiJobSlug(`${title}-${query}`, index)}-${index}`,
+    rawId: null,
+    type: 'formation',
+    title,
+    subtitle: reason || 'Piste de formation à tester',
+    source: 'Suggestion Zélia',
+    sourceTable: 'gemini_formations',
+    logoKind: 'formation',
+    matchScore: 74,
+    raw: {
+      formation_name: title,
+      nm: [title],
+      summary: reason,
+      why: reason,
+      keywords: query ? [query] : [],
+      schoolTypes: [],
+      constraints: [],
+      diploma_level: ''
+    }
+  }
+}
+
+function buildFallbackFormationCandidatesFromPlans(plans = [], count = AI_FORMATION_DECK_SIZE) {
+  return uniquePlans(plans.filter((plan) => plan?.kind !== 'metier'))
+    .map(normalizeFallbackFormationPlan)
+    .filter(Boolean)
+    .slice(0, count)
+}
+
+function normalizeFallbackJobPlan(plan, index) {
+  const title = cleanDetailText(plan?.title || plan?.query || '', 90)
+  if (!title) return null
+
+  const reason = cleanDetailText(plan?.reason || 'Métier cohérent avec ton profil', 220)
+  const skills = compactTags([plan?.query, reason]).slice(0, 4)
+  return {
+    id: `fallback-metier-${aiJobSlug(`${title}-${reason}`, index)}-${index}`,
+    rawId: null,
+    type: 'metier',
+    title,
+    subtitle: reason || 'Métier proposé selon ton profil',
+    source: 'Suggestion Zélia',
+    sourceTable: 'gemini_metiers',
+    logoKind: 'metier',
+    matchScore: 74,
+    raw: {
+      title,
+      summary: reason,
+      why: reason,
+      skills,
+      constraints: [],
+      training: ''
+    }
+  }
+}
+
+function buildFallbackJobCandidatesFromPlans(plans = [], count = AI_JOB_DECK_SIZE) {
+  return uniquePlans(plans.filter((plan) => plan?.kind === 'metier'))
+    .map(normalizeFallbackJobPlan)
+    .filter(Boolean)
+    .slice(0, count)
 }
 
 function compactPromptText(value, maxLength = 650) {
@@ -1882,8 +2021,9 @@ export default function OrientationFlow() {
     const collectFormationCandidates = async (plan) => {
       const query = plan.query || plan.title || ''
       try {
-        const queries = buildTargetedFormationQueries(query, targetLevel).slice(0, MAX_FORMATION_QUERY_VARIANTS)
-        const requestedPageSize = targetLevel >= 5 ? Math.max(pageSize, 24) : pageSize
+        const maxQueryVariants = searchContext.maxFormationQueryVariants || MAX_FORMATION_QUERY_VARIANTS
+        const queries = buildTargetedFormationQueries(query, targetLevel).slice(0, maxQueryVariants)
+        const requestedPageSize = targetLevel >= 5 ? Math.max(pageSize, 16) : pageSize
         let formationCandidates = []
         const queryWaves = queries.length > 1
           ? [[queries[0]], queries.slice(1)]
@@ -1898,16 +2038,18 @@ export default function OrientationFlow() {
         return filterCandidatesByTargetStudyLevel(formationCandidates, searchContext.profile || searchContext)
       } catch (searchError) {
         console.warn('Formation candidate search failed', query, searchError)
-        throw searchError
+        return []
       }
     }
 
     const searchTasks = []
+    const maxFormationPlans = searchContext.maxFormationPlans || plans.length
 
     for (const plan of plans) {
       if (shouldSearchFormations && plan.kind !== 'metier') {
         searchTasks.push(() => collectFormationCandidates(plan))
       }
+      if (searchTasks.length >= maxFormationPlans) break
     }
 
     const candidateGroups = await runWithConcurrency(searchTasks, CATALOG_SEARCH_CONCURRENCY, (searchTask) => searchTask())
@@ -1925,40 +2067,74 @@ export default function OrientationFlow() {
     return fetchTableCandidates(plans, pageSize, intentValue, searchContext)
   }
 
+  const buildFallbackFormationDeckCandidates = (profile, count = AI_FORMATION_DECK_SIZE) => {
+    const extraText = Object.values(profile || {}).flat().join(' ')
+    const levelPlans = buildLevelFallbackPlans('formations', profile, analysisData, extraText)
+    const fallbackPlans = buildFallbackPlans('formations', analysisData, extraText)
+    const candidates = buildFallbackFormationCandidatesFromPlans([...levelPlans, ...fallbackPlans], count)
+    const levelCompatible = filterCandidatesByTargetStudyLevel(candidates, profile)
+    return (levelCompatible.length ? levelCompatible : candidates).slice(0, count)
+  }
+
+  const buildFallbackFinalFormationPlans = (profile, likedFormations = [], count = FINAL_FORMATION_SEARCH_PLAN_COUNT) => {
+    const extraText = Object.values(profile || {}).flat().join(' ')
+    const anchorPlans = likedFormations.length ? buildFormationAnchorPlans(likedFormations, count) : []
+    const levelPlans = buildLevelFallbackPlans('formations', profile, analysisData, extraText)
+    const fallbackPlans = buildFallbackPlans('formations', analysisData, extraText).filter((plan) => plan.kind === 'formation')
+    const plans = uniquePlans([...anchorPlans, ...levelPlans, ...fallbackPlans])
+    const anchorTerms = extractFormationAnchorTerms(likedFormations)
+    const anchoredPlans = likedFormations.length ? filterFormationPlansByAnchorTerms(plans, anchorTerms) : plans
+    return (anchoredPlans.length ? anchoredPlans : plans).slice(0, count)
+  }
+
+  const buildFallbackJobDeckCandidates = (profile, count = AI_JOB_DECK_SIZE) => {
+    const extraText = Object.values(profile || {}).flat().join(' ')
+    return buildFallbackJobCandidatesFromPlans(buildFallbackPlans('metiers', analysisData, extraText), count)
+  }
+
+  const buildFallbackFinalJobCandidates = (profile, liked = [], rejected = [], count = AI_FINAL_JOB_COUNT) => {
+    const likedJobs = liked.filter((candidate) => candidate?.type === 'metier')
+    const rejectedJobs = rejected.filter((candidate) => candidate?.type === 'metier')
+    const extraText = Object.values(profile || {}).flat().join(' ')
+    const fallbackCandidates = buildFallbackJobCandidatesFromPlans(buildFallbackPlans('metiers', analysisData, extraText), count)
+    return diversifyCandidates(filterRejectedCandidates(
+      mergeUniqueCandidates(likedJobs, fallbackCandidates),
+      rejectedJobs,
+      likedJobs
+    ), { maxPerJobTitle: 1 }).slice(0, count)
+  }
+
   const getAiFormationDeckCandidates = async (profile, department, count = AI_FORMATION_DECK_SIZE) => {
     const targetLevel = getTargetStudyLevel(profile)
-    const retryLevelInstruction = targetLevel >= 5
-      ? `\n\nTentative suivante: la proposition précédente ne contenait pas assez de formations compatibles avec ${profile?.target_level || 'le niveau vise'}. Génère uniquement des formations Bac +5 ou plus: master, mastère, MBA, MSc, école spécialisée, école d'ingénieur ou cycle long. Évite BTS, BUT, DUT, Bac +2 et Bac +3.`
-      : targetLevel
-        ? `\n\nTentative suivante: la proposition précédente ne respectait pas assez le niveau ${profile?.target_level || 'vise'}. Génère uniquement des formations compatibles avec ce niveau.`
-        : ''
+    const fallbackDeck = buildFallbackFormationDeckCandidates(profile, count)
 
-    return retryAsync(async (attempt) => {
-      const response = await chatAPI.aiChat({
+    try {
+      const response = await requestAiChatWithTimeout({
         mode: 'advisor',
         advisorType: 'orientation-formation-deck',
-        message: `${buildAiFormationDeckPrompt({ analysis: analysisData, microProfile: profile, department, count })}${attempt > 1 ? retryLevelInstruction : ''}`,
+        message: buildAiFormationDeckPrompt({ analysis: analysisData, microProfile: profile, department, count }),
         history: []
-      })
+      }, FORMATION_DECK_AI_TIMEOUT_MS, 'Deck formations Gemini')
       const candidates = normalizeAiFormationCandidates(parseJsonFromReply(response?.data?.reply), count)
       if (!candidates.length) throw new Error('Gemini n’a pas généré de propositions formations exploitables')
       const levelCompatibleCandidates = filterCandidatesByTargetStudyLevel(candidates, profile)
-      if (!levelCompatibleCandidates.length) throw new Error('Gemini n’a pas généré de propositions formations compatibles avec le niveau visé')
-      return levelCompatibleCandidates
-    }, {
-      attempts: AI_RETRY_ATTEMPTS,
-      label: 'Deck formations Gemini',
-      isValidResult: (candidates) => Array.isArray(candidates) && candidates.length > 0
-    })
+      const mergedDeck = mergeUniqueCandidates(levelCompatibleCandidates, fallbackDeck).slice(0, count)
+      if (!mergedDeck.length) throw new Error(`Gemini n’a pas généré de propositions formations compatibles avec ${targetLevel || 'le profil'}`)
+      return mergedDeck
+    } catch (formationDeckError) {
+      console.warn('Formation deck Gemini unavailable, using local fallback', formationDeckError)
+      return fallbackDeck
+    }
   }
 
   const getFinalFormationSearchPlans = async (profile, department, liked = [], rejected = [], count = AI_FORMATION_KEYWORD_COUNT) => {
     const likedFormations = liked.filter((candidate) => candidate?.type === 'formation')
     const rejectedFormations = rejected.filter((candidate) => candidate?.type === 'formation')
     const anchorTerms = extractFormationAnchorTerms(likedFormations)
+    const fallbackPlans = buildFallbackFinalFormationPlans(profile, likedFormations, count)
 
-    return retryAsync(async () => {
-      const response = await chatAPI.aiChat({
+    try {
+      const response = await requestAiChatWithTimeout({
         mode: 'advisor',
         advisorType: 'orientation-formation-keywords',
         message: buildFinalFormationKeywordPrompt({
@@ -1971,36 +2147,37 @@ export default function OrientationFlow() {
           count
         }),
         history: []
-      })
+      }, FORMATION_KEYWORDS_AI_TIMEOUT_MS, 'Mots-clés formations Gemini')
       const aiPlans = normalizePlans(parseJsonFromReply(response?.data?.reply), 'formations', []).slice(0, count)
       if (!aiPlans.length) throw new Error('Gemini n’a pas généré de mots-clés formations exploitables')
-      if (!likedFormations.length) return aiPlans
-      const anchoredAiPlans = filterFormationPlansByAnchorTerms(aiPlans, anchorTerms)
-      if (!anchoredAiPlans.length) throw new Error('Les mots-clés Gemini ne respectent pas les formations gardées')
-      return anchoredAiPlans.slice(0, count)
-    }, {
-      attempts: AI_RETRY_ATTEMPTS,
-      label: 'Mots-clés formations Gemini',
-      isValidResult: (plans) => Array.isArray(plans) && plans.length > 0
-    })
+      const scopedAiPlans = likedFormations.length ? filterFormationPlansByAnchorTerms(aiPlans, anchorTerms) : aiPlans
+      const mergedPlans = uniquePlans([...scopedAiPlans, ...fallbackPlans]).slice(0, count)
+      if (!mergedPlans.length) throw new Error('Les mots-clés Gemini ne respectent pas les formations gardées')
+      return mergedPlans
+    } catch (keywordError) {
+      console.warn('Formation keyword Gemini unavailable, using local fallback', keywordError)
+      return fallbackPlans
+    }
   }
 
   const getAiJobDeckCandidates = async (profile, department, count = AI_JOB_DECK_SIZE) => {
-    return retryAsync(async () => {
-      const response = await chatAPI.aiChat({
+    const fallbackDeck = buildFallbackJobDeckCandidates(profile, count)
+
+    try {
+      const response = await requestAiChatWithTimeout({
         mode: 'advisor',
         advisorType: 'orientation-job-deck',
         message: buildAiJobDeckPrompt({ analysis: analysisData, microProfile: profile, department, count }),
         history: []
-      })
+      }, JOB_DECK_AI_TIMEOUT_MS, 'Deck métiers Gemini')
       const candidates = normalizeAiJobCandidates(parseJsonFromReply(response?.data?.reply), count)
-      if (candidates.length < count) throw new Error(`Gemini n'a généré que ${candidates.length}/${count} métiers à swiper`)
-      return candidates
-    }, {
-      attempts: 2,
-      label: 'Deck métiers Gemini',
-      isValidResult: (candidates) => Array.isArray(candidates) && candidates.length >= count
-    })
+      const mergedDeck = mergeUniqueCandidates(candidates, fallbackDeck).slice(0, count)
+      if (!mergedDeck.length) throw new Error('Gemini n’a pas généré de propositions métiers exploitables')
+      return mergedDeck
+    } catch (jobDeckError) {
+      console.warn('Job deck Gemini unavailable, using local fallback', jobDeckError)
+      return fallbackDeck
+    }
   }
 
   const getFinalAiJobCandidates = async (profile, department, liked = [], rejected = [], count = AI_FINAL_JOB_COUNT) => {
@@ -2008,11 +2185,10 @@ export default function OrientationFlow() {
     const rejectedJobs = rejected.filter((candidate) => candidate?.type === 'metier')
     const swipedJobs = mergeUniqueCandidates(likedJobs, rejectedJobs)
 
-    return retryAsync(async (attempt) => {
-      const retryInstruction = attempt > 1
-        ? `\n\nTentative suivante: la liste précédente n'était pas assez distincte des swipes ou ne contenait pas ${count} métiers exploitables. Génère exactement ${count} nouveaux métiers, sans reprendre les titres swipés.`
-        : ''
-      const response = await chatAPI.aiChat({
+    const fallbackJobs = buildFallbackFinalJobCandidates(profile, likedJobs, rejectedJobs, count)
+
+    try {
+      const response = await requestAiChatWithTimeout({
         mode: 'advisor',
         advisorType: 'orientation-job-final',
         message: `${buildAiFinalJobsPrompt({
@@ -2022,23 +2198,21 @@ export default function OrientationFlow() {
           likedProposals: likedJobs,
           rejectedProposals: rejectedJobs,
           count
-        })}${retryInstruction}`,
+        })}`,
         history: []
-      })
+      }, JOB_FINAL_AI_TIMEOUT_MS, 'Affinage métiers Gemini')
       const candidates = diversifyCandidates(filterRejectedCandidates(
         normalizeAiJobCandidates(parseJsonFromReply(response?.data?.reply), count),
         swipedJobs,
         []
       ), { maxPerJobTitle: 1 }).slice(0, count)
-      if (candidates.length < count) {
-        throw new Error(`Gemini n'a généré que ${candidates.length}/${count} métiers distincts après filtrage des swipes`)
-      }
-      return candidates
-    }, {
-      attempts: 2,
-      label: 'Affinage métiers Gemini',
-      isValidResult: (candidates) => Array.isArray(candidates) && candidates.length >= count
-    })
+      const mergedJobs = mergeUniqueCandidates(candidates, fallbackJobs).slice(0, count)
+      if (!mergedJobs.length) throw new Error('Gemini n’a pas généré de métiers finaux exploitables')
+      return mergedJobs
+    } catch (finalJobError) {
+      console.warn('Final job Gemini unavailable, using local fallback', finalJobError)
+      return fallbackJobs
+    }
   }
 
   const preselectCandidatesWithAi = async (candidates, profile, nextIntent, options = {}) => {
@@ -2117,11 +2291,11 @@ export default function OrientationFlow() {
     setMicroProfile(profile)
     localStorage.setItem('orientation_micro_profile', JSON.stringify(profile))
     setError('')
-  proposalSearchReadyRef.current = false
-  setProposalSearchReady(false)
-  setProfileIdentityError('')
-  const shouldCollectIdentity = !profileIdentityCompleteRef.current
-  setPhase(shouldCollectIdentity ? 'profileIdentity' : 'proposalSearch')
+    proposalSearchReadyRef.current = false
+    setProposalSearchReady(false)
+    setProfileIdentityError('')
+    const shouldCollectIdentity = !profileIdentityCompleteRef.current || !hasCompletedProfileIdentityForIntent(nextIntent)
+    setPhase(shouldCollectIdentity ? 'profileIdentity' : 'proposalSearch')
     setBusyMessage(nextIntent === 'metiers' ? 'Zélia prépare tes métiers à swiper' : FORMATION_SEARCH_WAITING_MESSAGE)
     try {
       const department = nextIntent === 'metiers'
@@ -2192,7 +2366,7 @@ export default function OrientationFlow() {
       setProposalHistory([])
       proposalSearchReadyRef.current = true
       setProposalSearchReady(true)
-      if (profileIdentityCompleteRef.current) setPhase('proposals')
+      if (!shouldCollectIdentity) setPhase('proposals')
       if (nextIntent === 'metiers') savePromise.catch(() => null)
     } catch (proposalError) {
       console.error('Proposal deck error', proposalError)
@@ -2291,6 +2465,7 @@ export default function OrientationFlow() {
       setProfileIdentity(identity)
       localStorage.setItem(PROFILE_IDENTITY_KEY, JSON.stringify(identity))
       localStorage.setItem(PROFILE_IDENTITY_COMPLETE_KEY, 'true')
+      markProfileIdentityCompleteForIntent(intent)
       profileIdentityCompleteRef.current = true
       setProfileIdentityComplete(true)
       setPhase(proposalSearchReadyRef.current ? 'proposals' : 'proposalSearch')
@@ -2336,46 +2511,50 @@ export default function OrientationFlow() {
         department,
         profile
       }
-      const finalAiJobs = intent === 'both'
-        ? await getFinalAiJobCandidates(profile, department, liked, rejectedProposals, AI_FINAL_JOB_COUNT)
-        : []
 
-      const dbCandidates = await retryAsync(async () => {
-        const formationPlans = await getFinalFormationSearchPlans(profile, department, liked, rejectedProposals, AI_FORMATION_KEYWORD_COUNT)
-        const [planDbCandidates, swipeDbCandidates] = await Promise.all([
-          fetchTableCandidates(formationPlans, 12, 'formations', searchContext),
-          hasLikedFormations
-            ? resolveCandidatesThroughCatalog(likedFormations, 8, 'formations', searchContext)
-            : Promise.resolve([])
-        ])
-        const likedDatabaseCandidates = filterCandidatesByTargetStudyLevel(liked.filter(isDatabaseCandidate), profile)
-        let strictCandidates = filterCandidatesByTargetStudyLevel(filterRejectedCandidates(
-          mergeUniqueCandidates(swipeDbCandidates, likedDatabaseCandidates, planDbCandidates),
-          rejectedProposals,
-          liked
-        ), profile)
-
-        if (hasLikedFormations) {
-          strictCandidates = filterCandidatesByFormationAnchors(strictCandidates, likedFormations)
-        }
-
-        strictCandidates = diversifyCandidates(strictCandidates, { maxPerFormation: 1, maxPerSchool: 2 })
-        if (!strictCandidates.length) {
-          throw new Error('Aucune formation concrete trouvee avec les mots-cles valides')
-        }
-        return strictCandidates
-      }, {
-        attempts: AI_RETRY_ATTEMPTS,
-        label: 'Recherche finale formations',
-        isValidResult: (candidates) => Array.isArray(candidates) && candidates.length > 0
-      })
-
-      const partnerCandidates = await orientationAPI.getMatchedSchools()
+      const finalAiJobsPromise = intent === 'both'
+        ? getFinalAiJobCandidates(profile, department, liked, rejectedProposals, AI_FINAL_JOB_COUNT).catch((jobError) => {
+          console.warn('Final job refinement failed', jobError)
+          return []
+        })
+        : Promise.resolve([])
+      const partnerCandidatesPromise = orientationAPI.getMatchedSchools()
         .then((response) => (response?.data?.matched || []).map(normalizePartnerFormation))
         .catch((partnerError) => {
           console.warn('Matched partner schools failed', partnerError)
           return []
         })
+
+      const formationPlans = await getFinalFormationSearchPlans(profile, department, liked, rejectedProposals, FINAL_FORMATION_SEARCH_PLAN_COUNT)
+      const [planDbCandidates, swipeDbCandidates, finalAiJobs, partnerCandidates] = await Promise.all([
+        fetchTableCandidates(formationPlans, FINAL_FORMATION_PAGE_SIZE, 'formations', {
+          ...searchContext,
+          maxFormationPlans: FINAL_FORMATION_SEARCH_PLAN_COUNT,
+          maxFormationQueryVariants: MAX_FORMATION_QUERY_VARIANTS
+        }),
+        hasLikedFormations
+          ? resolveCandidatesThroughCatalog(likedFormations, 6, 'formations', {
+            ...searchContext,
+            maxFormationPlans: 2,
+            maxFormationQueryVariants: 1
+          })
+          : Promise.resolve([]),
+        finalAiJobsPromise,
+        partnerCandidatesPromise
+      ])
+
+      const likedDatabaseCandidates = filterCandidatesByTargetStudyLevel(liked.filter(isDatabaseCandidate), profile)
+      let dbCandidates = filterCandidatesByTargetStudyLevel(filterRejectedCandidates(
+        mergeUniqueCandidates(swipeDbCandidates, likedDatabaseCandidates, planDbCandidates),
+        rejectedProposals,
+        liked
+      ), profile)
+
+      if (hasLikedFormations) {
+        dbCandidates = filterCandidatesByFormationAnchors(dbCandidates, likedFormations)
+      }
+
+      dbCandidates = diversifyCandidates(dbCandidates, { maxPerFormation: 1, maxPerSchool: 2 })
       const selectedPartnerCandidates = selectPartnerCandidatesForFinal(
         partnerCandidates,
         profile,
@@ -2386,6 +2565,9 @@ export default function OrientationFlow() {
       )
 
       const finalList = composeFinalCandidates(mergeUniqueCandidates(dbCandidates, finalAiJobs), selectedPartnerCandidates, intent)
+      if (!finalList.length) {
+        throw new Error('Aucune formation concrete trouvee avec les mots-cles valides')
+      }
       setFinalCandidates(finalList)
       setCheckedIds(finalList.slice(0, Math.min(5, finalList.length)).map((candidate) => candidate.id))
       setPhase('final')
@@ -2593,56 +2775,66 @@ export default function OrientationFlow() {
     )
   }
 
-  const renderProfileIdentity = () => (
-    <div className="orientation-stage compact identity-stage">
-      <form className="orientation-card identity-card" onSubmit={submitProfileIdentity}>
-        {renderAvatarFace()}
-        <span className="orientation-pill">Profil</span>
-        <h1>Dis-moi qui tu es.</h1>
-        <div className="identity-search-status">
-          <span className={`identity-status-dot ${proposalSearchReady ? 'ready' : ''}`} aria-hidden="true" />
-          <p>{proposalSearchReady ? 'Tes propositions sont prêtes.' : (busyMessage || 'Zélia prépare tes propositions.')}</p>
-        </div>
-        <div className="identity-form-grid">
-          <label>
-            <span>Prénom</span>
-            <input
-              type="text"
-              value={profileIdentity.firstName}
-              onChange={(event) => updateProfileIdentityField('firstName', event.target.value)}
-              autoComplete="given-name"
-              required
-            />
-          </label>
-          <label>
-            <span>Nom</span>
-            <input
-              type="text"
-              value={profileIdentity.lastName}
-              onChange={(event) => updateProfileIdentityField('lastName', event.target.value)}
-              autoComplete="family-name"
-              required
-            />
-          </label>
-          <label>
-            <span>Genre</span>
-            <select
-              value={profileIdentity.gender}
-              onChange={(event) => updateProfileIdentityField('gender', event.target.value)}
-              required
-            >
-              <option value="">Choisir</option>
-              {GENDER_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-            </select>
-          </label>
-        </div>
-        {profileIdentityError && <p className="identity-error" role="alert">{profileIdentityError}</p>}
-        <button className="primary-action identity-submit" type="submit" disabled={profileIdentitySaving}>
-          {profileIdentitySaving ? 'Enregistrement...' : proposalSearchReady ? 'Voir les propositions' : 'Continuer'}
-        </button>
-      </form>
-    </div>
-  )
+  const renderProfileIdentity = () => {
+    const disclaimer = getProfileIdentityDisclaimer(intent)
+
+    return (
+      <div className="orientation-stage compact identity-stage">
+        <form className="orientation-card identity-card" onSubmit={submitProfileIdentity}>
+          {renderAvatarFace()}
+          <span className="orientation-pill">Profil</span>
+          <h1>Dis-moi qui tu es.</h1>
+          <div className="identity-search-status">
+            <span className={`identity-status-dot ${proposalSearchReady ? 'ready' : ''}`} aria-hidden="true" />
+            <p>{proposalSearchReady ? 'Tes propositions sont prêtes.' : (busyMessage || 'Zélia prépare tes propositions.')}</p>
+          </div>
+          <div className="identity-form-grid">
+            <label>
+              <span>Prénom</span>
+              <input
+                type="text"
+                value={profileIdentity.firstName}
+                onChange={(event) => updateProfileIdentityField('firstName', event.target.value)}
+                autoComplete="given-name"
+                required
+              />
+            </label>
+            <label>
+              <span>Nom</span>
+              <input
+                type="text"
+                value={profileIdentity.lastName}
+                onChange={(event) => updateProfileIdentityField('lastName', event.target.value)}
+                autoComplete="family-name"
+                required
+              />
+            </label>
+            <label>
+              <span>Genre</span>
+              <select
+                value={profileIdentity.gender}
+                onChange={(event) => updateProfileIdentityField('gender', event.target.value)}
+                required
+              >
+                <option value="">Choisir</option>
+                {GENDER_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="identity-disclaimer">
+            <h2>{disclaimer.title}</h2>
+            <p>{disclaimer.text}</p>
+            <strong>100% transparent</strong>
+            <small>{disclaimer.note}</small>
+          </div>
+          {profileIdentityError && <p className="identity-error" role="alert">{profileIdentityError}</p>}
+          <button className="primary-action identity-submit" type="submit" disabled={profileIdentitySaving}>
+            {profileIdentitySaving ? 'Enregistrement...' : proposalSearchReady ? 'Voir les propositions' : 'Continuer'}
+          </button>
+        </form>
+      </div>
+    )
+  }
 
   const renderFinal = () => (
     <div className="orientation-stage compact final-stage">

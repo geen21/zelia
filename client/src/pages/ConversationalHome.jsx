@@ -176,6 +176,49 @@ function extractOrientationJobBubbles(extraInfoEntries) {
   return mergeJobBubbles(jobs)
 }
 
+function extractOrientationFormationSuggestions(extraInfoEntries) {
+  const finalEntry = extraInfoEntries.find((entry) => String(entry?.question_id || '').toLowerCase() === 'orientation_final_selection')
+  const parsed = parseMaybeJson(finalEntry?.answer_text)
+  const candidates = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(parsed?.candidates)
+      ? parsed.candidates
+      : []
+  const seen = new Set()
+
+  return candidates
+    .filter((candidate) => {
+      const raw = candidate?.raw && typeof candidate.raw === 'object' ? candidate.raw : {}
+      const type = String(candidate?.type || raw.type || '').toLowerCase()
+      const sourceTable = String(candidate?.sourceTable || raw.sourceTable || raw.source_table || '').toLowerCase()
+      return type === 'formation' || sourceTable.includes('formation')
+    })
+    .map((candidate, index) => {
+      const raw = candidate?.raw && typeof candidate.raw === 'object' ? candidate.raw : {}
+      const detail = candidate?.detail && typeof candidate.detail === 'object' ? candidate.detail : {}
+      const rawTitle = Array.isArray(raw.nm) ? raw.nm.join(' / ') : raw.nm
+      const title = cleanBubbleText(detail.title || candidate?.title || rawTitle || raw.nmc || '', 84)
+      const subtitle = cleanBubbleText(detail.subtitle || candidate?.subtitle || raw.etab_nom || raw.commune || '', 76)
+      return title ? {
+        id: `formation-${normalizeBubbleKey(title) || index}`,
+        title,
+        subtitle,
+        rawId: candidate?.rawId || raw.id || null,
+        sourceTable: candidate?.sourceTable || raw.sourceTable || raw.source_table || '',
+        detail,
+        raw
+      } : null
+    })
+    .filter(Boolean)
+    .filter((formation) => {
+      const key = normalizeBubbleKey(formation.title)
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .slice(0, 3)
+}
+
 function loadCustomJobBubbles() {
   try {
     const parsed = parseMaybeJson(localStorage.getItem(CUSTOM_JOB_BUBBLES_STORAGE_KEY))
@@ -313,9 +356,29 @@ export default function ConversationalHome() {
     return merged.length ? merged : DEFAULT_EXPERT_BUBBLES
   }, [customJobBubbles, selectionJobs, recommendedJobs])
 
-  const buildAdvisorContext = () => [
+  const selectedFormations = useMemo(() => extractOrientationFormationSuggestions(extraInfoEntries), [extraInfoEntries])
+
+  const homeSuggestions = useMemo(() => [
+    {
+      id: 'make-cv',
+      label: 'Faire mon CV',
+      detail: 'Ouvrir l\'outil CV',
+      icon: 'ph-identification-card',
+      to: '/app/outils/cv'
+    },
+    ...selectedFormations.map((formation) => ({
+      id: `info-${formation.id}`,
+      label: `Demande d'infos sur ${formation.title}`,
+      detail: formation.subtitle || 'Formation sélectionnée',
+      icon: 'ph-graduation-cap',
+      formationContext: formation,
+      prompt: `Peux-tu me donner des informations claires sur la formation "${formation.title}"${formation.subtitle ? ` (${formation.subtitle})` : ''} : contenu, débouchés, prérequis, durée, et pourquoi elle peut me correspondre ?`
+    }))
+  ], [selectedFormations])
+
+  const buildAdvisorContext = (expert = selectedExpert) => [
     userContextSummary,
-    selectedExpert ? `Expert métier sélectionné: ${selectedExpert.title}. Angles utiles: ${(selectedExpert.skills || []).join(', ') || 'quotidien, études, débouchés'}.` : ''
+    expert ? `Expert métier sélectionné: ${expert.title}. Angles utiles: ${(expert.skills || []).join(', ') || 'quotidien, études, débouchés'}.` : ''
   ].filter(Boolean).join('\n')
 
   const selectExpert = (expert) => {
@@ -358,14 +421,19 @@ export default function ConversationalHome() {
     }
   }
 
-  const sendMessage = async () => {
-    const text = input.trim()
+  const sendMessage = async (messageOverride = '', options = {}) => {
+    const text = typeof messageOverride === 'string' ? messageOverride.trim() : input.trim()
+    const effectiveExpert = Object.prototype.hasOwnProperty.call(options, 'expert') ? options.expert : selectedExpert
+    const isFormationRequest = Boolean(options.formationContext)
+    const effectiveExpertKey = effectiveExpert ? normalizeBubbleKey(effectiveExpert.title) : ''
+    const effectiveExpertQuota = effectiveExpertKey ? personaQuotas[effectiveExpertKey] : null
+    const effectiveExpertLimitReached = Boolean(effectiveExpert && effectiveExpertQuota?.remaining === 0)
     if (!text || loading) return
-    if (selectedExpertLimitReached) {
+    if (effectiveExpertLimitReached) {
       setMessages((current) => [...current, {
         role: 'assistant',
-        expertTitle: selectedExpert?.title || '',
-        content: `Tu as utilisé tes ${selectedExpertQuota?.limit || DEFAULT_PERSONA_QUOTA_LIMIT} questions pour ${selectedExpert?.title}. Choisis un autre métier pour continuer.`
+        expertTitle: effectiveExpert?.title || '',
+        content: `Tu as utilisé tes ${effectiveExpertQuota?.limit || DEFAULT_PERSONA_QUOTA_LIMIT} questions pour ${effectiveExpert?.title}. Choisis un autre métier pour continuer.`
       }])
       return
     }
@@ -375,33 +443,53 @@ export default function ConversationalHome() {
     setLoading(true)
     try {
       const response = await chatAPI.aiChat({
-        mode: selectedExpert ? 'persona' : 'advisor',
-        advisorType: selectedExpert?.title || 'home-orientation-assistant',
-        persona: selectedExpert ? { title: selectedExpert.title, skills: selectedExpert.skills || [] } : undefined,
+        mode: effectiveExpert ? 'persona' : 'advisor',
+        advisorType: effectiveExpert?.title || 'home-orientation-assistant',
+        persona: effectiveExpert ? { title: effectiveExpert.title, skills: effectiveExpert.skills || [] } : undefined,
         jobTitles: expertBubbles.map((expert) => expert.title),
-        message: buildContextualAdvisorMessage(text, buildAdvisorContext()),
+        formationContext: options.formationContext || null,
+        message: buildContextualAdvisorMessage(text, buildAdvisorContext(effectiveExpert)),
         history: nextMessages.slice(-10).map((message) => ({ role: message.role, content: message.content }))
       })
-      if (selectedExpert && response?.data?.quota) {
+      if (effectiveExpert && response?.data?.quota) {
         setPersonaQuotas((current) => ({
           ...current,
-          [normalizeBubbleKey(selectedExpert.title)]: response.data.quota
+          [normalizeBubbleKey(effectiveExpert.title)]: response.data.quota
         }))
       }
-      setMessages((current) => [...current, { role: 'assistant', expertTitle: selectedExpert?.title || '', content: response?.data?.reply || "Je n'ai pas pu répondre pour le moment." }])
+      setMessages((current) => [...current, {
+        role: 'assistant',
+        expertTitle: effectiveExpert?.title || '',
+        content: response?.data?.reply || (isFormationRequest
+          ? "Je n'ai pas assez d'informations fiables sur cette formation pour te répondre proprement."
+          : "Je n'ai pas pu répondre pour le moment.")
+      }])
     } catch (error) {
-      if (selectedExpert && error?.response?.data?.quota) {
+      if (effectiveExpert && error?.response?.data?.quota) {
         setPersonaQuotas((current) => ({
           ...current,
-          [normalizeBubbleKey(selectedExpert.title)]: error.response.data.quota
+          [normalizeBubbleKey(effectiveExpert.title)]: error.response.data.quota
         }))
       }
       const content = error?.response?.status === 429
-        ? `Tu as utilisé tes ${error.response.data?.quota?.limit || DEFAULT_PERSONA_QUOTA_LIMIT} questions pour ${selectedExpert?.title}. Choisis un autre métier pour continuer.`
+        ? `Tu as utilisé tes ${error.response.data?.quota?.limit || DEFAULT_PERSONA_QUOTA_LIMIT} questions pour ${effectiveExpert?.title}. Choisis un autre métier pour continuer.`
+        : isFormationRequest
+        ? "Je n'ai pas assez d'informations fiables sur cette formation pour te répondre proprement."
         : "Je n'arrive pas à répondre maintenant. Tu peux choisir une bulle pour avancer."
-      setMessages((current) => [...current, { role: 'assistant', expertTitle: selectedExpert?.title || '', content }])
+      setMessages((current) => [...current, { role: 'assistant', expertTitle: effectiveExpert?.title || '', content }])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleHomeSuggestion = (suggestion) => {
+    if (suggestion.to) {
+      navigate(suggestion.to)
+      return
+    }
+    if (suggestion.prompt) {
+      setSelectedExpert(null)
+      sendMessage(suggestion.prompt, { expert: null, formationContext: suggestion.formationContext || null })
     }
   }
 
@@ -466,6 +554,26 @@ export default function ConversationalHome() {
     )
   }
 
+  const renderHomeSuggestions = () => (
+    <div className="conversation-suggestions" aria-label="Suggestions rapides">
+      {homeSuggestions.map((suggestion) => (
+        <button
+          key={suggestion.id}
+          type="button"
+          className="conversation-suggestion-bubble"
+          onClick={() => handleHomeSuggestion(suggestion)}
+          disabled={loading}
+        >
+          <i className={`ph ${suggestion.icon}`} aria-hidden="true" />
+          <span>
+            <strong>{suggestion.label}</strong>
+            {suggestion.detail && <small>{suggestion.detail}</small>}
+          </span>
+        </button>
+      ))}
+    </div>
+  )
+
   return (
     <div className="conversation-home">
       <style>{styles}</style>
@@ -481,13 +589,16 @@ export default function ConversationalHome() {
         <div className="conversation-body">
           <div className="conversation-messages" aria-live="polite">
             {messages.map((message, index) => (
-              <div key={`${message.role}-${index}`} className={`conversation-message ${message.role}`}>
-                {message.role === 'assistant' && <img src={avatarUrl} alt="" aria-hidden="true" />}
-                <div className="conversation-message-stack">
-                  {message.role === 'assistant' && message.expertTitle && <span>{message.expertTitle}</span>}
-                  <p>{message.content}</p>
+              <React.Fragment key={`${message.role}-${index}`}>
+                <div className={`conversation-message ${message.role}`}>
+                  {message.role === 'assistant' && <img src={avatarUrl} alt="" aria-hidden="true" />}
+                  <div className="conversation-message-stack">
+                    {message.role === 'assistant' && message.expertTitle && <span>{message.expertTitle}</span>}
+                    <p>{message.content}</p>
+                  </div>
                 </div>
-              </div>
+                {index === 1 && homeSuggestions.length > 0 && renderHomeSuggestions()}
+              </React.Fragment>
             ))}
             {loading && (
               <div className="conversation-message assistant">
@@ -728,6 +839,67 @@ const styles = `
   background: #111827;
   color: #fff;
   border-color: #111827;
+}
+.conversation-suggestions {
+  width: min(720px, calc(100% - 38px));
+  margin-left: 38px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 1px 0 4px;
+}
+.conversation-suggestion-bubble {
+  min-width: 0;
+  max-width: min(330px, 100%);
+  min-height: 46px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d1fae5;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #064e3b;
+  padding: 7px 14px 7px 8px;
+  text-align: left;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.72);
+}
+.conversation-suggestion-bubble:hover {
+  border-color: #111827;
+  background: #f8fff0;
+}
+.conversation-suggestion-bubble:disabled {
+  opacity: .58;
+}
+.conversation-suggestion-bubble i {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #fff;
+  color: #111827;
+  font-size: 17px;
+}
+.conversation-suggestion-bubble span {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.conversation-suggestion-bubble strong,
+.conversation-suggestion-bubble small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.conversation-suggestion-bubble strong {
+  font-size: 13px;
+  font-weight: 800;
+}
+.conversation-suggestion-bubble small {
+  font-size: 11px;
+  opacity: .78;
 }
 .conversation-expert-panel {
   min-height: 0;
@@ -1051,6 +1223,34 @@ const styles = `
   }
   .conversation-messages {
     padding: 2px;
+  }
+  .conversation-suggestions {
+    width: 100%;
+    margin-left: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 0 2px 3px;
+    scrollbar-width: none;
+  }
+  .conversation-suggestions::-webkit-scrollbar {
+    display: none;
+  }
+  .conversation-suggestion-bubble {
+    flex: 0 0 auto;
+    max-width: min(280px, 82vw);
+    min-height: 42px;
+    padding: 6px 12px 6px 7px;
+  }
+  .conversation-suggestion-bubble i {
+    width: 29px;
+    height: 29px;
+    font-size: 15px;
+  }
+  .conversation-suggestion-bubble strong {
+    font-size: 12px;
+  }
+  .conversation-suggestion-bubble small {
+    font-size: 10px;
   }
   .conversation-actions-desktop {
     display: none;

@@ -8,8 +8,8 @@ dotenv.config()
 const router = express.Router()
 
 const GEMINI_STRUCTURED_RETRY_ATTEMPTS = 3
-const ORIENTATION_FLOW_STRUCTURED_RETRY_ATTEMPTS = 1
-const ORIENTATION_FLOW_GEMINI_TIMEOUT_MS = 8000
+const ORIENTATION_FLOW_STRUCTURED_RETRY_ATTEMPTS = 2
+const ORIENTATION_FLOW_GEMINI_TIMEOUT_MS = 20000
 const GEMINI_RETRY_DELAY_MS = 350
 const PERSONA_CHAT_LIMIT = 5
 const PERSONA_QUOTA_WINDOW_MS = 24 * 60 * 60 * 1000
@@ -84,6 +84,228 @@ function buildDisplayName(message, profile) {
     user_first_name: firstName || null,
     user_display_name: firstName || message.user_email || 'Utilisateur'
   }
+}
+
+const CHAT_FORMATION_COLUMNS = [
+  'id',
+  'nm',
+  'nmc',
+  'etab_nom',
+  'etab_uai',
+  'region',
+  'departement',
+  'commune',
+  'tc',
+  'tf',
+  'fiche',
+  'etab_url',
+  'annee',
+  'email',
+  'code_formation'
+].join(',')
+
+function compactChatText(value, maxLength = 220) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!text) return ''
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1).trim()}...` : text
+}
+
+function flattenChatValues(value) {
+  if (Array.isArray(value)) return value.flatMap(flattenChatValues)
+  if (value === null || value === undefined) return []
+  if (typeof value === 'object') return Object.values(value).flatMap(flattenChatValues)
+  return [String(value)]
+}
+
+function escapePostgrestFilterValue(value) {
+  return String(value || '').replace(/,/g, '\\,').replace(/%/g, '\\%').replace(/_/g, '\\_')
+}
+
+function uniqueCompactValues(values = [], maxLength = 140) {
+  const seen = new Set()
+  return values
+    .map((value) => compactChatText(value, maxLength))
+    .filter(Boolean)
+    .filter((value) => {
+      const key = normalizeQuotaKey(value)
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+}
+
+function buildFormationSearchTerms(formationContext = {}, message = '') {
+  const raw = formationContext?.raw && typeof formationContext.raw === 'object' ? formationContext.raw : {}
+  const detail = formationContext?.detail && typeof formationContext.detail === 'object' ? formationContext.detail : {}
+  const quotedTerms = [...String(message || '').matchAll(/"([^"]{2,140})"/g)].map((match) => match[1])
+  const rawName = Array.isArray(raw.nm) ? raw.nm.join(' ') : raw.nm
+
+  return uniqueCompactValues([
+    raw.nmc,
+    rawName,
+    raw.formation_name,
+    detail.title,
+    formationContext.title,
+    raw.etab_nom,
+    raw.school_name,
+    detail.subtitle,
+    formationContext.subtitle,
+    raw.commune,
+    ...quotedTerms
+  ], 120).slice(0, 7)
+}
+
+function mergeRowsById(rows = [], nextRows = []) {
+  const seen = new Set(rows.map((row) => row?.id).filter(Boolean))
+  const merged = [...rows]
+  for (const row of nextRows || []) {
+    const key = row?.id
+    if (key && seen.has(key)) continue
+    if (key) seen.add(key)
+    merged.push(row)
+  }
+  return merged
+}
+
+async function searchFormationRowsForChat(db, formationContext = {}, message = '') {
+  const raw = formationContext?.raw && typeof formationContext.raw === 'object' ? formationContext.raw : {}
+  const sourceTable = String(formationContext?.sourceTable || raw.sourceTable || raw.source_table || '').toLowerCase()
+  const exactId = String(formationContext?.rawId || raw.id || '').trim()
+  let rows = []
+
+  if (exactId && (!sourceTable || sourceTable.includes('formation_france'))) {
+    const { data, error } = await db
+      .from('formation_france')
+      .select(CHAT_FORMATION_COLUMNS)
+      .eq('id', exactId)
+      .limit(1)
+
+    if (!error && Array.isArray(data) && data.length) {
+      rows = mergeRowsById(rows, data)
+    } else if (error) {
+      console.warn('Chat formation exact lookup failed:', error.message)
+    }
+  }
+
+  const terms = buildFormationSearchTerms(formationContext, message)
+  for (const term of terms) {
+    if (rows.length >= 4) break
+    const safeTerm = escapePostgrestFilterValue(term)
+    const filters = [
+      `nmc.ilike.%${safeTerm}%`,
+      `etab_nom.ilike.%${safeTerm}%`,
+      `tc.ilike.%${safeTerm}%`,
+      `code_formation.ilike.%${safeTerm}%`,
+      `commune.ilike.%${safeTerm}%`,
+      `departement.ilike.%${safeTerm}%`,
+      `region.ilike.%${safeTerm}%`
+    ]
+    const { data, error } = await db
+      .from('formation_france')
+      .select(CHAT_FORMATION_COLUMNS)
+      .or(filters.join(','))
+      .order('annee', { ascending: false, nullsFirst: false })
+      .limit(5)
+
+    if (error) {
+      console.warn('Chat formation search failed:', error.message)
+      continue
+    }
+    rows = mergeRowsById(rows, data || [])
+  }
+
+  return rows.slice(0, 5)
+}
+
+async function searchPartnerFormationRowsForChat(db, formationContext = {}) {
+  const raw = formationContext?.raw && typeof formationContext.raw === 'object' ? formationContext.raw : {}
+  const sourceTable = String(formationContext?.sourceTable || raw.sourceTable || raw.source_table || '').toLowerCase()
+  const exactId = String(formationContext?.rawId || raw.id || '').trim()
+  if (!exactId || !sourceTable.includes('ecoles_partenaires')) return []
+
+  const { data, error } = await db
+    .from('ecoles_partenaires')
+    .select('*')
+    .eq('id', exactId)
+    .limit(1)
+
+  if (error) {
+    console.warn('Chat partner formation lookup failed:', error.message)
+    return []
+  }
+  return Array.isArray(data) ? data.slice(0, 1) : []
+}
+
+function formatFormationRowForChat(row, index) {
+  const title = compactChatText((Array.isArray(row?.nm) ? row.nm.find(Boolean) : row?.nm) || row?.nmc, 180)
+  const modalities = flattenChatValues(row?.tf).map((value) => compactChatText(value, 80)).filter(Boolean).slice(0, 4).join(', ')
+  return [
+    `Résultat ${index + 1}`,
+    title ? `Intitulé: ${title}` : '',
+    row?.etab_nom ? `Établissement: ${compactChatText(row.etab_nom, 140)}` : '',
+    [row?.commune, row?.departement, row?.region].filter(Boolean).length ? `Lieu: ${[row?.commune, row?.departement, row?.region].filter(Boolean).map((item) => compactChatText(item, 70)).join(' - ')}` : '',
+    row?.tc ? `Type/cursus: ${compactChatText(row.tc, 180)}` : '',
+    modalities ? `Modalités: ${modalities}` : '',
+    row?.annee ? `Année base: ${row.annee}` : '',
+    row?.fiche || row?.etab_url ? `Lien: ${compactChatText(row.fiche || row.etab_url, 180)}` : '',
+    row?.email ? `Contact: ${compactChatText(row.email, 120)}` : '',
+    row?.code_formation ? `Code formation: ${compactChatText(row.code_formation, 80)}` : ''
+  ].filter(Boolean).join('\n')
+}
+
+function formatPartnerFormationRowForChat(row, index) {
+  return [
+    `Résultat partenaire ${index + 1}`,
+    row?.formation_name ? `Formation: ${compactChatText(row.formation_name, 180)}` : '',
+    row?.school_name ? `École: ${compactChatText(row.school_name, 140)}` : '',
+    row?.city ? `Ville: ${compactChatText(row.city, 100)}` : '',
+    row?.domain ? `Domaine: ${compactChatText(row.domain, 120)}` : '',
+    row?.diploma_level ? `Niveau: ${compactChatText(row.diploma_level, 80)}` : '',
+    row?.duration ? `Durée: ${compactChatText(row.duration, 80)}` : '',
+    row?.description ? `Description: ${compactChatText(row.description, 420)}` : '',
+    row?.contact_urlpostulation || row?.website ? `Lien: ${compactChatText(row.contact_urlpostulation || row.website, 180)}` : '',
+    row?.email ? `Contact: ${compactChatText(row.email, 120)}` : ''
+  ].filter(Boolean).join('\n')
+}
+
+async function buildFormationChatContext(db, formationContext = {}, message = '') {
+  const hasFormationContext = formationContext && typeof formationContext === 'object' && Object.keys(formationContext).length > 0
+  const hasQuotedFormation = /"[^"]{2,140}"/.test(String(message || ''))
+  const looksLikeFormationQuestion = /\b(formation|licence|l1|l2|l3|bts|but|master|parcours|cursus|école|ecole)\b/i.test(String(message || ''))
+  if (!hasFormationContext && !(hasQuotedFormation && looksLikeFormationQuestion)) return ''
+
+  const [partnerRows, rows] = await Promise.all([
+    searchPartnerFormationRowsForChat(db, formationContext),
+    searchFormationRowsForChat(db, formationContext, message)
+  ])
+  const raw = formationContext?.raw && typeof formationContext.raw === 'object' ? formationContext.raw : {}
+  const detail = formationContext?.detail && typeof formationContext.detail === 'object' ? formationContext.detail : {}
+  const selectedContext = uniqueCompactValues([
+    formationContext.title,
+    formationContext.subtitle,
+    detail.title,
+    detail.subtitle,
+    detail.description,
+    ...(Array.isArray(detail.tags) ? detail.tags : []),
+    raw.nmc,
+    Array.isArray(raw.nm) ? raw.nm.join(' / ') : raw.nm,
+    raw.formation_name,
+    raw.etab_nom,
+    raw.school_name,
+    raw.commune,
+    raw.city,
+    raw.departement,
+    raw.region,
+    raw.domain,
+    raw.diploma_level,
+    raw.duration
+  ], 220)
+
+  return [
+    selectedContext.length ? `Formation sélectionnée côté utilisateur:\n${selectedContext.map((item) => `- ${item}`).join('\n')}` : '',
+    partnerRows.length ? `Données trouvées dans ecoles_partenaires:\n${partnerRows.map(formatPartnerFormationRowForChat).join('\n\n')}` : '',
+    rows.length ? `Données trouvées dans formation_france:\n${rows.map(formatFormationRowForChat).join('\n\n')}` : 'Aucune ligne formation_france fiable trouvée pour cette demande.'
+  ].filter(Boolean).join('\n\n')
 }
 
 async function enrichMessagesWithProfiles(db, messages) {
@@ -237,7 +459,7 @@ router.get('/ai/quota', authenticateToken, async (req, res) => {
 // body: { mode: 'persona'|'advisor', persona?: {title, skills[]}, message: string, history?: [{role, content}] }
 router.post('/ai', authenticateToken, async (req, res) => {
   try {
-  const { mode = 'advisor', persona, message, history = [], jobTitles = [], advisorType } = req.body || {}
+  const { mode = 'advisor', persona, message, history = [], jobTitles = [], advisorType, formationContext } = req.body || {}
     if (!message || typeof message !== 'string') {
       return res.status(400).json({ error: 'Message requis' })
     }
@@ -246,6 +468,7 @@ router.post('/ai', authenticateToken, async (req, res) => {
     if (!geminiApiKey) {
       return res.status(500).json({ error: 'GEMINI_API_KEY manquant' })
     }
+    const db = supabaseAdmin || supabaseClient
 
     const quotaSubject = getPersonaQuotaSubject({ mode, persona, advisorType })
     let quotaKey = ''
@@ -278,6 +501,9 @@ router.post('/ai', authenticateToken, async (req, res) => {
     const isOrientationJobFinal = advisorType === 'orientation-job-final'
     const isHomeAssistant = advisorType === 'home-orientation-assistant'
     const isCvBuilder = advisorType === 'cv-builder'
+    const formationDbContext = isHomeAssistant
+      ? await buildFormationChatContext(db, formationContext, message)
+      : ''
     const isStructuredJson = isBilan || isStudyBudget || isFilieresGenerator || isGradesEvaluation || isOrientationKeywordSelection || isOrientationCandidatePreselection || isOrientationFormationDeck || isOrientationFormationKeywords || isOrientationJobDeck || isOrientationJobFinal || isCvBuilder
     const usesDirectPrompt = isStructuredJson || isPointsMetier || isFicheMetier
     const sys = isBilan
@@ -307,7 +533,7 @@ router.post('/ai', authenticateToken, async (req, res) => {
       : isStudyBudget
       ? `Tu es Zélia, conseillère d'orientation francophone. Tu estimes un budget d'études en France. Réponds STRICTEMENT en JSON valide, sans texte avant ni après, sans markdown et sans backticks. Le JSON doit contenir uniquement min, max et message. min et max sont des nombres entiers en euros. message est une phrase courte.`
       : isHomeAssistant
-      ? `Tu es Zélia, conseillère d'orientation francophone. Tu connais le contexte utilisateur quand il est fourni dans le message. Réponds en français, en tutoyant l'élève, sans te présenter comme une IA et sans mentionner Gemini. Donne des réponses COURTES comme dans une discussion (2-3 phrases max), rassurantes, concrètes et personnalisées. Termine toujours par une phrase complète avec une ponctuation finale. Si l'élève dit qu'il ne sait pas quoi faire, utilise son profil pour proposer 2 pistes et pose une seule question simple.`
+      ? `Tu es Zélia, conseillère d'orientation francophone. Tu connais le contexte utilisateur quand il est fourni dans le message. Réponds en français, en tutoyant l'élève, sans te présenter comme une IA et sans mentionner Gemini. ${formationDbContext ? 'Pour une demande sur une formation, appuie-toi d’abord sur les données formation_france fournies. Réponds clairement avec les rubriques: contenu, débouchés, prérequis, durée, pourquoi ça peut correspondre. Si une info manque dans la base, dis-le simplement au lieu d’inventer.' : 'Donne des réponses COURTES comme dans une discussion (2-3 phrases max), rassurantes, concrètes et personnalisées.'} Termine toujours par une phrase complète avec une ponctuation finale. Si l'élève dit qu'il ne sait pas quoi faire, utilise son profil pour proposer 2 pistes et pose une seule question simple.`
       : mode === 'persona' && persona?.title
       ? `Type de conseiller: ${advisorType || persona.title}. Tu es ${persona.title}. ${titlesText} Réponds en français, en incarnant ce métier (quotidien, contraintes, voies d'accès, perspectives). Donne des réponses COURTES, comme dans une discussion (2-4 phrases max), précises et utiles. Si on te demande ce que tu n'aimes pas dans ton métier, réponds par 2 ou 3 contraintes concrètes du quotidien, sans bloquer ni refuser. Si on te pose des questions personnelles, réponds du point de vue professionnel. Compétences clés: ${(persona.skills||[]).join(', ')}.`
       : `Type de conseiller: ${advisorType || 'zelia'}. Tu es Zélia, conseillère d'orientation en français. ${titlesText} Donne des réponses COURTES comme dans une discussion (2-4 phrases max), concrètes, bienveillantes et actionnables avec premières étapes.`
@@ -315,6 +541,9 @@ router.post('/ai', authenticateToken, async (req, res) => {
     // Build content for Gemini API
     const parts = []
     parts.push({ text: `[Contexte] ${sys}` })
+    if (formationDbContext) {
+      parts.push({ text: `[Données formation issues de la base]\n${formationDbContext}` })
+    }
     if (!usesDirectPrompt) {
       for (const turn of history.slice(-10)) {
         if (!turn || !turn.content) continue
@@ -337,7 +566,7 @@ router.post('/ai', authenticateToken, async (req, res) => {
       : isOrientationCandidatePreselection
       ? { temperature: 0.15, maxOutputTokens: 4096, responseMimeType: 'application/json' }
       : isOrientationFormationDeck
-      ? { temperature: 0.5, maxOutputTokens: 4096, responseMimeType: 'application/json' }
+      ? { temperature: 0.5, maxOutputTokens: 2048, responseMimeType: 'application/json' }
       : isOrientationFormationKeywords
       ? { temperature: 0.25, maxOutputTokens: 3072, responseMimeType: 'application/json' }
       : isOrientationJobDeck
@@ -353,7 +582,7 @@ router.post('/ai', authenticateToken, async (req, res) => {
       : isStudyBudget
       ? { temperature: 0.2, maxOutputTokens: 512, responseMimeType: 'application/json' }
       : isHomeAssistant
-      ? { temperature: 0.65, maxOutputTokens: 1024 }
+      ? { temperature: 0.55, maxOutputTokens: formationDbContext ? 1536 : 1024 }
       : { temperature: 0.75, maxOutputTokens: 1024 }
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`

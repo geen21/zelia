@@ -170,7 +170,7 @@ export default function Register() {
             </div>
           )}
 
-          <div className="mb-3 sm:mb-5 space-y-2 sm:space-y-3">
+          <div className="mb-3 sm:mb-4">
             <label className="block">
               <span className="block text-xs font-medium text-text-secondary mb-1">Département</span>
               <select
@@ -185,31 +185,7 @@ export default function Register() {
                 ))}
               </select>
             </label>
-
-            <div className="space-y-1.5 sm:space-y-2 rounded-lg bg-[#fffbf7] border border-line p-2.5 sm:p-3 text-xs text-text-secondary">
-              <button
-                type="button"
-                onClick={acceptAll}
-                className="h-7 sm:h-8 px-3 rounded-lg border border-gray-200 bg-white text-black text-xs font-semibold hover:border-black"
-              >
-                Tout valider
-              </button>
-              <label className="flex items-start gap-2 cursor-pointer leading-snug">
-                <input type="checkbox" checked={acceptTerms} onChange={(event) => setAcceptTerms(event.target.checked)} className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[#c1ff72]" />
-                <span>J'accepte les <Link to="/legal/conditions" className="text-black underline">CGU</Link> et la politique de confidentialité.</span>
-              </label>
-              <label className="flex items-start gap-2 cursor-pointer leading-snug">
-                <input type="checkbox" checked={newsletterOptIn} onChange={(event) => setNewsletterOptIn(event.target.checked)} className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[#c1ff72]" />
-                <span>Recevoir les nouveautés Zélia.</span>
-              </label>
-              <label className="flex items-start gap-2 cursor-pointer leading-snug">
-                <input type="checkbox" checked={acceptDataTransfer} onChange={(event) => setAcceptDataTransfer(event.target.checked)} className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[#c1ff72]" />
-                <span>Autoriser le contact par des écoles partenaires.</span>
-              </label>
-            </div>
           </div>
-
-          {error && <div className="mb-3 sm:mb-4 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs sm:text-sm text-red-700">{error}</div>}
 
           <form onSubmit={handleEmailRegister} className="space-y-2 sm:space-y-3">
             <label className="block">
@@ -234,6 +210,30 @@ export default function Register() {
                 autoComplete="new-password"
               />
             </label>
+
+            <div className="space-y-1.5 sm:space-y-2 rounded-lg bg-[#fffbf7] border border-line p-2.5 sm:p-3 text-xs text-text-secondary">
+              <button
+                type="button"
+                onClick={acceptAll}
+                className="h-7 sm:h-8 px-3 rounded-lg border border-gray-200 bg-white text-black text-xs font-semibold hover:border-black"
+              >
+                Tout valider
+              </button>
+              <label className="flex items-start gap-2 cursor-pointer leading-snug">
+                <input type="checkbox" checked={acceptTerms} onChange={(event) => setAcceptTerms(event.target.checked)} className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[#c1ff72]" />
+                <span>J'accepte les <Link to="/legal/conditions" className="text-black underline">CGU</Link> et la politique de confidentialité.</span>
+              </label>
+              <label className="flex items-start gap-2 cursor-pointer leading-snug">
+                <input type="checkbox" checked={newsletterOptIn} onChange={(event) => setNewsletterOptIn(event.target.checked)} className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[#c1ff72]" />
+                <span>Recevoir les nouveautés Zélia.</span>
+              </label>
+              <label className="flex items-start gap-2 cursor-pointer leading-snug">
+                <input type="checkbox" checked={acceptDataTransfer} onChange={(event) => setAcceptDataTransfer(event.target.checked)} className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[#c1ff72]" />
+                <span>Autoriser le contact par des écoles partenaires.</span>
+              </label>
+            </div>
+
+            {error && <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs sm:text-sm text-red-700">{error}</div>}
 
             <button
               type="submit"

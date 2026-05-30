@@ -880,7 +880,7 @@ function getAnalysisJobCandidates(analysis, limit = AI_JOB_DECK_SIZE) {
       seen.add(key)
       return true
     })
-    .slice(0, count)
+    .slice(0, limit)
 }
 
 function aiJobSlug(value, index) {

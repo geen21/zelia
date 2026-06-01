@@ -44,7 +44,9 @@ function compactFinalSelectionCandidate(candidate) {
     linkLabel: firstTextValue(detail.linkLabel, candidate?.linkLabel)
   }
 
-  return Object.fromEntries(Object.entries(compact).filter(([, value]) => value !== ''))
+  const cleaned = Object.fromEntries(Object.entries(compact).filter(([, value]) => value !== ''))
+  if (candidate?.requestMoreInformation === true) cleaned.requestMoreInformation = true
+  return cleaned
 }
 
 function compactFinalSelectionAnswer(answerText) {

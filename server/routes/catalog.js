@@ -247,21 +247,22 @@ router.get('/formations/search', optionalAuth, async (req, res) => {
       return res.json(cachedPayload)
     }
 
-    if (normalizedQuery && (!keywords || keywords.length === 0)) {
-      const payload = makePagePayload([], page, pageSize)
-      setCachedFormationSearch(cacheKey, payload)
-      return res.json(payload)
-    }
-
-    const runFormationRpc = (keywordList) => supabase.rpc('search_formations', {
+    const runFormationRpc = (keywordList, includeQuery = true) => supabase.rpc('search_formations', {
       p_keywords: keywordList,
       p_department: departement || null,
       p_region: region || null,
       p_limit: pageSize + 1,
-      p_offset: from
+      p_offset: from,
+      ...(includeQuery ? { p_query: normalizedQuery || null } : {})
     })
 
-    const { data: rpcData, error: rpcError } = await runFormationRpc(keywords)
+    let { data: rpcData, error: rpcError } = await runFormationRpc(keywords)
+
+    if (rpcError && /p_query|schema cache/i.test(rpcError.message || '')) {
+      const retry = await runFormationRpc(keywords, false)
+      rpcData = retry.data
+      rpcError = retry.error
+    }
 
     if (!rpcError) {
       const payload = makePagePayload(rpcData || [], page, pageSize)

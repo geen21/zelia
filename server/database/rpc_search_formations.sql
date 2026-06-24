@@ -17,6 +17,35 @@ AS $$
     SELECT COALESCE(array_to_string(p_nm, ' '), '')
 $$;
 
+-- Texte de recherche combiné pour reproduire l'ancien fallback large sans générer
+-- une requête PostgREST avec des dizaines de OR/ILIKE.
+CREATE OR REPLACE FUNCTION public.formation_search_text(
+    p_nm text[],
+    p_nmc text,
+    p_tc text,
+    p_etab_nom text,
+    p_code_formation text,
+    p_commune text,
+    p_departement text,
+    p_region text
+)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+AS $$
+    SELECT LOWER(
+        COALESCE(public.formation_nm_text(p_nm), '') || ' ' ||
+        COALESCE(p_nmc, '') || ' ' ||
+        COALESCE(p_tc, '') || ' ' ||
+        COALESCE(p_etab_nom, '') || ' ' ||
+        COALESCE(p_code_formation, '') || ' ' ||
+        COALESCE(p_commune, '') || ' ' ||
+        COALESCE(p_departement, '') || ' ' ||
+        COALESCE(p_region, '')
+    )
+$$;
+
 -- 2. Créer des index ESSENTIELS pour accélérer les recherches sur formation_france
 -- Index GIN sur nmc (nom de la formation) pour la recherche textuelle ILIKE optimisée
 CREATE INDEX IF NOT EXISTS idx_formation_france_nmc_trgm ON formation_france USING gin (nmc gin_trgm_ops);
@@ -47,9 +76,16 @@ CREATE INDEX IF NOT EXISTS idx_formation_france_region ON formation_france (regi
 -- Index composite sur annee + id pour le tri
 CREATE INDEX IF NOT EXISTS idx_formation_france_annee_id ON formation_france (annee DESC NULLS LAST, id ASC);
 
+-- Index GIN sur le texte combiné pour la recherche large et la similarité trigram
+CREATE INDEX IF NOT EXISTS idx_formation_france_search_text_trgm
+ON formation_france USING gin (
+    public.formation_search_text(nm, nmc, tc, etab_nom, code_formation, commune, departement, region) gin_trgm_ops
+);
+
 -- 3. Créer la fonction RPC OPTIMISÉE pour la recherche de formations
 -- Cette fonction remplace la requête complexe côté client par une procédure stockée performante
 -- D'abord supprimer l'ancienne fonction si elle existe (nécessaire pour changer le type de retour)
+DROP FUNCTION IF EXISTS search_formations(text[], text, text, int, int, text);
 DROP FUNCTION IF EXISTS search_formations(text[], text, text, int, int);
 DROP FUNCTION IF EXISTS search_formations(text[], text, text, int);
 
@@ -58,7 +94,8 @@ CREATE OR REPLACE FUNCTION search_formations(
     p_department text DEFAULT NULL,
     p_region text DEFAULT NULL,
     p_limit int DEFAULT 20,
-    p_offset int DEFAULT 0
+    p_offset int DEFAULT 0,
+    p_query text DEFAULT NULL
 )
 RETURNS TABLE (
     id bigint,
@@ -83,27 +120,40 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     clean_keywords text[];
+    clean_query text;
     kw text;
+    safe_limit int;
+    safe_offset int;
+    candidate_cap int;
 BEGIN
     -- Nettoyer les mots-clés (enlever vides, trimmer)
     clean_keywords := ARRAY[]::text[];
     IF p_keywords IS NOT NULL THEN
         FOREACH kw IN ARRAY p_keywords
         LOOP
-            kw := TRIM(COALESCE(kw, ''));
-            IF kw != '' AND LENGTH(kw) >= 2 THEN
+            kw := LOWER(TRIM(COALESCE(kw, '')));
+            IF kw != '' AND LENGTH(kw) >= 2 AND NOT kw = ANY(clean_keywords) THEN
                 clean_keywords := array_append(clean_keywords, LOWER(kw));
             END IF;
         END LOOP;
     END IF;
+
+    clean_query := LOWER(TRIM(COALESCE(p_query, array_to_string(clean_keywords, ' '), '')));
+    clean_query := REGEXP_REPLACE(clean_query, '[%_]+', ' ', 'g');
+    clean_query := REGEXP_REPLACE(clean_query, '\s+', ' ', 'g');
+    clean_query := LEFT(clean_query, 120);
+
+    safe_limit := LEAST(GREATEST(COALESCE(p_limit, 20), 1), 120);
+    safe_offset := GREATEST(COALESCE(p_offset, 0), 0);
+    candidate_cap := LEAST(GREATEST(safe_offset + safe_limit + 80, 140), 1000);
     
     -- Limiter le nombre de mots-clés pour éviter les requêtes trop lourdes
     IF array_length(clean_keywords, 1) > 10 THEN
         clean_keywords := clean_keywords[1:10];
     END IF;
     
-    RETURN QUERY
-    WITH scored_formations AS (
+    IF COALESCE(array_length(clean_keywords, 1), 0) = 0 AND clean_query = '' THEN
+        RETURN QUERY
         SELECT
             f.id,
             f.nmc,
@@ -121,99 +171,150 @@ BEGIN
             f.image,
             f.email,
             f.code_formation,
-            -- Calcul du score de pertinence
-            (
-                SELECT COALESCE(SUM(
-                    CASE 
-                        WHEN public.formation_nm_text(f.nm) ILIKE '%' || k || '%' THEN 8
-                        ELSE 0
-                    END +
-                    CASE 
-                        WHEN f.nmc ILIKE '%' || k || '%' THEN 3
-                        ELSE 0
-                    END +
-                    CASE 
-                        WHEN f.tc ILIKE '%' || k || '%' THEN 4
-                        ELSE 0
-                    END +
-                    CASE 
-                        WHEN f.etab_nom ILIKE '%' || k || '%' THEN 2
-                        ELSE 0
-                    END +
-                    CASE 
-                        WHEN f.code_formation ILIKE '%' || k || '%' THEN 5
-                        ELSE 0
-                    END +
-                    CASE 
-                        WHEN f.commune ILIKE '%' || k || '%' THEN 1
-                        ELSE 0
-                    END +
-                    CASE 
-                        WHEN f.departement ILIKE '%' || k || '%' THEN 1
-                        ELSE 0
-                    END +
-                    CASE 
-                        WHEN f.region ILIKE '%' || k || '%' THEN 1
-                        ELSE 0
-                    END
-                ), 0)
-                FROM unnest(clean_keywords) AS k
-            )::int AS match_score
+            0::int AS score
         FROM formation_france f
         WHERE
-            -- Filtre département (optionnel)
             (p_department IS NULL OR p_department = '' OR f.departement ILIKE '%' || p_department || '%' OR f.commune ILIKE '%' || p_department || '%')
-            -- Filtre région (optionnel)
             AND (p_region IS NULL OR p_region = '' OR f.region ILIKE '%' || p_region || '%')
-            -- Au moins un mot-clé doit matcher si des mots-clés sont fournis
-            AND (
-                array_length(clean_keywords, 1) IS NULL 
-                OR array_length(clean_keywords, 1) = 0
-                OR EXISTS (
-                    SELECT 1 FROM unnest(clean_keywords) AS k
-                    WHERE 
-                        public.formation_nm_text(f.nm) ILIKE '%' || k || '%'
-                        OR f.nmc ILIKE '%' || k || '%'
-                        OR f.tc ILIKE '%' || k || '%'
-                        OR f.etab_nom ILIKE '%' || k || '%'
-                        OR f.code_formation ILIKE '%' || k || '%'
-                        OR f.commune ILIKE '%' || k || '%'
-                        OR f.departement ILIKE '%' || k || '%'
-                        OR f.region ILIKE '%' || k || '%'
-                )
-            )
-            -- Exclure les écoles primaires et collèges
             AND LOWER(f.etab_nom) NOT LIKE '%ecole primaire%'
             AND LOWER(f.etab_nom) NOT LIKE '%école primaire%'
             AND LOWER(f.etab_nom) NOT LIKE '%college %'
             AND LOWER(f.etab_nom) NOT LIKE '%collège %'
+        ORDER BY f.annee DESC NULLS LAST, f.id ASC
+        LIMIT safe_limit
+        OFFSET safe_offset;
+        RETURN;
+    END IF;
+
+    RETURN QUERY
+    WITH keyword_terms AS (
+        SELECT unnest(clean_keywords) AS term
+    ),
+    candidate_matches AS (
+        SELECT f.id, 120 AS score
+        FROM formation_france f
+        WHERE clean_query <> ''
+            AND public.formation_search_text(f.nm, f.nmc, f.tc, f.etab_nom, f.code_formation, f.commune, f.departement, f.region) LIKE '%' || clean_query || '%'
+            AND (p_department IS NULL OR p_department = '' OR f.departement ILIKE '%' || p_department || '%' OR f.commune ILIKE '%' || p_department || '%')
+            AND (p_region IS NULL OR p_region = '' OR f.region ILIKE '%' || p_region || '%')
+            AND LOWER(f.etab_nom) NOT LIKE '%ecole primaire%'
+            AND LOWER(f.etab_nom) NOT LIKE '%école primaire%'
+            AND LOWER(f.etab_nom) NOT LIKE '%college %'
+            AND LOWER(f.etab_nom) NOT LIKE '%collège %'
+
+        UNION ALL
+        SELECT f.id, 90 AS score
+        FROM formation_france f
+        JOIN keyword_terms kt ON public.formation_nm_text(f.nm) ILIKE '%' || kt.term || '%'
+        WHERE (p_department IS NULL OR p_department = '' OR f.departement ILIKE '%' || p_department || '%' OR f.commune ILIKE '%' || p_department || '%')
+            AND (p_region IS NULL OR p_region = '' OR f.region ILIKE '%' || p_region || '%')
+            AND LOWER(f.etab_nom) NOT LIKE '%ecole primaire%'
+            AND LOWER(f.etab_nom) NOT LIKE '%école primaire%'
+            AND LOWER(f.etab_nom) NOT LIKE '%college %'
+            AND LOWER(f.etab_nom) NOT LIKE '%collège %'
+
+        UNION ALL
+        SELECT f.id, 65 AS score
+        FROM formation_france f
+        JOIN keyword_terms kt ON f.code_formation ILIKE '%' || kt.term || '%'
+        WHERE (p_department IS NULL OR p_department = '' OR f.departement ILIKE '%' || p_department || '%' OR f.commune ILIKE '%' || p_department || '%')
+            AND (p_region IS NULL OR p_region = '' OR f.region ILIKE '%' || p_region || '%')
+            AND LOWER(f.etab_nom) NOT LIKE '%ecole primaire%'
+            AND LOWER(f.etab_nom) NOT LIKE '%école primaire%'
+            AND LOWER(f.etab_nom) NOT LIKE '%college %'
+            AND LOWER(f.etab_nom) NOT LIKE '%collège %'
+
+        UNION ALL
+        SELECT f.id, 55 AS score
+        FROM formation_france f
+        JOIN keyword_terms kt ON f.tc ILIKE '%' || kt.term || '%'
+        WHERE (p_department IS NULL OR p_department = '' OR f.departement ILIKE '%' || p_department || '%' OR f.commune ILIKE '%' || p_department || '%')
+            AND (p_region IS NULL OR p_region = '' OR f.region ILIKE '%' || p_region || '%')
+            AND LOWER(f.etab_nom) NOT LIKE '%ecole primaire%'
+            AND LOWER(f.etab_nom) NOT LIKE '%école primaire%'
+            AND LOWER(f.etab_nom) NOT LIKE '%college %'
+            AND LOWER(f.etab_nom) NOT LIKE '%collège %'
+
+        UNION ALL
+        SELECT f.id, 45 AS score
+        FROM formation_france f
+        JOIN keyword_terms kt ON f.nmc ILIKE '%' || kt.term || '%'
+        WHERE (p_department IS NULL OR p_department = '' OR f.departement ILIKE '%' || p_department || '%' OR f.commune ILIKE '%' || p_department || '%')
+            AND (p_region IS NULL OR p_region = '' OR f.region ILIKE '%' || p_region || '%')
+            AND LOWER(f.etab_nom) NOT LIKE '%ecole primaire%'
+            AND LOWER(f.etab_nom) NOT LIKE '%école primaire%'
+            AND LOWER(f.etab_nom) NOT LIKE '%college %'
+            AND LOWER(f.etab_nom) NOT LIKE '%collège %'
+
+        UNION ALL
+        SELECT f.id, 35 AS score
+        FROM formation_france f
+        JOIN keyword_terms kt ON f.etab_nom ILIKE '%' || kt.term || '%'
+        WHERE (p_department IS NULL OR p_department = '' OR f.departement ILIKE '%' || p_department || '%' OR f.commune ILIKE '%' || p_department || '%')
+            AND (p_region IS NULL OR p_region = '' OR f.region ILIKE '%' || p_region || '%')
+            AND LOWER(f.etab_nom) NOT LIKE '%ecole primaire%'
+            AND LOWER(f.etab_nom) NOT LIKE '%école primaire%'
+            AND LOWER(f.etab_nom) NOT LIKE '%college %'
+            AND LOWER(f.etab_nom) NOT LIKE '%collège %'
+
+        UNION ALL
+        SELECT f.id, 20 AS score
+        FROM formation_france f
+        JOIN keyword_terms kt ON f.commune ILIKE '%' || kt.term || '%'
+            OR f.departement ILIKE '%' || kt.term || '%'
+            OR f.region ILIKE '%' || kt.term || '%'
+        WHERE (p_department IS NULL OR p_department = '' OR f.departement ILIKE '%' || p_department || '%' OR f.commune ILIKE '%' || p_department || '%')
+            AND (p_region IS NULL OR p_region = '' OR f.region ILIKE '%' || p_region || '%')
+            AND LOWER(f.etab_nom) NOT LIKE '%ecole primaire%'
+            AND LOWER(f.etab_nom) NOT LIKE '%école primaire%'
+            AND LOWER(f.etab_nom) NOT LIKE '%college %'
+            AND LOWER(f.etab_nom) NOT LIKE '%collège %'
+
+        UNION ALL
+        SELECT f.id, 18 AS score
+        FROM formation_france f
+        WHERE LENGTH(clean_query) >= 4
+            AND public.formation_search_text(f.nm, f.nmc, f.tc, f.etab_nom, f.code_formation, f.commune, f.departement, f.region) % clean_query
+            AND (p_department IS NULL OR p_department = '' OR f.departement ILIKE '%' || p_department || '%' OR f.commune ILIKE '%' || p_department || '%')
+            AND (p_region IS NULL OR p_region = '' OR f.region ILIKE '%' || p_region || '%')
+            AND LOWER(f.etab_nom) NOT LIKE '%ecole primaire%'
+            AND LOWER(f.etab_nom) NOT LIKE '%école primaire%'
+            AND LOWER(f.etab_nom) NOT LIKE '%college %'
+            AND LOWER(f.etab_nom) NOT LIKE '%collège %'
+    ),
+    ranked_matches AS (
+        SELECT cm.id, SUM(cm.score)::int AS match_score
+        FROM candidate_matches cm
+        GROUP BY cm.id
+        ORDER BY SUM(cm.score) DESC, cm.id ASC
+        LIMIT candidate_cap
     )
-    SELECT 
-        sf.id,
-        sf.nmc,
-        sf.nm,
-        sf.etab_nom,
-        sf.etab_uai,
-        sf.region,
-        sf.departement,
-        sf.commune,
-        sf.tc,
-        sf.tf,
-        sf.fiche,
-        sf.etab_url,
-        sf.annee,
-        sf.image,
-        sf.email,
-        sf.code_formation,
-        sf.match_score AS score
-    FROM scored_formations sf
-    WHERE sf.match_score > 0 OR array_length(clean_keywords, 1) IS NULL OR array_length(clean_keywords, 1) = 0
+    SELECT
+        f.id,
+        f.nmc,
+        f.nm,
+        f.etab_nom,
+        f.etab_uai,
+        f.region,
+        f.departement,
+        f.commune,
+        f.tc,
+        f.tf,
+        f.fiche,
+        f.etab_url,
+        f.annee,
+        f.image,
+        f.email,
+        f.code_formation,
+        rm.match_score AS score
+    FROM ranked_matches rm
+    JOIN formation_france f ON f.id = rm.id
     ORDER BY
-        sf.match_score DESC,
-        sf.annee DESC NULLS LAST,
-        sf.id ASC
-    LIMIT LEAST(p_limit, 50)
-    OFFSET p_offset;
+        rm.match_score DESC,
+        f.annee DESC NULLS LAST,
+        f.id ASC
+    LIMIT safe_limit
+    OFFSET safe_offset;
 END;
 $$;
 

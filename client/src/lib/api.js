@@ -188,7 +188,7 @@ export const chatAPI = {
   sendMessage: (content) => apiClient.post('/chat/message', { content }),
   clearMyMessages: () => apiClient.delete('/chat/messages/me'),
   getPersonaQuota: (persona) => apiClient.get('/chat/ai/quota', { params: { persona } }),
-  aiChat: (payload = {}) => apiClient.post('/chat/ai', payload)
+  aiChat: (payload = {}, config = {}) => apiClient.post('/chat/ai', payload, config)
 }
 
 // Letter API

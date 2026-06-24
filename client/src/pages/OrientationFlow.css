@@ -25,6 +25,7 @@
 .orientation-stage {
   flex: 0 0 auto;
   min-height: calc(100vh - 64px);
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -52,6 +53,76 @@
 .swipe-card { cursor: grab; will-change: transform; }
 .swipe-card { justify-content: center; }
 .swipe-card:active { cursor: grabbing; }
+.question-card { position: relative; padding-bottom: clamp(92px, 13vh, 118px); }
+.question-swipe-tutorial {
+  position: absolute;
+  left: clamp(18px, 5vw, 36px);
+  right: clamp(18px, 5vw, 36px);
+  bottom: clamp(18px, 4vh, 30px);
+  display: grid;
+  grid-template-columns: auto minmax(104px, 160px) auto;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  pointer-events: none;
+}
+.swipe-tutorial-answer {
+  min-width: 74px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,.08);
+  background: #fff;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 10px 24px rgba(0,0,0,.08);
+}
+.swipe-tutorial-answer i { font-size: 17px; }
+.swipe-tutorial-answer.reject { color: #f68fff; }
+.swipe-tutorial-answer.accept { background: #c1ff72; color: #000; }
+.swipe-tutorial-track {
+  position: relative;
+  height: 38px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(246,143,255,.18), rgba(193,255,114,.28));
+  overflow: hidden;
+}
+.swipe-tutorial-track::before {
+  content: '';
+  position: absolute;
+  inset: 50% 14px auto;
+  height: 2px;
+  background: rgba(17,24,39,.22);
+  transform: translateY(-50%);
+}
+.swipe-tutorial-cue {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid #111827;
+  box-shadow: 0 8px 18px rgba(0,0,0,.18);
+  transform: translate(-50%, -50%);
+  animation: questionSwipeDemo 2.4s ease-in-out infinite;
+}
+.swipe-tutorial-cue::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: inherit;
+  background: #111827;
+  transform: translate(-50%, -50%);
+}
 .orientation-pill,
 .source-badge {
   align-self: flex-start;
@@ -111,9 +182,36 @@
 .avatar-preview { width: min(320px, 70vw); height: min(320px, 70vw); object-fit: contain; border-radius: 8px; background: #f8fafc; }
 .message-card { align-items: flex-start; }
 .message-avatar { width: 92px; height: 92px; object-fit: contain; border-radius: 8px; background: #f8fafc; border: 1px solid rgba(0,0,0,.08); }
-.personality-stage { justify-content: flex-start; padding-top: 28px; }
+.identity-card { gap: 18px; user-select: text; }
+.identity-card h1 { font-size: 32px; }
+.identity-form-grid { display: grid; gap: 12px; width: 100%; }
+.identity-form-grid label { display: grid; gap: 7px; color: #111827; font-size: 13px; font-weight: 700; }
+.identity-form-grid input,
+.identity-form-grid select {
+  width: 100%;
+  min-height: 50px;
+  border: 1px solid rgba(0,0,0,.12);
+  border-radius: 8px;
+  background: #fff;
+  color: #000;
+  font: inherit;
+  font-size: 16px;
+  padding: 0 14px;
+}
+.identity-form-grid input:focus,
+.identity-form-grid select:focus { outline: 2px solid rgba(193,255,114,.95); outline-offset: 2px; }
+.identity-note {
+  width: 100%;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.identity-error { color: #b42318 !important; font-size: 14px !important; line-height: 1.35 !important; }
+.identity-submit { width: 100%; min-width: 0; }
+.personality-stage { justify-content: flex-start; min-height: calc(100svh - 64px); padding-top: 28px; }
 .personality-card { min-height: auto; user-select: text; gap: 18px; }
 .personality-card .recommendation-list { gap: 16px; }
+.personality-continue { flex: 0 0 auto; }
 .dialogue-card { min-height: auto; }
 .assistant-dialogue { display: grid; grid-template-columns: auto 1fr; align-items: end; gap: 16px; width: 100%; }
 .dialogue-avatar,
@@ -201,20 +299,68 @@
 .confirmed-detail p { color: #4b5563; font-size: 15px; line-height: 1.5; }
 .confirmed-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .confirmed-tags small { border-radius: 999px; background: #fff; border: 1px solid rgba(0,0,0,.08); padding: 5px 9px; color: #374151; font-size: 12px; font-weight: 700; }
+.confirmed-request-info {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid rgba(193,255,114,.95);
+  border-radius: 999px;
+  background: #f8fff0;
+  color: #111827;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+.confirmed-request-info input { width: 17px; height: 17px; accent-color: #c1ff72; cursor: pointer; }
 .confirmed-detail a { justify-self: start; display: inline-flex; align-items: center; gap: 7px; color: #000; font-size: 14px; font-weight: 800; text-decoration: none; }
 .confirmed-detail a:hover { text-decoration: underline; }
 .match-score { color: #111827; background: #c1ff72; padding: 8px 12px; border-radius: 8px; align-self: flex-start; }
 .spinner { width: 42px; height: 42px; border-radius: 999px; border: 3px solid rgba(0,0,0,.12); border-top-color: #000; animation: spin .85s linear infinite; }
 .empty-state { color: #6b7280; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes questionSwipeDemo {
+  0%, 12% { transform: translate(-50%, -50%) translateX(0) scale(.92); }
+  30% { transform: translate(-50%, -50%) translateX(-42px) rotate(-8deg) scale(1); }
+  50% { transform: translate(-50%, -50%) translateX(0) scale(.95); }
+  70% { transform: translate(-50%, -50%) translateX(42px) rotate(8deg) scale(1); }
+  88%, 100% { transform: translate(-50%, -50%) translateX(0) scale(.92); }
+}
 @media (max-width: 640px) {
-  .orientation-topbar { grid-template-columns: 86px 1fr; padding-top: 14px; }
+  .orientation-topbar { height: 52px; grid-template-columns: 86px 1fr; padding-top: 12px; }
   .orientation-topbar img { height: 23px; }
   .orientation-card { min-height: clamp(300px, calc(100vh - 190px), 520px); padding: 24px; }
   .orientation-card h1 { font-size: 28px; }
+  .identity-card h1 { font-size: 26px; }
   .avatar-card h1 { font-size: 25px; }
   .orientation-card p { font-size: 16px; }
   .round-action { width: 64px; height: 64px; }
+  .personality-stage { min-height: calc(100svh - 52px); gap: 10px; padding: 10px 12px 12px; }
+  .personality-stage .personality-card {
+    width: min(560px, calc(100vw - 24px));
+    max-height: calc(100svh - 126px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    gap: 10px;
+    padding: 14px;
+  }
+  .personality-card .message-avatar { width: 44px; height: 44px; }
+  .personality-card .orientation-pill { min-height: 20px; padding: 3px 8px; font-size: 10px; }
+  .personality-card h1 { font-size: 20px; line-height: 1.1; }
+  .personality-card .recommendation-list { gap: 8px; }
+  .personality-card .recommendation-row { gap: 6px; padding: 10px; }
+  .personality-card .recommendation-row span { font-size: 11px; }
+  .personality-card .recommendation-row strong { font-size: 13px; line-height: 1.35; }
+  .personality-card .analysis-value { line-height: 1.35; }
+  .personality-continue { width: min(420px, calc(100vw - 24px)); min-width: 0; min-height: 40px; }
+  .question-card { padding-bottom: 92px; }
+  .question-swipe-tutorial { grid-template-columns: auto minmax(78px, 104px) auto; gap: 7px; bottom: 16px; }
+  .swipe-tutorial-answer { min-width: 58px; min-height: 30px; gap: 5px; font-size: 11px; }
+  .swipe-tutorial-answer i { font-size: 15px; }
+  .swipe-tutorial-track { height: 32px; }
+  .swipe-tutorial-cue { width: 26px; height: 26px; }
   .assistant-dialogue,
   .candidate-speaker { grid-template-columns: 1fr; justify-items: start; }
   .speech-bubble::before { display: none; }
@@ -230,15 +376,50 @@
   .confirmed-detail { padding: 14px; }
   .confirmed-detail h2 { font-size: 18px; }
   .confirmed-detail-head { align-items: flex-start; flex-direction: column; }
+  .identity-stage { min-height: calc(100svh - 52px); justify-content: center; gap: 0; padding: 6px 12px 10px; }
+  .identity-stage .identity-card {
+    width: min(500px, calc(100vw - 24px));
+    min-height: auto;
+    max-height: calc(100svh - 68px);
+    overflow: hidden;
+    gap: 7px;
+    padding: 10px 13px;
+  }
+  .identity-card .message-avatar { width: 38px; height: 38px; }
+  .identity-card .orientation-pill { min-height: 20px; padding: 3px 8px; font-size: 10px; }
+  .identity-card h1 { font-size: 19px; line-height: 1.08; }
+  .identity-form-grid { gap: 6px; }
+  .identity-form-grid label { gap: 3px; font-size: 11px; }
+  .identity-form-grid input,
+  .identity-form-grid select { min-height: 34px; font-size: 13px; padding: 0 10px; }
+  .identity-note { font-size: 11px; line-height: 1.25; }
+  .identity-submit { min-height: 38px; font-size: 13px; }
 }
 @media (max-height: 560px) {
   .orientation-topbar { height: 44px; padding-top: 10px; }
   .orientation-topbar img { height: 23px; }
   .orientation-stage { min-height: calc(100vh - 44px); gap: 10px; padding: 8px 16px 12px; }
   .orientation-card { min-height: auto; padding: 14px 18px; gap: 10px; }
+  .personality-stage { min-height: calc(100svh - 44px); padding: 8px 12px 10px; }
+  .personality-stage .personality-card { max-height: calc(100svh - 106px); padding: 12px; }
+  .personality-card .message-avatar { width: 38px; height: 38px; }
+  .personality-card h1 { font-size: 18px; }
+  .personality-continue { min-height: 38px; }
+  .question-card { padding-bottom: 74px; }
+  .question-swipe-tutorial { bottom: 12px; grid-template-columns: auto minmax(72px, 96px) auto; }
+  .swipe-tutorial-answer { min-width: 54px; min-height: 28px; font-size: 10px; }
+  .swipe-tutorial-track { height: 30px; }
+  .swipe-tutorial-cue { width: 24px; height: 24px; animation-duration: 2.8s; }
   .orientation-card h1 { font-size: 22px; line-height: 1.12; }
+  .identity-card h1 { font-size: 21px; }
   .avatar-card h1 { font-size: 20px; }
   .orientation-card p { font-size: 14px; line-height: 1.35; }
+  .identity-card { gap: 9px; }
+  .identity-note { font-size: 12px; line-height: 1.3; }
+  .identity-form-grid { gap: 8px; }
+  .identity-form-grid label { gap: 5px; }
+  .identity-form-grid input,
+  .identity-form-grid select { min-height: 40px; font-size: 14px; }
   .message-avatar { width: 52px; height: 52px; }
   .dialogue-avatar,
   .candidate-avatar { width: 52px; height: 52px; }
@@ -251,6 +432,7 @@
 @media (prefers-reduced-motion: reduce) {
   .orientation-card,
   .flow-progress span,
-  .spinner { transition: none !important; animation: none !important; }
+  .spinner,
+  .swipe-tutorial-cue { transition: none !important; animation: none !important; }
 }
 

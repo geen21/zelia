@@ -1,13 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { chatAPI, orientationAPI, usersAPI } from '../lib/api.js'
-import {
-  AI_FINAL_JOB_COUNT,
-  AI_JOB_DECK_SIZE,
-  buildAiFinalJobsPrompt,
-  buildAiJobDeckPrompt,
-  normalizeAiJobCandidates
-} from '../lib/orientationJobs.js'
+import { orientationAPI, usersAPI } from '../lib/api.js'
+import { AI_FINAL_JOB_COUNT, AI_JOB_DECK_SIZE } from '../lib/orientationJobs.js'
 import './OrientationFlow.css'
 
 const QUESTION_LIMIT = 40
@@ -18,20 +12,20 @@ const MAX_PROPOSAL_DECK = 24
 const MAX_FINAL_RESULTS = 14
 const AI_FORMATION_DECK_SIZE = 8
 const AI_FORMATION_KEYWORD_COUNT = 6
-const AI_RETRY_ATTEMPTS = 3
-const CATALOG_RETRY_ATTEMPTS = 3
+const CATALOG_RETRY_ATTEMPTS = 2
 const PRESELECTED_CANDIDATES_PER_KIND = 4
 const MAX_PARTNER_FINAL_RESULTS = 4
 const FORMATION_SEARCH_WAITING_MESSAGE = 'Ne quitte pas la page, on cherche parmi 35 000 formations rien que pour toi ;)'
 const CATALOG_SEARCH_CONCURRENCY = 4
-const MAX_FORMATION_QUERY_VARIANTS = 4
+const MAX_FORMATION_QUERY_VARIANTS = 2
+const FINAL_FORMATION_SEARCH_PLAN_COUNT = 4
+const FINAL_FORMATION_PAGE_SIZE = 10
+const PROFILE_IDENTITY_KEY = 'orientation_profile_identity'
+const PROFILE_IDENTITY_COMPLETE_KEY = 'orientation_profile_identity_complete'
+const PROFILE_IDENTITY_COMPLETED_INTENTS_KEY = 'orientation_profile_identity_completed_intents'
+const DEFAULT_PROFILE_IDENTITY = { firstName: '', lastName: '', gender: '' }
+const GENDER_OPTIONS = ['Femme', 'Homme', 'Non-binaire', 'Autre', 'Préfère ne pas répondre']
 const FORMATION_ANCHOR_STOPWORDS = new Set(['formation', 'formations', 'piste', 'parcours', 'etude', 'etudes', 'ecole', 'ecoles', 'universite', 'lycee', 'cfa', 'iut', 'cnam', 'greta', 'diplome', 'metier', 'metiers', 'professionnel', 'professionnelle', 'initiale', 'alternance', 'bts', 'but', 'dut', 'licence', 'bachelor', 'master', 'mastere', 'mba', 'msc', 'ingenieur', 'de', 'du', 'des', 'en', 'et', 'a', 'au', 'aux', 'le', 'la', 'les', 'pour', 'avec', 'dans', 'niveau', 'vise'])
-const FORMATION_THEME_EXPANSIONS = [
-  {
-    markers: ['audiovisuel', 'audiovisuelle', 'cinema', 'video', 'image', 'son', 'montage', 'monteur', 'monteuse', 'cadrage', 'realisation'],
-    queries: ['audiovisuel', 'cinema audiovisuel', 'metiers audiovisuel', 'montage audiovisuel', 'ingenieur son', 'metiers du son', 'cadrage image', 'realisation cinema']
-  }
-]
 
 const PARTNER_CITY_BY_DEPARTMENT_CODE = {
   '06': 'Nice',
@@ -150,13 +144,6 @@ function sanitizeMicroProfileForIntent(profile, intent) {
   return Object.fromEntries(Object.entries(profile).filter(([key]) => allowedIds.has(key)))
 }
 
-function getSearchIntroText(intent) {
-  if (intent === 'metiers') {
-    return "J'ai seulement besoin de ta préférence de localisation avant de choisir les métiers à te proposer."
-  }
-  return "J'ai besoin de quelques infos concrètes avant de choisir les propositions : budget, notes, niveau visé et mobilité."
-}
-
 const INTENT_OPTIONS = [
   { value: 'formations', title: 'Une école / formation qui te convient', icon: 'ph-graduation-cap' },
   { value: 'metiers', title: 'Un métier qui te convient', icon: 'ph-briefcase' },
@@ -272,6 +259,61 @@ function getStoredJson(key, fallback) {
     return raw ? JSON.parse(raw) : fallback
   } catch {
     return fallback
+  }
+}
+
+function normalizeProfileIdentity(value = {}) {
+  return {
+    firstName: String(value.firstName || value.first_name || value.prenom || '').trim(),
+    lastName: String(value.lastName || value.last_name || value.nom || '').trim(),
+    gender: String(value.gender || value.genre || '').trim()
+  }
+}
+
+function isProfileIdentityComplete(value = {}) {
+  const identity = normalizeProfileIdentity(value)
+  return Boolean(identity.firstName && identity.lastName && identity.gender)
+}
+
+function getCompletedProfileIdentityIntents() {
+  const stored = getStoredJson(PROFILE_IDENTITY_COMPLETED_INTENTS_KEY, [])
+  return new Set(Array.isArray(stored) ? stored.filter(Boolean) : [])
+}
+
+function hasCompletedProfileIdentityForIntent(intentValue) {
+  const completed = getCompletedProfileIdentityIntents()
+  return completed.has(intentValue) || completed.has('both')
+}
+
+function markProfileIdentityCompleteForIntent(intentValue) {
+  const completed = getCompletedProfileIdentityIntents()
+  if (intentValue) completed.add(intentValue)
+  if (intentValue === 'both') {
+    completed.add('formations')
+    completed.add('metiers')
+  }
+  localStorage.setItem(PROFILE_IDENTITY_COMPLETED_INTENTS_KEY, JSON.stringify([...completed]))
+}
+
+function getProfileIdentityNote(intentValue) {
+  if (intentValue === 'metiers') {
+    return "Ces infos servent à enregistrer ton parcours métier. Le genre ajuste seulement la formulation, jamais les propositions."
+  }
+
+  if (intentValue === 'both') {
+    return 'Ces infos servent à enregistrer ton parcours. Le genre ajuste seulement la formulation, jamais les propositions.'
+  }
+
+  return 'Ces infos servent à enregistrer ton parcours formation. Le genre ajuste seulement la formulation, jamais les propositions.'
+}
+
+function mergeProfileIdentity(current = DEFAULT_PROFILE_IDENTITY, incoming = DEFAULT_PROFILE_IDENTITY) {
+  const currentIdentity = normalizeProfileIdentity(current)
+  const incomingIdentity = normalizeProfileIdentity(incoming)
+  return {
+    firstName: currentIdentity.firstName || incomingIdentity.firstName,
+    lastName: currentIdentity.lastName || incomingIdentity.lastName,
+    gender: currentIdentity.gender || incomingIdentity.gender
   }
 }
 
@@ -413,22 +455,6 @@ function extractKeywords(value) {
     .join(' ')
 }
 
-function parseJsonFromReply(reply) {
-  const raw = String(reply || '').trim()
-  if (!raw) return null
-  try {
-    return JSON.parse(raw)
-  } catch {
-    const match = raw.match(/\[[\s\S]*\]/)
-    if (!match) return null
-    try {
-      return JSON.parse(match[0])
-    } catch {
-      return null
-    }
-  }
-}
-
 function uniquePlans(plans) {
   const seen = new Set()
   return (plans || []).filter((plan) => {
@@ -462,74 +488,35 @@ function balancePlansForIntent(primaryPlans, intent, fallbackPlans = [], maxCoun
   return balanced.length ? balanced : plans.slice(0, maxCount)
 }
 
-function buildFallbackPlans(intent, analysis, extraText = '') {
+function buildAnalysisRecommendationPlans(intent, analysis, extraText = '') {
   const block = getAnalysisBlock(analysis) || {}
   const studies = Array.isArray(block.studyRecommendations) ? block.studyRecommendations : []
   const jobs = Array.isArray(block.jobRecommendations) ? block.jobRecommendations : []
-  const fallbackFormation = [
-    { title: 'Formations numériques', kind: 'formation', query: 'informatique numérique', reason: 'Analyse, projets et outils' },
-    { title: 'Formations commerce marketing', kind: 'formation', query: 'commerce marketing', reason: 'Communication, vente et projet' },
-    { title: 'Formations gestion projet', kind: 'formation', query: 'gestion projet', reason: 'Organisation et décision' },
-    { title: 'Formations communication digitale', kind: 'formation', query: 'communication digitale', reason: 'Créativité et stratégie' },
-    { title: 'Formations data marketing', kind: 'formation', query: 'data marketing', reason: 'Analyse et impact business' },
-    { title: 'Formations design numérique', kind: 'formation', query: 'design numérique', reason: 'Création et expérience utilisateur' }
-  ]
-  const fallbackJobs = [
-    { title: 'Métiers de la data', kind: 'metier', query: 'data analyste', reason: 'Analyse et décision' },
-    { title: 'Métiers du conseil', kind: 'metier', query: 'conseil projet', reason: 'Écoute, structure et impact' },
-    { title: 'Métiers du digital', kind: 'metier', query: 'marketing digital', reason: 'Créativité et exécution' },
-    { title: 'Métiers du produit', kind: 'metier', query: 'chef produit', reason: 'Coordination et priorisation' },
-    { title: 'Métiers de projet', kind: 'metier', query: 'chef projet', reason: 'Organisation et leadership' },
-    { title: 'Métiers UX', kind: 'metier', query: 'designer ux', reason: 'Empathie et conception' }
-  ]
 
   const formationPlans = studies.slice(0, 4).map((study) => {
     const title = pickStudyTitle(study)
     return {
       title,
       kind: 'formation',
-      query: extractKeywords(`${title} ${study.type || ''} ${extraText}`) || title,
-      reason: study.type || 'Piste cohérente avec tes réponses'
+      query: extractKeywords(`${title} ${study?.type || ''} ${extraText}`) || title,
+      reason: study?.type || 'Piste cohérente avec tes réponses'
     }
   }).filter((plan) => plan.title)
 
   const jobPlans = jobs.slice(0, 4).map((job) => {
     const title = pickJobTitle(job)
+    const skills = compactTags([job?.skills, job?.competences, job?.strengths])
     return {
       title,
       kind: 'metier',
-      query: extractKeywords(`${title} ${(job.skills || []).join(' ')} ${extraText}`) || title,
-      reason: Array.isArray(job.skills) && job.skills.length ? job.skills.slice(0, 3).join(', ') : 'Métier compatible avec ton profil'
+      query: extractKeywords(`${title} ${skills.join(' ')} ${extraText}`) || title,
+      reason: skills.length ? skills.slice(0, 3).join(', ') : 'Métier compatible avec ton profil'
     }
   }).filter((plan) => plan.title)
 
-  if (intent === 'metiers') return uniquePlans([...jobPlans, ...fallbackJobs]).slice(0, 8)
-  if (intent === 'both') return balancePlansForIntent([...formationPlans, ...jobPlans], intent, [...fallbackFormation, ...fallbackJobs], 8)
-  return uniquePlans([...formationPlans, ...fallbackFormation]).slice(0, 8)
-}
-
-function normalizePlans(value, intent, fallbackPlans) {
-  const allowedKinds = intent === 'both'
-    ? new Set(['formation', 'metier'])
-    : new Set([intent === 'metiers' ? 'metier' : 'formation'])
-
-  const normalized = (Array.isArray(value) ? value : [])
-    .map((item) => {
-      const rawKind = String(item?.kind || item?.type || '').toLowerCase()
-      const kind = rawKind.includes('metier') || rawKind.includes('métier') ? 'metier' : 'formation'
-      const query = String(item?.query || item?.q || item?.search || item?.title || '').trim()
-      if (!allowedKinds.has(kind) || query.length < 2) return null
-      return {
-        kind,
-        query: query.slice(0, 90),
-        title: String(item?.title || query).trim(),
-        reason: String(item?.reason || 'Sélection Zélia').trim()
-      }
-    })
-    .filter(Boolean)
-    .slice(0, 8)
-
-  return balancePlansForIntent(normalized.length ? normalized : fallbackPlans, intent, fallbackPlans, 8)
+  if (intent === 'metiers') return uniquePlans(jobPlans).slice(0, 8)
+  if (intent === 'both') return balancePlansForIntent([...formationPlans, ...jobPlans], intent, [], 8)
+  return uniquePlans(formationPlans).slice(0, 8)
 }
 
 function escapeRegExp(value) {
@@ -569,17 +556,13 @@ function extractFormationAnchorTerms(likedFormations = []) {
   const normalizedSignal = normalizeDiversityText(signalTexts.join(' '))
   if (!normalizedSignal) return []
 
-  const expandedTerms = FORMATION_THEME_EXPANSIONS
-    .filter((theme) => theme.markers.some((marker) => new RegExp(`\\b${escapeRegExp(marker)}\\b`).test(normalizedSignal)))
-    .flatMap((theme) => theme.queries)
-
   const directTerms = signalTexts.map(normalizeFormationAnchorTerm).filter(Boolean)
   const tokenTerms = normalizedSignal
     .split(' ')
     .filter((token) => token.length >= 3)
     .filter((token) => !FORMATION_ANCHOR_STOPWORDS.has(token))
 
-  return uniqueSearchQueries([...expandedTerms, ...directTerms, ...tokenTerms]).slice(0, 18)
+  return uniqueSearchQueries([...directTerms, ...tokenTerms]).slice(0, 18)
 }
 
 function textMatchesFormationAnchors(value, anchorTerms = []) {
@@ -641,13 +624,39 @@ function normalizePercentageMatchScore(value) {
   return Math.max(1, Math.min(100, Math.round(percent)))
 }
 
-function normalizeCatalogRelevanceScore(value) {
+function stableScoreHash(parts = []) {
+  const text = (Array.isArray(parts) ? parts : [parts])
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .join('|')
+  if (!text) return 0
+
+  let hash = 0
+  for (let index = 0; index < text.length; index += 1) {
+    hash = ((hash << 5) - hash + text.charCodeAt(index)) | 0
+  }
+  return Math.abs(hash)
+}
+
+function buildStableMatchScore(seedParts, min = 68, max = 92) {
+  const range = Math.max(1, max - min + 1)
+  return min + (stableScoreHash(seedParts) % range)
+}
+
+function buildScoreOffset(seedParts, spread = 7) {
+  const hasSeed = (Array.isArray(seedParts) ? seedParts : [seedParts]).some((part) => String(part || '').trim())
+  if (!hasSeed) return 0
+  return (stableScoreHash(seedParts) % spread) - Math.floor(spread / 2)
+}
+
+function normalizeCatalogRelevanceScore(value, seedParts = []) {
   const score = Number(value)
   if (!Number.isFinite(score) || score <= 0) return null
 
   const cappedScore = Math.min(score, 24)
   const normalized = 58 + Math.sqrt(cappedScore / 24) * 38
-  return Math.max(58, Math.min(96, Math.round(normalized)))
+  const withTieBreak = normalized + buildScoreOffset(seedParts)
+  return Math.max(58, Math.min(96, Math.round(withTieBreak)))
 }
 
 function flattenTextParts(value) {
@@ -753,101 +762,6 @@ function buildTargetedFormationQueries(query, targetLevel) {
   return [cleanQuery]
 }
 
-function buildLevelFallbackPlans(intent, profile = {}, analysis, extraText = '') {
-  if (intent === 'metiers') return []
-  const targetLevel = getTargetStudyLevel(profile)
-  if (!targetLevel || targetLevel < 5) return []
-  const block = getAnalysisBlock(analysis) || {}
-  const sourceText = `${extraText} ${block.personalityAnalysis || ''} ${block.skillsAssessment || ''}`
-  const themes = [
-    extractKeywords(sourceText),
-    'marketing digital',
-    'informatique data',
-    'commerce management',
-    'communication digitale',
-    'ingenierie projet'
-  ].filter(Boolean)
-  const uniqueThemes = Array.from(new Set(themes)).slice(0, 5)
-
-  return uniqueThemes.flatMap((theme) => [
-    { title: `Master ${theme}`, kind: 'formation', query: `master ${theme}`, reason: 'Niveau Bac +5 visé' },
-    { title: `MBA ${theme}`, kind: 'formation', query: `mba ${theme}`, reason: 'Niveau Bac +5 visé' },
-    { title: `École d'ingénieur ${theme}`, kind: 'formation', query: `ingénieur ${theme}`, reason: 'Niveau Bac +5 visé' }
-  ]).slice(0, 8)
-}
-
-function buildInitialPlansPrompt(intent, analysis, microProfile) {
-  const block = getAnalysisBlock(analysis) || {}
-  const targetLevel = String(microProfile?.target_level || '').trim()
-  return `Tu es Zélia. Sélectionne des mots-clés de recherche pour proposer un premier deck de swipes.
-Retourne uniquement un JSON valide, tableau de 6 à 8 objets: [{"kind":"formation","query":"...","title":"...","reason":"..."}].
-Types autorisés: ${intent === 'both' ? 'formation et metier' : intent === 'metiers' ? 'metier uniquement' : 'formation uniquement'}.
-${intent === 'both' ? 'Important: retourne au moins 2 objets kind="formation" et 2 objets kind="metier".' : ''}
-Chaque query doit contenir 2 à 4 mots utiles, pas de phrase longue.
-${targetLevel && targetLevel !== 'open' ? `Niveau d'études visé: ${targetLevel}. Si l'objectif est Bac +5, privilégie master, mastère, MBA, MSc ou ingénieur dans les recherches formations.` : ''}
-
-Analyse personnalité: ${block.personalityAnalysis || ''}
-Compétences: ${block.skillsAssessment || ''}
-Contexte déjà répondu avant les propositions: ${JSON.stringify(microProfile || {})}
-Métiers déjà proposés: ${(block.jobRecommendations || []).map(pickJobTitle).filter(Boolean).join(' | ') || 'aucun'}
-Formations déjà proposées: ${(block.studyRecommendations || []).map(pickStudyTitle).filter(Boolean).join(' | ') || 'aucune'}`
-}
-
-function buildCandidatePreselectionPrompt({ intent, analysis, microProfile, candidates }) {
-  const block = getAnalysisBlock(analysis) || {}
-  const targetLevel = String(microProfile?.target_level || '').trim()
-  const rejectedText = Array.isArray(microProfile?.rejected) ? microProfile.rejected.filter(Boolean).join(' | ') : ''
-  const likedText = Array.isArray(microProfile?.liked) ? microProfile.liked.filter(Boolean).join(' | ') : ''
-  const compactCandidates = candidates.map((candidate) => ({
-    id: candidate.id,
-    type: candidate.type,
-    title: candidate.title,
-    subtitle: candidate.subtitle,
-    source: candidate.sourceTable,
-    inferredLevel: candidate.type === 'formation' ? inferFormationStudyLevel(candidate) : null,
-    score: candidate.matchScore || null
-  }))
-
-  const selectionCriteria = intent === 'metiers'
-    ? 'Mobilité, département, personnalité, forces et métiers déjà suggérés doivent influencer la décision.'
-    : 'Budget, niveau actuel, niveau visé, mobilité, département et matières fortes doivent influencer la décision.'
-
-  return `Tu es Zélia. Tu fais une présélection interne avant d'afficher les propositions à swiper.
-Pour chaque candidat, réponds Oui si la proposition doit être montrée maintenant, Non sinon.
-${selectionCriteria}
-${targetLevel && targetLevel !== 'open' ? `Niveau d'études visé: ${targetLevel}. Pour une formation, réponds Non si elle est clairement sous ce niveau. Exemple: BTS, DUT, BUT ou Bac+2/Bac+3 doivent être refusés pour un objectif Bac +5.` : ''}
-${rejectedText ? `Propositions déjà refusées: ${rejectedText}. Réponds Non aux candidats identiques ou trop proches.` : ''}
-${likedText ? `Propositions gardées: ${likedText}. Tu peux garder des candidats proches uniquement s'ils respectent aussi les autres contraintes.` : ''}
-${intent === 'both' ? 'Comme l’utilisateur a choisi "Les deux", garde des formations ET des métiers quand c’est cohérent.' : ''}
-Retourne uniquement un JSON valide, tableau d'objets: [{"id":"...","answer":"Oui"},{"id":"...","answer":"Non"}].
-
-Intention: ${intent}
-Analyse personnalité: ${block.personalityAnalysis || ''}
-Forces: ${block.skillsAssessment || ''}
-Contexte répondu avant propositions: ${JSON.stringify(microProfile || {})}
-Candidats: ${JSON.stringify(compactCandidates)}`
-}
-
-function buildFinalPlansPrompt({ intent, analysis, microProfile, likedProposals, rejectedProposals }) {
-  const block = getAnalysisBlock(analysis) || {}
-  const targetLevel = String(microProfile?.target_level || '').trim()
-  const searchScope = intent === 'both'
-    ? 'Les formations seront recherchées dans formation_france. Les métiers sont affinés séparément par Gemini à cette étape; la base métiers sera interrogée seulement après validation utilisateur.'
-    : 'Les formations seront recherchées dans formation_france.'
-  return `Tu es Zélia. Tu dois préparer une recherche finale intelligente. ${searchScope}
-Retourne uniquement un JSON valide, tableau de 6 à 8 objets: [{"kind":"formation","query":"...","title":"...","reason":"..."}].
-Types autorisés: ${intent === 'both' ? 'formation et metier' : intent === 'metiers' ? 'metier uniquement' : 'formation uniquement'}.
-Chaque query doit contenir 2 à 4 mots utiles.
-${targetLevel && targetLevel !== 'open' ? `Niveau d'études visé: ${targetLevel}. Si l'objectif est Bac +5, génère des recherches de niveau Master, Mastère, MBA, MSc ou école d'ingénieur. N'utilise pas BTS, DUT, BUT, Bac+2 ou Bac+3 comme piste finale.` : ''}
-Tu dois respecter les swipes: ne repropose jamais une formation ou un métier refusé. Si tout a été refusé, repars du profil et propose de nouvelles recherches.
-
-Avatar/profil choisi: conservé côté application.
-Analyse personnalité: ${block.personalityAnalysis || ''}
-Contexte complémentaire: ${JSON.stringify(microProfile || {})}
-Swipes gardés: ${likedProposals.map((item) => `${item.type}: ${item.title}`).join(' | ') || 'aucun'}
-Swipes refusés: ${rejectedProposals.map((item) => `${item.type}: ${item.title}`).join(' | ') || 'aucun'}`
-}
-
 function normalizeFormation(item, index) {
   const nm = Array.isArray(item?.nm) ? item.nm.find(Boolean) : ''
   const formationTitle = nm || item?.formation_name || item?.nmc || 'Formation'
@@ -868,56 +782,52 @@ function normalizeFormation(item, index) {
     sourceTable: 'formation_france',
     logoKind: 'formation',
     matchScore: item?.score !== undefined && item?.score !== null
-      ? normalizeCatalogRelevanceScore(item.score)
+      ? normalizeCatalogRelevanceScore(item.score, [formationTitle, school, place, item?.id, index])
       : normalizePercentageMatchScore(item?.match_score),
     raw: item
   }
 }
 
-function normalizeAiFormationCandidate(item, index) {
-  const title = cleanDetailText(item?.title || item?.formation || item?.degree || item?.diploma || item?.name, 120)
+function normalizeAnalysisFormationCandidate(item, index) {
+  const title = cleanDetailText(pickStudyTitle(item), 120)
   if (!title) return null
 
-  const summary = cleanDetailText(item?.summary || item?.description || item?.why || item?.reason, 220)
-  const why = cleanDetailText(item?.why || item?.reason || item?.fit || '', 260)
-  const level = cleanDetailText(item?.level || item?.niveau || item?.diplomaLevel || item?.diploma_level || '', 80)
-  const keywords = compactTags([item?.keywords, item?.motsCles, item?.searchKeywords, item?.search_terms]).slice(0, 6)
-  const schoolTypes = compactTags([item?.schoolTypes, item?.school_types, item?.etablissements, item?.schools]).slice(0, 4)
-  const constraints = compactTags([item?.constraints, item?.contraintes, item?.watchOut, item?.points_attention]).slice(0, 4)
+  const summary = cleanDetailText(item?.type || item?.description || item?.summary || 'Piste cohérente avec ton profil', 220)
+  const keywords = compactTags([item?.keywords, extractKeywords(`${title} ${summary}`), title]).slice(0, 6)
   const subtitle = cleanDetailText([
     summary,
-    level,
     keywords.length ? keywords.slice(0, 3).join(' · ') : ''
   ].filter(Boolean).join(' - '), 190)
 
   return {
-    id: `ai-formation-${aiJobSlug(title, index)}-${index}`,
+    id: `analysis-formation-${aiJobSlug(title, index)}-${index}`,
     rawId: null,
     type: 'formation',
     title,
     subtitle: subtitle || 'Piste de formation à tester',
-    source: 'Suggestion Zélia',
-    sourceTable: 'gemini_formations',
+    source: 'Bilan Zélia',
+    sourceTable: 'analysis_formations',
     logoKind: 'formation',
-    matchScore: normalizePercentageMatchScore(item?.matchScore ?? item?.match_score ?? item?.score),
+    matchScore: buildStableMatchScore(['analysis-formation', title, summary, index], 68, 92),
     raw: {
       formation_name: title,
       nm: [title],
       summary,
-      why,
+      why: summary,
       keywords,
-      schoolTypes,
-      constraints,
-      diploma_level: level
+      schoolTypes: [],
+      constraints: [],
+      diploma_level: title
     }
   }
 }
 
-function normalizeAiFormationCandidates(value, limit = AI_FORMATION_DECK_SIZE) {
-  const items = Array.isArray(value) ? value : Array.isArray(value?.formations) ? value.formations : []
+function getAnalysisFormationCandidates(analysis, limit = AI_FORMATION_DECK_SIZE) {
+  const block = getAnalysisBlock(analysis) || {}
+  const items = Array.isArray(block.studyRecommendations) ? block.studyRecommendations : []
   const seen = new Set()
   return items
-    .map(normalizeAiFormationCandidate)
+    .map(normalizeAnalysisFormationCandidate)
     .filter(Boolean)
     .filter((candidate) => {
       const key = getCandidateFormationDecisionKey(candidate) || normalizeDiversityText(candidate.title)
@@ -928,86 +838,49 @@ function normalizeAiFormationCandidates(value, limit = AI_FORMATION_DECK_SIZE) {
     .slice(0, limit)
 }
 
-function compactPromptText(value, maxLength = 650) {
-  const text = String(value || '').replace(/\s+/g, ' ').trim()
-  if (text.length <= maxLength) return text
-  return `${text.slice(0, maxLength).trim()}...`
+function normalizeAnalysisJobCandidate(item, index) {
+  const title = cleanDetailText(pickJobTitle(item), 90)
+  if (!title) return null
+
+  const skills = compactTags([item?.skills, item?.competences, item?.strengths]).slice(0, 5)
+  const summary = cleanDetailText(item?.summary || item?.description || item?.why || (skills.length ? skills.join(' · ') : 'Métier cohérent avec ton profil'), 220)
+  const constraints = compactTags([item?.constraints, item?.contraintes, item?.watchOut]).slice(0, 4)
+  const training = cleanDetailText(item?.training || item?.studies || item?.formation || item?.access || '', 160)
+  return {
+    id: `analysis-metier-${aiJobSlug(title, index)}-${index}`,
+    rawId: null,
+    type: 'metier',
+    title,
+    subtitle: summary || 'Métier proposé selon ton profil',
+    source: 'Bilan Zélia',
+    sourceTable: 'analysis_metiers',
+    logoKind: 'metier',
+    matchScore: buildStableMatchScore(['analysis-metier', title, summary, skills.join('|'), index], 68, 92),
+    raw: {
+      title,
+      summary,
+      why: summary,
+      skills,
+      constraints,
+      training
+    }
+  }
 }
 
-function compactMicroProfileForAi(profile = {}) {
-  return JSON.stringify({
-    budget: profile.budget || '',
-    grade_confidence: profile.grade_confidence || '',
-    school_level: profile.school_level || '',
-    target_level: profile.target_level || '',
-    study_location: profile.study_location || '',
-    strong_subjects: Array.isArray(profile.strong_subjects)
-      ? profile.strong_subjects.slice(0, 6)
-      : profile.strong_subjects || ''
-  })
-}
-
-function buildAiFormationDeckPrompt({ analysis, microProfile, department, count = AI_FORMATION_DECK_SIZE }) {
+function getAnalysisJobCandidates(analysis, limit = AI_JOB_DECK_SIZE) {
   const block = getAnalysisBlock(analysis) || {}
-  const targetLevel = String(microProfile?.target_level || '').trim()
-  const studyRecommendations = (block.studyRecommendations || []).map(pickStudyTitle).filter(Boolean).slice(0, 6).join(' | ') || 'aucune'
-  const jobRecommendations = (block.jobRecommendations || []).map(pickJobTitle).filter(Boolean).slice(0, 6).join(' | ') || 'aucun'
-  return `Tu es Zélia. Propose un deck de pistes de formations à swiper pour affiner l'orientation de l'utilisateur.
-Retourne uniquement un JSON valide: un tableau de ${count} objets exactement.
-Schéma obligatoire: [{"title":"Piste de formation précise","summary":"max 12 mots","why":"max 16 mots","keywords":["2 à 4 mots"],"schoolTypes":["type court"],"constraints":["point court"],"level":"niveau visé","matchScore":82}].
-
-Règles:
-- Ces propositions servent uniquement aux swipes gauche/droite, elles ne sont pas la liste finale.
-- Ne cherche pas dans formation_france et ne mentionne aucune table à l'utilisateur.
-- Les pistes doivent découler du profil, des matières fortes, du niveau visé et des studyRecommendations déjà produites.
-- Utilise des intitulés proches des formations françaises réelles: BTS, BUT, Licence, Double licence, DN MADE, PASS/LAS, IFSI, formation d'ingénieur, école de commerce, diplôme d'université, formation professionnelle, BTS agricole, CPES, C.M.I.
-- Prends en compte aussi les voies concrètes, techniques, manuelles et de terrain quand le profil s'y prête: bâtiment, industrie, maintenance, agriculture, hôtellerie-restauration, esthétique, santé, social, environnement, audiovisuel.
-- Varie les univers pour apprendre des swipes: scientifique, technique, manuel, soin, social, commerce, gestion, création, numérique, environnement, culture.
-- Les keywords doivent être courts et utiles, par exemple "BUT génie civil", "DN MADE graphisme", "IFSI", "CFA bâtiment", "école ingénieur".
-${targetLevel && targetLevel !== 'open' ? `- Niveau d'études visé: ${targetLevel}. Respecte ce niveau sauf si le profil montre une forte hésitation.` : ''}
-- matchScore est un entier entre 55 et 96.
-
-Analyse personnalité: ${compactPromptText(block.personalityAnalysis, 650)}
-Forces: ${compactPromptText(block.skillsAssessment, 450)}
-Formations déjà suggérées dans le bilan: ${studyRecommendations}
-Métiers déjà suggérés dans le bilan: ${jobRecommendations}
-Contexte complémentaire: ${compactMicroProfileForAi(microProfile)}
-Département/localisation: ${department?.name || department?.code || department?.city || 'non précisé'}`
-}
-
-function buildFinalFormationKeywordPrompt({ analysis, microProfile, department, likedProposals, rejectedProposals, anchorTerms = [], count = AI_FORMATION_KEYWORD_COUNT }) {
-  const block = getAnalysisBlock(analysis) || {}
-  const targetLevel = String(microProfile?.target_level || '').trim()
-  const likedText = likedProposals.slice(0, 8).map((item) => compactPromptText(`${item.title} - ${item.subtitle || item.raw?.why || ''} - ${(item.raw?.keywords || []).join(', ')}`, 180)).join(' | ') || 'aucun'
-  const rejectedText = rejectedProposals.slice(0, 10).map((item) => compactPromptText(`${item.title} - ${item.subtitle || item.raw?.why || ''}`, 140)).join(' | ') || 'aucun'
-  const studyRecommendations = (block.studyRecommendations || []).map(pickStudyTitle).filter(Boolean).slice(0, 6).join(' | ') || 'aucune'
-
-  return `Tu es Zélia. Génère maintenant les mots-clés de recherche pour trouver les vraies formations.
-Retourne uniquement un JSON valide: un tableau de ${count} objets exactement.
-Schéma obligatoire: [{"kind":"formation","query":"mots clés courts","title":"intention de recherche","reason":"lien avec profil et swipes"}].
-
-Règles:
-- Tu ne retournes pas de formations finales: tu retournes uniquement des requêtes qui seront cherchées dans formation_france.nm et formation_france.etab_nom.
-- Les résultats finaux doivent provenir de formation_france, pas de Gemini.
-- Chaque query doit contenir 2 à 5 mots utiles, sans phrase longue ni ponctuation inutile.
-- Les query doivent ressembler au vocabulaire réel de formation_france.nm: "BTS métiers eau", "BUT génie électrique", "Licence sciences éducation", "DN MADE graphisme", "formation ingénieur génie civil", "PASS santé", "BTS agricole", "formation professionnelle bâtiment".
-- Tu peux aussi utiliser des mots d'etab_nom quand ils aident: "IFSI", "IUT", "CFA", "lycée agricole", "université", "école ingénieur", "école commerce", "CNAM", "GRETA".
-- Appuie-toi fortement sur les studyRecommendations, le profil, les swipes gardés et les swipes refusés.
-- Si au moins une formation a été gardée, toutes les query doivent rester dans la même famille métier/formation que ces swipes gardés. N'élargis pas aux autres studyRecommendations.
-${anchorTerms.length ? `- Mots-clés de famille détectés dans les swipes gardés: ${anchorTerms.slice(0, 12).join(', ')}. Toutes les query doivent reprendre au moins un de ces axes.` : ''}
-- Exemple: si la formation gardée touche à l'audiovisuel, les query doivent rester sur cinéma, audiovisuel, ingénieur son, montage, cadrage, image, réalisation ou métiers du son.
-- Ne repropose pas une famille clairement refusée, ni une requête trop proche d'un refus.
-- Si tout a été refusé, repars du profil et propose de nouvelles recherches réalistes.
-${targetLevel && targetLevel !== 'open' ? `- Niveau d'études visé: ${targetLevel}. Si l'objectif est Bac +5, privilégie master, mastère, MBA, MSc, formation ingénieur ou école de commerce. N'utilise BTS, BUT ou Bac+3 que si les swipes gardés vont clairement dans ce sens.` : ''}
-- Couvre aussi les formations concrètes, techniques, manuelles et de terrain si le profil ou les swipes les rendent pertinentes.
-
-Analyse personnalité: ${compactPromptText(block.personalityAnalysis, 650)}
-Forces: ${compactPromptText(block.skillsAssessment, 450)}
-StudyRecommendations: ${studyRecommendations}
-Contexte complémentaire: ${compactMicroProfileForAi(microProfile)}
-Département/localisation: ${department?.name || department?.code || department?.city || 'non précisé'}
-Swipes formations gardés: ${likedText}
-Swipes formations refusés: ${rejectedText}`
+  const items = Array.isArray(block.jobRecommendations) ? block.jobRecommendations : []
+  const seen = new Set()
+  return items
+    .map(normalizeAnalysisJobCandidate)
+    .filter(Boolean)
+    .filter((candidate) => {
+      const key = getCandidateJobDecisionKey(candidate)
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .slice(0, limit)
 }
 
 function aiJobSlug(value, index) {
@@ -1079,7 +952,7 @@ function buildCandidateDetail(candidate) {
   const raw = candidate?.raw || {}
 
   if (candidate?.type === 'metier') {
-    if (candidate?.sourceTable === 'gemini_metiers') {
+    if (candidate?.sourceTable === 'gemini_metiers' || candidate?.sourceTable === 'analysis_metiers') {
       return {
         typeLabel: 'Métier',
         title: candidate.title,
@@ -1110,7 +983,7 @@ function buildCandidateDetail(candidate) {
     }
   }
 
-  if (candidate?.sourceTable === 'gemini_formations') {
+  if (candidate?.sourceTable === 'gemini_formations' || candidate?.sourceTable === 'analysis_formations') {
     return {
       typeLabel: 'Formation',
       title: candidate.title,
@@ -1150,7 +1023,7 @@ function buildCandidateDetail(candidate) {
 function pickCandidateRawSummary(candidate) {
   const raw = candidate?.raw || {}
   if (candidate?.type === 'metier') {
-    if (candidate?.sourceTable === 'gemini_metiers') {
+    if (candidate?.sourceTable === 'gemini_metiers' || candidate?.sourceTable === 'analysis_metiers') {
       return {
         title: raw.title || candidate.title || '',
         summary: raw.summary || '',
@@ -1180,7 +1053,7 @@ function pickCandidateRawSummary(candidate) {
     }
   }
 
-  if (candidate?.sourceTable === 'gemini_formations') {
+  if (candidate?.sourceTable === 'gemini_formations' || candidate?.sourceTable === 'analysis_formations') {
     return {
       formation_name: raw.formation_name || candidate.title || '',
       nm: Array.isArray(raw.nm) ? raw.nm : (raw.nm ? [raw.nm] : []),
@@ -1205,7 +1078,7 @@ function pickCandidateRawSummary(candidate) {
   }
 }
 
-function serializeFinalCandidate(candidate) {
+function serializeFinalCandidate(candidate, requestMoreInformation = candidate?.type === 'formation') {
   const display = getCandidateDisplay(candidate)
   const details = buildCandidateDetail(candidate)
   return {
@@ -1217,6 +1090,7 @@ function serializeFinalCandidate(candidate) {
     source: candidate.source,
     sourceTable: candidate.sourceTable,
     partner: Boolean(candidate.partner),
+    requestMoreInformation: candidate.type === 'formation' && requestMoreInformation,
     matchScore: candidate.matchScore || null,
     detail: {
       typeLabel: details.typeLabel,
@@ -1239,7 +1113,7 @@ function getCandidateDisplay(candidate) {
     }
   }
 
-  if (candidate?.sourceTable === 'gemini_formations') {
+  if (candidate?.sourceTable === 'gemini_formations' || candidate?.sourceTable === 'analysis_formations') {
     return {
       title: candidate?.title || '',
       subtitle: candidate?.subtitle || ''
@@ -1442,7 +1316,7 @@ function isDatabaseCandidate(candidate) {
 }
 
 function isConcreteFinalCandidate(candidate) {
-  return isDatabaseCandidate(candidate) || candidate?.sourceTable === 'ecoles_partenaires' || candidate?.sourceTable === 'gemini_metiers'
+  return isDatabaseCandidate(candidate) || candidate?.sourceTable === 'ecoles_partenaires' || candidate?.sourceTable === 'gemini_metiers' || candidate?.sourceTable === 'analysis_metiers'
 }
 
 function getFormationSearchDepartment(department = {}) {
@@ -1541,8 +1415,8 @@ function phaseIndex(phase) {
     'analysis',
     'personality',
     'intent',
-    'searchIntro',
     'info',
+    'profileIdentity',
     'proposalSearch',
     'proposals',
     'finalSearch',
@@ -1554,6 +1428,7 @@ function phaseIndex(phase) {
 export default function OrientationFlow() {
   const navigate = useNavigate()
   const dragStartRef = useRef(null)
+  const [initialProfileIdentity] = useState(() => normalizeProfileIdentity(getStoredJson(PROFILE_IDENTITY_KEY, DEFAULT_PROFILE_IDENTITY)))
   const [phase, setPhase] = useState('questions')
   const [questions, setQuestions] = useState([])
   const [questionIndex, setQuestionIndex] = useState(0)
@@ -1575,7 +1450,15 @@ export default function OrientationFlow() {
   const [microProfile, setMicroProfile] = useState(() => getStoredJson('orientation_micro_profile', {}))
   const [finalCandidates, setFinalCandidates] = useState([])
   const [checkedIds, setCheckedIds] = useState([])
+  const [requestInfoIds, setRequestInfoIds] = useState([])
   const [busyMessage, setBusyMessage] = useState('')
+  const [profileIdentity, setProfileIdentity] = useState(initialProfileIdentity)
+  const [profileIdentityComplete, setProfileIdentityComplete] = useState(() => (
+    localStorage.getItem(PROFILE_IDENTITY_COMPLETE_KEY) === 'true' && isProfileIdentityComplete(initialProfileIdentity)
+  ))
+  const profileIdentityCompleteRef = useRef(profileIdentityComplete)
+  const [profileIdentitySaving, setProfileIdentitySaving] = useState(false)
+  const [profileIdentityError, setProfileIdentityError] = useState('')
 
   const currentQuestion = questions[questionIndex]
   const currentProposal = proposalCandidates[proposalIndex]
@@ -1589,7 +1472,23 @@ export default function OrientationFlow() {
     ].filter(Boolean)
   }, [analysisBlock])
 
-  const zeliaSpeaking = phase === 'searchIntro' || phase === 'analysis' || phase === 'proposalSearch' || phase === 'finalSearch'
+  const hydrateProfileIdentity = useCallback((profile) => {
+    const incomingIdentity = normalizeProfileIdentity(profile)
+    if (!incomingIdentity.firstName && !incomingIdentity.lastName && !incomingIdentity.gender) return
+
+    setProfileIdentity((current) => {
+      const nextIdentity = mergeProfileIdentity(current, incomingIdentity)
+      localStorage.setItem(PROFILE_IDENTITY_KEY, JSON.stringify(nextIdentity))
+      if (isProfileIdentityComplete(nextIdentity)) {
+        profileIdentityCompleteRef.current = true
+        setProfileIdentityComplete(true)
+        localStorage.setItem(PROFILE_IDENTITY_COMPLETE_KEY, 'true')
+      }
+      return nextIdentity
+    })
+  }, [])
+
+  const zeliaSpeaking = phase === 'analysis' || phase === 'proposalSearch' || phase === 'finalSearch'
   const displayedAvatarUrl = useMemo(() => {
     if (!zeliaSpeaking) return avatarUrl
     return modifyDicebearUrl(avatarUrl, { mouth: mouthAlt ? 'happy08' : null })
@@ -1646,6 +1545,7 @@ export default function OrientationFlow() {
       await saveAvatarToProfile()
       const profileResponse = await usersAPI.getProfile().catch(() => null)
       const profileDepartment = profileResponse?.data?.profile?.department || ''
+      hydrateProfileIdentity(profileResponse?.data?.profile || {})
       if (profileDepartment) {
         setUserDepartment((current) => ({ code: profileDepartment, name: current.name || profileDepartment }))
       }
@@ -1661,7 +1561,7 @@ export default function OrientationFlow() {
     } finally {
       setBusyMessage('')
     }
-  }, [answers, isAuthenticated, saveAvatarToProfile])
+  }, [answers, hydrateProfileIdentity, isAuthenticated, saveAvatarToProfile])
 
   useEffect(() => {
     let cancelled = false
@@ -1779,6 +1679,7 @@ export default function OrientationFlow() {
     if (userDepartment?.code || userDepartment?.name) return userDepartment
     const profileResponse = await usersAPI.getProfile().catch(() => null)
     const profile = profileResponse?.data?.profile || {}
+    hydrateProfileIdentity(profile)
     const institutionData = profile.institution_data && typeof profile.institution_data === 'object'
       ? profile.institution_data
       : {}
@@ -1826,8 +1727,9 @@ export default function OrientationFlow() {
     const collectFormationCandidates = async (plan) => {
       const query = plan.query || plan.title || ''
       try {
-        const queries = buildTargetedFormationQueries(query, targetLevel).slice(0, MAX_FORMATION_QUERY_VARIANTS)
-        const requestedPageSize = targetLevel >= 5 ? Math.max(pageSize, 24) : pageSize
+        const maxQueryVariants = searchContext.maxFormationQueryVariants || MAX_FORMATION_QUERY_VARIANTS
+        const queries = buildTargetedFormationQueries(query, targetLevel).slice(0, maxQueryVariants)
+        const requestedPageSize = targetLevel >= 5 ? Math.max(pageSize, 16) : pageSize
         let formationCandidates = []
         const queryWaves = queries.length > 1
           ? [[queries[0]], queries.slice(1)]
@@ -1842,16 +1744,18 @@ export default function OrientationFlow() {
         return filterCandidatesByTargetStudyLevel(formationCandidates, searchContext.profile || searchContext)
       } catch (searchError) {
         console.warn('Formation candidate search failed', query, searchError)
-        throw searchError
+        return []
       }
     }
 
     const searchTasks = []
+    const maxFormationPlans = searchContext.maxFormationPlans || plans.length
 
     for (const plan of plans) {
       if (shouldSearchFormations && plan.kind !== 'metier') {
         searchTasks.push(() => collectFormationCandidates(plan))
       }
+      if (searchTasks.length >= maxFormationPlans) break
     }
 
     const candidateGroups = await runWithConcurrency(searchTasks, CATALOG_SEARCH_CONCURRENCY, (searchTask) => searchTask())
@@ -1869,174 +1773,58 @@ export default function OrientationFlow() {
     return fetchTableCandidates(plans, pageSize, intentValue, searchContext)
   }
 
-  const getAiFormationDeckCandidates = async (profile, department, count = AI_FORMATION_DECK_SIZE) => {
-    const targetLevel = getTargetStudyLevel(profile)
-    const retryLevelInstruction = targetLevel >= 5
-      ? `\n\nTentative suivante: la proposition précédente ne contenait pas assez de formations compatibles avec ${profile?.target_level || 'le niveau vise'}. Génère uniquement des formations Bac +5 ou plus: master, mastère, MBA, MSc, école spécialisée, école d'ingénieur ou cycle long. Évite BTS, BUT, DUT, Bac +2 et Bac +3.`
-      : targetLevel
-        ? `\n\nTentative suivante: la proposition précédente ne respectait pas assez le niveau ${profile?.target_level || 'vise'}. Génère uniquement des formations compatibles avec ce niveau.`
-        : ''
-
-    return retryAsync(async (attempt) => {
-      const response = await chatAPI.aiChat({
-        mode: 'advisor',
-        advisorType: 'orientation-formation-deck',
-        message: `${buildAiFormationDeckPrompt({ analysis: analysisData, microProfile: profile, department, count })}${attempt > 1 ? retryLevelInstruction : ''}`,
-        history: []
-      })
-      const candidates = normalizeAiFormationCandidates(parseJsonFromReply(response?.data?.reply), count)
-      if (!candidates.length) throw new Error('Gemini n’a pas généré de propositions formations exploitables')
-      const levelCompatibleCandidates = filterCandidatesByTargetStudyLevel(candidates, profile)
-      if (!levelCompatibleCandidates.length) throw new Error('Gemini n’a pas généré de propositions formations compatibles avec le niveau visé')
-      return levelCompatibleCandidates
-    }, {
-      attempts: AI_RETRY_ATTEMPTS,
-      label: 'Deck formations Gemini',
-      isValidResult: (candidates) => Array.isArray(candidates) && candidates.length > 0
-    })
-  }
-
-  const getFinalFormationSearchPlans = async (profile, department, liked = [], rejected = [], count = AI_FORMATION_KEYWORD_COUNT) => {
+  const buildDirectFormationSearchPlans = (profile, liked = [], count = FINAL_FORMATION_SEARCH_PLAN_COUNT) => {
     const likedFormations = liked.filter((candidate) => candidate?.type === 'formation')
-    const rejectedFormations = rejected.filter((candidate) => candidate?.type === 'formation')
     const anchorTerms = extractFormationAnchorTerms(likedFormations)
-
-    return retryAsync(async () => {
-      const response = await chatAPI.aiChat({
-        mode: 'advisor',
-        advisorType: 'orientation-formation-keywords',
-        message: buildFinalFormationKeywordPrompt({
-          analysis: analysisData,
-          microProfile: profile,
-          department,
-          likedProposals: likedFormations,
-          rejectedProposals: rejectedFormations,
-          anchorTerms,
-          count
-        }),
-        history: []
-      })
-      const aiPlans = normalizePlans(parseJsonFromReply(response?.data?.reply), 'formations', []).slice(0, count)
-      if (!aiPlans.length) throw new Error('Gemini n’a pas généré de mots-clés formations exploitables')
-      if (!likedFormations.length) return aiPlans
-      const anchoredAiPlans = filterFormationPlansByAnchorTerms(aiPlans, anchorTerms)
-      if (!anchoredAiPlans.length) throw new Error('Les mots-clés Gemini ne respectent pas les formations gardées')
-      return anchoredAiPlans.slice(0, count)
-    }, {
-      attempts: AI_RETRY_ATTEMPTS,
-      label: 'Mots-clés formations Gemini',
-      isValidResult: (plans) => Array.isArray(plans) && plans.length > 0
-    })
+    const directPlans = buildCatalogPlansFromCandidates(likedFormations)
+    const anchorPlans = likedFormations.length ? buildFormationAnchorPlans(likedFormations, count) : []
+    const analysisPlans = likedFormations.length
+      ? []
+      : buildAnalysisRecommendationPlans('formations', analysisData, flattenTextParts(profile).join(' '))
+    const plans = uniquePlans([...directPlans, ...anchorPlans, ...analysisPlans])
+    const scopedPlans = likedFormations.length ? filterFormationPlansByAnchorTerms(plans, anchorTerms) : plans
+    return (scopedPlans.length ? scopedPlans : directPlans).slice(0, count)
   }
 
-  const getAiJobDeckCandidates = async (profile, department, count = AI_JOB_DECK_SIZE) => {
-    return retryAsync(async () => {
-      const response = await chatAPI.aiChat({
-        mode: 'advisor',
-        advisorType: 'orientation-job-deck',
-        message: buildAiJobDeckPrompt({ analysis: analysisData, microProfile: profile, department, count }),
-        history: []
+  const getInitialFormationDeckCandidates = async (profile, department, count = AI_FORMATION_DECK_SIZE) => {
+    const analysisCandidates = filterCandidatesByTargetStudyLevel(getAnalysisFormationCandidates(analysisData, count), profile)
+    const analysisPlans = buildAnalysisRecommendationPlans('formations', analysisData, flattenTextParts(profile).join(' ')).slice(0, count)
+    const catalogCandidates = analysisPlans.length
+      ? await fetchTableCandidates(analysisPlans, count, 'formations', {
+        studyLocation: profile.study_location,
+        department,
+        profile,
+        maxFormationPlans: Math.min(analysisPlans.length, count),
+        maxFormationQueryVariants: 1
+      }).catch((catalogError) => {
+        console.warn('Initial formation catalog search failed', catalogError)
+        return []
       })
-      const candidates = normalizeAiJobCandidates(parseJsonFromReply(response?.data?.reply), count)
-      if (candidates.length < count) throw new Error(`Gemini n'a généré que ${candidates.length}/${count} métiers à swiper`)
-      return candidates
-    }, {
-      attempts: 2,
-      label: 'Deck métiers Gemini',
-      isValidResult: (candidates) => Array.isArray(candidates) && candidates.length >= count
-    })
+      : []
+
+    return diversifyCandidates(
+      filterCandidatesByTargetStudyLevel(mergeUniqueCandidates(analysisCandidates, catalogCandidates), profile),
+      { maxPerFormation: 1, maxPerSchool: 2 }
+    ).slice(0, count)
   }
 
-  const getFinalAiJobCandidates = async (profile, department, liked = [], rejected = [], count = AI_FINAL_JOB_COUNT) => {
+  const getInitialJobDeckCandidates = (count = AI_JOB_DECK_SIZE) => getAnalysisJobCandidates(analysisData, count)
+
+  const getFinalFormationSearchPlans = (profile, liked = [], count = AI_FORMATION_KEYWORD_COUNT) => {
+    const plans = buildDirectFormationSearchPlans(profile, liked, count)
+    if (!plans.length) throw new Error('Aucun mot-clé formation exploitable depuis le bilan et les swipes')
+    return plans
+  }
+
+  const getFinalJobCandidates = (profile, liked = [], rejected = [], count = AI_FINAL_JOB_COUNT) => {
     const likedJobs = liked.filter((candidate) => candidate?.type === 'metier')
     const rejectedJobs = rejected.filter((candidate) => candidate?.type === 'metier')
-    const swipedJobs = mergeUniqueCandidates(likedJobs, rejectedJobs)
-
-    return retryAsync(async (attempt) => {
-      const retryInstruction = attempt > 1
-        ? `\n\nTentative suivante: la liste précédente n'était pas assez distincte des swipes ou ne contenait pas ${count} métiers exploitables. Génère exactement ${count} nouveaux métiers, sans reprendre les titres swipés.`
-        : ''
-      const response = await chatAPI.aiChat({
-        mode: 'advisor',
-        advisorType: 'orientation-job-final',
-        message: `${buildAiFinalJobsPrompt({
-          analysis: analysisData,
-          microProfile: profile,
-          department,
-          likedProposals: likedJobs,
-          rejectedProposals: rejectedJobs,
-          count
-        })}${retryInstruction}`,
-        history: []
-      })
-      const candidates = diversifyCandidates(filterRejectedCandidates(
-        normalizeAiJobCandidates(parseJsonFromReply(response?.data?.reply), count),
-        swipedJobs,
-        []
-      ), { maxPerJobTitle: 1 }).slice(0, count)
-      if (candidates.length < count) {
-        throw new Error(`Gemini n'a généré que ${candidates.length}/${count} métiers distincts après filtrage des swipes`)
-      }
-      return candidates
-    }, {
-      attempts: 2,
-      label: 'Affinage métiers Gemini',
-      isValidResult: (candidates) => Array.isArray(candidates) && candidates.length >= count
-    })
-  }
-
-  const preselectCandidatesWithAi = async (candidates, profile, nextIntent, options = {}) => {
-    const perKind = options.perKind || PRESELECTED_CANDIDATES_PER_KIND
-    const maxCount = options.maxCount || (nextIntent === 'both'
-      ? perKind * 2
-      : perKind)
-    const candidateLimit = options.candidateLimit || MAX_PROPOSAL_DECK
-    const fallbackDeck = balanceCandidatesForIntent(candidates, candidates, nextIntent, perKind, maxCount)
-    if (!candidates.length) return []
-
-    try {
-      const response = await chatAPI.aiChat({
-        mode: 'advisor',
-        advisorType: 'orientation-candidate-preselection',
-        message: buildCandidatePreselectionPrompt({
-          intent: nextIntent,
-          analysis: analysisData,
-          microProfile: profile,
-          candidates: candidates.slice(0, candidateLimit)
-        }),
-        history: []
-      })
-      const decisions = parseJsonFromReply(response?.data?.reply)
-      const acceptedIds = new Set((Array.isArray(decisions) ? decisions : [])
-        .filter((decision) => {
-          const answer = String(decision?.answer || decision?.decision || decision?.status || '').toLowerCase()
-          return decision?.keep === true || decision?.ok === true || answer.startsWith('oui') || answer === 'yes'
-        })
-        .map((decision) => String(decision?.id || ''))
-        .filter(Boolean))
-      const accepted = candidates.filter((candidate) => acceptedIds.has(candidate.id))
-      return balanceCandidatesForIntent(accepted, candidates, nextIntent, perKind, maxCount)
-    } catch (preselectionError) {
-      console.warn('Zelia candidate preselection failed, using balanced candidates', preselectionError)
-      return fallbackDeck
-    }
-  }
-
-  const reviewFinalCandidatesWithAi = async (candidates, profile, nextIntent, rejectedProposals = [], liked = []) => {
-    if (!candidates.length) return []
-    const filteredByLevel = filterCandidatesByTargetStudyLevel(candidates, profile)
-    const baseCandidates = filteredByLevel.length ? filteredByLevel : candidates
-    const reviewed = await preselectCandidatesWithAi(baseCandidates, {
-      ...profile,
-      rejected: rejectedProposals.map((candidate) => candidate.title).filter(Boolean).slice(0, 10),
-      liked: liked.map((candidate) => candidate.title).filter(Boolean).slice(0, 10)
-    }, nextIntent, {
-      perKind: nextIntent === 'both' ? Math.ceil(MAX_FINAL_RESULTS / 2) : MAX_FINAL_RESULTS,
-      maxCount: MAX_FINAL_RESULTS,
-      candidateLimit: Math.max(MAX_PROPOSAL_DECK, MAX_FINAL_RESULTS * 2)
-    })
-    const reviewedByLevel = filterCandidatesByTargetStudyLevel(reviewed, profile)
-    return reviewedByLevel.length ? reviewedByLevel : baseCandidates
+    const analysisJobs = getAnalysisJobCandidates(analysisData, count * 2)
+    return diversifyCandidates(filterRejectedCandidates(
+      mergeUniqueCandidates(likedJobs, analysisJobs),
+      rejectedJobs,
+      likedJobs
+    ), { maxPerJobTitle: 1 }).slice(0, count)
   }
 
   const beginContextQuestions = (nextIntent) => {
@@ -2046,7 +1834,7 @@ export default function OrientationFlow() {
     localStorage.setItem('orientation_micro_profile', JSON.stringify(nextProfile))
     setInfoIndex(0)
     setError('')
-    setPhase('searchIntro')
+    setPhase('info')
   }
 
   const startProposalDeck = async (profileOverride = microProfile, intentOverride = intent) => {
@@ -2061,6 +1849,14 @@ export default function OrientationFlow() {
     setMicroProfile(profile)
     localStorage.setItem('orientation_micro_profile', JSON.stringify(profile))
     setError('')
+    setProfileIdentityError('')
+    const shouldCollectIdentity = !profileIdentityCompleteRef.current || !hasCompletedProfileIdentityForIntent(nextIntent)
+    if (shouldCollectIdentity) {
+      setBusyMessage('')
+      setPhase('profileIdentity')
+      return
+    }
+
     setPhase('proposalSearch')
     setBusyMessage(nextIntent === 'metiers' ? 'Zélia prépare tes métiers à swiper' : FORMATION_SEARCH_WAITING_MESSAGE)
     try {
@@ -2069,17 +1865,16 @@ export default function OrientationFlow() {
         : await resolveUserDepartment()
       const savePromise = saveMicroProfile(profile, department)
       if (nextIntent !== 'metiers') await savePromise
-      const extraText = Object.values(profile).flat().join(' ')
       let deck = []
 
       if (nextIntent === 'metiers') {
-        deck = await getAiJobDeckCandidates(profile, department, AI_JOB_DECK_SIZE)
+        deck = getInitialJobDeckCandidates(AI_JOB_DECK_SIZE)
       } else if (nextIntent === 'formations') {
-        deck = await getAiFormationDeckCandidates(profile, department, AI_FORMATION_DECK_SIZE)
+        deck = await getInitialFormationDeckCandidates(profile, department, AI_FORMATION_DECK_SIZE)
       } else {
         const [formationDeck, jobDeck] = await Promise.all([
-          getAiFormationDeckCandidates(profile, department, PRESELECTED_CANDIDATES_PER_KIND + 1),
-          getAiJobDeckCandidates(profile, department, PRESELECTED_CANDIDATES_PER_KIND + 1)
+          getInitialFormationDeckCandidates(profile, department, PRESELECTED_CANDIDATES_PER_KIND + 1),
+          Promise.resolve(getInitialJobDeckCandidates(PRESELECTED_CANDIDATES_PER_KIND + 1))
         ])
         deck = balanceCandidatesForIntent(
           mergeUniqueCandidates(formationDeck, jobDeck),
@@ -2097,34 +1892,11 @@ export default function OrientationFlow() {
       deck = filterCandidatesByTargetStudyLevel(deck, profile)
       if (!deck.length) {
         if (nextIntent === 'metiers') {
-          throw new Error('Aucune proposition métiers Gemini exploitable')
+          throw new Error('Aucune proposition métiers exploitable depuis le bilan')
         }
         if (nextIntent === 'formations' || nextIntent === 'both') {
-          throw new Error('Aucune proposition formations exploitable après vérification du niveau visé')
+          throw new Error('Aucune proposition formations exploitable depuis le bilan après vérification du niveau visé')
         }
-        const fallbackPlans = buildFallbackPlans(nextIntent, analysisData, extraText)
-        const fallbackSourcePlans = buildLevelFallbackPlans(nextIntent, profile, analysisData, extraText)
-        const fallbackPlanDeck = (fallbackSourcePlans.length ? fallbackSourcePlans : fallbackPlans).map((plan, index) => ({
-          id: `fallback-${index}`,
-          rawId: null,
-          type: plan.kind === 'metier' ? 'metier' : 'formation',
-          title: plan.title || plan.query,
-          subtitle: plan.reason,
-          source: 'Suggestion',
-          sourceTable: 'fallback',
-          logoKind: plan.kind === 'metier' ? 'metier' : 'formation',
-          raw: plan
-        }))
-        const fallbackDeck = mergeUniqueCandidates(
-          fallbackPlanDeck
-        )
-        deck = filterCandidatesByTargetStudyLevel(balanceCandidatesForIntent(
-          fallbackDeck,
-          fallbackDeck,
-          nextIntent,
-          PRESELECTED_CANDIDATES_PER_KIND,
-          nextIntent === 'both' ? PRESELECTED_CANDIDATES_PER_KIND * 2 : PRESELECTED_CANDIDATES_PER_KIND
-        ), profile)
       }
       setProposalCandidates(deck)
       setProposalIndex(0)
@@ -2134,8 +1906,8 @@ export default function OrientationFlow() {
       if (nextIntent === 'metiers') savePromise.catch(() => null)
     } catch (proposalError) {
       console.error('Proposal deck error', proposalError)
-      setError('Impossible de charger les propositions pour le moment.')
-      setPhase('intent')
+      setProposalCandidates([])
+      setError("Je n'ai pas pu préparer une liste fiable à partir de ton bilan.")
     } finally {
       setBusyMessage('')
     }
@@ -2203,6 +1975,44 @@ export default function OrientationFlow() {
     })
   }
 
+  const updateProfileIdentityField = (field, value) => {
+    const nextIdentity = { ...profileIdentity, [field]: value }
+    setProfileIdentity(nextIdentity)
+    localStorage.setItem(PROFILE_IDENTITY_KEY, JSON.stringify(nextIdentity))
+    if (profileIdentityError) setProfileIdentityError('')
+  }
+
+  const submitProfileIdentity = async (event) => {
+    event.preventDefault()
+    const identity = normalizeProfileIdentity(profileIdentity)
+    if (!isProfileIdentityComplete(identity)) {
+      setProfileIdentityError('Complète les trois champs pour continuer.')
+      return
+    }
+
+    setProfileIdentitySaving(true)
+    setProfileIdentityError('')
+    try {
+      await usersAPI.updateProfile({
+        first_name: identity.firstName,
+        last_name: identity.lastName,
+        gender: identity.gender
+      })
+      setProfileIdentity(identity)
+      localStorage.setItem(PROFILE_IDENTITY_KEY, JSON.stringify(identity))
+      localStorage.setItem(PROFILE_IDENTITY_COMPLETE_KEY, 'true')
+      markProfileIdentityCompleteForIntent(intent)
+      profileIdentityCompleteRef.current = true
+      setProfileIdentityComplete(true)
+      await startProposalDeck(microProfile, intent)
+    } catch (profileError) {
+      console.error('Profile identity save failed', profileError)
+      setProfileIdentityError(profileError?.response?.data?.error || "Impossible d'enregistrer ces infos pour le moment.")
+    } finally {
+      setProfileIdentitySaving(false)
+    }
+  }
+
   const runFinalSearch = async (profileOverride = microProfile, options = {}) => {
     const profile = sanitizeMicroProfileForIntent({ ...microProfile, ...(profileOverride || {}) }, intent)
     const historySource = options.historyOverride || proposalHistory
@@ -2222,9 +2032,11 @@ export default function OrientationFlow() {
       const liked = likedSource
 
       if (intent === 'metiers') {
-        const finalJobs = await getFinalAiJobCandidates(profile, department, liked, rejectedProposals, AI_FINAL_JOB_COUNT)
+        const finalJobs = getFinalJobCandidates(profile, liked, rejectedProposals, AI_FINAL_JOB_COUNT)
+        if (!finalJobs.length) throw new Error('Aucun métier final exploitable depuis le bilan et les swipes')
         setFinalCandidates(finalJobs)
         setCheckedIds(finalJobs.map((candidate) => candidate.id))
+        setRequestInfoIds([])
         setPhase('final')
         savePromise.catch(() => null)
         return
@@ -2237,46 +2049,47 @@ export default function OrientationFlow() {
         department,
         profile
       }
-      const finalAiJobs = intent === 'both'
-        ? await getFinalAiJobCandidates(profile, department, liked, rejectedProposals, AI_FINAL_JOB_COUNT)
+
+      const finalJobs = intent === 'both'
+        ? getFinalJobCandidates(profile, liked, rejectedProposals, AI_FINAL_JOB_COUNT)
         : []
-
-      const dbCandidates = await retryAsync(async () => {
-        const formationPlans = await getFinalFormationSearchPlans(profile, department, liked, rejectedProposals, AI_FORMATION_KEYWORD_COUNT)
-        const [planDbCandidates, swipeDbCandidates] = await Promise.all([
-          fetchTableCandidates(formationPlans, 12, 'formations', searchContext),
-          hasLikedFormations
-            ? resolveCandidatesThroughCatalog(likedFormations, 8, 'formations', searchContext)
-            : Promise.resolve([])
-        ])
-        const likedDatabaseCandidates = filterCandidatesByTargetStudyLevel(liked.filter(isDatabaseCandidate), profile)
-        let strictCandidates = filterCandidatesByTargetStudyLevel(filterRejectedCandidates(
-          mergeUniqueCandidates(swipeDbCandidates, likedDatabaseCandidates, planDbCandidates),
-          rejectedProposals,
-          liked
-        ), profile)
-
-        if (hasLikedFormations) {
-          strictCandidates = filterCandidatesByFormationAnchors(strictCandidates, likedFormations)
-        }
-
-        strictCandidates = diversifyCandidates(strictCandidates, { maxPerFormation: 1, maxPerSchool: 2 })
-        if (!strictCandidates.length) {
-          throw new Error('Aucune formation concrete trouvee avec les mots-cles valides')
-        }
-        return strictCandidates
-      }, {
-        attempts: AI_RETRY_ATTEMPTS,
-        label: 'Recherche finale formations',
-        isValidResult: (candidates) => Array.isArray(candidates) && candidates.length > 0
-      })
-
-      const partnerCandidates = await orientationAPI.getMatchedSchools()
+      const partnerCandidatesPromise = orientationAPI.getMatchedSchools()
         .then((response) => (response?.data?.matched || []).map(normalizePartnerFormation))
         .catch((partnerError) => {
           console.warn('Matched partner schools failed', partnerError)
           return []
         })
+
+      const formationPlans = getFinalFormationSearchPlans(profile, liked, FINAL_FORMATION_SEARCH_PLAN_COUNT)
+      const [planDbCandidates, swipeDbCandidates, finalJobCandidates, partnerCandidates] = await Promise.all([
+        fetchTableCandidates(formationPlans, FINAL_FORMATION_PAGE_SIZE, 'formations', {
+          ...searchContext,
+          maxFormationPlans: FINAL_FORMATION_SEARCH_PLAN_COUNT,
+          maxFormationQueryVariants: MAX_FORMATION_QUERY_VARIANTS
+        }),
+        hasLikedFormations
+          ? resolveCandidatesThroughCatalog(likedFormations, 6, 'formations', {
+            ...searchContext,
+            maxFormationPlans: 2,
+            maxFormationQueryVariants: 1
+          })
+          : Promise.resolve([]),
+        Promise.resolve(finalJobs),
+        partnerCandidatesPromise
+      ])
+
+      const likedDatabaseCandidates = filterCandidatesByTargetStudyLevel(liked.filter(isDatabaseCandidate), profile)
+      let dbCandidates = filterCandidatesByTargetStudyLevel(filterRejectedCandidates(
+        mergeUniqueCandidates(swipeDbCandidates, likedDatabaseCandidates, planDbCandidates),
+        rejectedProposals,
+        liked
+      ), profile)
+
+      if (hasLikedFormations) {
+        dbCandidates = filterCandidatesByFormationAnchors(dbCandidates, likedFormations)
+      }
+
+      dbCandidates = diversifyCandidates(dbCandidates, { maxPerFormation: 1, maxPerSchool: 2 })
       const selectedPartnerCandidates = selectPartnerCandidatesForFinal(
         partnerCandidates,
         profile,
@@ -2286,17 +2099,22 @@ export default function OrientationFlow() {
         MAX_PARTNER_FINAL_RESULTS
       )
 
-      const finalList = composeFinalCandidates(mergeUniqueCandidates(dbCandidates, finalAiJobs), selectedPartnerCandidates, intent)
+      const finalList = composeFinalCandidates(mergeUniqueCandidates(dbCandidates, finalJobCandidates), selectedPartnerCandidates, intent)
+      if (!finalList.length) {
+        throw new Error('Aucune formation concrete trouvee avec les mots-cles valides')
+      }
       setFinalCandidates(finalList)
       setCheckedIds(finalList.slice(0, Math.min(5, finalList.length)).map((candidate) => candidate.id))
+      setRequestInfoIds(finalList.filter((candidate) => candidate.type === 'formation').map((candidate) => candidate.id))
       setPhase('final')
     } catch (finalError) {
       console.error('Final search error', finalError)
       setFinalCandidates([])
       setCheckedIds([])
+      setRequestInfoIds([])
       setError(intent === 'metiers'
-        ? "Je n'ai pas réussi à affiner des métiers cohérents après plusieurs tentatives. Réessaie dans quelques instants."
-        : "Je n'ai pas réussi à trouver des formations cohérentes après plusieurs tentatives. Réessaie dans quelques instants.")
+        ? "Je n'ai pas trouvé de métiers assez fiables avec les données disponibles."
+        : "Je n'ai pas trouvé de formations assez fiables avec les données disponibles.")
     } finally {
       setBusyMessage('')
     }
@@ -2309,14 +2127,32 @@ export default function OrientationFlow() {
     )
   }
 
-  const validateFinalSelection = async () => {
+  const persistFinalSelection = async (requestIds = requestInfoIds) => {
     const selectedCandidates = finalCandidates
       .filter((candidate) => checkedIds.includes(candidate.id))
 
-    setError('')
-    const selected = selectedCandidates.map(serializeFinalCandidate)
+    const requestIdSet = new Set(requestIds)
+    const selected = selectedCandidates.map((candidate) => serializeFinalCandidate(candidate, requestIdSet.has(candidate.id)))
     localStorage.setItem('orientation_final_selection', JSON.stringify(selected))
     await usersAPI.saveExtraInfo([{ question_id: 'orientation_final_selection', question_text: 'Sélection finale', answer_text: JSON.stringify(selected) }]).catch(() => null)
+    return selected
+  }
+
+  const toggleRequestInfo = (candidate) => {
+    if (candidate?.type !== 'formation') return
+    const currentIds = new Set(requestInfoIds)
+    if (currentIds.has(candidate.id)) currentIds.delete(candidate.id)
+    else currentIds.add(candidate.id)
+    const nextIds = [...currentIds]
+    setRequestInfoIds(nextIds)
+    persistFinalSelection(nextIds).catch((saveError) => {
+      console.warn('Final selection request info save failed', saveError)
+    })
+  }
+
+  const validateFinalSelection = async () => {
+    setError('')
+    await persistFinalSelection(requestInfoIds)
     setPhase('confirmed')
   }
 
@@ -2329,7 +2165,7 @@ export default function OrientationFlow() {
     return (
       <div className="orientation-stage">
         <div
-          className="orientation-card swipe-card"
+          className="orientation-card swipe-card question-card"
           tabIndex={0}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -2339,6 +2175,21 @@ export default function OrientationFlow() {
         >
           <span className="orientation-pill">{Math.min(questionIndex + 1, questions.length)} / {questions.length}</span>
           <h1>{cleanQuestionText(currentQuestion.contenu)}</h1>
+          {questionIndex === 0 && (
+            <div className="question-swipe-tutorial" aria-label="Glisse vers la gauche pour Non, vers la droite pour Oui">
+              <span className="swipe-tutorial-answer reject">
+                <i className="ph ph-arrow-left" aria-hidden="true" />
+                Non
+              </span>
+              <span className="swipe-tutorial-track" aria-hidden="true">
+                <span className="swipe-tutorial-cue" />
+              </span>
+              <span className="swipe-tutorial-answer accept">
+                Oui
+                <i className="ph ph-arrow-right" aria-hidden="true" />
+              </span>
+            </div>
+          )}
         </div>
         <div className="orientation-actions two">
           <button className="round-action reject" onClick={() => answerQuestion('Non')} aria-label="Non" title="Non">
@@ -2391,7 +2242,7 @@ export default function OrientationFlow() {
           ))}
         </div>
       </div>
-      <button className="primary-action" onClick={() => setPhase('intent')}>Continuer</button>
+      <button className="primary-action personality-continue" onClick={() => setPhase('intent')}>Continuer</button>
     </div>
   )
 
@@ -2450,22 +2301,6 @@ export default function OrientationFlow() {
     )
   }
 
-  const renderSearchIntro = () => (
-    <div className="orientation-stage compact">
-      <div className="orientation-card dialogue-card">
-        <div className="assistant-dialogue">
-          {renderAvatarFace('dialogue-avatar')}
-          <div className="speech-bubble">
-            <span className="orientation-pill">Recherche</span>
-            <h1>Ok, je cherche.</h1>
-            <p>{getSearchIntroText(intent)}</p>
-          </div>
-        </div>
-      </div>
-      <button className="primary-action" onClick={() => setPhase('info')}>Répondre</button>
-    </div>
-  )
-
   const renderMicroInfo = () => {
     const step = activeMicroSteps[infoIndex]
     if (!step) return null
@@ -2490,6 +2325,58 @@ export default function OrientationFlow() {
         {step.multi && (
           <button className="primary-action" onClick={() => startProposalDeck(microProfile)}>Voir les propositions</button>
         )}
+      </div>
+    )
+  }
+
+  const renderProfileIdentity = () => {
+    const identityNote = getProfileIdentityNote(intent)
+
+    return (
+      <div className="orientation-stage compact identity-stage">
+        <form className="orientation-card identity-card" onSubmit={submitProfileIdentity}>
+          {renderAvatarFace()}
+          <span className="orientation-pill">Profil</span>
+          <h1>Dis-moi qui tu es.</h1>
+          <div className="identity-form-grid">
+            <label>
+              <span>Prénom</span>
+              <input
+                type="text"
+                value={profileIdentity.firstName}
+                onChange={(event) => updateProfileIdentityField('firstName', event.target.value)}
+                autoComplete="given-name"
+                required
+              />
+            </label>
+            <label>
+              <span>Nom</span>
+              <input
+                type="text"
+                value={profileIdentity.lastName}
+                onChange={(event) => updateProfileIdentityField('lastName', event.target.value)}
+                autoComplete="family-name"
+                required
+              />
+            </label>
+            <label>
+              <span>Genre</span>
+              <select
+                value={profileIdentity.gender}
+                onChange={(event) => updateProfileIdentityField('gender', event.target.value)}
+                required
+              >
+                <option value="">Choisir</option>
+                {GENDER_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+          </div>
+          <p className="identity-note">{identityNote}</p>
+          {profileIdentityError && <p className="identity-error" role="alert">{profileIdentityError}</p>}
+          <button className="primary-action identity-submit" type="submit" disabled={profileIdentitySaving}>
+            {profileIdentitySaving ? 'Enregistrement...' : 'Continuer'}
+          </button>
+        </form>
       </div>
     )
   }
@@ -2542,6 +2429,7 @@ export default function OrientationFlow() {
             <div className="confirmed-list">
               {recapCandidates.map((candidate) => {
                 const details = buildCandidateDetail(candidate)
+                const isFormation = candidate?.type === 'formation'
                 return (
                   <article key={candidate.id} className={`confirmed-detail ${candidate.type === 'metier' ? 'job' : ''} ${candidate.partner ? 'partner' : ''}`}>
                     <div className="confirmed-detail-head">
@@ -2556,9 +2444,15 @@ export default function OrientationFlow() {
                       </div>
                     )}
                     {details.description && <p>{details.description}</p>}
+                    {isFormation && (
+                      <label className="confirmed-request-info">
+                        <input type="checkbox" checked={requestInfoIds.includes(candidate.id)} onChange={() => toggleRequestInfo(candidate)} />
+                        <span>Demander plus d'informations</span>
+                      </label>
+                    )}
                     {details.link && (
                       <a href={details.link} target="_blank" rel="noreferrer">
-                        {details.linkLabel}
+                        {isFormation ? 'Voir la fiche' : details.linkLabel}
                         <i className="ph ph-arrow-square-out" aria-hidden="true" />
                       </a>
                     )}
@@ -2593,8 +2487,8 @@ export default function OrientationFlow() {
     if (phase === 'personality') return renderPersonality()
     if (phase === 'intent') return renderIntent()
     if (phase === 'proposals') return renderProposals()
-    if (phase === 'searchIntro') return renderSearchIntro()
     if (phase === 'info') return renderMicroInfo()
+    if (phase === 'profileIdentity') return renderProfileIdentity()
     if (phase === 'final') return renderFinal()
     if (phase === 'confirmed') return renderConfirmed()
     return null

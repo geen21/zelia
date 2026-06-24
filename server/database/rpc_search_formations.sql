@@ -50,6 +50,7 @@ CREATE INDEX IF NOT EXISTS idx_formation_france_annee_id ON formation_france (an
 -- 3. Créer la fonction RPC OPTIMISÉE pour la recherche de formations
 -- Cette fonction remplace la requête complexe côté client par une procédure stockée performante
 -- D'abord supprimer l'ancienne fonction si elle existe (nécessaire pour changer le type de retour)
+DROP FUNCTION IF EXISTS search_formations(text[], text, text, int, int);
 DROP FUNCTION IF EXISTS search_formations(text[], text, text, int);
 
 CREATE OR REPLACE FUNCTION search_formations(
@@ -75,6 +76,7 @@ RETURNS TABLE (
     annee text,
     image text,
     email text,
+    code_formation text,
     score int
 )
 LANGUAGE plpgsql
@@ -118,6 +120,7 @@ BEGIN
             f.annee,
             f.image,
             f.email,
+            f.code_formation,
             -- Calcul du score de pertinence
             (
                 SELECT COALESCE(SUM(
@@ -138,7 +141,19 @@ BEGIN
                         ELSE 0
                     END +
                     CASE 
+                        WHEN f.code_formation ILIKE '%' || k || '%' THEN 5
+                        ELSE 0
+                    END +
+                    CASE 
                         WHEN f.commune ILIKE '%' || k || '%' THEN 1
+                        ELSE 0
+                    END +
+                    CASE 
+                        WHEN f.departement ILIKE '%' || k || '%' THEN 1
+                        ELSE 0
+                    END +
+                    CASE 
+                        WHEN f.region ILIKE '%' || k || '%' THEN 1
                         ELSE 0
                     END
                 ), 0)
@@ -162,6 +177,9 @@ BEGIN
                         OR f.tc ILIKE '%' || k || '%'
                         OR f.etab_nom ILIKE '%' || k || '%'
                         OR f.code_formation ILIKE '%' || k || '%'
+                        OR f.commune ILIKE '%' || k || '%'
+                        OR f.departement ILIKE '%' || k || '%'
+                        OR f.region ILIKE '%' || k || '%'
                 )
             )
             -- Exclure les écoles primaires et collèges
@@ -186,6 +204,7 @@ BEGIN
         sf.annee,
         sf.image,
         sf.email,
+        sf.code_formation,
         sf.match_score AS score
     FROM scored_formations sf
     WHERE sf.match_score > 0 OR array_length(clean_keywords, 1) IS NULL OR array_length(clean_keywords, 1) = 0
@@ -222,7 +241,8 @@ RETURNS TABLE (
     etab_url text,
     annee text,
     image text,
-    email text
+    email text,
+    code_formation text
 )
 LANGUAGE plpgsql
 AS $$
@@ -247,7 +267,8 @@ BEGIN
         f.etab_url,
         f.annee,
         f.image,
-        f.email
+        f.email,
+        f.code_formation
     FROM formation_france f
     WHERE
         -- Filtre département (optionnel)
@@ -259,6 +280,7 @@ BEGIN
             OR f.nmc ILIKE '%' || clean_keyword || '%'
             OR f.tc ILIKE '%' || clean_keyword || '%'
             OR f.etab_nom ILIKE '%' || clean_keyword || '%'
+            OR f.code_formation ILIKE '%' || clean_keyword || '%'
         )
         -- Exclure les écoles primaires et collèges
         AND LOWER(f.etab_nom) NOT LIKE '%ecole primaire%'
@@ -276,6 +298,9 @@ $$;
 -- Ceci aide le planificateur de requêtes PostgreSQL à choisir les meilleurs index
 -- A exécuter après avoir créé les index
 -- VACUUM ANALYZE formation_france;
+
+-- 6. Rafraîchir le cache de schéma PostgREST utilisé par Supabase RPC
+NOTIFY pgrst, 'reload schema';
 
 -- INSTRUCTIONS D'INSTALLATION:
 -- 1. Exécuter ce script dans l'éditeur SQL de Supabase

@@ -44,6 +44,8 @@ const SEARCH_STOPWORDS = new Set(['avec', 'chez', 'dans', 'des', 'du', 'de', 'en
 const FORMATION_SEARCH_CACHE_TTL_MS = 5 * 60 * 1000
 const FORMATION_SEARCH_CACHE_MAX_ENTRIES = 250
 const FORMATION_SEARCH_KEYWORD_LIMIT = 8
+const FORMATION_FALLBACK_TERM_LIMIT = 2
+const FORMATION_FALLBACK_COLUMNS = ['nmc', 'tc', 'etab_nom', 'code_formation', 'commune']
 const FORMATION_SEARCH_COLUMNS = [
   'id',
   'nmc',
@@ -148,12 +150,18 @@ function setCachedFormationSearch(cacheKey, payload) {
 
 function buildFormationFallbackTerms(normalizedQuery) {
   if (!normalizedQuery) return []
-  const variants = buildSearchTextVariants(normalizedQuery)
-  const keywords = buildFormationSearchKeywords(normalizedQuery) || []
-  return Array.from(new Set([...variants, ...keywords.slice(0, 4)]))
+  return buildSearchTextVariants(normalizedQuery)
+    .filter(Boolean)
+    .reduce((terms, term) => {
+      const normalizedTerm = term.trim().toLowerCase()
+      if (normalizedTerm && !terms.some((existingTerm) => existingTerm.toLowerCase() === normalizedTerm)) {
+        terms.push(term)
+      }
+      return terms
+    }, [])
     .map((term) => term.trim())
     .filter((term) => term.length >= 2)
-    .slice(0, 6)
+    .slice(0, FORMATION_FALLBACK_TERM_LIMIT)
 }
 
 async function runFormationFallbackSearch({ normalizedQuery, region, departement, from, pageSize }) {
@@ -171,15 +179,7 @@ async function runFormationFallbackSearch({ normalizedQuery, region, departement
   if (fallbackTerms.length) {
     const filters = fallbackTerms.flatMap((term) => {
       const safeTerm = escapePostgrestFilterValue(term)
-      return [
-        `nmc.ilike.%${safeTerm}%`,
-        `tc.ilike.%${safeTerm}%`,
-        `etab_nom.ilike.%${safeTerm}%`,
-        `code_formation.ilike.%${safeTerm}%`,
-        `commune.ilike.%${safeTerm}%`,
-        `departement.ilike.%${safeTerm}%`,
-        `region.ilike.%${safeTerm}%`
-      ]
+      return FORMATION_FALLBACK_COLUMNS.map((column) => `${column}.ilike.%${safeTerm}%`)
     })
     query = query.or(filters.join(','))
   }
@@ -247,6 +247,12 @@ router.get('/formations/search', optionalAuth, async (req, res) => {
       return res.json(cachedPayload)
     }
 
+    if (normalizedQuery && (!keywords || keywords.length === 0)) {
+      const payload = makePagePayload([], page, pageSize)
+      setCachedFormationSearch(cacheKey, payload)
+      return res.json(payload)
+    }
+
     const runFormationRpc = (keywordList) => supabase.rpc('search_formations', {
       p_keywords: keywordList,
       p_department: departement || null,
@@ -257,32 +263,19 @@ router.get('/formations/search', optionalAuth, async (req, res) => {
 
     const { data: rpcData, error: rpcError } = await runFormationRpc(keywords)
 
-    if (!rpcError && Array.isArray(rpcData) && rpcData.length > 0) {
-      const payload = makePagePayload(rpcData, page, pageSize)
-      setCachedFormationSearch(cacheKey, payload)
-      return res.json(payload)
-    }
-
     if (!rpcError) {
-      const fallback = normalizedQuery
-        ? await runFormationFallbackSearch({ normalizedQuery, region, departement, from, pageSize })
-        : { data: rpcData || [], error: null }
-
-      if (fallback.error) {
-        if (isStatementTimeout(fallback.error)) {
-          const payload = makePagePayload([], page, pageSize)
-          setCachedFormationSearch(cacheKey, payload)
-          return res.json(payload)
-        }
-        return res.status(400).json({ error: fallback.error.message })
-      }
-
-      const payload = makePagePayload(fallback.data || [], page, pageSize)
+      const payload = makePagePayload(rpcData || [], page, pageSize)
       setCachedFormationSearch(cacheKey, payload)
       return res.json(payload)
     }
 
     console.warn('Catalog formations RPC search error, using fallback:', rpcError.message)
+
+    if (isStatementTimeout(rpcError)) {
+      const payload = makePagePayload([], page, pageSize)
+      setCachedFormationSearch(cacheKey, payload)
+      return res.json(payload)
+    }
 
     const fallback = await runFormationFallbackSearch({ normalizedQuery, region, departement, from, pageSize })
     if (fallback.error) {

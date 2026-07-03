@@ -68,7 +68,7 @@ export default function AuthCallback() {
           <>
             <div className="w-10 h-10 rounded-full border-2 border-black border-t-transparent animate-spin mx-auto mb-5" />
             <h1 className="text-2xl font-semibold mb-2">{message}</h1>
-            <p className="text-sm text-text-secondary">On récupère ton compte Supabase et tes réponses.</p>
+            <p className="text-sm text-text-secondary">On récupère ton compte et tes réponses.</p>
           </>
         )}
       </div>

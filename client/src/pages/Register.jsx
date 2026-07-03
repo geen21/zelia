@@ -159,7 +159,7 @@ export default function Register() {
 
         <div className="bg-white border border-line rounded-lg shadow-card p-4 sm:p-7">
           <div className="mb-3 sm:mb-6">
-            <p className="text-xs uppercase font-medium text-text-secondary tracking-normal mb-2">Compte Supabase</p>
+            <p className="text-xs uppercase font-medium text-text-secondary tracking-normal mb-2">Inscription</p>
             <h1 className="text-xl sm:text-2xl font-semibold leading-tight mb-1 sm:mb-2">Créer ton espace</h1>
             <p className="text-xs sm:text-sm text-text-secondary">Ton parcours sera rattaché à ce compte.</p>
           </div>

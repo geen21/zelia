@@ -1,30 +1,14 @@
 import express from 'express'
 import { supabase } from '../config/supabase.js'
 import { authenticateToken, optionalAuth } from '../middleware/auth.js'
+import { withFormationDisplayFields } from '../utils/slug.js'
 
 const router = express.Router()
 
-// Get all formations/courses
-router.get('/', optionalAuth, async (req, res) => {
-  try {
-    const {
-      q,
-      region,
-      department,
-      type,
-      limit = 25,
-      offset = 0
-    } = req.query
-
-    const parsedLimit = Math.min(Number.parseInt(limit, 10) || 25, 100)
-    const parsedOffset = Math.max(Number.parseInt(offset, 10) || 0, 0)
-
-    let query = supabase
-      .from('formation_france')
-      .select(
-        `id,
+const PUBLIC_FORMATION_COLUMNS = `id,
          nm,
          nmc,
+         fl,
          etab_nom,
          etab_uai,
          region,
@@ -37,71 +21,129 @@ router.get('/', optionalAuth, async (req, res) => {
          annee,
          dataviz,
          gti,
-         gta`,
-        { count: 'exact' }
-      )
-      .range(parsedOffset, parsedOffset + parsedLimit - 1)
-      .order('annee', { ascending: false })
-      .order('id', { ascending: true })
+         gta,
+         code_formation,
+         image,
+         email,
+         telephone,
+         facebook,
+         linkedin,
+         youtube,
+         app,
+         "int",
+         aut`
 
-    if (region) {
-      query = query.ilike('region', `%${region}%`)
-    }
+function isStatementTimeout(error) {
+  const message = error?.message || ''
+  return error?.code === '57014' || message.includes('statement timeout') || message.includes('canceling statement')
+}
 
-    if (department) {
-      query = query.ilike('departement', `%${department}%`)
-    }
+// Builds (and can rebuild, for retries) the filtered formations list query.
+function buildFormationsListQuery({ region, department, type, etabNom, q, parsedOffset, parsedLimit }) {
+  let query = supabase
+    .from('formation_france')
+    .select(PUBLIC_FORMATION_COLUMNS, { count: 'exact' })
+    .range(parsedOffset, parsedOffset + parsedLimit - 1)
+    .order('annee', { ascending: false })
+    .order('id', { ascending: true })
 
-    if (type) {
-      query = query.ilike('tc', `%${type}%`)
-    }
+  if (region) {
+    query = query.ilike('region', `%${region}%`)
+  }
 
-    if (q) {
-      const rawWords = q
-        .split(/[\s,;:/]+/)
-        .map((word) => word.trim())
-        .filter(Boolean)
+  if (department) {
+    query = query.ilike('departement', `%${department}%`)
+  }
 
-      const sanitizedWords = Array.from(new Set(rawWords.map((word) =>
-        word
-          .replace(/'/g, "''")
-          .replace(/,/g, '\\,')
-      ).filter(Boolean)))
+  if (type) {
+    query = query.ilike('tc', `%${type}%`)
+  }
 
-      const targetColumns = ['nmc', 'etab_nom', 'commune', 'departement', 'region', 'tc']
+  // Exact match on the establishment name, used for "other formations at
+  // this school" lookups — avoids the fuzzy multi-column q search below,
+  // which over-matches on common substrings (e.g. a standalone "-").
+  if (etabNom) {
+    query = query.eq('etab_nom', etabNom)
+  }
 
-      const orFilters = []
-      sanitizedWords.slice(0, 6).forEach((word) => {
-        targetColumns.forEach((column) => {
-          orFilters.push(`${column}.ilike.%${word}%`)
-        })
+  if (q) {
+    const rawWords = q
+      .split(/[\s,;:/]+/)
+      .map((word) => word.trim())
+      .filter(Boolean)
+
+    const sanitizedWords = Array.from(new Set(rawWords.map((word) =>
+      word
+        .replace(/'/g, "''")
+        .replace(/,/g, '\\,')
+    ).filter(Boolean)))
+
+    const targetColumns = ['nmc', 'etab_nom', 'commune', 'departement', 'region', 'tc']
+
+    const orFilters = []
+    sanitizedWords.slice(0, 6).forEach((word) => {
+      targetColumns.forEach((column) => {
+        orFilters.push(`${column}.ilike.%${word}%`)
       })
+    })
 
-      if (orFilters.length === 0) {
-        const fallback = q
-          .trim()
-          .replace(/'/g, "''")
-          .replace(/,/g, '\\,')
-        if (fallback) {
-          targetColumns.forEach((column) => {
-            orFilters.push(`${column}.ilike.%${fallback}%`)
-          })
-        }
-      }
-
-      if (orFilters.length > 0) {
-        query = query.or(orFilters.join(','))
+    if (orFilters.length === 0) {
+      const fallback = q
+        .trim()
+        .replace(/'/g, "''")
+        .replace(/,/g, '\\,')
+      if (fallback) {
+        targetColumns.forEach((column) => {
+          orFilters.push(`${column}.ilike.%${fallback}%`)
+        })
       }
     }
 
-    const { data, error, count } = await query
+    if (orFilters.length > 0) {
+      query = query.or(orFilters.join(','))
+    }
+  }
+
+  return query
+}
+
+function fetchFormationById(id) {
+  return supabase
+    .from('formation_france')
+    .select(PUBLIC_FORMATION_COLUMNS)
+    .eq('id', id)
+    .single()
+}
+
+// Get all formations/courses
+router.get('/', optionalAuth, async (req, res) => {
+  try {
+    const {
+      q,
+      region,
+      department,
+      type,
+      etab_nom: etabNom,
+      limit = 25,
+      offset = 0
+    } = req.query
+
+    const parsedLimit = Math.min(Number.parseInt(limit, 10) || 25, 100)
+    const parsedOffset = Math.max(Number.parseInt(offset, 10) || 0, 0)
+    const queryParams = { region, department, type, etabNom, q, parsedOffset, parsedLimit }
+
+    let { data, error, count } = await buildFormationsListQuery(queryParams)
+
+    if (error && isStatementTimeout(error)) {
+      ({ data, error, count } = await buildFormationsListQuery(queryParams))
+    }
 
     if (error) {
       return res.status(400).json({ error: error.message })
     }
 
     res.json({
-      formations: data ?? [],
+      formations: (data ?? []).map(withFormationDisplayFields),
       total: count ?? 0,
       limit: parsedLimit,
       offset: parsedOffset
@@ -117,34 +159,17 @@ router.get('/:id', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params
 
-    const { data, error } = await supabase
-      .from('formation_france')
-      .select(
-        `id,
-         nm,
-         nmc,
-         etab_nom,
-         etab_uai,
-         region,
-         departement,
-         commune,
-         tc,
-         tf,
-         fiche,
-         etab_url,
-         annee,
-         dataviz,
-         gti,
-         gta`
-      )
-      .eq('id', id)
-      .single()
+    let { data, error } = await fetchFormationById(id)
+
+    if (error && isStatementTimeout(error)) {
+      ({ data, error } = await fetchFormationById(id))
+    }
 
     if (error) {
       return res.status(404).json({ error: 'Formation not found' })
     }
 
-    res.json({ formation: data })
+    res.json({ formation: withFormationDisplayFields(data) })
   } catch (error) {
     console.error('Formation fetch error:', error)
     res.status(500).json({ error: 'Internal server error' })

@@ -32,7 +32,8 @@ export default function SEO({
   locale,
   schema,
   publishedTime,
-  author
+  author,
+  noindex
 }) {
   const origin = getOriginFromUrl(url);
   const absoluteImage = toAbsoluteUrl(image, origin);
@@ -43,6 +44,7 @@ export default function SEO({
       <title>{title}</title>
       <meta name="description" content={description} />
       {url && <link rel="canonical" href={url} />}
+      {noindex && <meta name="robots" content="noindex, follow" />}
 
       <meta property="og:type" content={type} />
       <meta property="og:title" content={title} />

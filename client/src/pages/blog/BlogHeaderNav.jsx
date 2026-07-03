@@ -12,6 +12,10 @@ export default function BlogHeaderNav() {
             <img src="/assets/images/logo-dark.png" alt="Zélia" className="logo-image" />
           </Link>
           <div className="nav-actions">
+            <Link to="/formations" className="nav-link-btn" aria-label="Formations">
+              <span>Formations</span>
+              <div className="btn-highlight"></div>
+            </Link>
             <Link to="/blog" className="nav-link-btn" aria-label="Blog">
               <span>Blog</span>
               <div className="btn-highlight"></div>

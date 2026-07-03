@@ -24,6 +24,7 @@ import shareRoutes from './routes/share.js'
 import supportRoutes from './routes/support.js'
 import waitlistRoutes from './routes/waitlist.js'
 import ecolesRoutes from './routes/ecoles.js'
+import sitemapRoutes from './routes/sitemap.js'
 
 // Load environment variables
 dotenv.config()
@@ -62,12 +63,23 @@ app.use(helmet({
 }))
 
 // Rate limiting
+// Public, read-only, crawler-facing endpoints (formation pages + sitemap) are
+// exempt: with ~127k programmatic SEO pages, Googlebot/other crawlers can
+// easily exceed a per-IP cap while indexing the site, which would get them
+// throttled with 429s and stall indexing. These endpoints only ever return
+// already-public data (RLS allows anon SELECT) with no mutation, so this is safe.
+function isPublicCrawlablePath(req) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return false
+  return /^\/api\/formations(\/|$|\?)/.test(req.path) || /^\/api\/sitemap/.test(req.path)
+}
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isPublicCrawlablePath,
 })
 
 app.use(limiter)
@@ -153,6 +165,7 @@ app.use('/api/share', shareRoutes)
 app.use('/api/support', supportRoutes)
 app.use('/api/waitlist', waitlistRoutes)
 app.use('/api/ecoles', ecolesRoutes)
+app.use('/api', sitemapRoutes)
 
 // Root endpoint
 app.get('/', (req, res) => {

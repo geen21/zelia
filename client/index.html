@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="fr">
   <head>
     <!-- Google Tag Manager -->
     <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
@@ -11,36 +11,42 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Zelia - Ta conseillère d'orientation virtuelle</title>
-    <meta name="description" content="Découvre ton avenir avec Zelia, l'IA qui révolutionne l'orientation scolaire et professionnelle. Parcours personnalisé, découverte de métiers et formations." />
     <meta name="keywords" content="orientation scolaire, orientation professionnelle, IA, intelligence artificielle, métiers, formations, avenir, carrière, Zelia" />
     <meta name="author" content="Zelia" />
-    
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://zelia.io/" />
-    <meta property="og:title" content="Zelia - Ta conseillère d'orientation virtuelle" />
-    <meta property="og:description" content="Découvre ton avenir avec Zelia, l'IA qui révolutionne l'orientation scolaire et professionnelle." />
-    <meta property="og:image" content="https://zelia.io/assets/images/logo-dark.png" />
-
-    <!-- Twitter -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:url" content="https://zelia.io/" />
-    <meta name="twitter:title" content="Zelia - Ta conseillère d'orientation virtuelle" />
-    <meta name="twitter:description" content="Découvre ton avenir avec Zelia, l'IA qui révolutionne l'orientation scolaire et professionnelle." />
-    <meta name="twitter:image" content="https://zelia.io/assets/images/logo-dark.png" />
+    <!--
+      Note: description / og:* / twitter:* tags are intentionally NOT hardcoded here.
+      Every route renders the <SEO> component (react-helmet-async), which sets these
+      per-page. Helmet only manages tags it creates itself — it does not remove
+      pre-existing static tags — so keeping duplicates here would mean crawlers that
+      just take the first matching tag see this generic default instead of the
+      page-specific one Helmet renders.
+    -->
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&display=swap" rel="stylesheet">
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&display=swap"></noscript>
 
   <link rel="icon" href="/assets/images/logo-dark-small.ico" type="image/x-icon">
   <link rel="shortcut icon" href="/assets/images/logo-dark-small.ico" type="image/x-icon">
-  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css">
-  <link rel="stylesheet" href="/static/css/bootstrap.min.css">
-  <link rel="stylesheet" href="/static/css/app.min.css">
-  <link rel="stylesheet" href="/static/css/main.css">
-  <link rel="stylesheet" href="/overrides.css">
+  <!--
+    The stylesheets below (icon font + legacy Bootstrap-based theme) are not
+    needed for first paint on most routes, so they're loaded as non-blocking
+    preloads that swap to an active stylesheet once fetched (same final CSS,
+    just doesn't block rendering) — see https://web.dev/articles/defer-non-critical-css.
+    A <noscript> fallback keeps them working with JS disabled.
+  -->
+  <link rel="preload" as="style" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css"></noscript>
+  <link rel="preload" as="style" href="/static/css/bootstrap.min.css" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="/static/css/bootstrap.min.css"></noscript>
+  <link rel="preload" as="style" href="/static/css/app.min.css" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="/static/css/app.min.css"></noscript>
+  <link rel="preload" as="style" href="/static/css/main.css" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="/static/css/main.css"></noscript>
+  <link rel="preload" as="style" href="/overrides.css" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="/overrides.css"></noscript>
   <!-- Tailwind CSS via CDN for dashboard UI utilities -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>

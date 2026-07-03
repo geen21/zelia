@@ -72,6 +72,8 @@ const toolComponents = Object.entries(toolModules).reduce((acc, [path, loader]) 
 const BoiteAOutils = lazy(() => import('./pages/BoiteAOutils.jsx'))
 const OrientationVideos = lazy(() => import('./pages/OrientationVideos.jsx'))
 const FormationDetail = lazy(() => import('./pages/FormationDetail.jsx'))
+const FormationsDirectory = lazy(() => import('./pages/FormationsDirectory.jsx'))
+const FormationPublicPage = lazy(() => import('./pages/FormationPublicPage.jsx'))
 
 loadLegacyStyles()
 
@@ -147,6 +149,8 @@ function App() {
     <Route path="/blog/metier-bien-fait-pour-soi-mode-emploi" element={<BlogMetierFaitPourSoi />} />
     <Route path="/blog/choisir-ses-etudes-sans-pression" element={<BlogChoisirSesEtudes />} />
     <Route path="/blog/etude-salaire-bon-salaire-ados" element={<BlogEtudeSalaire />} />
+    <Route path="/formations" element={<Suspense fallback={<div className="p-6 text-center">Chargement des formations…</div>}><FormationsDirectory /></Suspense>} />
+    <Route path="/formations/:slug" element={<Suspense fallback={<div className="p-6 text-center">Chargement de la formation…</div>}><FormationPublicPage /></Suspense>} />
         <Route path="/app" element={<RequireAuth><Layout /></RequireAuth>}>
           <Route index element={<Suspense fallback={<div className="p-6 text-center">Chargement de Zélia…</div>}><ConversationalHome /></Suspense>} />
           <Route path="profile" element={<Profile />} />

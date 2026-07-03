@@ -116,11 +116,17 @@ function injectSeo(html, { title, description, url, type, image, imageAlt, schem
     `<title>${escHtml(title)}</title>`
   )
 
-  // Replace meta description
-  out = out.replace(
-    /<meta\s+name="description"\s+content="[^"]*"\s*\/?>/,
-    `<meta name="description" content="${escHtml(description)}" />`
-  )
+  // Replace meta description (insert before </head> if not already present,
+  // since index.html no longer hardcodes a static description tag)
+  const descriptionTag = `<meta name="description" content="${escHtml(description)}" />`
+  if (/<meta\s+name="description"\s+content="[^"]*"\s*\/?>/.test(out)) {
+    out = out.replace(
+      /<meta\s+name="description"\s+content="[^"]*"\s*\/?>/,
+      descriptionTag
+    )
+  } else {
+    out = out.replace('</head>', `    ${descriptionTag}\n  </head>`)
+  }
 
   // Replace OG tags
   const ogReplacements = {

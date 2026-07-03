@@ -58,6 +58,7 @@ export default function Home() {
             <img src="/static/images/logo-dark.png" alt="Zelia" />
           </Link>
           <div className="zelia-home-nav-actions">
+            <Link to="/formations">Formations</Link>
             <Link to="/blog">Blog</Link>
             <Link to="/login">Connexion</Link>
             <Link to="/orientation" className="nav-cta">Commencer</Link>

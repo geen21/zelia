@@ -4,3 +4,4 @@ Disallow: /app/
 Disallow: /admin/
 
 Sitemap: https://zelia.io/sitemap.xml
+Sitemap: https://zelia.io/sitemap-index.xml

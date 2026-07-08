@@ -455,7 +455,7 @@ export default function Niveau38() {
           {phase === 'result' && (
             <div className="space-y-4">
               <div className="bg-[#f8fff0] border border-[#c1ff72] rounded-xl p-6 text-center">
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Niveau terminé</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Terminé !</h3>
                 <p className="text-gray-700">Tu as vu 5 situations clés de résolution de problèmes. Garde ces réflexes au quotidien.</p>
               </div>
               <ul className="space-y-2 text-sm text-gray-700">

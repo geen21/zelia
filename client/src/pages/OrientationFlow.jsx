@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { orientationAPI, usersAPI } from '../lib/api.js'
-import { AI_FINAL_JOB_COUNT, AI_JOB_DECK_SIZE } from '../lib/orientationJobs.js'
+import { orientationAPI, usersAPI, ecolesAPI } from '../lib/api.js'
+import { AI_JOB_DECK_SIZE } from '../lib/orientationJobs.js'
+import PersonaRevealCard from '../components/PersonaRevealCard.jsx'
+import { buildLoreleiUrl, buildPersonaAvatarConfig, computePersonaFromAnswers, getPersonaBySlug } from '../lib/personas.js'
+import { generatePersonaShareCard } from '../lib/shareImage.js'
 import './OrientationFlow.css'
 
-const QUESTION_LIMIT = 40
+const QUESTION_LIMIT = 20
 const ANSWERS_PROGRESS_KEY = 'answers_progress'
 const ANSWERS_PROGRESS_VERSION = `orientation-flow-${QUESTION_LIMIT}`
 const DRAG_THRESHOLD = 96
@@ -54,9 +57,29 @@ const PARTNER_CITY_BY_DEPARTMENT_CODE = {
 
 const PARTNER_CITIES = new Set(Object.values(PARTNER_CITY_BY_DEPARTMENT_CODE).map((city) => city.toLowerCase()))
 
-const BG_COLORS = ['#F2F4F7', '#E3F2FD', '#FFF7E6', '#FDE7E9', '#EAF7F0', '#F3E8FF', '#FFFFFF']
-const SKIN_TONES = ['#f9d7b8', '#f1c89e', '#d9a275', '#c68642', '#8d5524', '#6d3b1f']
-const HAIR_COLORS = ['#2f2f2f', '#3b2c2a', '#6b4423', '#a55728', '#b58143', '#e6c28b']
+const FALLBACK_QUESTION_OPTIONS = [
+  { label: 'Non', value: 'non' },
+  { label: 'Oui', value: 'oui' }
+]
+
+function getQuestionOptions(question) {
+  const options = Array.isArray(question?.options)
+    ? question.options.filter((option) => option && option.label)
+    : []
+  return options.length >= 2 ? options.slice(0, 2) : FALLBACK_QUESTION_OPTIONS
+}
+
+const CATEGORY_ICONS = {
+  hands_mind: 'ph-hand-fist',
+  solo_team: 'ph-users-three',
+  creative_structured: 'ph-palette',
+  field_office: 'ph-compass',
+  risk_safety: 'ph-lightning'
+}
+
+function getCategoryIcon(category) {
+  return CATEGORY_ICONS[category] || 'ph-sparkle'
+}
 
 const MICRO_STEPS = [
   {
@@ -128,13 +151,7 @@ const MICRO_STEPS = [
 
 const LOCATION_STEP_ID = 'study_location'
 
-function getMicroStepsForIntent(intent) {
-  if (intent === 'metiers') {
-    const locationStep = MICRO_STEPS.find((step) => step.id === LOCATION_STEP_ID)
-    return locationStep
-      ? [{ ...locationStep, title: 'Pour chercher des métiers, tu préfères...' }]
-      : []
-  }
+function getMicroStepsForIntent() {
   return MICRO_STEPS
 }
 
@@ -142,16 +159,6 @@ function sanitizeMicroProfileForIntent(profile, intent) {
   if (!profile || typeof profile !== 'object') return {}
   const allowedIds = new Set(getMicroStepsForIntent(intent).map((step) => step.id))
   return Object.fromEntries(Object.entries(profile).filter(([key]) => allowedIds.has(key)))
-}
-
-const INTENT_OPTIONS = [
-  { value: 'formations', title: 'Une école / formation qui te convient', icon: 'ph-graduation-cap' },
-  { value: 'metiers', title: 'Un métier qui te convient', icon: 'ph-briefcase' },
-  { value: 'both', title: 'Les deux', icon: 'ph-sparkle' }
-]
-
-function randomChoice(items) {
-  return items[Math.floor(Math.random() * items.length)]
 }
 
 async function runWithConcurrency(items, limit, mapper) {
@@ -207,26 +214,6 @@ function uniqueSearchQueries(queries) {
   })
 }
 
-function hexNoHash(hex) {
-  return (hex || '').replace('#', '')
-}
-
-function buildLoreleiUrl(config, size = 360) {
-  const query = new URLSearchParams()
-  query.set('seed', config.seed || 'zelia')
-  query.set('size', String(size))
-  query.set('radius', String(config.radius ?? 30))
-  if (config.bg) {
-    query.set('backgroundType', 'solid')
-    query.set('backgroundColor', hexNoHash(config.bg))
-  }
-  if (config.skin) query.set('skinColor', hexNoHash(config.skin))
-  if (config.hair) query.set('hairColor', hexNoHash(config.hair))
-  query.set('accessoriesProbability', config.glasses ? '100' : '0')
-  if (config.glasses) query.set('accessories', 'glasses')
-  return `https://api.dicebear.com/9.x/lorelei/svg?${query.toString()}`
-}
-
 function modifyDicebearUrl(urlStr, params = {}) {
   try {
     const url = new URL(urlStr)
@@ -239,17 +226,6 @@ function modifyDicebearUrl(urlStr, params = {}) {
     return url.toString()
   } catch {
     return urlStr
-  }
-}
-
-function randomAvatarConfig() {
-  return {
-    seed: Math.random().toString(36).slice(2, 10),
-    bg: randomChoice(BG_COLORS),
-    skin: randomChoice(SKIN_TONES),
-    hair: randomChoice(HAIR_COLORS),
-    glasses: Math.random() > 0.62,
-    radius: 30
   }
 }
 
@@ -1410,18 +1386,15 @@ function balanceCandidatesForIntent(primaryCandidates, fallbackCandidates, inten
 
 function phaseIndex(phase) {
   return [
+    'intro',
     'questions',
-    'avatar',
-    'analysis',
-    'personality',
-    'intent',
     'info',
     'profileIdentity',
-    'proposalSearch',
-    'proposals',
-    'finalSearch',
-    'final',
-    'confirmed'
+    'analysis',
+    'personality',
+    'formationReveal',
+    'metierReveal',
+    'avatarReveal'
   ].indexOf(phase)
 }
 
@@ -1429,15 +1402,16 @@ export default function OrientationFlow() {
   const navigate = useNavigate()
   const dragStartRef = useRef(null)
   const [initialProfileIdentity] = useState(() => normalizeProfileIdentity(getStoredJson(PROFILE_IDENTITY_KEY, DEFAULT_PROFILE_IDENTITY)))
-  const [phase, setPhase] = useState('questions')
+  const [phase, setPhase] = useState(() => (Object.keys(getStoredAnswersProgress()).length > 0 ? 'questions' : 'intro'))
   const [questions, setQuestions] = useState([])
   const [questionIndex, setQuestionIndex] = useState(0)
   const [answers, setAnswers] = useState(() => getStoredAnswersProgress())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [dragX, setDragX] = useState(0)
-  const [avatarConfig, setAvatarConfig] = useState(() => getStoredJson('avatar_cfg', randomAvatarConfig()))
-  const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('avatar_url') || buildLoreleiUrl(avatarConfig))
+  const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('avatar_url') || buildLoreleiUrl({ seed: 'zelia' }))
+  const [persona, setPersona] = useState(() => getPersonaBySlug(localStorage.getItem('orientation_persona') || ''))
+  const [sharingPersona, setSharingPersona] = useState(false)
   const [mouthAlt, setMouthAlt] = useState(false)
   const [userDepartment, setUserDepartment] = useState(() => getStoredDepartment())
   const [analysisData, setAnalysisData] = useState(null)
@@ -1452,6 +1426,13 @@ export default function OrientationFlow() {
   const [checkedIds, setCheckedIds] = useState([])
   const [requestInfoIds, setRequestInfoIds] = useState([])
   const [busyMessage, setBusyMessage] = useState('')
+  const [partnerFormations, setPartnerFormations] = useState([])
+  const [partnerFormationsLoading, setPartnerFormationsLoading] = useState(false)
+  const [submittedFormationIds, setSubmittedFormationIds] = useState(() => new Set())
+  const [submittingFormationId, setSubmittingFormationId] = useState(null)
+  const [dbFormations, setDbFormations] = useState([])
+  const [dbFormationsLoading, setDbFormationsLoading] = useState(false)
+  const [requestInfoSelections, setRequestInfoSelections] = useState(() => new Set())
   const [profileIdentity, setProfileIdentity] = useState(initialProfileIdentity)
   const [profileIdentityComplete, setProfileIdentityComplete] = useState(() => (
     localStorage.getItem(PROFILE_IDENTITY_COMPLETE_KEY) === 'true' && isProfileIdentityComplete(initialProfileIdentity)
@@ -1461,7 +1442,6 @@ export default function OrientationFlow() {
   const [profileIdentityError, setProfileIdentityError] = useState('')
 
   const currentQuestion = questions[questionIndex]
-  const currentProposal = proposalCandidates[proposalIndex]
   const analysisBlock = useMemo(() => getAnalysisBlock(analysisData), [analysisData])
   const activeMicroSteps = useMemo(() => getMicroStepsForIntent(intent), [intent])
   const visiblePersonality = useMemo(() => {
@@ -1471,6 +1451,55 @@ export default function OrientationFlow() {
       analysisBlock.skillsAssessment ? { label: 'Forces', value: String(analysisBlock.skillsAssessment), tone: 'forces' } : null
     ].filter(Boolean)
   }, [analysisBlock])
+
+  const jobRecommendations = useMemo(() => getAnalysisJobCandidates(analysisData, 6), [analysisData])
+  const formationRecommendations = useMemo(() => getAnalysisFormationCandidates(analysisData, 6), [analysisData])
+
+  useEffect(() => {
+    if (phase !== 'formationReveal') return
+    let mounted = true
+    setPartnerFormationsLoading(true)
+    ;(async () => {
+      try {
+        const [matchedRes, submissionsRes] = await Promise.all([
+          ecolesAPI.matched().catch(() => ({ data: { matched: [] } })),
+          ecolesAPI.mySubmissions().catch(() => ({ data: { submissions: [] } }))
+        ])
+        if (!mounted) return
+        let matched = Array.isArray(matchedRes?.data?.matched) ? matchedRes.data.matched : []
+        if (matched.length === 0) {
+          const partnersRes = await ecolesAPI.partenaires().catch(() => ({ data: { formations: [] } }))
+          matched = (Array.isArray(partnersRes?.data?.formations) ? partnersRes.data.formations : []).slice(0, 4)
+        }
+        setPartnerFormations(matched.slice(0, 6))
+        const submittedIds = (submissionsRes?.data?.submissions || []).map((entry) => entry.formation_id)
+        setSubmittedFormationIds(new Set(submittedIds))
+      } catch (fetchError) {
+        console.warn('Partner formations fetch failed', fetchError)
+        if (mounted) setPartnerFormations([])
+      } finally {
+        if (mounted) setPartnerFormationsLoading(false)
+      }
+    })()
+    return () => { mounted = false }
+  }, [phase])
+
+  const handleRequestInfo = async (formationId) => {
+    if (!formationId || submittedFormationIds.has(formationId) || submittingFormationId === formationId) return
+    setSubmittingFormationId(formationId)
+    try {
+      await ecolesAPI.submit(formationId)
+      setSubmittedFormationIds((prev) => new Set([...prev, formationId]))
+    } catch (submitError) {
+      if (submitError?.response?.status === 409) {
+        setSubmittedFormationIds((prev) => new Set([...prev, formationId]))
+      } else {
+        console.warn('Formation info request failed', submitError)
+      }
+    } finally {
+      setSubmittingFormationId(null)
+    }
+  }
 
   const hydrateProfileIdentity = useCallback((profile) => {
     const incomingIdentity = normalizeProfileIdentity(profile)
@@ -1488,7 +1517,7 @@ export default function OrientationFlow() {
     })
   }, [])
 
-  const zeliaSpeaking = phase === 'analysis' || phase === 'proposalSearch' || phase === 'finalSearch'
+  const zeliaSpeaking = phase === 'analysis'
   const displayedAvatarUrl = useMemo(() => {
     if (!zeliaSpeaking) return avatarUrl
     return modifyDicebearUrl(avatarUrl, { mouth: mouthAlt ? 'happy08' : null })
@@ -1497,8 +1526,20 @@ export default function OrientationFlow() {
   const progress = useMemo(() => {
     const questionProgress = phase === 'questions' ? questionIndex : QUESTION_LIMIT
     const phaseProgress = Math.max(0, phaseIndex(phase)) * 6
-    return Math.min(100, Math.round(((questionProgress + phaseProgress + 1) / (QUESTION_LIMIT + 72)) * 100))
+    return Math.min(100, Math.round(((questionProgress + phaseProgress + 1) / (QUESTION_LIMIT + 61)) * 100))
   }, [phase, questionIndex])
+
+  const stepLabel = useMemo(() => {
+    if (phase === 'intro') return 'Bienvenue'
+    if (phase === 'questions') return `Question ${Math.min(questionIndex + 1, questions.length)} / ${questions.length}`
+    if (phase === 'info') return `Étape ${infoIndex + 1} / ${Math.max(activeMicroSteps.length, 1)}`
+    if (phase === 'personality') return 'Ton profil'
+    if (phase === 'profileIdentity') return 'Ton profil'
+    if (phase === 'formationReveal') return 'Tes formations'
+    if (phase === 'metierReveal') return 'Tes métiers'
+    if (phase === 'avatarReveal') return 'Ton avatar'
+    return 'Zélia prépare la suite'
+  }, [phase, questionIndex, questions.length, infoIndex, activeMicroSteps.length])
 
   useEffect(() => {
     if (!zeliaSpeaking) return
@@ -1519,21 +1560,28 @@ export default function OrientationFlow() {
     }
   }, [])
 
-  const saveAvatarToProfile = useCallback(async () => {
-    const avatarData = { ...avatarConfig, url: avatarUrl, provider: 'dicebear/lorelei' }
-    await usersAPI.updateProfile({ avatar: avatarUrl, avatar_json: avatarData }).catch((saveError) => {
+  const savePersonaToProfile = useCallback(async (personaObj, url) => {
+    const avatarData = {
+      url,
+      provider: 'dicebear/lorelei',
+      persona: personaObj?.slug || null,
+      personaName: personaObj?.name || null
+    }
+    await usersAPI.updateProfile({ avatar: url, avatar_json: avatarData }).catch((saveError) => {
       console.warn('Avatar profile save failed', saveError)
     })
-  }, [avatarConfig, avatarUrl])
+  }, [])
 
-  const runInitialAnalysis = useCallback(async () => {
+  const runInitialAnalysis = useCallback(async (questionsOverride = null, answersOverride = null, microProfileOverride = null) => {
+    const sourceQuestions = Array.isArray(questionsOverride) && questionsOverride.length ? questionsOverride : questions
+    const sourceAnswers = answersOverride || answers
     const payload = {
-      answers: Object.entries(answers).map(([qid, answer]) => ({ question_id: Number(qid), answer }))
+      answers: Object.entries(sourceAnswers).map(([qid, answer]) => ({ question_id: Number(qid), answer }))
     }
     localStorage.setItem('answers_cache', JSON.stringify(payload))
     setError('')
     setPhase('analysis')
-    setBusyMessage('Zélia analyse ta personnalité')
+    setBusyMessage('Ton profil est en train de prendre forme...')
 
     if (!(await isAuthenticated())) {
       setBusyMessage('')
@@ -1541,14 +1589,25 @@ export default function OrientationFlow() {
       return
     }
 
+    // Persona + avatar are computed automatically from the answers (no manual picker).
+    const { persona: computedPersona } = computePersonaFromAnswers(sourceQuestions, sourceAnswers)
+    const personaAvatarUrl = buildLoreleiUrl(buildPersonaAvatarConfig(computedPersona.slug, profileIdentity.firstName || 'zelia'), 360)
+    setPersona(computedPersona)
+    setAvatarUrl(personaAvatarUrl)
+    localStorage.setItem('avatar_url', personaAvatarUrl)
+    localStorage.setItem('orientation_persona', computedPersona.slug)
+
     try {
-      await saveAvatarToProfile()
+      await savePersonaToProfile(computedPersona, personaAvatarUrl)
       const profileResponse = await usersAPI.getProfile().catch(() => null)
       const profileDepartment = profileResponse?.data?.profile?.department || ''
       hydrateProfileIdentity(profileResponse?.data?.profile || {})
       if (profileDepartment) {
         setUserDepartment((current) => ({ code: profileDepartment, name: current.name || profileDepartment }))
       }
+      const finalMicroProfile = microProfileOverride || microProfile
+      const department = await resolveUserDepartment().catch(() => userDepartment)
+      await saveMicroProfile(finalMicroProfile, department).catch(() => null)
       await orientationAPI.submitInitialAnswers(payload.answers)
       await orientationAPI.generateInitialAnalysis()
       const { data } = await orientationAPI.getResults()
@@ -1561,7 +1620,21 @@ export default function OrientationFlow() {
     } finally {
       setBusyMessage('')
     }
-  }, [answers, hydrateProfileIdentity, isAuthenticated, saveAvatarToProfile])
+  }, [answers, questions, hydrateProfileIdentity, isAuthenticated, savePersonaToProfile, profileIdentity.firstName, microProfile, userDepartment])
+
+  const advanceFromInfo = useCallback(async (questionsOverride = null, profileOverride = null) => {
+    setError('')
+    setProfileIdentityError('')
+    if (!(await isAuthenticated())) {
+      goToAuth('/register')
+      return
+    }
+    if (!profileIdentityCompleteRef.current) {
+      setPhase('profileIdentity')
+      return
+    }
+    await runInitialAnalysis(questionsOverride, null, profileOverride)
+  }, [isAuthenticated, runInitialAnalysis])
 
   useEffect(() => {
     let cancelled = false
@@ -1575,16 +1648,21 @@ export default function OrientationFlow() {
 
         if (localStorage.getItem('orientation_resume_after_auth') === 'analysis') {
           setLoading(false)
-          window.setTimeout(() => runInitialAnalysis(), 0)
+          window.setTimeout(() => advanceFromInfo(compactQuestions), 0)
           return
         }
 
         const firstMissing = compactQuestions.findIndex((question) => !answers[question.id])
         if (firstMissing === -1 && compactQuestions.length) {
-          setPhase('avatar')
+          setInfoIndex(0)
+          setPhase('info')
+          setLoading(false)
           return
         }
-        setQuestionIndex(firstMissing === -1 ? Math.max(0, compactQuestions.length - 1) : firstMissing)
+        if (firstMissing > 0) {
+          setPhase('questions')
+          setQuestionIndex(firstMissing)
+        }
       } catch (loadError) {
         console.error('Orientation questions load error', loadError)
         if (!cancelled) setError('Impossible de charger le parcours pour le moment.')
@@ -1605,34 +1683,37 @@ export default function OrientationFlow() {
     return nextAnswers
   }, [answers])
 
-  const answerQuestion = useCallback((value) => {
+  const answerQuestion = useCallback((optionIndex) => {
     if (!currentQuestion) return
-    persistAnswer(currentQuestion.id, value)
-    setDragX(value === 'Oui' ? 360 : -360)
+    const optionList = getQuestionOptions(currentQuestion)
+    const safeIndex = Math.max(0, Math.min(Number(optionIndex) || 0, optionList.length - 1))
+    const picked = optionList[safeIndex]
+    const nextAnswers = persistAnswer(currentQuestion.id, picked.label)
+    setDragX(safeIndex === 1 ? 360 : -360)
     window.setTimeout(() => {
       setDragX(0)
-      if (questionIndex >= questions.length - 1) setPhase('avatar')
-      else setQuestionIndex((index) => Math.min(index + 1, questions.length - 1))
+      if (questionIndex >= questions.length - 1) {
+        setInfoIndex(0)
+        setPhase('info')
+      } else {
+        setQuestionIndex((index) => Math.min(index + 1, questions.length - 1))
+      }
     }, 180)
-  }, [currentQuestion, persistAnswer, questionIndex, questions.length])
+  }, [currentQuestion, persistAnswer, questionIndex, questions])
 
   useEffect(() => {
     const onKeyDown = (event) => {
       if (phase === 'questions') {
-        if (event.key === 'ArrowRight') answerQuestion('Oui')
-        if (event.key === 'ArrowLeft') answerQuestion('Non')
-      }
-      if (phase === 'proposals') {
-        if (event.key === 'ArrowRight') swipeProposal(true)
-        if (event.key === 'ArrowLeft') swipeProposal(false)
+        if (event.key === 'ArrowRight') answerQuestion(1)
+        if (event.key === 'ArrowLeft') answerQuestion(0)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [answerQuestion, phase, currentProposal, likedProposals, proposalHistory, proposalIndex])
+  }, [answerQuestion, phase])
 
   const onPointerDown = (event) => {
-    if (phase !== 'questions' && phase !== 'proposals') return
+    if (phase !== 'questions') return
     dragStartRef.current = { x: event.clientX }
     event.currentTarget.setPointerCapture?.(event.pointerId)
   }
@@ -1651,23 +1732,75 @@ export default function OrientationFlow() {
       setDragX(0)
       return
     }
-    if (phase === 'questions') answerQuestion(delta > 0 ? 'Oui' : 'Non')
-    if (phase === 'proposals') swipeProposal(delta > 0)
+    if (phase === 'questions') answerQuestion(delta > 0 ? 1 : 0)
   }
 
-  const randomizeAvatar = () => {
-    const nextConfig = randomAvatarConfig()
-    const nextUrl = buildLoreleiUrl(nextConfig, 256)
-    setAvatarConfig(nextConfig)
-    setAvatarUrl(nextUrl)
-    localStorage.setItem('avatar_cfg', JSON.stringify(nextConfig))
-    localStorage.setItem('avatar_url', nextUrl)
+  const canGoBack = !loading && !error && (
+    (phase === 'questions' && questionIndex > 0) ||
+    ['personality', 'info', 'profileIdentity', 'formationReveal', 'metierReveal', 'avatarReveal'].includes(phase)
+  )
+
+  const goBack = () => {
+    if (phase === 'questions') {
+      if (questionIndex > 0) {
+        setDragX(0)
+        setQuestionIndex((index) => index - 1)
+      }
+      return
+    }
+    if (phase === 'info') {
+      if (infoIndex > 0) setInfoIndex((index) => index - 1)
+      else setPhase('questions')
+      return
+    }
+    if (phase === 'profileIdentity') {
+      setPhase('info')
+      return
+    }
+    if (phase === 'personality') {
+      setQuestionIndex(Math.max(0, questions.length - 1))
+      setPhase('questions')
+      return
+    }
+    if (phase === 'formationReveal') {
+      setPhase('personality')
+      return
+    }
+    if (phase === 'metierReveal') {
+      setPhase('formationReveal')
+      return
+    }
+    if (phase === 'avatarReveal') {
+      setPhase('metierReveal')
+    }
   }
 
-  const validateAvatarAndContinue = () => {
-    localStorage.setItem('avatar_cfg', JSON.stringify(avatarConfig))
-    localStorage.setItem('avatar_url', avatarUrl)
-    runInitialAnalysis()
+  const sharePersonaProfile = async () => {
+    const sharePersona = persona || computePersonaFromAnswers(questions, answers).persona
+    if (!sharePersona || sharingPersona) return
+    setSharingPersona(true)
+    try {
+      const dataUrl = await generatePersonaShareCard({
+        persona: sharePersona,
+        avatarUrl,
+        firstName: profileIdentity.firstName
+      })
+      if (!dataUrl) return
+      const blob = await (await fetch(dataUrl)).blob()
+      const file = new File([blob], 'mon-portrait-zelia.png', { type: 'image/png' })
+      if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Mon portrait Zélia' }).catch(() => null)
+      } else {
+        const link = document.createElement('a')
+        link.href = dataUrl
+        link.download = 'mon-portrait-zelia.png'
+        link.click()
+      }
+    } catch (shareError) {
+      console.warn('Persona share failed', shareError)
+    } finally {
+      setSharingPersona(false)
+    }
   }
 
   const goToAuth = (path) => {
@@ -1808,129 +1941,65 @@ export default function OrientationFlow() {
     ).slice(0, count)
   }
 
-  const getInitialJobDeckCandidates = (count = AI_JOB_DECK_SIZE) => getAnalysisJobCandidates(analysisData, count)
-
   const getFinalFormationSearchPlans = (profile, liked = [], count = AI_FORMATION_KEYWORD_COUNT) => {
     const plans = buildDirectFormationSearchPlans(profile, liked, count)
     if (!plans.length) throw new Error('Aucun mot-clé formation exploitable depuis le bilan et les swipes')
     return plans
   }
 
-  const getFinalJobCandidates = (profile, liked = [], rejected = [], count = AI_FINAL_JOB_COUNT) => {
-    const likedJobs = liked.filter((candidate) => candidate?.type === 'metier')
-    const rejectedJobs = rejected.filter((candidate) => candidate?.type === 'metier')
-    const analysisJobs = getAnalysisJobCandidates(analysisData, count * 2)
-    return diversifyCandidates(filterRejectedCandidates(
-      mergeUniqueCandidates(likedJobs, analysisJobs),
-      rejectedJobs,
-      likedJobs
-    ), { maxPerJobTitle: 1 }).slice(0, count)
+  // Real profile <-> formation_france matching: builds search plans from the AI
+  // analysis + the user's declared profile (target level, strong subjects,
+  // study location, department) and runs them through the search_formations
+  // RPC (trigram-scored) to surface concrete formations from the database.
+  useEffect(() => {
+    if (phase !== 'formationReveal' || !analysisData) return
+    let mounted = true
+    setDbFormationsLoading(true)
+    ;(async () => {
+      try {
+        const department = await resolveUserDepartment().catch(() => userDepartment)
+        const candidates = await getInitialFormationDeckCandidates(microProfile, department, 10)
+        if (!mounted) return
+        const concrete = candidates.filter(isDatabaseCandidate).slice(0, 8)
+        setDbFormations(concrete)
+        setRequestInfoSelections(new Set(concrete.map((candidate) => candidate.id)))
+      } catch (matchError) {
+        console.warn('Formation matching failed', matchError)
+        if (mounted) setDbFormations([])
+      } finally {
+        if (mounted) setDbFormationsLoading(false)
+      }
+    })()
+    return () => { mounted = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, analysisData])
+
+  const toggleRequestInfoSelection = (candidateId) => {
+    setRequestInfoSelections((prev) => {
+      const next = new Set(prev)
+      if (next.has(candidateId)) next.delete(candidateId)
+      else next.add(candidateId)
+      return next
+    })
   }
 
-  const beginContextQuestions = (nextIntent) => {
-    const nextProfile = sanitizeMicroProfileForIntent(microProfile, nextIntent)
-    setIntent(nextIntent)
-    setMicroProfile(nextProfile)
-    localStorage.setItem('orientation_micro_profile', JSON.stringify(nextProfile))
-    setInfoIndex(0)
-    setError('')
-    setPhase('info')
+  const persistFormationSelection = async () => {
+    if (!dbFormations.length) return
+    const serialized = dbFormations.map((candidate) => serializeFinalCandidate(candidate, requestInfoSelections.has(candidate.id)))
+    const answerText = JSON.stringify(serialized)
+    localStorage.setItem('orientation_final_selection', answerText)
+    await usersAPI.saveExtraInfo([{
+      question_id: 'orientation_final_selection',
+      question_text: 'Sélection finale orientation',
+      answer_text: answerText
+    }]).catch((saveError) => {
+      console.warn('Formation selection save failed', saveError)
+    })
   }
 
-  const startProposalDeck = async (profileOverride = microProfile, intentOverride = intent) => {
-    const nextIntent = intentOverride || intent
-    const profile = sanitizeMicroProfileForIntent({ ...microProfile, ...(profileOverride || {}) }, nextIntent)
-    if (!nextIntent) {
-      setPhase('intent')
-      return
-    }
-
-    setIntent(nextIntent)
-    setMicroProfile(profile)
-    localStorage.setItem('orientation_micro_profile', JSON.stringify(profile))
-    setError('')
-    setProfileIdentityError('')
-    const shouldCollectIdentity = !profileIdentityCompleteRef.current || !hasCompletedProfileIdentityForIntent(nextIntent)
-    if (shouldCollectIdentity) {
-      setBusyMessage('')
-      setPhase('profileIdentity')
-      return
-    }
-
-    setPhase('proposalSearch')
-    setBusyMessage(nextIntent === 'metiers' ? 'Zélia prépare tes métiers à swiper' : FORMATION_SEARCH_WAITING_MESSAGE)
-    try {
-      const department = nextIntent === 'metiers'
-        ? (userDepartment || {})
-        : await resolveUserDepartment()
-      const savePromise = saveMicroProfile(profile, department)
-      if (nextIntent !== 'metiers') await savePromise
-      let deck = []
-
-      if (nextIntent === 'metiers') {
-        deck = getInitialJobDeckCandidates(AI_JOB_DECK_SIZE)
-      } else if (nextIntent === 'formations') {
-        deck = await getInitialFormationDeckCandidates(profile, department, AI_FORMATION_DECK_SIZE)
-      } else {
-        const [formationDeck, jobDeck] = await Promise.all([
-          getInitialFormationDeckCandidates(profile, department, PRESELECTED_CANDIDATES_PER_KIND + 1),
-          Promise.resolve(getInitialJobDeckCandidates(PRESELECTED_CANDIDATES_PER_KIND + 1))
-        ])
-        deck = balanceCandidatesForIntent(
-          mergeUniqueCandidates(formationDeck, jobDeck),
-          mergeUniqueCandidates(formationDeck, jobDeck),
-          nextIntent,
-          PRESELECTED_CANDIDATES_PER_KIND + 1,
-          (PRESELECTED_CANDIDATES_PER_KIND + 1) * 2
-        )
-      }
-      deck = nextIntent === 'metiers'
-        ? deck.slice(0, AI_JOB_DECK_SIZE)
-        : nextIntent === 'formations'
-          ? deck.slice(0, AI_FORMATION_DECK_SIZE)
-          : deck.slice(0, MAX_PROPOSAL_DECK)
-      deck = filterCandidatesByTargetStudyLevel(deck, profile)
-      if (!deck.length) {
-        if (nextIntent === 'metiers') {
-          throw new Error('Aucune proposition métiers exploitable depuis le bilan')
-        }
-        if (nextIntent === 'formations' || nextIntent === 'both') {
-          throw new Error('Aucune proposition formations exploitable depuis le bilan après vérification du niveau visé')
-        }
-      }
-      setProposalCandidates(deck)
-      setProposalIndex(0)
-      setLikedProposals([])
-      setProposalHistory([])
-      setPhase('proposals')
-      if (nextIntent === 'metiers') savePromise.catch(() => null)
-    } catch (proposalError) {
-      console.error('Proposal deck error', proposalError)
-      setProposalCandidates([])
-      setError("Je n'ai pas pu préparer une liste fiable à partir de ton bilan.")
-    } finally {
-      setBusyMessage('')
-    }
-  }
-
-  function swipeProposal(keep) {
-    const proposal = proposalCandidates[proposalIndex]
-    if (!proposal) return
-    const nextLiked = keep ? [...likedProposals, proposal] : likedProposals
-    const nextHistory = [...proposalHistory, { keep, candidate: proposal }]
-    setLikedProposals(nextLiked)
-    setProposalHistory(nextHistory)
-    setDragX(keep ? 360 : -360)
-    window.setTimeout(() => {
-      setDragX(0)
-      if (proposalIndex >= proposalCandidates.length - 1) {
-        const finalLiked = nextLiked
-        setLikedProposals(finalLiked)
-        runFinalSearch(microProfile, { likedOverride: finalLiked, historyOverride: nextHistory })
-      } else {
-        setProposalIndex((index) => index + 1)
-      }
-    }, 180)
+  const continueFromFormationReveal = () => {
+    persistFormationSelection()
+    setPhase('metierReveal')
   }
 
   const chooseMicroOption = (step, option) => {
@@ -1952,7 +2021,7 @@ export default function OrientationFlow() {
 
     if (!step.multi) {
       window.setTimeout(() => {
-        if (infoIndex >= activeMicroSteps.length - 1) startProposalDeck(nextProfile)
+        if (infoIndex >= activeMicroSteps.length - 1) advanceFromInfo(null, nextProfile)
         else setInfoIndex((index) => index + 1)
       }, 200)
     }
@@ -2004,7 +2073,7 @@ export default function OrientationFlow() {
       markProfileIdentityCompleteForIntent(intent)
       profileIdentityCompleteRef.current = true
       setProfileIdentityComplete(true)
-      await startProposalDeck(microProfile, intent)
+      await runInitialAnalysis()
     } catch (profileError) {
       console.error('Profile identity save failed', profileError)
       setProfileIdentityError(profileError?.response?.data?.error || "Impossible d'enregistrer ces infos pour le moment.")
@@ -2013,155 +2082,13 @@ export default function OrientationFlow() {
     }
   }
 
-  const runFinalSearch = async (profileOverride = microProfile, options = {}) => {
-    const profile = sanitizeMicroProfileForIntent({ ...microProfile, ...(profileOverride || {}) }, intent)
-    const historySource = options.historyOverride || proposalHistory
-    const likedSource = options.likedOverride || likedProposals
-    localStorage.setItem('orientation_micro_profile', JSON.stringify(profile))
-    setPhase('finalSearch')
-    setBusyMessage(intent === 'metiers' ? 'Zélia affine 8 métiers avec tes swipes' : FORMATION_SEARCH_WAITING_MESSAGE)
-    setError('')
-
-    try {
-      const department = intent === 'metiers'
-        ? (userDepartment || {})
-        : await resolveUserDepartment()
-      const savePromise = saveMicroProfile(profile, department)
-      if (intent !== 'metiers') await savePromise
-      const rejectedProposals = historySource.filter((item) => !item.keep).map((item) => item.candidate)
-      const liked = likedSource
-
-      if (intent === 'metiers') {
-        const finalJobs = getFinalJobCandidates(profile, liked, rejectedProposals, AI_FINAL_JOB_COUNT)
-        if (!finalJobs.length) throw new Error('Aucun métier final exploitable depuis le bilan et les swipes')
-        setFinalCandidates(finalJobs)
-        setCheckedIds(finalJobs.map((candidate) => candidate.id))
-        setRequestInfoIds([])
-        setPhase('final')
-        savePromise.catch(() => null)
-        return
-      }
-
-      const likedFormations = liked.filter((candidate) => candidate?.type === 'formation')
-      const hasLikedFormations = likedFormations.length > 0
-      const searchContext = {
-        studyLocation: profile.study_location,
-        department,
-        profile
-      }
-
-      const finalJobs = intent === 'both'
-        ? getFinalJobCandidates(profile, liked, rejectedProposals, AI_FINAL_JOB_COUNT)
-        : []
-      const partnerCandidatesPromise = orientationAPI.getMatchedSchools()
-        .then((response) => (response?.data?.matched || []).map(normalizePartnerFormation))
-        .catch((partnerError) => {
-          console.warn('Matched partner schools failed', partnerError)
-          return []
-        })
-
-      const formationPlans = getFinalFormationSearchPlans(profile, liked, FINAL_FORMATION_SEARCH_PLAN_COUNT)
-      const [planDbCandidates, swipeDbCandidates, finalJobCandidates, partnerCandidates] = await Promise.all([
-        fetchTableCandidates(formationPlans, FINAL_FORMATION_PAGE_SIZE, 'formations', {
-          ...searchContext,
-          maxFormationPlans: FINAL_FORMATION_SEARCH_PLAN_COUNT,
-          maxFormationQueryVariants: MAX_FORMATION_QUERY_VARIANTS
-        }),
-        hasLikedFormations
-          ? resolveCandidatesThroughCatalog(likedFormations, 6, 'formations', {
-            ...searchContext,
-            maxFormationPlans: 2,
-            maxFormationQueryVariants: 1
-          })
-          : Promise.resolve([]),
-        Promise.resolve(finalJobs),
-        partnerCandidatesPromise
-      ])
-
-      const likedDatabaseCandidates = filterCandidatesByTargetStudyLevel(liked.filter(isDatabaseCandidate), profile)
-      let dbCandidates = filterCandidatesByTargetStudyLevel(filterRejectedCandidates(
-        mergeUniqueCandidates(swipeDbCandidates, likedDatabaseCandidates, planDbCandidates),
-        rejectedProposals,
-        liked
-      ), profile)
-
-      if (hasLikedFormations) {
-        dbCandidates = filterCandidatesByFormationAnchors(dbCandidates, likedFormations)
-      }
-
-      dbCandidates = diversifyCandidates(dbCandidates, { maxPerFormation: 1, maxPerSchool: 2 })
-      const selectedPartnerCandidates = selectPartnerCandidatesForFinal(
-        partnerCandidates,
-        profile,
-        department,
-        rejectedProposals,
-        liked,
-        MAX_PARTNER_FINAL_RESULTS
-      )
-
-      const finalList = composeFinalCandidates(mergeUniqueCandidates(dbCandidates, finalJobCandidates), selectedPartnerCandidates, intent)
-      if (!finalList.length) {
-        throw new Error('Aucune formation concrete trouvee avec les mots-cles valides')
-      }
-      setFinalCandidates(finalList)
-      setCheckedIds(finalList.slice(0, Math.min(5, finalList.length)).map((candidate) => candidate.id))
-      setRequestInfoIds(finalList.filter((candidate) => candidate.type === 'formation').map((candidate) => candidate.id))
-      setPhase('final')
-    } catch (finalError) {
-      console.error('Final search error', finalError)
-      setFinalCandidates([])
-      setCheckedIds([])
-      setRequestInfoIds([])
-      setError(intent === 'metiers'
-        ? "Je n'ai pas trouvé de métiers assez fiables avec les données disponibles."
-        : "Je n'ai pas trouvé de formations assez fiables avec les données disponibles.")
-    } finally {
-      setBusyMessage('')
-    }
-  }
-
-  const toggleFinal = (candidate) => {
-    setCheckedIds((ids) => ids.includes(candidate.id)
-      ? ids.filter((id) => id !== candidate.id)
-      : [...ids, candidate.id]
-    )
-  }
-
-  const persistFinalSelection = async (requestIds = requestInfoIds) => {
-    const selectedCandidates = finalCandidates
-      .filter((candidate) => checkedIds.includes(candidate.id))
-
-    const requestIdSet = new Set(requestIds)
-    const selected = selectedCandidates.map((candidate) => serializeFinalCandidate(candidate, requestIdSet.has(candidate.id)))
-    localStorage.setItem('orientation_final_selection', JSON.stringify(selected))
-    await usersAPI.saveExtraInfo([{ question_id: 'orientation_final_selection', question_text: 'Sélection finale', answer_text: JSON.stringify(selected) }]).catch(() => null)
-    return selected
-  }
-
-  const toggleRequestInfo = (candidate) => {
-    if (candidate?.type !== 'formation') return
-    const currentIds = new Set(requestInfoIds)
-    if (currentIds.has(candidate.id)) currentIds.delete(candidate.id)
-    else currentIds.add(candidate.id)
-    const nextIds = [...currentIds]
-    setRequestInfoIds(nextIds)
-    persistFinalSelection(nextIds).catch((saveError) => {
-      console.warn('Final selection request info save failed', saveError)
-    })
-  }
-
-  const validateFinalSelection = async () => {
-    setError('')
-    await persistFinalSelection(requestInfoIds)
-    setPhase('confirmed')
-  }
-
   const renderAvatarFace = (className = 'message-avatar') => (
     <img src={displayedAvatarUrl} alt="Avatar Zélia" className={className} />
   )
 
   const renderQuestionCard = () => {
     if (!currentQuestion) return null
+    const options = getQuestionOptions(currentQuestion)
     return (
       <div className="orientation-stage">
         <div
@@ -2173,129 +2100,91 @@ export default function OrientationFlow() {
           onPointerCancel={onPointerUp}
           style={{ transform: `translateX(${dragX}px) rotate(${dragX / 18}deg)` }}
         >
+          <div className={`question-icon-badge tone-${questionIndex % 2}`}>
+            <i className={`ph ${getCategoryIcon(currentQuestion.category)}`} aria-hidden="true" />
+          </div>
           <span className="orientation-pill">{Math.min(questionIndex + 1, questions.length)} / {questions.length}</span>
           <h1>{cleanQuestionText(currentQuestion.contenu)}</h1>
           {questionIndex === 0 && (
-            <div className="question-swipe-tutorial" aria-label="Glisse vers la gauche pour Non, vers la droite pour Oui">
+            <div className="question-swipe-tutorial" aria-label="Glisse la carte vers ta réponse, ou touche-la directement">
               <span className="swipe-tutorial-answer reject">
                 <i className="ph ph-arrow-left" aria-hidden="true" />
-                Non
               </span>
               <span className="swipe-tutorial-track" aria-hidden="true">
                 <span className="swipe-tutorial-cue" />
               </span>
               <span className="swipe-tutorial-answer accept">
-                Oui
                 <i className="ph ph-arrow-right" aria-hidden="true" />
               </span>
             </div>
           )}
         </div>
-        <div className="orientation-actions two">
-          <button className="round-action reject" onClick={() => answerQuestion('Non')} aria-label="Non" title="Non">
-            <i className="ph ph-x" aria-hidden="true" />
+        <div className="orientation-actions option-actions-stack">
+          <button className="option-action reject" onClick={() => answerQuestion(0)} title={options[0].label}>
+            <span className="option-letter">A</span>
+            <span className="option-label">{options[0].label}</span>
           </button>
-          <button className="round-action accept" onClick={() => answerQuestion('Oui')} aria-label="Oui" title="Oui">
-            <i className="ph ph-check" aria-hidden="true" />
+          <button className="option-action accept" onClick={() => answerQuestion(1)} title={options[1].label}>
+            <span className="option-letter">B</span>
+            <span className="option-label">{options[1].label}</span>
           </button>
         </div>
       </div>
     )
   }
 
-  const renderAvatar = () => (
-    <div className="orientation-stage compact">
-      <div className="orientation-card avatar-card">
-        <span className="orientation-pill">Avatar</span>
-        <h1>Choisis l'avatar qui te convient</h1>
-        <img src={avatarUrl} alt="Avatar Zélia" className="avatar-preview" />
-      </div>
-      <div className="avatar-actions">
-        <button className="secondary-action" onClick={randomizeAvatar}>Au hasard</button>
-        <button className="primary-action" onClick={validateAvatarAndContinue}>Valider</button>
-      </div>
-    </div>
-  )
-
   const renderBusy = () => (
     <div className="orientation-stage compact">
       <div className="orientation-card message-card">
         {renderAvatarFace()}
-        <div className="spinner" />
+        <div className="busy-dots"><span /><span /><span /></div>
         <h1>{busyMessage || 'Chargement'}</h1>
       </div>
     </div>
   )
 
-  const renderPersonality = () => (
-    <div className="orientation-stage compact personality-stage">
-      <div className="orientation-card recommendation-card personality-card">
-        {renderAvatarFace()}
-        <span className="orientation-pill">Analyse de personnalité</span>
-        <h1>Voilà ce que ton profil raconte.</h1>
-        <div className="recommendation-list">
-          {visiblePersonality.map((item) => (
-            <div key={item.label} className={`recommendation-row ${item.tone || ''}`}>
-              <span>{item.label}</span>
-              <strong className="analysis-value">{item.value}</strong>
-            </div>
-          ))}
-        </div>
-      </div>
-      <button className="primary-action personality-continue" onClick={() => setPhase('intent')}>Continuer</button>
-    </div>
-  )
-
-  const renderIntent = () => (
+  const renderIntro = () => (
     <div className="orientation-stage compact">
-      <div className="orientation-card choice-card">
+      <div className="orientation-card message-card accent-pink">
         {renderAvatarFace()}
-        <span className="orientation-pill">Recherche</span>
-        <h1>Que recherches tu ?</h1>
-        <div className="intent-grid">
-          {INTENT_OPTIONS.map((option) => (
-            <button key={option.value} className="intent-button" onClick={() => beginContextQuestions(option.value)}>
-              <i className={`ph ${option.icon}`} aria-hidden="true" />
-              <span>{option.title}</span>
-            </button>
-          ))}
-        </div>
+        <span className="orientation-pill">Bienvenue</span>
+        <h1>Salut, moi c'est Zélia !</h1>
+        <p>
+          Je vais te poser 20 questions rapides pour mieux te connaître. Ensuite, je te
+          révèle ton profil, tes pistes de formation, tes idées de métiers et ton avatar
+          personnalisé. Prêt·e ?
+        </p>
       </div>
+      <button className="primary-action" onClick={() => setPhase('questions')}>C'est parti !</button>
     </div>
   )
 
-  const renderProposals = () => {
-    if (!currentProposal) return null
-    const display = getCandidateDisplay(currentProposal)
+  const renderPersonality = () => {
+    const revealPersona = persona || computePersonaFromAnswers(questions, answers).persona
     return (
-      <div className="orientation-stage">
-        <div
-          className="orientation-card candidate-card swipe-card"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          style={{ transform: `translateX(${dragX}px) rotate(${dragX / 18}deg)` }}
-        >
-          {currentProposal.type === 'formation' ? (
-            <div className="candidate-speaker">
-              {renderAvatarFace('candidate-avatar')}
-              <p>{currentProposal.partner ? 'Formation partenaire' : 'Formation'} · {currentProposal.source}</p>
-            </div>
-          ) : (
-            <span className={`source-badge ${currentProposal.logoKind}`}>Métier · {currentProposal.source}</span>
+      <div className="orientation-stage compact personality-stage">
+        <div className="persona-reveal-wrap">
+          <PersonaRevealCard
+            persona={revealPersona}
+            avatarUrl={avatarUrl}
+            onShare={sharePersonaProfile}
+            sharing={sharingPersona}
+            onContinue={() => setPhase('formationReveal')}
+            continueLabel="On continue !"
+          />
+          {visiblePersonality.length > 0 && (
+            <details className="personality-details">
+              <summary>Voir le détail de mon analyse</summary>
+              <div className="recommendation-list">
+                {visiblePersonality.map((item) => (
+                  <div key={item.label} className={`recommendation-row ${item.tone || ''}`}>
+                    <span>{item.label}</span>
+                    <strong className="analysis-value">{item.value}</strong>
+                  </div>
+                ))}
+              </div>
+            </details>
           )}
-          <h1>{display.title}</h1>
-          <p>{display.subtitle}</p>
-          {currentProposal.matchScore && <strong className="match-score">{currentProposal.matchScore}% match</strong>}
-        </div>
-        <div className="orientation-actions two">
-          <button className="round-action reject" onClick={() => swipeProposal(false)} aria-label="Ignorer" title="Ignorer">
-            <i className="ph ph-x" aria-hidden="true" />
-          </button>
-          <button className="round-action accept" onClick={() => swipeProposal(true)} aria-label="Garder" title="Garder">
-            <i className="ph ph-check" aria-hidden="true" />
-          </button>
         </div>
       </div>
     )
@@ -2323,7 +2212,7 @@ export default function OrientationFlow() {
           </div>
         </div>
         {step.multi && (
-          <button className="primary-action" onClick={() => startProposalDeck(microProfile)}>Voir les propositions</button>
+          <button className="primary-action" onClick={() => advanceFromInfo()}>C'est parti !</button>
         )}
       </div>
     )
@@ -2374,97 +2263,211 @@ export default function OrientationFlow() {
           <p className="identity-note">{identityNote}</p>
           {profileIdentityError && <p className="identity-error" role="alert">{profileIdentityError}</p>}
           <button className="primary-action identity-submit" type="submit" disabled={profileIdentitySaving}>
-            {profileIdentitySaving ? 'Enregistrement...' : 'Continuer'}
+            {profileIdentitySaving ? 'On enregistre...' : 'On y va !'}
           </button>
         </form>
       </div>
     )
   }
 
-  const renderFinal = () => (
-    <div className="orientation-stage compact final-stage">
-      <div className="orientation-card final-card">
-        {renderAvatarFace()}
-        <span className="orientation-pill">J'ai trouvé</span>
-        <h1>Voici la liste que j'ai confectionnée pour toi :</h1>
-        <div className="final-list">
-          {finalCandidates.map((candidate) => {
-            const display = getCandidateDisplay(candidate)
-            return (
-              <label key={candidate.id} className={`final-row ${candidate.partner ? 'partner-row' : ''}`}>
-                <input type="checkbox" checked={checkedIds.includes(candidate.id)} onChange={() => toggleFinal(candidate)} />
-                <span>
-                  <strong>{display.title}</strong>
-                  <small>{display.subtitle}</small>
-                </span>
-                <b className={candidate.type === 'metier' ? 'job-kind' : 'formation-kind'}>{candidate.type === 'metier' ? 'Métier' : 'Formation'}</b>
-                {candidate.partner && <b className="partner-kind">Partenaire</b>}
-                {candidate.matchScore && <em>{candidate.matchScore}%</em>}
-              </label>
-            )
-          })}
-          {finalCandidates.length === 0 && <p className="empty-state">Aucune proposition précise pour le moment.</p>}
-        </div>
-      </div>
-      <button className="primary-action" onClick={validateFinalSelection}>Valider ma sélection</button>
-    </div>
-  )
+  const renderFormationReveal = () => (
+    <div className="orientation-stage compact personality-stage">
+      <div className="persona-reveal-wrap">
+        <div className="persona-card">
+          <div className="persona-card-head">
+            <div>
+              <span className="persona-kicker">Analyse formation</span>
+              <h1 className="persona-name">Les formations qui matchent ton profil</h1>
+            </div>
+            {renderAvatarFace('persona-avatar')}
+          </div>
+          <p className="persona-tagline">
+            {dbFormationsLoading
+              ? 'On cherche parmi 35 000 formations celles qui collent vraiment à ton profil...'
+              : dbFormations.length
+                ? "Sélectionnées à partir de tes réponses, ton niveau visé et ta localisation. Coche celles pour lesquelles tu veux plus d'infos."
+                : "On n'a pas trouvé de correspondance exacte tout de suite, mais voilà des pistes cohérentes avec ton profil."}
+          </p>
 
-  const renderConfirmed = () => {
-    const selectedCandidates = finalCandidates.filter((candidate) => checkedIds.includes(candidate.id))
-    const recapCandidates = selectedCandidates.length ? selectedCandidates : finalCandidates.slice(0, 5)
-    const hasMetierRecap = recapCandidates.some((candidate) => candidate?.type === 'metier')
+          {dbFormationsLoading && (
+            <div className="busy-dots" aria-hidden="true"><span /><span /><span /></div>
+          )}
 
-    return (
-      <div className="orientation-stage compact confirmed-stage">
-        <div className="orientation-card message-card confirmed-card">
-          {renderAvatarFace()}
-          <span className="orientation-pill">Validé</span>
-          <h1>{hasMetierRecap ? 'Voilà, on a une vraie base pour commencer. Je te propose ces métiers.' : 'Voilà, on a une vraie base pour avancer.'}</h1>
-          <p>{hasMetierRecap
-            ? "J'ai affiné tes swipes avec ton profil pour te proposer des métiers distincts et proches de tes matchs."
-            : "J'ai gardé tes choix et je t'ai ajouté les infos utiles : description, lieu, niveau, contact et lien quand la base les fournit."}</p>
-
-          {recapCandidates.length > 0 ? (
-            <div className="confirmed-list">
-              {recapCandidates.map((candidate) => {
-                const details = buildCandidateDetail(candidate)
-                const isFormation = candidate?.type === 'formation'
+          {!dbFormationsLoading && dbFormations.length > 0 && (
+            <div className="formation-lead-grid">
+              {dbFormations.map((formation) => {
+                const raw = formation.raw || {}
+                const formationName = getCandidateFormationTitle(formation)
+                const school = raw.etab_nom || ''
+                const city = raw.commune || raw.departement || ''
+                const level = raw.tc || ''
+                const checked = requestInfoSelections.has(formation.id)
                 return (
-                  <article key={candidate.id} className={`confirmed-detail ${candidate.type === 'metier' ? 'job' : ''} ${candidate.partner ? 'partner' : ''}`}>
-                    <div className="confirmed-detail-head">
-                      <span>{details.typeLabel}</span>
-                      {candidate.matchScore && <em>{candidate.matchScore}%</em>}
+                  <div key={formation.id} className="formation-lead-card">
+                    <div className="formation-lead-head">
+                      <strong>{cleanDetailText(formationName, 90)}</strong>
+                      {formation.matchScore != null && (
+                        <span className="formation-lead-score">{formation.matchScore}%</span>
+                      )}
                     </div>
-                    <h2>{details.title}</h2>
-                    {details.subtitle && <strong>{details.subtitle}</strong>}
-                    {details.tags.length > 0 && (
-                      <div className="confirmed-tags">
-                        {details.tags.map((tag) => <small key={tag}>{tag}</small>)}
-                      </div>
-                    )}
-                    {details.description && <p>{details.description}</p>}
-                    {isFormation && (
-                      <label className="confirmed-request-info">
-                        <input type="checkbox" checked={requestInfoIds.includes(candidate.id)} onChange={() => toggleRequestInfo(candidate)} />
-                        <span>Demander plus d'informations</span>
-                      </label>
-                    )}
-                    {details.link && (
-                      <a href={details.link} target="_blank" rel="noreferrer">
-                        {isFormation ? 'Voir la fiche' : details.linkLabel}
-                        <i className="ph ph-arrow-square-out" aria-hidden="true" />
-                      </a>
-                    )}
-                  </article>
+                    {school && <p className="formation-lead-subtitle">{cleanDetailText(school, 80)}</p>}
+                    <div className="formation-lead-meta">
+                      {level && <span className="formation-lead-chip">{cleanDetailText(level, 30)}</span>}
+                      {city && <span className="formation-lead-chip"><i className="ph ph-map-pin" aria-hidden="true" />{cleanDetailText(city, 30)}</span>}
+                    </div>
+                    <label className={`formation-lead-check${checked ? ' is-checked' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleRequestInfoSelection(formation.id)}
+                      />
+                      <i className={`ph ${checked ? 'ph-check-square' : 'ph-square'}`} aria-hidden="true" />
+                      Je veux plus d'infos
+                    </label>
+                  </div>
                 )
               })}
             </div>
-          ) : (
-            <p className="empty-state">Ta sélection est enregistrée. Tu peux la retrouver dans ton espace.</p>
+          )}
+
+          {!dbFormationsLoading && dbFormations.length === 0 && formationRecommendations.length > 0 && (
+            <div className="persona-portrait-grid">
+              {formationRecommendations.map((formation) => (
+                <div key={formation.id} className="persona-portrait-tile">
+                  <small>Formation</small>
+                  <i className="ph ph-graduation-cap persona-portrait-emoji" aria-hidden="true" />
+                  <strong>{formation.title}</strong>
+                </div>
+              ))}
+            </div>
           )}
         </div>
-        <button className="primary-action" onClick={() => navigate('/app')}>Continuer vers mon espace</button>
+
+        {(partnerFormationsLoading || partnerFormations.length > 0) && (
+          <div className="persona-card">
+            <div className="persona-card-head">
+              <div>
+                <span className="persona-kicker">Écoles partenaires</span>
+                <h2 className="persona-name persona-name-secondary">Elles peuvent te recontacter directement</h2>
+              </div>
+            </div>
+            <p className="persona-tagline">
+              {partnerFormations.length
+                ? "Ces écoles partenaires proposent des formations proches de ton profil. Demande plus d'infos en un clic."
+                : 'On regarde ce que nos écoles partenaires proposent pour toi...'}
+            </p>
+
+            {partnerFormationsLoading && (
+              <div className="busy-dots" aria-hidden="true"><span /><span /><span /></div>
+            )}
+
+            {!partnerFormationsLoading && partnerFormations.length > 0 && (
+              <div className="formation-lead-grid">
+                {partnerFormations.map((formation) => {
+                  const isSubmitted = submittedFormationIds.has(formation.id)
+                  const isSubmitting = submittingFormationId === formation.id
+                  return (
+                    <div key={formation.id} className="formation-lead-card">
+                      <div className="formation-lead-head">
+                        <strong>{formation.formation_name}</strong>
+                        {formation.match_score != null && (
+                          <span className="formation-lead-score">{formation.match_score}%</span>
+                        )}
+                      </div>
+                      <p className="formation-lead-subtitle">{formation.school_name}</p>
+                      <div className="formation-lead-meta">
+                        {formation.diploma_level && <span className="formation-lead-chip">{formation.diploma_level}</span>}
+                        {formation.city && <span className="formation-lead-chip"><i className="ph ph-map-pin" aria-hidden="true" />{formation.city}</span>}
+                      </div>
+                      <button
+                        type="button"
+                        className={`formation-lead-cta${isSubmitted ? ' is-submitted' : ''}`}
+                        onClick={() => handleRequestInfo(formation.id)}
+                        disabled={isSubmitted || isSubmitting}
+                      >
+                        {isSubmitted ? (
+                          <><i className="ph ph-check-circle" aria-hidden="true" /> Demande envoyée</>
+                        ) : isSubmitting ? (
+                          'Envoi...'
+                        ) : (
+                          <><i className="ph ph-paper-plane-tilt" aria-hidden="true" /> Demande d'infos</>
+                        )}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="persona-actions persona-actions-standalone">
+          <button type="button" className="persona-continue" onClick={continueFromFormationReveal}>On continue !</button>
+        </div>
+      </div>
+    </div>
+  )
+
+
+  const renderMetierReveal = () => (
+    <div className="orientation-stage compact personality-stage">
+      <div className="persona-reveal-wrap">
+        <div className="persona-card">
+          <div className="persona-card-head">
+            <div>
+              <span className="persona-kicker">Analyse métier</span>
+              <h1 className="persona-name">Des métiers qui pourraient te plaire</h1>
+            </div>
+            {renderAvatarFace('persona-avatar')}
+          </div>
+          <p className="persona-tagline">
+            {jobRecommendations.length
+              ? "Voilà quelques métiers cohérents avec ton profil."
+              : "On n'a pas encore assez d'infos pour te proposer des métiers précis, tu pourras les découvrir plus tard dans ton espace."}
+          </p>
+          {jobRecommendations.length > 0 && (
+            <div className="persona-portrait-grid">
+              {jobRecommendations.map((job) => (
+                <div key={job.id} className="persona-portrait-tile">
+                  <small>Métier</small>
+                  <i className="ph ph-briefcase persona-portrait-emoji" aria-hidden="true" />
+                  <strong>{job.title}</strong>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="persona-actions">
+            <button type="button" className="persona-continue" onClick={() => setPhase('avatarReveal')}>On continue !</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  const renderAvatarReveal = () => {
+    const revealPersona = persona || computePersonaFromAnswers(questions, answers).persona
+    return (
+      <div className="orientation-stage compact personality-stage">
+        <div className="persona-reveal-wrap">
+          <div className="persona-card">
+            <div className="persona-card-head">
+              <div>
+                <span className="persona-kicker">Ton avatar</span>
+                <h1 className="persona-name">Te voilà, {revealPersona?.name || 'toi'} !</h1>
+              </div>
+            </div>
+            <div className="avatar-reveal-showcase">
+              <img src={avatarUrl} alt="Ton avatar" className="avatar-reveal-image" />
+            </div>
+            <p className="persona-tagline">Ton avatar est propre à ton profil. Tu le retrouveras partout dans ton espace Zélia.</p>
+            <div className="persona-actions">
+              <button type="button" className="persona-icon-btn" onClick={sharePersonaProfile} disabled={sharingPersona} aria-label="Partager mon avatar" title="Partager">
+                <i className="ph ph-share-network" aria-hidden="true" />
+              </button>
+              <button type="button" className="persona-continue" onClick={() => navigate('/app')}>Terminer</button>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
@@ -2481,23 +2484,38 @@ export default function OrientationFlow() {
         </div>
       )
     }
+    if (phase === 'intro') return renderIntro()
     if (phase === 'questions') return renderQuestionCard()
-    if (phase === 'avatar') return renderAvatar()
-    if (phase === 'analysis' || phase === 'proposalSearch' || phase === 'finalSearch') return renderBusy()
+    if (phase === 'analysis') return renderBusy()
     if (phase === 'personality') return renderPersonality()
-    if (phase === 'intent') return renderIntent()
-    if (phase === 'proposals') return renderProposals()
     if (phase === 'info') return renderMicroInfo()
     if (phase === 'profileIdentity') return renderProfileIdentity()
-    if (phase === 'final') return renderFinal()
-    if (phase === 'confirmed') return renderConfirmed()
+    if (phase === 'formationReveal') return renderFormationReveal()
+    if (phase === 'metierReveal') return renderMetierReveal()
+    if (phase === 'avatarReveal') return renderAvatarReveal()
     return null
   }
 
   return (
     <main className="orientation-flow">
       <header className="orientation-topbar">
-        <img src="/static/images/logo-dark.png" alt="Zélia" />
+        <div className="topbar-row">
+          <div className="topbar-lead">
+            {canGoBack && (
+              <button
+                type="button"
+                className="back-button"
+                onClick={goBack}
+                aria-label="Revenir en arrière"
+                title="Revenir en arrière"
+              >
+                <i className="ph ph-arrow-left" aria-hidden="true" />
+              </button>
+            )}
+            <img src="/static/images/logo-dark.png" alt="Zélia" />
+          </div>
+          <span className="flow-step-label">{stepLabel}</span>
+        </div>
         <div className="flow-progress"><span style={{ width: `${progress}%` }} /></div>
       </header>
       {renderPhase()}

@@ -453,6 +453,171 @@ export async function generateZeliaShareImage({
   }
 }
 
+function drawRoundedRect(ctx, x, y, w, h, radius) {
+  ctx.beginPath()
+  ctx.moveTo(x + radius, y)
+  ctx.arcTo(x + w, y, x + w, y + h, radius)
+  ctx.arcTo(x + w, y + h, x, y + h, radius)
+  ctx.arcTo(x, y + h, x, y, radius)
+  ctx.arcTo(x, y, x + w, y, radius)
+  ctx.closePath()
+}
+
+// Flat-design (no gradients) portrait share card for the persona reveal.
+// Returns a PNG dataURL, or '' on failure.
+export async function generatePersonaShareCard({
+  persona,
+  avatarUrl,
+  firstName = '',
+  logoPath = DEFAULT_LOGO_PATH,
+  width = 1080,
+  height = 1350
+}) {
+  if (!persona) return ''
+
+  try {
+    await ensureCanvasFontsLoaded()
+
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+
+    ctx.fillStyle = '#fffbf7'
+    ctx.fillRect(0, 0, width, height)
+    ctx.fillStyle = '#c1ff72'
+    ctx.fillRect(0, 0, width, 26)
+    ctx.fillRect(0, height - 130, width, 130)
+
+    // Kicker + name
+    ctx.fillStyle = '#6b7280'
+    ctx.font = '800 34px system-ui, -apple-system, sans-serif'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'top'
+    const marginX = 80
+    ctx.fillText((firstName ? `${firstName}, ton portrait chinois` : 'Ton portrait chinois').toUpperCase(), marginX, 90)
+
+    ctx.fillStyle = '#000'
+    ctx.font = '800 92px "Bricolage Grotesque", "ShareClashGrotesk", system-ui, sans-serif'
+    const nameLines = wrapText(ctx, persona.name, width - marginX * 2 - 260).slice(0, 2)
+    let nameY = 150
+    nameLines.forEach((line) => {
+      ctx.fillText(line, marginX, nameY)
+      nameY += 100
+    })
+
+    // Avatar top-right
+    if (avatarUrl) {
+      try {
+        const avatarImg = await loadImage(avatarUrl)
+        const size = 230
+        const x = width - marginX - size
+        const y = 90
+        ctx.save()
+        drawRoundedRect(ctx, x, y, size, size, 28)
+        ctx.clip()
+        ctx.drawImage(avatarImg, x, y, size, size)
+        ctx.restore()
+        drawRoundedRect(ctx, x, y, size, size, 28)
+        ctx.strokeStyle = '#c1ff72'
+        ctx.lineWidth = 8
+        ctx.stroke()
+      } catch (avatarError) {
+        console.warn('Avatar not loaded for persona share card', avatarError)
+      }
+    }
+
+    // Trait chips
+    const traits = (persona.traits || []).slice(0, 4)
+    ctx.font = '700 34px system-ui, -apple-system, sans-serif'
+    let chipX = marginX
+    let chipY = Math.max(nameY + 30, 360)
+    const chipColors = ['#c1ff72', '#f68fff', '#111827']
+    traits.forEach((trait, index) => {
+      const padX = 28
+      const textW = ctx.measureText(trait).width
+      const chipW = textW + padX * 2
+      const chipH = 66
+      if (chipX + chipW > width - marginX) {
+        chipX = marginX
+        chipY += chipH + 16
+      }
+      const bg = chipColors[index % chipColors.length]
+      ctx.fillStyle = bg
+      drawRoundedRect(ctx, chipX, chipY, chipW, chipH, 33)
+      ctx.fill()
+      ctx.fillStyle = bg === '#111827' ? '#c1ff72' : '#000'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(trait, chipX + padX, chipY + chipH / 2 + 2)
+      ctx.textBaseline = 'top'
+      chipX += chipW + 16
+    })
+
+    // Portrait chinois tiles (2 rows x 3 cols, 5 tiles)
+    const entries = Object.entries(persona.portrait || {})
+    const labels = {
+      animal: 'Un animal',
+      couleur: 'Une couleur',
+      ville: 'Une ville',
+      objet: 'Un objet',
+      personnage: 'Personnage de fiction'
+    }
+    const tilesTop = chipY + 120
+    const gap = 24
+    const cols = 3
+    const tileW = (width - marginX * 2 - gap * (cols - 1)) / cols
+    const tileH = 250
+    entries.slice(0, 6).forEach(([key, item], index) => {
+      const col = index % cols
+      const row = Math.floor(index / cols)
+      const x = marginX + col * (tileW + gap)
+      const y = tilesTop + row * (tileH + gap)
+
+      ctx.fillStyle = '#ffffff'
+      drawRoundedRect(ctx, x, y, tileW, tileH, 24)
+      ctx.fill()
+      ctx.strokeStyle = 'rgba(0,0,0,0.1)'
+      ctx.lineWidth = 2
+      ctx.stroke()
+
+      ctx.textAlign = 'center'
+      ctx.fillStyle = '#6b7280'
+      ctx.font = '800 24px system-ui, -apple-system, sans-serif'
+      ctx.fillText((labels[key] || key).toUpperCase(), x + tileW / 2, y + 28)
+      ctx.font = '84px system-ui, -apple-system, sans-serif'
+      ctx.fillText(item.emoji || '✨', x + tileW / 2, y + 70)
+      ctx.fillStyle = '#000'
+      ctx.font = '800 30px system-ui, -apple-system, sans-serif'
+      const labelLines = wrapText(ctx, item.label || '', tileW - 32).slice(0, 2)
+      labelLines.forEach((line, lineIndex) => {
+        ctx.fillText(line, x + tileW / 2, y + 178 + lineIndex * 36)
+      })
+      ctx.textAlign = 'left'
+    })
+
+    // Footer: logo + prompt
+    ctx.textAlign = 'center'
+    try {
+      const logoImg = await loadImage(logoPath)
+      const logoW = 190
+      const logoH = (logoImg.height / logoImg.width) * logoW
+      ctx.drawImage(logoImg, (width - logoW) / 2, height - 65 - logoH / 2, logoW, logoH)
+    } catch {
+      ctx.fillStyle = '#000'
+      ctx.font = '800 44px "Bricolage Grotesque", "ShareClashGrotesk", system-ui, sans-serif'
+      ctx.fillText('zelia.fr', width / 2, height - 88)
+    }
+    ctx.fillStyle = '#000'
+    ctx.font = '700 28px system-ui, -apple-system, sans-serif'
+    ctx.fillText('Découvre ton portrait sur zelia.fr', width / 2, height - 170)
+
+    return canvas.toDataURL('image/png')
+  } catch (error) {
+    console.error('Persona share card generation failed', error)
+    return ''
+  }
+}
+
 export {
   deriveTopCompetences,
   truncate,

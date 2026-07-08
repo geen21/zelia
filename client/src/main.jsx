@@ -19,7 +19,6 @@ import MentionsLegales from './pages/MentionsLegales.jsx'
 import ConditionsConfidentialite from './pages/ConditionsConfidentialite.jsx'
 import Lettre from './pages/Lettre.jsx'
 import AuthCallback from './pages/AuthCallback.jsx'
-import Chat from './pages/Chat.jsx'
 import BlogIndex from './pages/blog/BlogIndex.jsx'
 import BlogExploreMetiers from './pages/blog/BlogExploreMetiers.jsx'
 import BlogQuestionnaire from './pages/blog/BlogQuestionnaire.jsx'
@@ -38,6 +37,11 @@ const tagManagerArgs = {
 TagManager.initialize(tagManagerArgs)
 
 const ConversationalHome = lazy(() => import('./pages/ConversationalHome.jsx'))
+const DiscuterZelia = lazy(() => import('./pages/DiscuterZelia.jsx'))
+const SchoolPortalHome = lazy(() => import('./pages/school-portal/SchoolPortalHome.jsx'))
+const SchoolPortalRegister = lazy(() => import('./pages/school-portal/SchoolPortalRegister.jsx'))
+const SchoolPortalLogin = lazy(() => import('./pages/school-portal/SchoolPortalLogin.jsx'))
+const SchoolPortalLeads = lazy(() => import('./pages/school-portal/SchoolPortalLeads.jsx'))
 
 // Boîte à outils : les anciens composants restent internes, exposés via des URLs fonctionnelles.
 const toolModules = import.meta.glob([
@@ -151,15 +155,19 @@ function App() {
     <Route path="/blog/etude-salaire-bon-salaire-ados" element={<BlogEtudeSalaire />} />
     <Route path="/formations" element={<Suspense fallback={<div className="p-6 text-center">Chargement des formations…</div>}><FormationsDirectory /></Suspense>} />
     <Route path="/formations/:slug" element={<Suspense fallback={<div className="p-6 text-center">Chargement de la formation…</div>}><FormationPublicPage /></Suspense>} />
+    <Route path="/espace-ecoles" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalHome /></Suspense>} />
+    <Route path="/espace-ecoles/inscription" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalRegister /></Suspense>} />
+    <Route path="/espace-ecoles/connexion" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalLogin /></Suspense>} />
+    <Route path="/espace-ecoles/leads" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalLeads /></Suspense>} />
         <Route path="/app" element={<RequireAuth><Layout /></RequireAuth>}>
           <Route index element={<Suspense fallback={<div className="p-6 text-center">Chargement de Zélia…</div>}><ConversationalHome /></Suspense>} />
+          <Route path="discuter" element={<Suspense fallback={<div className="p-6 text-center">Chargement de la discussion…</div>}><DiscuterZelia /></Suspense>} />
           <Route path="profile" element={<Profile />} />
           <Route path="results" element={<Results />} />
           <Route path="formations" element={<FormationsEcoles />} />
           <Route path="emplois" element={<Emplois />} />
           <Route path="activites" element={<Navigate to="/app" replace />} />
           <Route path="lettre" element={<Lettre />} />
-          <Route path="chat" element={<Chat />} />
           <Route path="niveau/:level" element={<LegacyLevelRedirect />} />
           <Route path="outils" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><BoiteAOutils /></Suspense>} />
           <Route path="outils/videos-orientation" element={<Suspense fallback={<div className="p-6 text-center">Chargement des vidéos…</div>}><OrientationVideos /></Suspense>} />

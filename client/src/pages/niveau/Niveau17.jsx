@@ -726,7 +726,7 @@ export default function Niveau17() {
                     }
                     setStep((prev) => Math.min(prev + 1, steps.length - 1))
                   }}
-                  className="mt-4 px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200"
+                  className="mt-4 px-4 py-2 rounded-full bg-[#c1ff72] text-black border border-gray-200"
                 >
                   {typedDone ? 'Suivant' : 'Passer'}
                 </button>
@@ -777,7 +777,7 @@ export default function Niveau17() {
               <button
                 type="button"
                 onClick={addExperienceLine}
-                className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300"
+                className="px-4 py-2 rounded-full bg-white text-gray-900 border border-gray-300"
               >
                 Ajouter une ligne
               </button>
@@ -785,7 +785,7 @@ export default function Niveau17() {
               <button
                 type="button"
                 onClick={onValidateForm}
-                className="w-full mt-2 px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
+                className="w-full mt-2 px-4 py-3 rounded-full bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
                 disabled={savingInfo}
               >
                 {savingInfo ? 'Validation…' : 'Valider'}
@@ -807,7 +807,7 @@ export default function Niveau17() {
               <button
                 type="button"
                 onClick={onValidateForm}
-                className="w-full mt-2 px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
+                className="w-full mt-2 px-4 py-3 rounded-full bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
                 disabled={savingInfo}
               >
                 {savingInfo ? 'Validation…' : 'Valider'}
@@ -838,7 +838,7 @@ export default function Niveau17() {
               <button
                 type="button"
                 onClick={() => addLine(setEducation)}
-                className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300"
+                className="px-4 py-2 rounded-full bg-white text-gray-900 border border-gray-300"
               >
                 Ajouter une ligne
               </button>
@@ -846,7 +846,7 @@ export default function Niveau17() {
               <button
                 type="button"
                 onClick={onValidateForm}
-                className="w-full mt-2 px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
+                className="w-full mt-2 px-4 py-3 rounded-full bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
                 disabled={savingInfo}
               >
                 {savingInfo ? 'Validation…' : 'Valider'}
@@ -909,7 +909,7 @@ export default function Niveau17() {
               <button
                 type="button"
                 onClick={() => addLine(setQualities)}
-                className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300"
+                className="px-4 py-2 rounded-full bg-white text-gray-900 border border-gray-300"
               >
                 Ajouter une ligne
               </button>
@@ -917,7 +917,7 @@ export default function Niveau17() {
               <button
                 type="button"
                 onClick={onValidateForm}
-                className="w-full mt-2 px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
+                className="w-full mt-2 px-4 py-3 rounded-full bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
                 disabled={savingInfo}
               >
                 {savingInfo ? 'Validation…' : 'Valider'}
@@ -949,7 +949,7 @@ export default function Niveau17() {
               <button
                 type="button"
                 onClick={() => addLine(setSkills)}
-                className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300"
+                className="px-4 py-2 rounded-full bg-white text-gray-900 border border-gray-300"
               >
                 Ajouter une ligne
               </button>
@@ -957,7 +957,7 @@ export default function Niveau17() {
               <button
                 type="button"
                 onClick={onValidateForm}
-                className="w-full mt-2 px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
+                className="w-full mt-2 px-4 py-3 rounded-full bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
                 disabled={savingInfo}
               >
                 {savingInfo ? 'Validation…' : 'Valider'}
@@ -988,7 +988,7 @@ export default function Niveau17() {
               <button
                 type="button"
                 onClick={() => addLine(setLanguages)}
-                className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300"
+                className="px-4 py-2 rounded-full bg-white text-gray-900 border border-gray-300"
               >
                 Ajouter une ligne
               </button>
@@ -996,7 +996,7 @@ export default function Niveau17() {
               <button
                 type="button"
                 onClick={onValidateForm}
-                className="w-full mt-2 px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
+                className="w-full mt-2 px-4 py-3 rounded-full bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
                 disabled={savingInfo}
               >
                 {savingInfo ? 'Validation…' : 'Valider'}
@@ -1021,7 +1021,7 @@ export default function Niveau17() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="mt-1 px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300"
+                    className="mt-1 px-4 py-2 rounded-full bg-white text-gray-900 border border-gray-300"
                   >
                     Modifier la photo
                   </button>
@@ -1038,7 +1038,7 @@ export default function Niveau17() {
               <button
                 type="button"
                 onClick={generateCv}
-                className="w-full px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200"
+                className="w-full px-4 py-3 rounded-full bg-[#c1ff72] text-black border border-gray-200"
                 disabled={generating}
               >
                 {generating ? 'Génération…' : 'Générer mon CV'}
@@ -1056,7 +1056,7 @@ export default function Niveau17() {
                 <button
                   type="button"
                   onClick={exportPdf}
-                  className="px-4 py-2 rounded-lg bg-black text-white"
+                  className="px-4 py-2 rounded-full bg-black text-white"
                   disabled={exporting}
                 >
                   {exporting ? 'Création du PDF…' : 'Télécharger en PDF'}
@@ -1064,7 +1064,7 @@ export default function Niveau17() {
                 <button
                   type="button"
                   onClick={finishLevel}
-                  className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300"
+                  className="px-4 py-2 rounded-full bg-white text-gray-900 border border-gray-300"
                   disabled={finishing}
                 >
                   {finishing ? 'Validation…' : 'Terminer'}

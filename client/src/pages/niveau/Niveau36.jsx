@@ -450,7 +450,7 @@ export default function Niveau36() {
           {phase === 'result' && (
             <div className="space-y-4">
               <div className="bg-[#f8fff0] border border-[#c1ff72] rounded-xl p-6 text-center">
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Niveau terminé</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Terminé !</h3>
                 <p className="text-gray-700">Tu as travaillé l'adaptabilité à travers 5 situations concrètes.</p>
               </div>
               <ul className="space-y-2 text-sm text-gray-700">

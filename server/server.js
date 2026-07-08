@@ -24,6 +24,7 @@ import shareRoutes from './routes/share.js'
 import supportRoutes from './routes/support.js'
 import waitlistRoutes from './routes/waitlist.js'
 import ecolesRoutes from './routes/ecoles.js'
+import schoolPortalRoutes from './routes/schoolPortal.js'
 import sitemapRoutes from './routes/sitemap.js'
 
 // Load environment variables
@@ -165,6 +166,7 @@ app.use('/api/share', shareRoutes)
 app.use('/api/support', supportRoutes)
 app.use('/api/waitlist', waitlistRoutes)
 app.use('/api/ecoles', ecolesRoutes)
+app.use('/api/school-portal', schoolPortalRoutes)
 app.use('/api', sitemapRoutes)
 
 // Root endpoint

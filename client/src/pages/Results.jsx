@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { jwtDecode } from 'jwt-decode'
 import apiClient, { usersAPI } from '../lib/api.js'
+import PersonaRevealCard from '../components/PersonaRevealCard.jsx'
+import { getPersonaBySlug } from '../lib/personas.js'
 
 export default function Results() {
 	const navigate = useNavigate()
@@ -10,6 +12,7 @@ export default function Results() {
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState('')
 	const [avatarUrls, setAvatarUrls] = useState({ type: '', analysis: '', skills: '', jobs: '', studies: '' })
+	const [personaInfo, setPersonaInfo] = useState(null) // { persona, avatarUrl }
 	const [activeTab, setActiveTab] = useState('orientation') // 'orientation' | 'personality' | 'final-selection'
 	const RESULT_GENERATION_ATTEMPTS = 3
 	const RESULT_RETRY_DELAY_MS = 1200
@@ -30,6 +33,25 @@ export default function Results() {
 	useEffect(() => {
 		loadExistingResults()
 		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [])
+
+	useEffect(() => {
+		let cancelled = false
+		;(async () => {
+			try {
+				const response = await usersAPI.getProfile()
+				if (cancelled) return
+				const profile = response?.data?.profile || {}
+				const avatarJson = profile.avatar_json && typeof profile.avatar_json === 'object' ? profile.avatar_json : {}
+				const persona = getPersonaBySlug(avatarJson.persona || '')
+				if (persona) {
+					setPersonaInfo({ persona, avatarUrl: avatarJson.url || profile.avatar || '' })
+				}
+			} catch {
+				// No persona available; the fallback profile block renders instead.
+			}
+		})()
+		return () => { cancelled = true }
 	}, [])
 
 	const buildAvatarUrl = (base, config, { seed, eyes, mouth } = {}) => {
@@ -623,49 +645,43 @@ export default function Results() {
 		}
 		return (
 			<div className="space-y-6">
-				{data.personalityType && (
-					<div className="relative bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-xl shadow-card p-6">
+				{personaInfo?.persona ? (
+					<PersonaRevealCard persona={personaInfo.persona} avatarUrl={personaInfo.avatarUrl} />
+				) : data.personalityType && (
+					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
 						<div className="flex items-center gap-3 mb-3">
 							<div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center">
 								<svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
 								</svg>
 							</div>
-							<h2 className="text-xl font-bold text-gray-900">Profil d'orientation</h2>
+							<h2 className="text-xl font-bold text-gray-900">Ton profil d'orientation</h2>
 						</div>
 						<p className="text-gray-800 font-semibold text-lg">{data.personalityType}</p>
 					</div>
 				)}
-				{data.personalityAnalysis && (
-					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
-						<div className="flex items-center gap-3 mb-4">
-							<div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
-								<svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-							</svg>
-							</div>
-							<h2 className="text-xl font-bold">Analyse d'orientation</h2>
+				{(data.personalityAnalysis || data.skillsAssessment) && (
+					<details className="relative bg-surface border border-line rounded-xl shadow-card p-6">
+						<summary className="cursor-pointer text-lg font-bold select-none">Voir le détail de mon analyse</summary>
+						<div className="mt-4 space-y-6">
+							{data.personalityAnalysis && (
+								<div>
+									<h3 className="font-semibold mb-2">Ce que ton profil raconte</h3>
+									<div className="space-y-4">
+										{renderParagraphs(data.personalityAnalysis)}
+									</div>
+								</div>
+							)}
+							{data.skillsAssessment && (
+								<div>
+									<h3 className="font-semibold mb-2">Tes forces</h3>
+									<div className="space-y-3">
+										{renderParagraphs(data.skillsAssessment)}
+									</div>
+								</div>
+							)}
 						</div>
-						<div className="space-y-4">
-							{renderParagraphs(data.personalityAnalysis)}
-						</div>
-					</div>
-				)}
-				<ContinueAdventureButton />
-				{data.skillsAssessment && (
-					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
-						<div className="flex items-center gap-3 mb-4">
-							<div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center">
-								<svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-								</svg>
-							</div>
-							<h2 className="text-xl font-bold">Compétences clés</h2>
-						</div>
-						<div className="space-y-3">
-							{renderParagraphs(data.skillsAssessment)}
-						</div>
-					</div>
+					</details>
 				)}
 				<ContinueAdventureButton />
 				{data.jobRecommendations && data.jobRecommendations.length > 0 && (

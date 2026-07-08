@@ -8,9 +8,9 @@ import { isStandaloneToolRoute, isToolCompletionText } from '../lib/toolMode'
 const HOME_NAV_ITEM = { to: '/app', label: "Conseiller d'orientation", icon: 'ph-compass', end: true }
 
 const PRIMARY_NAV_ITEMS = [
+  { to: '/app/discuter', label: 'Discuter', icon: 'ph-chat-circle-dots' },
   { to: '/app/outils', label: 'Outils', icon: 'ph-toolbox' },
-  { to: '/app/formations', label: 'Formations et écoles', icon: 'ph-graduation-cap', matches: ['/app/formations', '/app/ecoles-partenaires'] },
-  { to: '/app/chat', label: 'Communauté', icon: 'ph-chats' }
+  { to: '/app/formations', label: 'Formations et écoles', icon: 'ph-graduation-cap', matches: ['/app/formations', '/app/ecoles-partenaires'] }
 ]
 
 const DESKTOP_NAV_ITEMS = [HOME_NAV_ITEM, ...PRIMARY_NAV_ITEMS]
@@ -23,11 +23,11 @@ const MOBILE_NAV_ITEMS = [HOME_NAV_ITEM, ...PRIMARY_NAV_ITEMS, ...BOTTOM_NAV_ITE
 
 const PAGE_LABELS = [
   { match: '/app/profile', label: 'Profil' },
+  { match: '/app/discuter', label: 'Discuter' },
   { match: '/app/formations', label: 'Formations et écoles' },
   { match: '/app/emplois', label: 'Métiers' },
   { match: '/app/outils', label: 'Outils' },
   { match: '/app/ecoles-partenaires', label: 'Formations et écoles' },
-  { match: '/app/chat', label: 'Communauté' },
   { match: '/app/lettre', label: 'Lettre' },
   { match: '/app/results', label: 'Résultats' },
   { match: '/app', label: "Conseiller d'orientation", exact: true }
@@ -83,8 +83,9 @@ export default function Layout() {
     return found?.label || "Conseiller d'orientation"
   }, [location.pathname])
 
-  const isChatSurface = location.pathname === '/app' || location.pathname.startsWith('/app/chat')
+  const isChatSurface = location.pathname.startsWith('/app/discuter')
   const isToolDetail = isStandaloneToolRoute(location.pathname)
+  const isHomeDashboard = location.pathname === '/app'
 
   useEffect(() => {
     if (!isToolDetail) return undefined
@@ -222,48 +223,39 @@ export default function Layout() {
       </aside>
 
       <div className="zelia-app-main flex h-screen min-w-0 flex-col overflow-hidden">
+      {!isHomeDashboard && (
       <header className="sticky top-0 z-30 border-b border-line bg-white/92 backdrop-blur shrink-0 lg:hidden">
-        <div className="h-16 px-4 sm:px-6 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 min-w-0">
-            <Link to="/app" className="shrink-0" title="Accueil Zélia" aria-label="Accueil Zélia">
-              <img src="/static/images/logo-dark.png" alt="Zelia" className="h-7 w-auto" />
-            </Link>
-            <div className="hidden sm:block min-w-0">
-              <p className="text-xs uppercase font-medium text-text-secondary tracking-normal">Espace</p>
-              <h1 className="text-base font-semibold truncate">{pageTitle}</h1>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <Link
-              to="/app/profile"
-              className="h-10 rounded-lg border border-line bg-white pl-1 pr-3 inline-flex items-center gap-2 hover:border-black"
-              title="Profil"
-              aria-label="Profil"
-            >
-              <img src={avatarUrl} className="w-8 h-8 rounded-lg bg-white p-1 object-cover" alt="Avatar" />
-              <span className="hidden sm:block text-sm font-medium max-w-28 truncate">{userName}</span>
-            </Link>
-            <button
-              type="button"
-              onClick={logout}
-              disabled={loggingOut}
-              className="h-10 w-10 rounded-lg border border-line bg-white inline-grid place-items-center hover:border-black"
-              title="Déconnexion"
-              aria-label="Déconnexion"
-            >
-              <i className={`ph ${loggingOut ? 'ph-spinner-gap animate-spin' : 'ph-sign-out'} text-lg`} aria-hidden="true" />
-            </button>
-          </div>
+        <div className="h-14 px-3 flex items-center gap-2">
+          <Link to="/app" className="shrink-0" title="Accueil Zélia" aria-label="Accueil Zélia">
+            <img src="/static/images/logo-dark.png" alt="Zelia" className="h-6 w-auto" />
+          </Link>
+          <nav className="flex flex-1 min-w-0 overflow-x-auto gap-2" aria-label="Navigation principale mobile">
+            {MOBILE_NAV_ITEMS.map(renderMobileNavItem)}
+          </nav>
+          <Link
+            to="/app/profile"
+            className="h-9 w-9 shrink-0 rounded-lg border border-line bg-white inline-grid place-items-center hover:border-black"
+            title="Profil"
+            aria-label="Profil"
+          >
+            <img src={avatarUrl} className="w-6 h-6 rounded object-cover" alt="Avatar" />
+          </Link>
+          <button
+            type="button"
+            onClick={logout}
+            disabled={loggingOut}
+            className="h-9 w-9 shrink-0 rounded-lg border border-line bg-white inline-grid place-items-center hover:border-black"
+            title="Déconnexion"
+            aria-label="Déconnexion"
+          >
+            <i className={`ph ${loggingOut ? 'ph-spinner-gap animate-spin' : 'ph-sign-out'} text-base`} aria-hidden="true" />
+          </button>
         </div>
-
-        <nav className="flex px-4 pb-3 overflow-x-auto gap-2" aria-label="Navigation principale mobile">
-          {MOBILE_NAV_ITEMS.map(renderMobileNavItem)}
-        </nav>
       </header>
+      )}
 
       <main className={isChatSurface ? 'flex-1 min-h-0 overflow-hidden' : 'flex-1 min-h-0 overflow-y-auto'}>
-        <div ref={contentRef} onClickCapture={handleToolClickCapture} className={isChatSurface ? 'w-full h-full min-h-0 max-w-none overflow-hidden px-3 sm:px-5 lg:px-8 py-3 sm:py-4' : 'w-full max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6'}>
+        <div ref={contentRef} onClickCapture={handleToolClickCapture} className={isChatSurface ? 'w-full h-full min-h-0 max-w-none overflow-hidden px-3 sm:px-5 lg:px-8 py-3 sm:py-4' : isHomeDashboard ? 'w-full max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-6' : 'w-full max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6'}>
           {isToolDetail && (
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <Link

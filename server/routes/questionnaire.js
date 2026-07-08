@@ -19,7 +19,7 @@ router.get('/questions', optionalAuth, async (req, res) => {
     {
       const res = await db
         .from('questions')
-        .select('id, content, questionnaire_type')
+        .select('id, content, category, questionnaire_type, options')
         .eq('questionnaire_type', qType)
         .order('id', { ascending: true })
         .limit(limit)
@@ -42,8 +42,13 @@ router.get('/questions', optionalAuth, async (req, res) => {
       })
     }
 
-    // Shape to match client expectations: { id, contenu }
-    const questions = (data || []).map((q) => ({ id: q.id, contenu: q.content ?? q.contenu ?? q.question ?? q.text }))
+    // Shape to match client expectations: { id, contenu, category, options }
+    const questions = (data || []).map((q) => ({
+      id: q.id,
+      contenu: q.content ?? q.contenu ?? q.question ?? q.text,
+      category: q.category ?? null,
+      options: Array.isArray(q.options) ? q.options : null
+    }))
     return res.json(questions)
   } catch (error) {
     console.error('Questions fetch error:', error)

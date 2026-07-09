@@ -5,7 +5,7 @@ import morgan from 'morgan'
 import compression from 'compression'
 import rateLimit from 'express-rate-limit'
 import dotenv from 'dotenv'
-import paymentsRoutes, { paymentsWebhookHandler } from './routes/payments.js'
+import paymentsRoutes, { paymentsWebhookHandler, parentTrainingWebhookHandler } from './routes/payments.js'
 
 // Import routes
 import authRoutes from './routes/auth.js'
@@ -87,6 +87,7 @@ app.use(limiter)
 
 // Stripe webhook (must be registered before JSON body parsing)
 app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), paymentsWebhookHandler)
+app.post('/api/payments/parent-training/webhook', express.raw({ type: 'application/json' }), parentTrainingWebhookHandler)
 
 // CORS configuration
 // Allow listed dev origins; can be extended via CLIENT_URL or ADDITIONAL_CLIENT_ORIGINS env vars

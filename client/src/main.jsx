@@ -41,7 +41,11 @@ const DiscuterZelia = lazy(() => import('./pages/DiscuterZelia.jsx'))
 const SchoolPortalHome = lazy(() => import('./pages/school-portal/SchoolPortalHome.jsx'))
 const SchoolPortalRegister = lazy(() => import('./pages/school-portal/SchoolPortalRegister.jsx'))
 const SchoolPortalLogin = lazy(() => import('./pages/school-portal/SchoolPortalLogin.jsx'))
+const SchoolPortalLayout = lazy(() => import('./pages/school-portal/SchoolPortalLayout.jsx'))
 const SchoolPortalLeads = lazy(() => import('./pages/school-portal/SchoolPortalLeads.jsx'))
+const SchoolPortalStats = lazy(() => import('./pages/school-portal/SchoolPortalStats.jsx'))
+const SchoolPortalFormationsManager = lazy(() => import('./pages/school-portal/SchoolPortalFormations.jsx'))
+const SchoolPortalTeam = lazy(() => import('./pages/school-portal/SchoolPortalTeam.jsx'))
 const SchoolPortalAdmin = lazy(() => import('./pages/school-portal/SchoolPortalAdmin.jsx'))
 
 // Boîte à outils : les anciens composants restent internes, exposés via des URLs fonctionnelles.
@@ -79,6 +83,7 @@ const OrientationVideos = lazy(() => import('./pages/OrientationVideos.jsx'))
 const FormationDetail = lazy(() => import('./pages/FormationDetail.jsx'))
 const FormationsDirectory = lazy(() => import('./pages/FormationsDirectory.jsx'))
 const FormationPublicPage = lazy(() => import('./pages/FormationPublicPage.jsx'))
+const ParentsFormation = lazy(() => import('./pages/ParentsFormation.jsx'))
 
 loadLegacyStyles()
 
@@ -156,11 +161,19 @@ function App() {
     <Route path="/blog/etude-salaire-bon-salaire-ados" element={<BlogEtudeSalaire />} />
     <Route path="/formations" element={<Suspense fallback={<div className="p-6 text-center">Chargement des formations…</div>}><FormationsDirectory /></Suspense>} />
     <Route path="/formations/:slug" element={<Suspense fallback={<div className="p-6 text-center">Chargement de la formation…</div>}><FormationPublicPage /></Suspense>} />
-    <Route path="/espace-ecoles" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalHome /></Suspense>} />
-    <Route path="/espace-ecoles/inscription" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalRegister /></Suspense>} />
-    <Route path="/espace-ecoles/connexion" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalLogin /></Suspense>} />
-    <Route path="/espace-ecoles/leads" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalLeads /></Suspense>} />
-    <Route path="/espace-ecoles/admin" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalAdmin /></Suspense>} />
+    <Route path="/parents" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><ParentsFormation /></Suspense>} />
+    <Route path="/espace-ecoles">
+      <Route index element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalHome /></Suspense>} />
+      <Route path="inscription" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalRegister /></Suspense>} />
+      <Route path="connexion" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalLogin /></Suspense>} />
+      <Route path="admin" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalAdmin /></Suspense>} />
+      <Route element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalLayout /></Suspense>}>
+        <Route path="leads" element={<SchoolPortalLeads />} />
+        <Route path="statistiques" element={<SchoolPortalStats />} />
+        <Route path="formations" element={<SchoolPortalFormationsManager />} />
+        <Route path="equipe" element={<SchoolPortalTeam />} />
+      </Route>
+    </Route>
         <Route path="/app" element={<RequireAuth><Layout /></RequireAuth>}>
           <Route index element={<Suspense fallback={<div className="p-6 text-center">Chargement de Zélia…</div>}><ConversationalHome /></Suspense>} />
           <Route path="discuter" element={<Suspense fallback={<div className="p-6 text-center">Chargement de la discussion…</div>}><DiscuterZelia /></Suspense>} />

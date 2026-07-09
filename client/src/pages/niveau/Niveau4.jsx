@@ -180,12 +180,22 @@ export default function Niveau4() {
       await apiClient.post('/questionnaire/submit?type=mbti', payload)
       const resp = await apiClient.post('/analysis/generate-analysis-by-type', { questionnaireType: 'mbti' })
       const data = resp?.data?.analysis
-      if (data) {
-        const normalized = sanitizeAnalysisPayload(data)
-        setAnalysis(normalized)
-        setShareImgUrl(normalized.shareImageUrl || '')
+      if (!data) {
+        throw new Error('Empty analysis payload from server')
       }
+      const normalized = sanitizeAnalysisPayload(data)
+      setAnalysis(normalized)
+      setShareImgUrl(normalized.shareImageUrl || '')
       setPhase('results')
+      // Persist a marker so the dashboard progress checklist can detect
+      // that the personality test has been completed.
+      usersAPI.saveExtraInfo([
+        {
+          question_id: 'niveau4_personality_completed',
+          question_text: 'Test de personnalité approfondi complété',
+          answer_text: normalized.personalityType || 'Oui'
+        }
+      ]).catch((err) => console.warn('Persist niveau4 completion failed (non-blocking):', err))
     } catch (e) {
       console.error('Zelia submit/analyze error', e)
       setError("Impossible de générer l'analyse de personnalité")

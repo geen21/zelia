@@ -1,22 +1,33 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import SEO from '../../components/SEO'
+import './SchoolPortal.css'
 
 const BENEFITS = [
   {
     icon: 'ph-target',
     title: 'Des leads qualifiés',
-    detail: 'Récupérez les coordonnées des lycéens et étudiants qui ont choisi votre établissement parmi leurs pistes d\'orientation.'
+    detail: 'Récupérez les coordonnées des lycéens et étudiants qui ont choisi votre établissement parmi leurs pistes d\'orientation, ou qui ont demandé plus d\'informations.'
   },
   {
     icon: 'ph-chart-bar',
-    title: 'Un profil complet',
-    detail: 'Classe actuelle, niveau visé, budget, moyenne, préférence géographique : tout ce qu\'il faut pour prioriser vos relances.'
+    title: 'Un tableau de bord complet',
+    detail: 'Statuts de suivi, notes internes, filtres et statistiques pour piloter vos relances efficacement.'
+  },
+  {
+    icon: 'ph-graduation-cap',
+    title: 'Vos formations mises en avant',
+    detail: 'Gérez vous-même des fiches formation supplémentaires, en plus de celles déjà référencées sur Zélia.'
+  },
+  {
+    icon: 'ph-users',
+    title: 'Toute votre équipe',
+    detail: 'Invitez vos collègues à accéder à l\'espace de votre établissement.'
   },
   {
     icon: 'ph-shield-check',
     title: 'Un consentement respecté',
-    detail: 'Seuls les élèves ayant accepté d\'être recontactés apparaissent dans votre espace.'
+    detail: 'Seuls les élèves ayant accepté d\'être recontactés ou ayant demandé des informations apparaissent dans votre espace.'
   },
   {
     icon: 'ph-check-circle',
@@ -27,7 +38,7 @@ const BENEFITS = [
 
 export default function SchoolPortalHome() {
   return (
-    <main className="min-h-screen bg-[#fffbf7] text-black">
+    <main className="sp-shell">
       <SEO
         title="Zélia - Espace écoles partenaires"
         description="Récupérez les leads des élèves qui s'intéressent à votre établissement sur Zélia."
@@ -35,43 +46,43 @@ export default function SchoolPortalHome() {
         noindex
       />
 
-      <nav className="max-w-5xl mx-auto flex items-center justify-between px-4 py-6">
-        <Link to="/" className="inline-flex" aria-label="Accueil Zelia">
-          <img src="/static/images/logo-dark.png" alt="Zelia" className="h-8 w-auto" />
-        </Link>
-        <div className="flex items-center gap-4 text-sm font-medium">
-          <Link to="/espace-ecoles/connexion" className="text-black hover:underline">Connexion</Link>
-          <Link to="/espace-ecoles/inscription" className="h-10 px-4 inline-flex items-center rounded-lg bg-black text-white font-semibold">
-            Créer mon compte école
+      <header className="sp-topbar">
+        <div className="sp-topbar-inner">
+          <Link to="/" className="sp-logo" aria-label="Accueil Zelia">
+            <img src="/static/images/logo-dark.png" alt="Zelia" />
           </Link>
+          <div className="sp-topbar-actions">
+            <Link to="/espace-ecoles/connexion" className="sp-btn sp-btn-sm">Connexion</Link>
+            <Link to="/espace-ecoles/inscription" className="sp-btn sp-btn-primary sp-btn-sm">Créer mon compte école</Link>
+          </div>
         </div>
-      </nav>
+      </header>
 
-      <section className="max-w-3xl mx-auto px-4 py-12 text-center">
-        <p className="text-xs uppercase font-medium text-text-secondary tracking-normal mb-3">Espace écoles partenaires</p>
-        <h1 className="text-3xl sm:text-4xl font-semibold leading-tight mb-4">
+      <section className="sp-main" style={{ maxWidth: 760, textAlign: 'center', paddingTop: 48 }}>
+        <p className="sp-kicker">Espace écoles partenaires</p>
+        <h1 className="sp-title" style={{ fontSize: 'clamp(28px, 5vw, 42px)', marginBottom: 16 }}>
           Retrouvez les élèves intéressés par votre établissement
         </h1>
-        <p className="text-text-secondary text-base sm:text-lg mb-8">
+        <p className="sp-subtitle" style={{ fontSize: 16, marginBottom: 28 }}>
           Zélia accompagne des milliers de lycéens et étudiants dans leur orientation. Créez votre compte pour
-          accéder aux profils des élèves qui ont sélectionné votre école dans leur parcours.
+          accéder aux profils des élèves qui ont sélectionné votre école, suivre vos leads et mettre en avant vos formations.
         </p>
-        <div className="flex items-center justify-center gap-3">
-          <Link to="/espace-ecoles/inscription" className="h-12 px-6 inline-flex items-center rounded-lg bg-black text-white font-semibold">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 48 }}>
+          <Link to="/espace-ecoles/inscription" className="sp-btn sp-btn-primary" style={{ height: 48, padding: '0 26px' }}>
             Créer mon compte école
           </Link>
-          <Link to="/espace-ecoles/connexion" className="h-12 px-6 inline-flex items-center rounded-lg border border-line font-semibold hover:border-black">
+          <Link to="/espace-ecoles/connexion" className="sp-btn" style={{ height: 48, padding: '0 26px' }}>
             J'ai déjà un compte
           </Link>
         </div>
       </section>
 
-      <section className="max-w-5xl mx-auto px-4 pb-16 grid gap-4 sm:grid-cols-2">
-        {BENEFITS.map((benefit) => (
-          <div key={benefit.title} className="bg-white border border-line rounded-lg shadow-card p-5">
-            <i className={`ph ${benefit.icon} text-2xl`} aria-hidden="true" />
-            <h2 className="text-lg font-semibold mt-3 mb-1">{benefit.title}</h2>
-            <p className="text-sm text-text-secondary">{benefit.detail}</p>
+      <section className="sp-main" style={{ paddingTop: 0, display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
+        {BENEFITS.map((benefit, index) => (
+          <div key={benefit.title} className={`sp-card ${index % 3 === 1 ? 'accent-pink' : index % 3 === 2 ? 'accent-ink' : ''}`}>
+            <i className={`ph ${benefit.icon}`} style={{ fontSize: 26 }} aria-hidden="true" />
+            <h2 style={{ fontSize: 16, fontWeight: 800, margin: '12px 0 6px' }}>{benefit.title}</h2>
+            <p className="sp-subtitle" style={{ margin: 0 }}>{benefit.detail}</p>
           </div>
         ))}
       </section>

@@ -13,11 +13,21 @@ const PRIMARY_NAV_ITEMS = [
   { to: '/app/formations', label: 'Formations et écoles', icon: 'ph-graduation-cap', matches: ['/app/formations', '/app/ecoles-partenaires'] }
 ]
 
-const DESKTOP_NAV_ITEMS = [HOME_NAV_ITEM, ...PRIMARY_NAV_ITEMS]
-
 const BOTTOM_NAV_ITEMS = [
   { to: '/app/results', label: 'Résultats', icon: 'ph-chart-line-up' }
 ]
+
+const TOP_NAV_ITEMS = [HOME_NAV_ITEM, ...PRIMARY_NAV_ITEMS, ...BOTTOM_NAV_ITEMS]
+
+// Standalone tool pages that were rebuilt as single functional pages (no more
+// step-by-step "dialogue" flow) shouldn't get a forced "Terminer" button in
+// the shell topbar — only the "Retour aux outils" link.
+const TOOL_SLUGS_WITHOUT_FINISH_BUTTON = ['anglais', 'parcoursup', 'pitch', 'entretien']
+
+function getToolSlug(pathname = '') {
+  const match = String(pathname || '').match(/^\/app\/outils\/([^/]+)/)
+  return match ? match[1] : ''
+}
 
 function isNavItemActive(item, pathname) {
   if (item.end) return pathname === item.to
@@ -66,9 +76,11 @@ export default function Layout() {
 
   const isChatSurface = location.pathname.startsWith('/app/discuter')
   const isToolDetail = isStandaloneToolRoute(location.pathname)
+  const toolSlug = getToolSlug(location.pathname)
+  const showFinishButton = isToolDetail && !TOOL_SLUGS_WITHOUT_FINISH_BUTTON.includes(toolSlug)
 
   useEffect(() => {
-    if (!isToolDetail) return undefined
+    if (!showFinishButton) return undefined
     const root = contentRef.current
     if (!root) return undefined
 
@@ -90,10 +102,10 @@ export default function Layout() {
     const observer = new MutationObserver(decorateCompletionButtons)
     observer.observe(root, { childList: true, subtree: true, characterData: true })
     return () => observer.disconnect()
-  }, [isToolDetail, location.pathname])
+  }, [showFinishButton, location.pathname])
 
   function handleToolClickCapture(event) {
-    if (!isToolDetail) return
+    if (!showFinishButton) return
     const action = event.target?.closest?.('button, a')
     if (!action || action.closest('[data-tool-shell-control="true"]')) return
     if (!isToolCompletionText(action.textContent)) return
@@ -117,22 +129,16 @@ export default function Layout() {
     }
   }
 
-  const renderDesktopNavItem = (item) => {
+  const renderTopNavItem = (item) => {
     const isActive = isNavItemActive(item, location.pathname)
     return (
       <Link
         key={item.to}
         to={item.to}
         aria-current={isActive ? 'page' : undefined}
-        className={`group flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors ${
-          isActive ? 'bg-black text-white' : 'text-gray-700 hover:bg-[#fffbf7] hover:text-black'
-        }`}
+        className={`zelia-topnav-link ${isActive ? 'is-active' : ''}`}
       >
-        {item.image ? (
-          <img src={item.image} alt="" className="h-5 w-auto" aria-hidden="true" />
-        ) : (
-          <i className={`ph ${item.icon} text-lg`} aria-hidden="true" />
-        )}
+        <i className={`ph ${item.icon} text-base`} aria-hidden="true" />
         <span>{item.label}</span>
       </Link>
     )
@@ -142,46 +148,41 @@ export default function Layout() {
     <>
     <style>{appShellStyles}</style>
     <div className="zelia-app-shell h-screen min-h-screen bg-[#fffbf7] text-text-primary overflow-hidden">
-      <aside className="zelia-app-sidebar h-screen min-h-0 flex-col border-r border-line bg-white">
-        <div className="h-16 shrink-0 border-b border-line px-5 flex items-center">
-          <Link to="/app" className="inline-flex" title="Accueil Zélia" aria-label="Accueil Zélia">
+      <header className="zelia-app-topbar shrink-0 border-b border-line bg-white">
+        <div className="zelia-topbar-inner">
+          <Link to="/app" className="zelia-topbar-logo" title="Accueil Zélia" aria-label="Accueil Zélia">
             <img src="/static/images/logo-dark.png" alt="Zelia" className="h-7 w-auto" />
           </Link>
-        </div>
 
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1" aria-label="Navigation principale desktop">
-          {DESKTOP_NAV_ITEMS.map(renderDesktopNavItem)}
-        </nav>
-
-        <div className="shrink-0 border-t border-line p-3 space-y-2">
-          <nav className="space-y-1" aria-label="Navigation secondaire desktop">
-            {BOTTOM_NAV_ITEMS.map(renderDesktopNavItem)}
+          <nav className="zelia-topnav" aria-label="Navigation principale">
+            {TOP_NAV_ITEMS.map(renderTopNavItem)}
           </nav>
-          <Link
-            to="/app/profile"
-            className="flex min-h-12 items-center gap-3 rounded-lg border border-line bg-[#fffbf7] px-3 py-2 hover:border-black"
-            title="Profil"
-            aria-label="Profil"
-          >
-            <img src={avatarUrl} className="w-9 h-9 rounded-lg bg-white p-1 object-cover" alt="Avatar" />
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold text-gray-950">{userName}</span>
-              <span className="block text-xs text-text-secondary">Profil</span>
-            </span>
-          </Link>
-          <button
-            type="button"
-            onClick={logout}
-            disabled={loggingOut}
-            className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-line bg-white text-sm font-semibold text-gray-800 hover:border-black disabled:opacity-60"
-          >
-            <i className={`ph ${loggingOut ? 'ph-spinner-gap animate-spin' : 'ph-sign-out'} text-lg`} aria-hidden="true" />
-            <span>Déconnexion</span>
-          </button>
-        </div>
-      </aside>
 
-      <div className="zelia-app-main flex h-screen min-w-0 flex-col overflow-hidden">
+          <div className="zelia-topbar-actions">
+            <Link
+              to="/app/profile"
+              className="zelia-topbar-profile"
+              title="Profil"
+              aria-label="Profil"
+            >
+              <img src={avatarUrl} className="w-8 h-8 rounded-lg bg-white p-0.5 object-cover border border-line" alt="" />
+              <span className="zelia-topbar-profile-name">{userName}</span>
+            </Link>
+            <button
+              type="button"
+              onClick={logout}
+              disabled={loggingOut}
+              className="zelia-topbar-logout"
+              title="Déconnexion"
+              aria-label="Déconnexion"
+            >
+              <i className={`ph ${loggingOut ? 'ph-spinner-gap animate-spin' : 'ph-sign-out'} text-lg`} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="zelia-app-main flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden">
 
       <main className={isChatSurface ? 'flex-1 min-h-0 overflow-hidden' : 'flex-1 min-h-0 overflow-y-auto'}>
         <div ref={contentRef} onClickCapture={handleToolClickCapture} className={isChatSurface ? 'w-full h-full min-h-0 max-w-none overflow-hidden px-3 sm:px-5 lg:px-8 py-3 sm:py-4' : 'w-full max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-6'}>
@@ -195,14 +196,16 @@ export default function Layout() {
                 <i className="ph ph-arrow-left" aria-hidden="true" />
                 <span>Retour aux outils</span>
               </Link>
-              <button
-                type="button"
-                data-tool-shell-control="true"
-                onClick={() => navigate('/app', { replace: true })}
-                className="inline-flex h-10 items-center gap-2 rounded-lg border border-black bg-black px-3 text-sm font-semibold text-white hover:bg-gray-900"
-              >
-                Terminer
-              </button>
+              {showFinishButton && (
+                <button
+                  type="button"
+                  data-tool-shell-control="true"
+                  onClick={() => navigate('/app', { replace: true })}
+                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-black bg-black px-3 text-sm font-semibold text-white hover:bg-gray-900"
+                >
+                  Terminer
+                </button>
+              )}
             </div>
           )}
           <Outlet />
@@ -217,31 +220,102 @@ export default function Layout() {
 const appShellStyles = `
 .zelia-app-shell {
   display: flex;
+  flex-direction: column;
   width: 100%;
 }
 
-.zelia-app-sidebar {
-  display: none;
+.zelia-app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
+
+.zelia-topbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 64px;
+  padding: 0 16px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.zelia-topbar-logo {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.zelia-topnav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.zelia-topnav::-webkit-scrollbar { display: none; }
+
+.zelia-topnav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+  transition: background-color .15s ease, color .15s ease;
+}
+.zelia-topnav-link:hover { background: #fffbf7; color: #000; }
+.zelia-topnav-link.is-active { background: #000; color: #fff; }
+.zelia-topnav-link span { display: none; }
+
+.zelia-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.zelia-topbar-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+.zelia-topbar-profile:hover { border-color: var(--line, #e5e7eb); }
+.zelia-topbar-profile-name { display: none; }
+
+.zelia-topbar-logout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--line, #e5e7eb);
+  background: #fff;
+  color: #374151;
+}
+.zelia-topbar-logout:hover { border-color: #000; color: #000; }
+.zelia-topbar-logout:disabled { opacity: .6; }
 
 .zelia-app-main {
   flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
 }
 
-@media (min-width: 1024px) {
-  .zelia-app-shell {
-    display: grid;
-    grid-template-columns: 260px minmax(0, 1fr);
-  }
-
-  .zelia-app-sidebar {
-    display: flex;
-  }
-
-  .zelia-app-main {
-    grid-column: 2;
-    width: 100%;
-  }
+@media (min-width: 768px) {
+  .zelia-topnav-link span { display: inline; }
+  .zelia-topbar-profile-name { display: inline; font-size: 13px; font-weight: 600; color: #030712; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
 }
 `
+

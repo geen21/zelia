@@ -32,4 +32,32 @@ export const STRIPE_CONFIG = {
   webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || null
 }
 
+// ---------------------------------------------------------------------------
+// Separate Stripe account/product: the "Zélia parents" paid training
+// (landing page at /parents). Uses its own secret/publishable keys because it
+// is billed through a distinct Stripe account from the main app upsell above.
+// ---------------------------------------------------------------------------
+const STRIPE_PARENT_SECRET_KEY = process.env.STRIPE_PARENT_SECRET_KEY
+
+const stripeParentOptions = {}
+if (STRIPE_API_VERSION) {
+  stripeParentOptions.apiVersion = STRIPE_API_VERSION
+}
+
+export const stripeParentTraining = STRIPE_PARENT_SECRET_KEY ? new Stripe(STRIPE_PARENT_SECRET_KEY, stripeParentOptions) : null
+
+const STRIPE_PARENT_PRICE_AMOUNT = Number(process.env.STRIPE_PARENT_PRICE_AMOUNT || 9900)
+const STRIPE_PARENT_PRICE_CURRENCY = (process.env.STRIPE_PARENT_PRICE_CURRENCY || 'eur').toLowerCase()
+const STRIPE_PARENT_PRODUCT_NAME = process.env.STRIPE_PARENT_PRODUCT_NAME || 'Formation Zélia — Devenez le meilleur allié orientation de votre enfant'
+
+export const PARENT_TRAINING_CONFIG = {
+  publishableKey: process.env.STRIPE_PARENT_PUBLISHABLE_KEY || null,
+  priceAmount: Number.isFinite(STRIPE_PARENT_PRICE_AMOUNT) ? STRIPE_PARENT_PRICE_AMOUNT : 9900,
+  priceCurrency: STRIPE_PARENT_PRICE_CURRENCY,
+  productName: STRIPE_PARENT_PRODUCT_NAME,
+  successUrl: process.env.STRIPE_PARENT_SUCCESS_URL || `${defaultClientUrl}/parents?checkout=success`,
+  cancelUrl: process.env.STRIPE_PARENT_CANCEL_URL || `${defaultClientUrl}/parents?checkout=cancelled`,
+  webhookSecret: process.env.STRIPE_PARENT_WEBHOOK_SECRET || null
+}
+
 export default stripe

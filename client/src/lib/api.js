@@ -87,9 +87,11 @@ export const usersAPI = {
   getProfile: () => apiClient.get('/users/profile'),
   updateProfile: (profileData) => apiClient.put('/users/profile', profileData),
   getCurrentUser: () => apiClient.get('/users/me'),
-  saveExtraInfo: (entries) => isStandaloneToolRoute()
-    ? buildToolModeResponse({ entries: Array.isArray(entries) ? entries : [] })
-    : apiClient.post('/users/profile/extra-info', { entries }),
+  // NOTE: always persisted for real (even on standalone /app/outils/* routes) —
+  // the dashboard progress checklist (ConversationalHome) reads these entries
+  // back via getExtraInfo() to know which tools are completed, so silently
+  // no-op'ing this on tool routes made the progress bar never move.
+  saveExtraInfo: (entries) => apiClient.post('/users/profile/extra-info', { entries }),
   getExtraInfo: () => apiClient.get('/users/profile/extra-info'),
   saveNotes: (notes) => isStandaloneToolRoute()
     ? buildToolModeResponse({ notes: Array.isArray(notes) ? notes : [] })
@@ -220,6 +222,12 @@ export const paymentsAPI = {
   getConfig: () => apiClient.get('/payments/config'),
   createCheckout: (payload = {}) => apiClient.post('/payments/checkout', payload),
   verifySession: (sessionId) => apiClient.post('/payments/verify', { sessionId })
+}
+
+export const parentTrainingAPI = {
+  getConfig: () => apiClient.get('/payments/parent-training/config'),
+  checkout: (payload = {}) => apiClient.post('/payments/parent-training/checkout', payload),
+  verifySession: (sessionId) => apiClient.post('/payments/parent-training/verify', { sessionId })
 }
 
 export const shareAPI = {

@@ -1,6 +1,7 @@
 import express from 'express'
 import { supabase, supabaseAdmin } from '../config/supabase.js'
 import { authenticateToken } from '../middleware/auth.js'
+import { sendMailSafe } from '../utils/mailer.js'
 
 const router = express.Router()
 
@@ -8,6 +9,79 @@ const FINAL_SELECTION_QUESTION_ID = 'orientation_final_selection'
 const EXTRA_INFO_LIMIT = 250
 const FINAL_SELECTION_LIMIT = 12
 const MAX_ANSWER_TEXT_LENGTH = 12000
+
+function normalizeSchoolNameForMatch(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+}
+
+function extractSchoolNameFromCandidate(candidate) {
+  if (!candidate || candidate.type !== 'formation') return ''
+  const raw = candidate.raw || {}
+  const subtitle = typeof candidate.subtitle === 'string' ? candidate.subtitle : ''
+  return String(raw.etab_nom || raw.school_name || subtitle.split(' - ')[0] || '').trim()
+}
+
+// Best-effort email notification: when a student saves a final-selection
+// including a school with an approved school-portal account, let that school
+// know a new lead is waiting. Deduped per company+lead via
+// school_lead_status.notified_at so re-saving the same selection doesn't spam.
+async function notifySchoolsFromFinalSelection(db, userId, answerText) {
+  try {
+    const candidates = JSON.parse(answerText || '[]')
+    if (!Array.isArray(candidates) || !candidates.length) return
+
+    const schoolNames = Array.from(new Set(candidates.map(extractSchoolNameFromCandidate).filter(Boolean)))
+    if (!schoolNames.length) return
+
+    const { data: approvedCompanies } = await db
+      .from('companies')
+      .select('id, name, email, contact_first_name')
+      .not('approved_at', 'is', null)
+    if (!approvedCompanies?.length) return
+
+    const normalizedTargets = schoolNames.map(normalizeSchoolNameForMatch)
+    const matchingCompanies = approvedCompanies.filter((company) => {
+      const normalizedCompanyName = normalizeSchoolNameForMatch(company.name)
+      return normalizedTargets.some((target) => target && normalizedCompanyName.includes(target))
+    })
+    if (!matchingCompanies.length) return
+
+    const { data: profile } = await db.from('profiles').select('first_name, last_name').eq('id', userId).maybeSingle()
+    const leadName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Unélève Zélia'
+    const leadKey = `user:${userId}`
+
+    for (const company of matchingCompanies) {
+      const { data: existingStatus } = await db
+        .from('school_lead_status')
+        .select('notified_at')
+        .eq('company_id', company.id)
+        .eq('lead_key', leadKey)
+        .maybeSingle()
+      if (existingStatus?.notified_at) continue
+
+      const sent = await sendMailSafe({
+        to: company.email,
+        subject: "Nouveau lead Zélia – un élève s'intéresse à votre établissement",
+        html: `<p>Bonjour${company.contact_first_name ? ` ${company.contact_first_name}` : ''},</p>
+          <p><strong>${leadName}</strong> a sélectionné votre établissement dans son parcours d'orientation sur Zélia.</p>
+          <p><a href="https://zelia.io/espace-ecoles/leads">Consulter mes leads</a></p>`
+      })
+
+      if (sent) {
+        await db.from('school_lead_status').upsert(
+          { company_id: company.id, lead_key: leadKey, notified_at: new Date().toISOString() },
+          { onConflict: 'company_id,lead_key' }
+        )
+      }
+    }
+  } catch (notifyError) {
+    console.warn('notifySchoolsFromFinalSelection failed:', notifyError.message)
+  }
+}
 
 function firstTextValue(...values) {
   for (const value of values) {
@@ -247,6 +321,11 @@ router.post('/profile/extra-info', authenticateToken, async (req, res) => {
 
     const { error } = await db.from('informations_complementaires').insert(rows)
     if (error) return res.status(400).json({ error: error.message })
+
+    const finalSelectionRow = rows.find((row) => row.question_id === FINAL_SELECTION_QUESTION_ID)
+    if (finalSelectionRow?.answer_text) {
+      notifySchoolsFromFinalSelection(db, userId, finalSelectionRow.answer_text).catch(() => {})
+    }
 
     res.json({ message: 'Saved' })
   } catch (error) {

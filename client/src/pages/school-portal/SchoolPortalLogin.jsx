@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { schoolPortalSupabase } from '../../lib/schoolPortalSupabase'
+import './SchoolPortal.css'
 
 export default function SchoolPortalLogin() {
   const [email, setEmail] = useState('')
@@ -27,56 +28,54 @@ export default function SchoolPortalLogin() {
   }
 
   return (
-    <main className="min-h-screen bg-[#fffbf7] text-black flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-md">
-        <Link to="/espace-ecoles" className="inline-flex mb-8" aria-label="Espace écoles Zelia">
-          <img src="/static/images/logo-dark.png" alt="Zelia" className="h-8 w-auto" />
+    <main className="sp-shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 16px' }}>
+      <div style={{ width: '100%', maxWidth: 420 }}>
+        <Link to="/espace-ecoles" className="sp-logo" style={{ marginBottom: 28 }} aria-label="Espace écoles Zelia">
+          <img src="/static/images/logo-dark.png" alt="Zelia" />
         </Link>
 
-        <div className="bg-white border border-line rounded-lg shadow-card p-6 sm:p-7">
-          <div className="mb-6">
-            <p className="text-xs uppercase font-medium text-text-secondary tracking-normal mb-2">Espace écoles</p>
-            <h1 className="text-2xl font-semibold leading-tight mb-2">Connexion école</h1>
-            <p className="text-sm text-text-secondary">Accédez aux leads de votre établissement.</p>
-          </div>
+        <div className="sp-card">
+          <p className="sp-kicker">Espace écoles</p>
+          <h1 className="sp-title" style={{ fontSize: 24, marginBottom: 6 }}>Connexion école</h1>
+          <p className="sp-subtitle" style={{ marginBottom: 18 }}>Accédez aux leads de votre établissement.</p>
 
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <label className="block">
-              <span className="block text-xs font-medium text-text-secondary mb-1">Email</span>
+          <form onSubmit={handleSubmit}>
+            <div className="sp-field" style={{ marginBottom: 12 }}>
+              <label htmlFor="login-email">Email</label>
               <input
+                id="login-email"
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="contact@ecole.fr"
-                className="w-full h-11 rounded-lg border border-line px-3 outline-none focus:border-black text-sm sm:text-base"
                 autoComplete="email"
               />
-            </label>
-            <label className="block">
-              <span className="block text-xs font-medium text-text-secondary mb-1">Mot de passe</span>
+            </div>
+            <div className="sp-field" style={{ marginBottom: 14 }}>
+              <label htmlFor="login-password">Mot de passe</label>
               <input
+                id="login-password"
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="w-full h-11 rounded-lg border border-line px-3 outline-none focus:border-black text-sm sm:text-base"
                 autoComplete="current-password"
               />
-            </label>
+            </div>
 
-            {error && <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+            {error && (
+              <div className="sp-card" style={{ borderColor: '#fecaca', background: '#fef2f2', color: '#b91c1c', padding: '10px 14px', marginBottom: 14 }}>
+                {error}
+              </div>
+            )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full h-12 rounded-lg bg-black text-white font-semibold disabled:opacity-60"
-            >
+            <button type="submit" disabled={loading} className="sp-btn sp-btn-primary" style={{ width: '100%', height: 48 }}>
               {loading ? 'Connexion...' : 'Se connecter'}
             </button>
           </form>
         </div>
 
-        <p className="mt-4 text-center text-sm text-text-secondary">
-          Pas encore de compte ? <Link to="/espace-ecoles/inscription" className="text-black font-medium underline">Créer un compte école</Link>
+        <p className="sp-subtitle" style={{ textAlign: 'center', marginTop: 16 }}>
+          Pas encore de compte ? <Link to="/espace-ecoles/inscription" style={{ color: '#000', fontWeight: 700 }}>Créer un compte école</Link>
         </p>
       </div>
     </main>

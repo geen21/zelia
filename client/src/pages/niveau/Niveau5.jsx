@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import supabase from '../../lib/supabase'
 import { usersAPI } from '../../lib/api'
@@ -53,112 +53,192 @@ function scoreOpenText(text, { minWords = 20, targetWords = 45, requireOpinion =
   return Math.min(35, score)
 }
 
-// Reuse helper from other levels (simplified fallback only to avoid duplication)
-function buildAvatarFromProfile(profile, seed = 'zelia') {
-  try {
-    if (profile?.avatar_url && typeof profile.avatar_url === 'string') return profile.avatar_url
-    if (profile?.avatar && typeof profile.avatar === 'string') return profile.avatar
-    if (profile?.avatar_json) {
-      let conf = profile.avatar_json
-      if (typeof conf === 'string') { try { conf = JSON.parse(conf) } catch {} }
-      if (conf && typeof conf === 'object') {
-        if (conf.url && typeof conf.url === 'string') {
-          try { const u = new URL(conf.url); if (u.protocol.startsWith('http')) return u.toString() } catch {}
-        }
-        const params = new URLSearchParams()
-        params.set('seed', String(seed))
-        Object.entries(conf).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') params.set(k, String(v)) })
-        if (!params.has('size')) params.set('size', '300')
-        return `https://api.dicebear.com/9.x/lorelei/svg?${params.toString()}`
-      }
-    }
-  } catch {}
-  const p = new URLSearchParams({ seed: String(seed), size: '300', radius: '15' })
-  return `https://api.dicebear.com/9.x/lorelei/svg?${p.toString()}`
+const QUESTIONS = [
+  {
+    id: 'listening1',
+    section: 'Listening',
+    prompt: "What is John's job?",
+    audioText: 'Hello, my name is John. I live in London and I work as a teacher. I like reading books and playing football.',
+    placeholder: 'Your answer...'
+  },
+  {
+    id: 'listening2',
+    section: 'Listening',
+    prompt: 'Where are they going?',
+    audioText: 'The weather is sunny today. I am going to the park with my friends. We will have a picnic and play games.',
+    placeholder: 'Your answer...'
+  },
+  {
+    id: 'speaking1',
+    section: 'Speaking',
+    prompt: 'Describe your favorite hobby in English. Be as detailed as you can.',
+    placeholder: 'Describe your hobby in at least 20 words...',
+    minWords: 20
+  },
+  {
+    id: 'reading1',
+    section: 'Reading',
+    text: 'Cats are popular pets. They are independent and playful. Many people love cats because they are cute and fun.',
+    prompt: 'What are cats best described as? (Donne les adjectifs exacts du texte.)',
+    placeholder: 'Donne les adjectifs exacts...'
+  },
+  {
+    id: 'reading2',
+    section: 'Reading',
+    text: 'Maya missed the first train, so she arrived at the interview ten minutes late. She apologized and explained the situation politely.',
+    prompt: 'Why was Maya late?',
+    placeholder: 'Explain briefly in English...'
+  },
+  {
+    id: 'writing1',
+    section: 'Writing',
+    prompt: 'Write a short paragraph about your daily routine. Use at least 5 sentences and try to link ideas with words like because, then, after or however.',
+    placeholder: 'Write your paragraph...',
+    minSentences: 5
+  },
+  {
+    id: 'vocab1',
+    section: 'Vocabulary',
+    prompt: "What does 'happy' mean? Choose: a) sad, b) joyful, c) angry",
+    placeholder: 'a, b, or c...'
+  },
+  {
+    id: 'vocab2',
+    section: 'Vocabulary',
+    prompt: "What does 'reliable' mean? Choose: a) someone you can trust, b) very expensive, c) difficult to understand",
+    placeholder: 'a, b, or c...'
+  },
+  {
+    id: 'grammar1',
+    section: 'Grammar',
+    prompt: "Fill in the blank: 'I ___ to school every day.' (go, goes, going)",
+    placeholder: 'Your answer...'
+  },
+  {
+    id: 'grammar2',
+    section: 'Grammar',
+    prompt: "Fill in the blank: 'She has lived in Paris ___ 2020.' (for, since, during)",
+    placeholder: 'Your answer...'
+  },
+  {
+    id: 'conversation1',
+    section: 'Conversation',
+    prompt: 'What do you think about learning English? Why is it important for your future? Réponds en détaillant au moins 25 mots.',
+    placeholder: 'Share your thoughts in at least 25 words...',
+    minWords: 25
+  }
+]
+
+const SECTIONS = [...new Set(QUESTIONS.map((q) => q.section))]
+
+function validateAnswer(question, rawValue) {
+  const value = (rawValue || '').trim()
+  if (!value) return 'Réponse requise.'
+  if (question.minWords) {
+    const count = countWords(value)
+    if (count < question.minWords) return `Écris au moins ${question.minWords} mots. (${count} pour l'instant)`
+  }
+  if (question.minSentences) {
+    const sentences = countSentences(value)
+    if (sentences < question.minSentences) return `Écris au moins ${question.minSentences} phrases. (${sentences} pour l'instant)`
+  }
+  return ''
 }
 
-// Typewriter hook
-function useTypewriter(message, durationMs) {
-  const [text, setText] = useState('')
-  const [done, setDone] = useState(false)
-  const intervalRef = useRef(null)
-  const timeoutRef = useRef(null)
-  useEffect(() => {
-    setText('')
-    setDone(false)
-    const full = message || ''
-    let i = 0
-    const step = Math.max(15, Math.floor((durationMs || 1500) / Math.max(1, full.length)))
-    intervalRef.current = setInterval(() => {
-      i++
-      setText(full.slice(0, i))
-      if (i >= full.length) clearInterval(intervalRef.current)
-    }, step)
-    timeoutRef.current = setTimeout(() => {
-      clearInterval(intervalRef.current)
-      setText(full)
-      setDone(true)
-    }, Math.max(durationMs || 1500, (full.length + 1) * step))
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    }
-  }, [message, durationMs])
-  const skip = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current)
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    setText(message || '')
-    setDone(true)
+function calculateEnglishAssessment(answers) {
+  const listening = [
+    includesAny(answers.listening1, ['teacher', 'professor']) ? 15 : 0,
+    includesAny(answers.listening2, ['park', 'picnic']) ? 15 : 0
+  ].reduce((sum, value) => sum + value, 0)
+
+  const reading = [
+    includesAny(answers.reading1, ['independent']) ? 7 : 0,
+    includesAny(answers.reading1, ['playful']) ? 7 : 0,
+    includesAny(answers.reading1, ['cute', 'fun']) ? 4 : 0,
+    includesAny(answers.reading2, ['missed', 'train']) ? 12 : 0
+  ].reduce((sum, value) => sum + value, 0)
+
+  const vocabulary = [
+    normalizeEnglishAnswer(answers.vocab1) === 'b' || includesAny(answers.vocab1, ['joyful']) ? 15 : 0,
+    normalizeEnglishAnswer(answers.vocab2) === 'a' || includesAny(answers.vocab2, ['trust', 'can trust']) ? 15 : 0
+  ].reduce((sum, value) => sum + value, 0)
+
+  const grammar = [
+    normalizeEnglishAnswer(answers.grammar1) === 'go' ? 15 : 0,
+    normalizeEnglishAnswer(answers.grammar2) === 'since' ? 15 : 0
+  ].reduce((sum, value) => sum + value, 0)
+
+  const speaking = scoreOpenText(answers.speaking1, { minWords: 20, targetWords: 45 })
+  const writing = scoreOpenText(answers.writing1, { minWords: 45, targetWords: 75 })
+  const conversation = scoreOpenText(answers.conversation1, { minWords: 25, targetWords: 55, requireOpinion: true })
+  const production = Math.min(70, speaking + Math.max(writing, conversation))
+  const total = listening + reading + vocabulary + grammar + production
+
+  const level = total < 45 ? 'A1'
+    : total < 75 ? 'A2'
+      : total < 110 ? 'B1'
+        : total < 140 ? 'B2'
+          : total < 165 ? 'C1'
+            : 'C2'
+
+  return {
+    level,
+    score: total,
+    maxScore: 190,
+    skills: { listening, reading, vocabulary, grammar, production }
   }
-  return { text, done, skip }
+}
+
+function getLevelMessage(level) {
+  const messages = {
+    A1: "Niveau A1 (débutant). L'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires. À ce niveau débutant, concentre-toi sur les bases : vocabulaire quotidien, phrases simples. Avec de la pratique régulière, tu progresseras rapidement vers des niveaux plus avancés qui ouvriront des opportunités internationales.",
+    A2: "Niveau A2 (élémentaire). L'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires et de la technologie. À ce niveau élémentaire, tu peux déjà communiquer sur des sujets familiers. Continue à pratiquer pour atteindre B1 et améliorer ton employabilité sur le marché international.",
+    B1: "Niveau B1 (intermédiaire). L'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. À ce niveau intermédiaire, tu peux discuter de sujets variés et comprendre des textes plus complexes. Cela te donne déjà un avantage compétitif ; vise B2 pour des opportunités encore plus élevées.",
+    B2: "Niveau B2 (intermédiaire avancé). L'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. À ce niveau avancé, tu maîtrises la langue couramment. Cela ouvre des portes vers des postes internationaux et des carrières dans des entreprises multinationales. Continue à te perfectionner pour atteindre C1.",
+    C1: "Niveau C1 (avancé). L'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. À ce niveau avancé, tu utilises l'anglais avec aisance et précision. Cela te positionne pour des rôles de leadership international et des opportunités dans des secteurs de pointe. Vise C2 pour une maîtrise totale.",
+    C2: "Niveau C2 (maîtrise). L'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. À ce niveau expert, tu maîtrises parfaitement l'anglais. Cela te donne accès aux meilleures opportunités professionnelles mondiales, y compris dans des domaines spécialisés et innovants. Félicitations pour ce niveau exceptionnel !"
+  }
+  return messages[level] || `Niveau estimé : ${level}. Continue à pratiquer !`
+}
+
+function buildNiveau5ExtraInfoEntries({ answers, assessment }) {
+  const entries = QUESTIONS.map((question) => ({
+    question_id: `niv5_${question.id}`,
+    question_text: question.prompt,
+    answer_text: (answers?.[question.id] ?? '').toString()
+  }))
+
+  entries.push({
+    question_id: 'niv5_english_level',
+    question_text: "Niveau d'anglais (CEFR) calculé",
+    answer_text: assessment.level
+  })
+
+  entries.push({
+    question_id: 'niv5_english_assessment',
+    question_text: "Score détaillé du test d'anglais",
+    answer_text: JSON.stringify(assessment)
+  })
+
+  return entries
 }
 
 export default function Niveau5() {
   const navigate = useNavigate()
-  const [profile, setProfile] = useState(null)
-  const [baseAvatarUrl, setBaseAvatarUrl] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [userId, setUserId] = useState('')
-  const lastAudioTextRef = useRef('')
-
-  // flow
-  // sequence: messages and input steps interleaved
-  // indexes referencing items in dialogue array
-  const [idx, setIdx] = useState(0)
-  const [inputs, setInputs] = useState({})
+  const [answers, setAnswers] = useState({})
+  const [touched, setTouched] = useState({})
+  const [submitAttempted, setSubmitAttempted] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [mouthAlt, setMouthAlt] = useState(false)
-  const [completed, setCompleted] = useState(false)
-  const [englishLevel, setEnglishLevel] = useState('')
-  const [englishAssessment, setEnglishAssessment] = useState(null)
+  const [assessment, setAssessment] = useState(null)
 
-  // TTS function
-  const speakText = useCallback((text) => {
-    if (!text) return
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = 'en-US' // English
-      utterance.rate = 0.8
-      lastAudioTextRef.current = text
-      window.speechSynthesis.speak(utterance)
-    }
-  }, [])
-
-  // Load profile
   useEffect(() => {
     let mounted = true
     ;(async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) { navigate('/login'); return }
-        setUserId(user.id)
-        const pRes = await usersAPI.getProfile().catch(() => null)
-        if (!mounted) return
-        const prof = pRes?.data?.profile || pRes?.data || null
-        setProfile(prof)
-        setBaseAvatarUrl(buildAvatarFromProfile(prof, user.id))
       } catch (e) {
         console.error(e)
         if (!mounted) return
@@ -170,252 +250,60 @@ export default function Niveau5() {
     return () => { mounted = false }
   }, [navigate])
 
-  const dialogue = useMemo(() => ([
-  { type: 'text', text: "Hey! Welcome to the English test. We'll check listening, reading, vocabulary, grammar and short writing. At the end, I'll estimate your CEFR level from A1 to C2.\n\n*cela ne remplace en aucun cas un test officiel d'anglais.*", durationMs: 3500 },
-    { type: 'text', text: "First, let's test your listening. I'll play a short audio. Listen carefully and answer the question after.", durationMs: 2200 },
-    { type: 'audio', text: "Listen: 'Hello, my name is John. I live in London and I work as a teacher. I like reading books and playing football.'\n\nWhat is John's job?", audioText: "Hello, my name is John. I live in London and I work as a teacher. I like reading books and playing football." },
-    { type: 'input', id: 'listening1', placeholder: 'Your answer...' },
-    { type: 'text', text: "Good! Now, another listening test.", durationMs: 700 },
-    { type: 'audio', text: "Listen: 'The weather is sunny today. I am going to the park with my friends. We will have a picnic and play games.'\n\nWhere are they going?", audioText: "The weather is sunny today. I am going to the park with my friends. We will have a picnic and play games." },
-    { type: 'input', id: 'listening2', placeholder: 'Your answer...' },
-    { type: 'text', text: "Great listening! Now, speaking. Describe your favorite hobby in English. Be as detailed as you can.", durationMs: 1800 },
-    { type: 'input', id: 'speaking1', placeholder: 'Describe your hobby in at least 20 words...' },
-    { type: 'text', text: "Nice! Reading test. Read this: 'Cats are popular pets. They are independent and playful. Many people love cats because they are cute and fun.'\n\nWhat are cats best described as?\n\nRéponds en donnant les adjectifs exacts.", durationMs: 3000 },
-    { type: 'input', id: 'reading1', placeholder: 'Donne les adjectifs exacts...' },
-    { type: 'text', text: "Inference: 'Maya missed the first train, so she arrived at the interview ten minutes late. She apologized and explained the situation politely.'\n\nWhy was Maya late?", durationMs: 2800 },
-    { type: 'input', id: 'reading2', placeholder: 'Explain briefly in English...' },
-    { type: 'text', text: "Good. Writing test. Write a short paragraph about your daily routine. Use at least 5 sentences and try to link ideas with words like because, then, after or however.", durationMs: 2200 },
-    { type: 'input', id: 'writing1', placeholder: 'Write your paragraph...' },
-    { type: 'text', text: "Vocabulary: What does 'happy' mean? Choose: a) sad, b) joyful, c) angry", durationMs: 1800 },
-    { type: 'input', id: 'vocab1', placeholder: 'a, b, or c...' },
-    { type: 'text', text: "Vocabulary: What does 'reliable' mean? Choose: a) someone you can trust, b) very expensive, c) difficult to understand", durationMs: 2000 },
-    { type: 'input', id: 'vocab2', placeholder: 'a, b, or c...' },
-    { type: 'text', text: "Grammar: Fill in the blank: 'I ___ to school every day.' (go, goes, going)", durationMs: 1800 },
-    { type: 'input', id: 'grammar1', placeholder: 'Your answer...' },
-    { type: 'text', text: "Grammar: Fill in the blank: 'She has lived in Paris ___ 2020.' (for, since, during)", durationMs: 1800 },
-    { type: 'input', id: 'grammar2', placeholder: 'Your answer...' },
-    { type: 'text', text: "Conversation: What do you think about learning English? Why is it important for your future? Réponds en détaillant au moins 25 mots.", durationMs: 2200 },
-    { type: 'input', id: 'conversation1', placeholder: 'Share your thoughts in at least 25 words...' },
-    { type: 'text', text: "Thanks for participating! Now, let's calculate your English level based on your answers.", durationMs: 1800 },
-    { type: 'result' },
-  ]), [])
+  const speakText = useCallback((text) => {
+    if (!text || !('speechSynthesis' in window)) return
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.lang = 'en-US'
+    utterance.rate = 0.85
+    window.speechSynthesis.speak(utterance)
+  }, [])
 
-  const current = dialogue[idx] || { type: 'text', text: '', durationMs: 1000 }
-  const { text: typed, done: typedDone, skip } = useTypewriter((current.type === 'text' || current.type === 'audio') ? current.text : '', current.durationMs || 1500)
-
-  useEffect(() => {
-    if (current.type === 'audio') {
-      speakText(current.audioText)
-    }
-  }, [current, speakText])
-
-  // mouth animation while typing
-  useEffect(() => {
-    if ((current.type !== 'text' && current.type !== 'audio') || typedDone) return
-    const int = setInterval(() => setMouthAlt(v => !v), 200)
-    return () => clearInterval(int)
-  }, [current, typedDone])
-
-  function modifyDicebearUrl(urlStr, params = {}) {
-    try {
-      const u = new URL(urlStr)
-      const isDice = /api\.dicebear\.com/.test(u.host) && /\/lorelei\/svg/.test(u.pathname)
-      if (!isDice) return urlStr
-      Object.entries(params).forEach(([k, v]) => {
-        if (v === null || v === undefined || v === '') u.searchParams.delete(k)
-        else u.searchParams.set(k, String(v))
-      })
-      if (!u.searchParams.has('size')) u.searchParams.set('size', '300')
-      return u.toString()
-    } catch { return urlStr }
+  const setAnswer = (id, value) => {
+    setAnswers((prev) => ({ ...prev, [id]: value }))
   }
 
-  const displayedAvatarUrl = useMemo(() => {
-    let url = baseAvatarUrl
-    if (!url) return url
-    const isDice = (() => { try { const u = new URL(url); return /api\.dicebear\.com/.test(u.host) && /\/lorelei\/svg/.test(u.pathname) } catch { return false } })()
-    if (!isDice) return url
-    if (current.type === 'text' && !typedDone) {
-      url = modifyDicebearUrl(url, { mouth: mouthAlt ? 'happy08' : null })
-    } else {
-      url = modifyDicebearUrl(url, { mouth: null })
-    }
-    return url
-  }, [baseAvatarUrl, current, typedDone, mouthAlt])
-
-  const getInputValidation = useCallback((item) => {
-    if (!item) return { ok: true }
-    const value = inputs[item.id] || ''
-    if (!value.trim()) return { ok: false, message: 'Réponse requise.' }
-    const wordLimitedIds = ['speaking1', 'conversation1']
-    if (wordLimitedIds.includes(item.id)) {
-      const count = countWords(value)
-      const minimum = item.id === 'conversation1' ? 25 : 20
-      if (count < minimum) return { ok: false, message: `Écris au moins ${minimum} mots.` }
-    }
-    if (item.id === 'writing1') {
-      const sentences = countSentences(value)
-      if (sentences < 5) return { ok: false, message: 'Écris au moins 5 phrases.' }
-    }
-    return { ok: true }
-  }, [inputs])
-
-  const canProceed = () => {
-    if (current.type === 'text' || current.type === 'audio') return typedDone
-    if (current.type === 'input') return getInputValidation(current).ok
-    if (current.type === 'result') return true
-    return true
-  }
-
-  const currentValidation = current.type === 'input' ? getInputValidation(current) : { ok: true }
-  const currentWordCount = current.type === 'input' ? countWords(inputs[current.id]) : 0
-
-  const onNext = () => {
-    if ((current.type === 'text' || current.type === 'audio') && !typedDone) { skip(); return }
-    if (!canProceed()) return
-    if (idx + 1 < dialogue.length) {
-      const nextIdx = idx + 1
-      setIdx(nextIdx)
-      const nextItem = dialogue[nextIdx]
-      if (nextItem && nextItem.type === 'result') {
-        const assessment = calculateEnglishAssessment(inputs)
-        setEnglishAssessment(assessment)
-        setEnglishLevel(assessment.level)
-      }
-    } else {
-      finishLevel()
-    }
-  }
-
-  function getLevelMessage(level) {
-    const messages = {
-      A1: "Your English level is: A1 (Beginner)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires. À ce niveau débutant, concentre-toi sur les bases : vocabulaire quotidien, phrases simples. Avec de la pratique régulière, tu progresseras rapidement vers des niveaux plus avancés qui ouvriront des opportunités internationales.",
-      A2: "Your English level is: A2 (Elementary)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires et de la technologie. À ce niveau élémentaire, tu peux déjà communiquer sur des sujets familiers. Continue à pratiquer pour atteindre B1 et améliorer ton employabilité sur le marché international.",
-      B1: "Your English level is: B1 (Intermediate)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. À ce niveau intermédiaire, tu peux discuter de sujets variés et comprendre des textes plus complexes. Cela te donne déjà un avantage compétitif ; vise B2 pour des opportunités encore plus élevées.",
-      B2: "Your English level is: B2 (Upper Intermediate)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. À ce niveau avancé, tu maîtrises la langue couramment. Cela ouvre des portes vers des postes internationaux et des carrières dans des entreprises multinationales. Continue à te perfectionner pour atteindre C1.",
-      C1: "Your English level is: C1 (Advanced)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. À ce niveau avancé, tu utilises l'anglais avec aisance et précision. Cela te positionne pour des rôles de leadership international et des opportunités dans des secteurs de pointe. Vise C2 pour une maîtrise totale.",
-      C2: "Your English level is: C2 (Proficient)\n\nL'anglais est essentiel pour ton avenir professionnel, car c'est la langue internationale des affaires, de la technologie et de la communication. À ce niveau expert, tu maîtrises parfaitement l'anglais. Cela te donne accès aux meilleures opportunités professionnelles mondiales, y compris dans des domaines spécialisés et innovants. Félicitations pour ce niveau exceptionnel !"
-    }
-    return messages[level] || "Your English level is: " + level + "\n\nL'anglais est essentiel pour ton avenir professionnel. Continue à pratiquer !"
-  }
-
-  function calculateEnglishAssessment(answers) {
-    const listening = [
-      includesAny(answers.listening1, ['teacher', 'professor']) ? 15 : 0,
-      includesAny(answers.listening2, ['park', 'picnic']) ? 15 : 0
-    ].reduce((sum, value) => sum + value, 0)
-
-    const reading = [
-      includesAny(answers.reading1, ['independent']) ? 7 : 0,
-      includesAny(answers.reading1, ['playful']) ? 7 : 0,
-      includesAny(answers.reading1, ['cute', 'fun']) ? 4 : 0,
-      includesAny(answers.reading2, ['missed', 'train']) ? 12 : 0
-    ].reduce((sum, value) => sum + value, 0)
-
-    const vocabulary = [
-      normalizeEnglishAnswer(answers.vocab1) === 'b' || includesAny(answers.vocab1, ['joyful']) ? 15 : 0,
-      normalizeEnglishAnswer(answers.vocab2) === 'a' || includesAny(answers.vocab2, ['trust', 'can trust']) ? 15 : 0
-    ].reduce((sum, value) => sum + value, 0)
-
-    const grammar = [
-      normalizeEnglishAnswer(answers.grammar1) === 'go' ? 15 : 0,
-      normalizeEnglishAnswer(answers.grammar2) === 'since' ? 15 : 0
-    ].reduce((sum, value) => sum + value, 0)
-
-    const speaking = scoreOpenText(answers.speaking1, { minWords: 20, targetWords: 45 })
-    const writing = scoreOpenText(answers.writing1, { minWords: 45, targetWords: 75 })
-    const conversation = scoreOpenText(answers.conversation1, { minWords: 25, targetWords: 55, requireOpinion: true })
-    const production = Math.min(70, speaking + Math.max(writing, conversation))
-    const total = listening + reading + vocabulary + grammar + production
-
-    const level = total < 45 ? 'A1'
-      : total < 75 ? 'A2'
-        : total < 110 ? 'B1'
-          : total < 140 ? 'B2'
-            : total < 165 ? 'C1'
-              : 'C2'
-
-    return {
-      level,
-      score: total,
-      maxScore: 190,
-      skills: {
-        listening,
-        reading,
-        vocabulary,
-        grammar,
-        production
-      }
-    }
-  }
-
-  function calculateEnglishLevel(answers) {
-    return calculateEnglishAssessment(answers).level
-  }
-
-  function buildNiveau5ExtraInfoEntries({ answers, level }) {
-    const entries = []
-    // Store each input answer with the closest previous prompt as question_text
-    for (let i = 0; i < dialogue.length; i += 1) {
-      const item = dialogue[i]
-      if (!item || item.type !== 'input' || !item.id) continue
-
-      let questionText = 'Question'
-      for (let j = i - 1; j >= 0; j -= 1) {
-        const prev = dialogue[j]
-        if (prev && (prev.type === 'text' || prev.type === 'audio') && prev.text) {
-          questionText = prev.text
-          break
-        }
-      }
-
-      entries.push({
-        question_id: `niv5_${item.id}`,
-        question_text: questionText,
-        answer_text: (answers?.[item.id] ?? '').toString()
-      })
-    }
-
-    entries.push({
-      question_id: 'niv5_english_level',
-      question_text: "Niveau d'anglais (CEFR) calculé",
-      answer_text: level
+  const errorsById = useMemo(() => {
+    const map = {}
+    QUESTIONS.forEach((question) => {
+      map[question.id] = validateAnswer(question, answers[question.id])
     })
+    return map
+  }, [answers])
 
-    const assessment = calculateEnglishAssessment(answers)
-    entries.push({
-      question_id: 'niv5_english_assessment',
-      question_text: "Score détaillé du test d'anglais",
-      answer_text: JSON.stringify(assessment)
-    })
+  const canSubmit = useMemo(
+    () => QUESTIONS.every((question) => !errorsById[question.id]),
+    [errorsById]
+  )
 
-    return entries
-  }
+  async function handleSubmit() {
+    setSubmitAttempted(true)
+    if (!canSubmit || saving) return
 
-  function finishLevel() {
-    const assessment = calculateEnglishAssessment(inputs)
-    const level = assessment.level
-    setEnglishAssessment(assessment)
-    setEnglishLevel(level)
     setSaving(true)
-    ;(async () => {
+    setError('')
+    try {
+      const result = calculateEnglishAssessment(answers)
+      setAssessment(result)
+
       try {
-        // Save answers and CEFR level to public.informations_complementaires
-        try {
-          const entries = buildNiveau5ExtraInfoEntries({ answers: inputs, level })
-          if (entries.length) await usersAPI.saveExtraInfo(entries)
-        } catch (e) {
-          console.warn('Persist Niveau5 extra info failed (non-blocking):', e)
-        }
-        // progression
-        try {
-          await levelUp({ minLevel: 5, xpReward: XP_PER_LEVEL })
-        } catch (e) { console.warn('Progression update failed', e) }
-        setCompleted(true)
-      } finally {
-        setSaving(false)
+        const entries = buildNiveau5ExtraInfoEntries({ answers, assessment: result })
+        await usersAPI.saveExtraInfo(entries)
+      } catch (e) {
+        console.warn('Persist Niveau5 extra info failed (non-blocking):', e)
       }
-    })()
+
+      try {
+        await levelUp({ minLevel: 5, xpReward: XP_PER_LEVEL })
+      } catch (e) {
+        console.warn('Progression update failed (non-blocking):', e)
+      }
+    } catch (e) {
+      console.error('English assessment failed', e)
+      setError("Impossible de calculer ton niveau pour l'instant. Réessaie.")
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (loading) {
@@ -427,108 +315,167 @@ export default function Niveau5() {
     )
   }
 
-  if (error) {
-    return (
-      <div className="p-6">
-        <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">{error}</div>
-      </div>
-    )
-  }
-
   return (
     <div className="p-2 md:p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-            <img src={displayedAvatarUrl} alt="Avatar" className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-52 lg:h-52 xl:w-60 xl:h-60 2xl:w-64 2xl:h-64 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto md:mx-0" />
-            <div className="flex-1 w-full">
-              {(current.type === 'text' || current.type === 'audio') && (
-                <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
-                  <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">{typed}</div>
-                  <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
-                </div>
-              )}
-              {current.type === 'result' && (
-                <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
-                  <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">{getLevelMessage(englishLevel)}</div>
-                  {englishAssessment && (
-                    <div className="mt-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
-                      {Object.entries(englishAssessment.skills).map(([skill, value]) => (
-                        <div key={skill} className="rounded-lg bg-white/10 p-2">
-                          <span className="block uppercase text-white/60">{skill}</span>
-                          <strong>{value}</strong>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
-                </div>
-              )}
-              {current.type === 'input' && (
-                <div className="space-y-3">
-                  <label className="font-medium text-text-primary block">Réponse</label>
-                  {(current.id === 'speaking1' || current.id === 'conversation1') && (
-                    <p className="text-sm text-gray-500">{current.id === 'conversation1' ? '25' : '20'} mots minimum. ({currentWordCount} mots)</p>
-                  )}
-                  {current.id === 'writing1' && (
-                    <p className="text-sm text-gray-500">5 phrases minimum. ({countSentences(inputs[current.id])} phrases)</p>
-                  )}
-                  {current.id === 'reading1' && (
-                    <p className="text-sm text-gray-500">Donne exactement les adjectifs du texte.</p>
-                  )}
-                  <textarea
-                    className="w-full rounded-xl border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-black min-h-[140px]"
-                    placeholder={current.placeholder || 'Ta réponse...'}
-                    value={inputs[current.id] || ''}
-                    onChange={(e) => setInputs(prev => ({ ...prev, [current.id]: e.target.value }))}
-                  />
-                  {Boolean((inputs[current.id] || '').trim()) && !currentValidation.ok && (
-                    <p className="text-sm text-red-600">{currentValidation.message}</p>
-                  )}
-                </div>
-              )}
-              <div className="mt-4 flex flex-wrap gap-3">
-                {current.type === 'audio' && (
-                  <button
-                    onClick={() => speakText(current.audioText || lastAudioTextRef.current)}
-                    className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300"
-                  >
-                    Réécouter
-                  </button>
-                )}
-                <button
-                  onClick={onNext}
-                  disabled={saving || (!canProceed() && current.type !== 'text' && current.type !== 'audio')}
-                  className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-50"
-                >
-                  {idx + 1 < dialogue.length ? ((current.type === 'text' || current.type === 'audio') && !typedDone ? 'Afficher le texte' : 'Suivant') : 'Terminer'}
-                </button>
-              </div>
-            </div>
-          </div>
+      <style>{styles}</style>
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="niv5-card">
+          <div className="niv5-card-bar" />
+          <h1 className="text-xl md:text-2xl font-bold mb-1">Test d'anglais</h1>
+          <p className="text-text-secondary">
+            Réponds à toutes les questions ci-dessous (listening, reading, writing, vocabulaire, grammaire) puis clique sur « Évaluer mon niveau ».
+            Estimation indicative du niveau CECR (A1 à C2) — cela ne remplace pas un test officiel.
+          </p>
         </div>
-      </div>
 
-      {completed && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce">🏆</div>
-            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
-            <p className="text-text-secondary mb-4">Ton niveau d'anglais est : <strong>{englishLevel}</strong>. Continue à pratiquer pour progresser !</p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/6')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
-            </div>
-            {/* Subtle confetti dots */}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden">
-              <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />
-              <div className="absolute w-2 h-2 bg-yellow-400 rounded-full right-8 top-10 animate-ping" />
-              <div className="absolute w-2 h-2 bg-blue-400 rounded-full left-10 bottom-8 animate-ping" />
-              <div className="absolute w-2 h-2 bg-green-400 rounded-full right-6 bottom-10 animate-ping" />
+        {SECTIONS.map((section) => (
+          <div key={section} className="niv5-card">
+            <div className="niv5-card-bar" />
+            <h2 className="text-lg font-bold mb-4">{section}</h2>
+            <div className="space-y-5">
+              {QUESTIONS.filter((question) => question.section === section).map((question) => {
+                const value = answers[question.id] || ''
+                const showError = (touched[question.id] || submitAttempted) && errorsById[question.id]
+                return (
+                  <div key={question.id} className="niv5-question">
+                    {question.audioText && (
+                      <button type="button" className="niv5-audio-btn" onClick={() => speakText(question.audioText)}>
+                        <i className="ph ph-speaker-high" aria-hidden="true" />
+                        Écouter l'audio
+                      </button>
+                    )}
+                    {question.text && (
+                      <p className="niv5-passage">“{question.text}”</p>
+                    )}
+                    <label className="niv5-prompt">{question.prompt}</label>
+                    <textarea
+                      className="niv5-textarea"
+                      placeholder={question.placeholder}
+                      value={value}
+                      onChange={(e) => setAnswer(question.id, e.target.value)}
+                      onBlur={() => setTouched((prev) => ({ ...prev, [question.id]: true }))}
+                    />
+                    {(question.minWords || question.minSentences) && (
+                      <p className="niv5-hint">
+                        {question.minWords ? `${countWords(value)} / ${question.minWords} mots minimum` : `${countSentences(value)} / ${question.minSentences} phrases minimum`}
+                      </p>
+                    )}
+                    {showError && <p className="niv5-error">{errorsById[question.id]}</p>}
+                  </div>
+                )
+              })}
             </div>
           </div>
+        ))}
+
+        <div className="niv5-card">
+          <div className="niv5-card-bar accent-ink" />
+          {error && <p className="niv5-error mb-3">{error}</p>}
+          <button type="button" className="niv5-submit-btn" onClick={handleSubmit} disabled={saving}>
+            {saving ? 'Analyse en cours…' : "Évaluer mon niveau"}
+          </button>
+          {submitAttempted && !canSubmit && (
+            <p className="niv5-error mt-3">Complète toutes les réponses (respecte les minimums de mots/phrases indiqués) avant de valider.</p>
+          )}
         </div>
-      )}
+
+        {assessment && (
+          <div className="niv5-card">
+            <div className="niv5-card-bar accent-pink" />
+            <h2 className="text-lg font-bold mb-3">Ton résultat</h2>
+            <p className="niv5-result-text">{getLevelMessage(assessment.level)}</p>
+            <div className="niv5-skills-grid">
+              {Object.entries(assessment.skills).map(([skill, value]) => (
+                <div key={skill} className="niv5-skill-tile">
+                  <span>{skill}</span>
+                  <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
+
+const styles = `
+.niv5-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 24px;
+  box-shadow: 0 22px 50px -28px rgba(0,0,0,.2), 0 2px 8px rgba(0,0,0,.04);
+  padding: 22px;
+}
+.niv5-card-bar {
+  position: absolute;
+  top: 0;
+  left: 26px;
+  right: 26px;
+  height: 5px;
+  border-radius: 0 0 6px 6px;
+  background: #c1ff72;
+}
+.niv5-card-bar.accent-ink { background: #111827; }
+.niv5-card-bar.accent-pink { background: #f68fff; }
+.niv5-question { border-top: 1px solid rgba(0,0,0,.06); padding-top: 16px; }
+.niv5-question:first-child { border-top: none; padding-top: 0; }
+.niv5-audio-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(0,0,0,.12);
+  background: #fff;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.niv5-passage {
+  font-style: italic;
+  background: #fffbf7;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.niv5-prompt { display: block; font-weight: 700; margin-bottom: 8px; }
+.niv5-textarea {
+  width: 100%;
+  min-height: 90px;
+  border: 1px solid rgba(0,0,0,.12);
+  border-radius: 14px;
+  padding: 12px 14px;
+  outline: none;
+  font: inherit;
+  resize: vertical;
+}
+.niv5-textarea:focus { border-color: #000; }
+.niv5-hint { margin-top: 6px; font-size: 12px; color: #6b7280; }
+.niv5-error { margin-top: 6px; font-size: 13px; color: #dc2626; font-weight: 600; }
+.niv5-submit-btn {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 999px;
+  background: #c1ff72;
+  border: none;
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+}
+.niv5-submit-btn:disabled { opacity: .6; cursor: not-allowed; }
+.niv5-result-text { white-space: pre-line; line-height: 1.6; margin-bottom: 16px; }
+.niv5-skills-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (min-width: 640px) { .niv5-skills-grid { grid-template-columns: repeat(5, 1fr); } }
+.niv5-skill-tile {
+  background: #fffbf7;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 14px;
+  padding: 10px;
+  text-align: center;
+}
+.niv5-skill-tile span { display: block; text-transform: uppercase; font-size: 11px; color: #6b7280; margin-bottom: 4px; }
+.niv5-skill-tile strong { font-size: 18px; }
+`

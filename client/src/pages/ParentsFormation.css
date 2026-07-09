@@ -1,0 +1,192 @@
+/* ===== Zélia parents landing (/parents) — extends OrientationFlow's design tokens ===== */
+.parents-landing {
+  height: auto;
+  min-height: 100vh;
+  overflow-y: auto;
+  display: block;
+}
+
+/* ---------- Header ---------- */
+.parents-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px clamp(16px, 4vw, 44px);
+  background: rgba(255, 251, 247, .88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0,0,0,.06);
+}
+.parents-logo-link { display: inline-flex; align-items: center; }
+.parents-logo-link img { height: 26px; width: auto; display: block; }
+.parents-header-cta { min-height: 40px; padding: 0 18px; font-size: 14px; box-shadow: none; }
+
+/* ---------- Hero ---------- */
+.parents-hero {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 64px 20px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+.parents-hero h1 {
+  margin: 0;
+  font-size: clamp(32px, 5vw, 52px);
+  line-height: 1.08;
+  font-weight: 800;
+  letter-spacing: -.01em;
+}
+.parents-hero p {
+  margin: 0;
+  max-width: 560px;
+  font-size: 18px;
+  color: #4b5563;
+}
+.parents-hero .primary-action { margin-top: 8px; }
+
+/* ---------- Generic section shell ---------- */
+.parents-section {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+.parents-section-title {
+  margin: 0 0 24px;
+  font-size: clamp(26px, 4vw, 38px);
+  font-weight: 800;
+  text-align: center;
+  letter-spacing: -.01em;
+}
+
+/* ---------- Stats ---------- */
+.parents-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.parents-stat-card {
+  border-radius: 24px;
+  padding: 26px 22px;
+  text-align: center;
+  border: 1px solid rgba(0,0,0,.06);
+}
+.parents-stat-card.tone-lime { background: var(--of-lime); }
+.parents-stat-card.tone-pink { background: var(--of-pink); }
+.parents-stat-value { display: block; font-size: 48px; font-weight: 800; margin-bottom: 10px; }
+.parents-stat-card p { margin: 0; font-size: 14px; font-weight: 600; line-height: 1.45; color: #111827; }
+.parents-stat-note { text-align: center; margin: 20px 0 0; font-style: italic; color: #6b7280; }
+
+/* ---------- Challenge (1 conseiller / 1500 élèves) ---------- */
+.parents-challenge-section {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) 1fr;
+  gap: 32px;
+  align-items: center;
+}
+.parents-challenge-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+  background: var(--of-lime) !important;
+}
+.parents-challenge-card::before { display: none; }
+.parents-challenge-figure { font-size: 22px; font-weight: 800; }
+.parents-challenge-label { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
+.parents-challenge-figure-big { font-size: 40px; font-weight: 800; margin-top: 4px; }
+.parents-challenge-text h2 { margin: 0 0 12px; font-size: 26px; font-weight: 800; }
+.parents-challenge-text p { margin: 0 0 12px; color: #4b5563; font-size: 15px; line-height: 1.55; }
+.parents-challenge-text p:last-child { margin-bottom: 0; }
+
+/* ---------- Modules ---------- */
+.parents-modules-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+.parents-module-card { text-align: left; gap: 14px; }
+.parents-module-card h3 { margin: 0; font-size: 20px; font-weight: 800; }
+.parents-module-card p { margin: 0; }
+.parents-module-card ul { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 8px; color: #4b5563; font-size: 14px; line-height: 1.45; }
+
+/* ---------- Action plan ---------- */
+.parents-plan-list { display: grid; gap: 14px; }
+.parents-plan-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 20px;
+  padding: 18px 20px;
+}
+.parents-plan-icon {
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: inline-grid;
+  place-items: center;
+  background: var(--of-lime);
+  font-size: 20px;
+  color: #111827;
+}
+.parents-plan-row h3 { margin: 0 0 4px; font-size: 16px; font-weight: 800; }
+.parents-plan-row p { margin: 0; font-size: 14px; color: #4b5563; line-height: 1.5; }
+
+/* ---------- Quote ---------- */
+.parents-quote-section { padding: 24px 20px 48px; }
+.parents-quote {
+  max-width: 720px;
+  margin: 0 auto;
+  text-align: center;
+  font-size: clamp(20px, 3vw, 26px);
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* ---------- Pricing / confirmation ---------- */
+.parents-pricing-card,
+.parents-confirmation { max-width: 460px; margin: 0 auto; text-align: center; }
+.parents-price-value { font-size: 42px; font-weight: 800; }
+.parents-price-note { color: #6b7280; font-size: 13px; }
+.parents-calendar-cta { display: inline-flex; margin-top: 6px; }
+.parents-calendar-cta img { display: block; border-radius: 6px; }
+
+.parents-banner {
+  max-width: 640px;
+  margin: 0 auto 20px;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+.parents-banner.tone-info { background: #eef2ff; color: #3730a3; }
+.parents-banner.tone-success { background: #f8fff0; color: #166534; border: 1px solid var(--of-lime); }
+.parents-banner.tone-warning { background: #fff7ed; color: #9a3412; }
+.parents-banner.tone-error { background: #fff1f2; color: #9f1239; }
+
+/* ---------- Footer ---------- */
+.parents-footer {
+  text-align: center;
+  padding: 40px 20px 64px;
+  border-top: 1px solid rgba(0,0,0,.06);
+  color: #4b5563;
+  font-size: 14px;
+}
+.parents-footer p { margin: 0 0 6px; }
+.parents-footer a { color: #000; font-weight: 700; text-decoration: underline; }
+
+@media (max-width: 720px) {
+  .parents-challenge-section { grid-template-columns: 1fr; }
+}

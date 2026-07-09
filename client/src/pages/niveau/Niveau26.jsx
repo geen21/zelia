@@ -1,105 +1,63 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
-import { buildAvatarFromProfile } from '../../lib/avatar'
-import { FaCalendarDays, FaBullseye, FaEnvelope, FaClipboardList, FaFileLines, FaTrophy } from 'react-icons/fa6'
+import { FaCalendarDays, FaBullseye, FaEnvelope, FaClipboardList } from 'react-icons/fa6'
 
 // Table data from Parcoursup 2026 synthesis
 const TABLES = [
   {
     id: 1,
-    title: 'Calendrier Chronologique',
+    title: 'Calendrier chronologique',
     icon: <FaCalendarDays className="w-5 h-5" />,
-    headers: ['Phase', 'Dates Clés', 'Ce que tu dois faire'],
+    headers: ['Phase', 'Dates clés', 'Ce que tu dois faire'],
     rows: [
       ['1. Information', 'Décembre - Janvier', "Explore le moteur de recherche. Regarde les critères d'examen des vœux."],
       ['2. Inscription', '20 Janvier - Mi-Mars', 'Crée ton dossier. Saisis tes 10 vœux (max) sans les classer.'],
       ['3. Finalisation', 'Mi-Mars - Début Avril', 'Deadline fatidique. Complète tes dossiers et confirme chaque vœu.'],
       ['4. Résultats', 'Début Juin - Mi-Juillet', 'Reçois les réponses. Réponds aux propositions dans les délais impartis.'],
-      ['5. Complémentaire', 'Mi-Juin - Septembre', "Pour ceux qui n'ont pas de proposition : postule sur les places restantes."],
-    ],
+      ['5. Complémentaire', 'Mi-Juin - Septembre', "Pour ceux qui n'ont pas de proposition : postule sur les places restantes."]
+    ]
   },
   {
     id: 2,
-    title: 'Structure des Choix',
+    title: 'Structure des choix',
     icon: <FaBullseye className="w-5 h-5" />,
-    headers: ['Concept', 'Limite / Règle', 'Détail Stratégique'],
+    headers: ['Concept', 'Limite / Règle', 'Détail stratégique'],
     rows: [
       ['Vœux', '10 maximum', 'Ils ne sont pas classés par préférence (ordre secret).'],
       ['Sous-vœux', '20 au total', 'Pour les vœux multiples (ex: plusieurs lycées pour 1 BTS).'],
       ['Apprentissage', '10 vœux en plus', 'Les vœux en alternance comptent pour une liste séparée.'],
-      ['Sélectivité', '2 types de filières', 'Les licences (non-sélectif) vs BTS/Prépa/Écoles (sélectif).'],
-    ],
+      ['Sélectivité', '2 types de filières', 'Les licences (non-sélectif) vs BTS/Prépa/Écoles (sélectif).']
+    ]
   },
   {
     id: 3,
-    title: 'Comprendre les Réponses',
+    title: 'Comprendre les réponses',
     icon: <FaEnvelope className="w-5 h-5" />,
-    headers: ['Réponse Reçue', 'Signification', 'Action à entreprendre'],
+    headers: ['Réponse reçue', 'Signification', 'Action à entreprendre'],
     rows: [
       ['OUI', 'Admis sans réserve', 'Accepter (définitivement ou en attendant mieux).'],
       ['OUI-SI', 'Admis avec soutien', "Accepter et s'engager à suivre une remise à niveau."],
       ['EN ATTENTE', "Liste d'attente", 'Surveiller son rang de classement tous les matins.'],
-      ['NON', 'Refus (sélectif)', "Pas d'action possible, se concentrer sur les autres vœux."],
-    ],
+      ['NON', 'Refus (sélectif)', "Pas d'action possible, se concentrer sur les autres vœux."]
+    ]
   },
   {
     id: 4,
-    title: 'Dossier de Candidature',
+    title: 'Dossier de candidature',
     icon: <FaClipboardList className="w-5 h-5" />,
-    headers: ['Élément du Dossier', "Ce que c'est", 'Le "Petit Plus"'],
+    headers: ['Élément du dossier', "Ce que c'est", 'Le "petit plus"'],
     rows: [
-      ['Projet Motivé', 'Lettre de motivation', 'Prouver que tu as lu le programme (citer une matière).'],
-      ['Fiche Avenir', 'Avis des professeurs', 'Tes notes comptent, mais ton sérieux et ton assiduité aussi.'],
+      ['Projet motivé', 'Lettre de motivation', 'Prouver que tu as lu le programme (citer une matière).'],
+      ['Fiche avenir', 'Avis des professeurs', 'Tes notes comptent, mais ton sérieux et ton assiduité aussi.'],
       ['Activités', 'CV extra-scolaire', 'Valoriser le sport, le bénévolat ou le baby-sitting.'],
-      ['Préférences', 'Tes vœux de cœur', 'Expliquer ton projet pro global (lu seulement par le CAES).'],
-    ],
-  },
+      ['Préférences', 'Tes vœux de cœur', 'Expliquer ton projet pro global (lu seulement par le CAES).']
+    ]
+  }
 ]
 
-function useTypewriter(message, durationMs) {
-  const [text, setText] = useState('')
-  const [done, setDone] = useState(false)
-  const intervalRef = useRef(null)
-  const timeoutRef = useRef(null)
-
-  useEffect(() => {
-    setText('')
-    setDone(false)
-    const full = message || ''
-    let i = 0
-    const step = Math.max(15, Math.floor((durationMs || 1500) / Math.max(1, full.length)))
-    intervalRef.current = setInterval(() => {
-      i++
-      setText(full.slice(0, i))
-      if (i >= full.length) {
-        clearInterval(intervalRef.current)
-      }
-    }, step)
-    timeoutRef.current = setTimeout(() => {
-      clearInterval(intervalRef.current)
-      setText(full)
-      setDone(true)
-    }, Math.max(durationMs || 1500, (full.length + 1) * step))
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    }
-  }, [message, durationMs])
-
-  const skip = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current)
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    setText(message || '')
-    setDone(true)
-  }
-
-  return { text, done, skip }
-}
-
-// Table component
 function InfoTable({ table }) {
   return (
     <div className="overflow-x-auto">
@@ -137,33 +95,10 @@ function InfoTable({ table }) {
 
 export default function Niveau26() {
   const navigate = useNavigate()
-  const { pathname } = useLocation()
   const [profile, setProfile] = useState(null)
-  const [avatarUrl, setAvatarUrl] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const [dialogueStep, setDialogueStep] = useState(2)
-  const [tableStep, setTableStep] = useState(0)
-  const [showSuccess, setShowSuccess] = useState(false)
-  const [finishing, setFinishing] = useState(false)
-
-  const dialogueFinished = dialogueStep >= 2
-  const firstName = profile?.first_name || 'toi'
-
-  // Dialogue messages
-  const dialogues = useMemo(() => [
-    { text: `Re ${firstName}, je t'ai fait un petit PDF spécial lycéens que tu pourras suivre`, durationMs: 2200 },
-    { text: 'Voici le plan !', durationMs: 1000 },
-  ], [firstName])
-
-  const currentDialogue = dialogues[dialogueStep] || { text: '', durationMs: 1000 }
-  const { text: typed, done: typedDone, skip } = useTypewriter(
-    dialogueFinished ? '' : currentDialogue.text,
-    currentDialogue.durationMs
-  )
-
-  // Load profile
   useEffect(() => {
     let mounted = true
     ;(async () => {
@@ -172,9 +107,7 @@ export default function Niveau26() {
         if (!user) { navigate('/login'); return }
         const pRes = await usersAPI.getProfile().catch(() => null)
         if (!mounted) return
-        const prof = pRes?.data?.profile || pRes?.data || null
-        setProfile(prof)
-        setAvatarUrl(buildAvatarFromProfile(prof, user.id))
+        setProfile(pRes?.data?.profile || pRes?.data || null)
       } catch (e) {
         console.error(e)
         if (!mounted) return
@@ -186,55 +119,32 @@ export default function Niveau26() {
     return () => { mounted = false }
   }, [navigate])
 
-  const onDialogueNext = () => {
-    if (!typedDone) { skip(); return }
-    setDialogueStep((prev) => prev + 1)
-  }
+  // Mark the guide as read as soon as the page is opened (no "finish" button needed).
+  useEffect(() => {
+    if (loading) return
+    ;(async () => {
+      try {
+        await usersAPI.saveExtraInfo([
+          {
+            question_id: 'niveau26_parcoursup_read',
+            question_text: 'Guide Parcoursup consulté',
+            answer_text: 'Oui'
+          },
+          {
+            question_id: 'niveau26_tables_viewed',
+            question_text: 'Tableaux Parcoursup vus',
+            answer_text: `${TABLES.length} tableaux consultés`
+          }
+        ])
+        await levelUp({ minLevel: 26, xpReward: XP_PER_LEVEL })
+      } catch (e) {
+        console.warn('Niveau26 persist failed (non-blocking):', e)
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
 
-  const completeLevel = async (mode = 'full') => {
-    if (finishing) return
-    setFinishing(true)
-    try {
-      await usersAPI.saveExtraInfo([
-        {
-          question_id: 'niveau26_parcoursup_read',
-          question_text: 'Guide Parcoursup consulté',
-          answer_text: mode === 'skip' ? 'Passé via dialogue' : 'Oui'
-        },
-        {
-          question_id: 'niveau26_tables_viewed',
-          question_text: 'Tableaux Parcoursup vus',
-          answer_text: mode === 'skip' ? 'Niveau passé sans lecture complète' : `${TABLES.length} tableaux consultés`
-        }
-      ])
-      await levelUp({ minLevel: 26, xpReward: XP_PER_LEVEL })
-      setShowSuccess(true)
-    } catch (e) {
-      console.error('Niveau26 levelUp failed', e)
-      setError('Impossible de valider le module pour le moment.')
-    } finally {
-      setFinishing(false)
-    }
-  }
-
-  const onSkipLevel = async () => {
-    if (!typedDone) {
-      skip()
-      return
-    }
-    await completeLevel('skip')
-  }
-
-  const onTableNext = async () => {
-    if (tableStep < TABLES.length - 1) {
-      setTableStep((prev) => prev + 1)
-    } else {
-      await completeLevel('full')
-    }
-  }
-
-  const currentTable = TABLES[tableStep]
-  const progress = ((tableStep + 1) / TABLES.length) * 100
+  const firstName = profile?.first_name || 'toi'
 
   if (loading) {
     return (
@@ -255,110 +165,26 @@ export default function Niveau26() {
 
   return (
     <div className="p-2 md:p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        {/* Left: Avatar + Dialogue */}
+      <div className="max-w-4xl mx-auto space-y-6">
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-            <img src={avatarUrl} alt="Avatar" className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-52 lg:h-52 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto md:mx-0" />
-            <div className="flex-1 w-full">
-              <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
-                <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
-                  {!dialogueFinished ? typed : (
-                    <>Fiche de synthèse Parcoursup 2026 - {currentTable.title}</>
-                  )}
-                </div>
-                <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
-              </div>
-
-              {!dialogueFinished && (
-                <div className="mt-4 flex flex-col sm:flex-row gap-2">
-                  <button
-                    onClick={onDialogueNext}
-                    disabled={finishing}
-                    className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
-                  >
-                    {dialogueStep < dialogues.length - 1 ? 'Suivant' : 'Voir le plan'}
-                  </button>
-                  <button
-                    onClick={onSkipLevel}
-                    disabled={finishing}
-                    className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 disabled:opacity-60"
-                  >
-                    {finishing ? 'Validation…' : 'Passer le niveau'}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+          <h1 className="text-xl md:text-2xl font-bold mb-1">Infos Parcoursup</h1>
+          <p className="text-text-secondary">
+            Salut {firstName} ! Voici la fiche de synthèse Parcoursup 2026 : calendrier, structure des vœux, réponses possibles et dossier de candidature.
+          </p>
         </div>
 
-        {/* Right: Tables */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white text-xl">
-              {dialogueFinished ? currentTable.icon : <FaFileLines className="w-5 h-5" />}
-            </div>
-            <h2 className="text-xl font-bold">
-              {dialogueFinished ? currentTable.title : 'Fiche Parcoursup 2026'}
-            </h2>
-            {dialogueFinished && (
-              <span className="ml-auto text-sm text-text-secondary">
-                {tableStep + 1} / {TABLES.length}
-              </span>
-            )}
-          </div>
-
-          {!dialogueFinished ? (
-            <div className="text-text-secondary text-center py-8">
-              Réponds au dialogue pour découvrir la fiche de synthèse.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Progress bar */}
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-[#c1ff72] h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${progress}%` }}
-                />
+        {TABLES.map((table) => (
+          <div key={table.id} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">
+                {table.icon}
               </div>
-
-              {/* Table */}
-              <InfoTable table={currentTable} />
-
-              {/* Continue button */}
-              <button
-                onClick={onTableNext}
-                disabled={finishing}
-                className="w-full px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 font-medium disabled:opacity-50"
-              >
-                {tableStep < TABLES.length - 1 ? 'Continuer' : 'Terminer'}
-              </button>
+              <h2 className="text-xl font-bold">{table.title}</h2>
             </div>
-          )}
-        </div>
+            <InfoTable table={table} />
+          </div>
+        ))}
       </div>
-
-      {/* Success Popup */}
-      {showSuccess && !pathname.includes('/outils') && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
-            <p className="text-text-secondary mb-4">Tu connais maintenant les bases de Parcoursup 2026.</p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/27')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
-            </div>
-            {/* Subtle confetti dots */}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden">
-              <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />
-              <div className="absolute w-2 h-2 bg-yellow-400 rounded-full right-8 top-10 animate-ping" />
-              <div className="absolute w-2 h-2 bg-blue-400 rounded-full left-10 bottom-8 animate-ping" />
-              <div className="absolute w-2 h-2 bg-green-400 rounded-full right-6 bottom-10 animate-ping" />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

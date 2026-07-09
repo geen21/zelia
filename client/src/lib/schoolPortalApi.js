@@ -36,8 +36,19 @@ export const schoolPortalAPI = {
   getMe: () => schoolPortalApiClient.get('/school-portal/me'),
   updateMe: (payload) => schoolPortalApiClient.put('/school-portal/me', payload),
   getLeads: (params = {}) => schoolPortalApiClient.get('/school-portal/leads', { params }),
-  exportLeadsCsv: () => schoolPortalApiClient.get('/school-portal/leads/export.csv', { responseType: 'blob' }),
-  getFormations: () => schoolPortalApiClient.get('/school-portal/formations')
+  exportLeadsCsv: (params = {}) => schoolPortalApiClient.get('/school-portal/leads/export.csv', { params, responseType: 'blob' }),
+  updateLeadStatus: (leadKey, payload) => schoolPortalApiClient.patch(`/school-portal/leads/${encodeURIComponent(leadKey)}/status`, payload),
+  revealLead: (userId) => schoolPortalApiClient.post(`/school-portal/leads/${userId}/reveal`),
+  revealDirectRequest: (id) => schoolPortalApiClient.post(`/school-portal/direct-requests/${id}/reveal`),
+  getStats: () => schoolPortalApiClient.get('/school-portal/stats'),
+  getFormations: () => schoolPortalApiClient.get('/school-portal/formations'),
+  getSchoolFormations: () => schoolPortalApiClient.get('/school-portal/school-formations'),
+  createSchoolFormation: (payload) => schoolPortalApiClient.post('/school-portal/school-formations', payload),
+  updateSchoolFormation: (id, payload) => schoolPortalApiClient.put(`/school-portal/school-formations/${id}`, payload),
+  deleteSchoolFormation: (id) => schoolPortalApiClient.delete(`/school-portal/school-formations/${id}`),
+  getMembers: () => schoolPortalApiClient.get('/school-portal/members'),
+  inviteMember: (payload) => schoolPortalApiClient.post('/school-portal/members', payload),
+  removeMember: (id) => schoolPortalApiClient.delete(`/school-portal/members/${id}`)
 }
 
 export default schoolPortalApiClient

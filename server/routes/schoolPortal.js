@@ -15,6 +15,7 @@ function requireAdminClient(res) {
 
 function sanitizeCompany(company) {
   if (!company) return null
+  const role = company.role || 'owner'
   return {
     id: company.id,
     name: company.name,
@@ -23,9 +24,13 @@ function sanitizeCompany(company) {
     contactLastName: company.contact_last_name || '',
     approved: Boolean(company.approved_at),
     approvedAt: company.approved_at || null,
-    createdAt: company.created_at
+    createdAt: company.created_at,
+    role,
+    isOwner: role === 'owner'
   }
 }
+
+const VALID_LEAD_STATUSES = ['nouveau', 'a_contacter', 'contacte', 'converti', 'archive']
 
 // Leads/formations reveal other students' PII, so they stay locked until an
 // admin has approved the school account (server/routes/schoolPortal.js admin routes).
@@ -213,19 +218,13 @@ router.post('/register', async (req, res) => {
   }
 })
 
-// GET /api/school-portal/me - fetch the company owned by the current user
+// GET /api/school-portal/me - fetch the company owned by (or the caller is a member of)
 router.get('/me', authenticateToken, async (req, res) => {
   try {
     const db = requireAdminClient(res)
     if (!db) return
 
-    const { data: company, error } = await db
-      .from('companies')
-      .select('*')
-      .eq('owner_id', req.user.id)
-      .maybeSingle()
-
-    if (error) throw error
+    const company = await resolveAccessibleCompany(db, req.user.id)
     if (!company) return res.status(404).json({ error: 'Aucun compte école associé' })
 
     res.json({ company: sanitizeCompany(company) })
@@ -290,42 +289,169 @@ async function resolveOwnedCompany(db, userId) {
   return company || null
 }
 
+// Resolves the company a user can access: either as the owner, or as an
+// invited team member (school_portal_members). Adds a `role` field so callers
+// can gate owner-only actions (invite/remove members, edit school identity).
+async function resolveAccessibleCompany(db, userId) {
+  const owned = await resolveOwnedCompany(db, userId)
+  if (owned) return { ...owned, role: 'owner' }
+
+  const { data: membership, error: membershipError } = await db
+    .from('school_portal_members')
+    .select('company_id, role')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (membershipError) throw membershipError
+  if (!membership) return null
+
+  const { data: company, error: companyError } = await db
+    .from('companies')
+    .select('*')
+    .eq('id', membership.company_id)
+    .maybeSingle()
+  if (companyError) throw companyError
+  if (!company) return null
+
+  return { ...company, role: membership.role || 'member' }
+}
+
+async function fetchLeadStatuses(db, companyId) {
+  const { data, error } = await db
+    .from('school_lead_status')
+    .select('lead_key, status, note')
+    .eq('company_id', companyId)
+  if (error) throw error
+  const map = new Map()
+  ;(data || []).forEach((row) => map.set(row.lead_key, { status: row.status, note: row.note || '' }))
+  return map
+}
+
+// Merges the two lead sources (questionnaire final-selection + direct
+// "demande d'infos" clicks on public formation pages) into one uniform,
+// masked, status-annotated list. Both endpoints (/leads, /leads/export.csv,
+// /stats) build on this so they never drift out of sync again.
+async function loadMergedLeads(db, company) {
+  const [questionnaireResult, directResult] = await Promise.all([
+    db.rpc('rpc_school_leads', { p_school_name: company.name, p_limit: 5000, p_offset: 0 }),
+    db
+      .from('formation_info_requests')
+      .select('*')
+      .eq('school_name', company.name)
+      .order('created_at', { ascending: false })
+      .limit(2000)
+  ])
+  if (questionnaireResult.error) throw questionnaireResult.error
+  if (directResult.error) throw directResult.error
+
+  const revealedKeys = await fetchRevealedKeys(db, company.id)
+  const statusMap = await fetchLeadStatuses(db, company.id)
+
+  const questionnaireLeads = (questionnaireResult.data || []).map((lead) => {
+    const { total_count, lead_key, ...rest } = lead
+    const leadKey = lead_key || `user:${rest.user_id}`
+    const revealed = revealedKeys.has(leadKey)
+    const statusInfo = statusMap.get(leadKey) || {}
+    return {
+      ...rest,
+      leadKey,
+      formation_title: '',
+      email: revealed ? rest.email : maskEmail(rest.email),
+      nom: revealed ? rest.nom : maskName(rest.nom),
+      revealed,
+      status: statusInfo.status || 'nouveau',
+      note: statusInfo.note || ''
+    }
+  })
+
+  const directLeads = (directResult.data || []).map((row) => {
+    const leadKey = `request:${row.id}`
+    const revealed = revealedKeys.has(leadKey)
+    const statusInfo = statusMap.get(leadKey) || {}
+    return {
+      user_id: row.user_id,
+      leadKey,
+      source: 'direct_request',
+      prenom: row.first_name || '',
+      nom: revealed ? (row.last_name || '') : maskName(row.last_name),
+      email: revealed ? row.email : maskEmail(row.email),
+      genre: '',
+      age: null,
+      departement: '',
+      classe_actuelle: '',
+      niveau_vise: '',
+      moyenne: '',
+      budget: '',
+      preference_geo: '',
+      matieres_fortes: '',
+      accepte_etre_recontacte: null,
+      metiers_proposes_par_zelia: '',
+      formations_proposees_par_zelia: '',
+      nb_formations_choisies_ecole: 0,
+      formations_choisies_ecole: '',
+      formations_choisies_ecole_liens: '',
+      nb_demandes_infos_ecole: 1,
+      formation_title: row.formation_title || '',
+      inscrit_le: row.created_at,
+      revealed,
+      status: statusInfo.status || 'nouveau',
+      note: statusInfo.note || ''
+    }
+  })
+
+  return [...questionnaireLeads, ...directLeads].sort(
+    (a, b) => new Date(b.inscrit_le || 0) - new Date(a.inscrit_le || 0)
+  )
+}
+
+function applyLeadFilters(leads, query = {}) {
+  let result = leads
+
+  const eqFilter = (key, field) => {
+    const value = query[key]
+    if (value) result = result.filter((lead) => String(lead[field] || '') === String(value))
+  }
+  eqFilter('source', 'source')
+  eqFilter('status', 'status')
+  eqFilter('niveauVise', 'niveau_vise')
+  eqFilter('budget', 'budget')
+  eqFilter('departement', 'departement')
+  eqFilter('classeActuelle', 'classe_actuelle')
+
+  const search = String(query.search || '').trim().toLowerCase()
+  if (search) {
+    result = result.filter((lead) =>
+      `${lead.prenom || ''} ${lead.nom || ''} ${lead.email || ''}`.toLowerCase().includes(search)
+    )
+  }
+
+  return result
+}
+
 // GET /api/school-portal/leads - leads matching the caller's school
+// GET /api/school-portal/leads - merged, filterable, status-annotated leads from
+// BOTH sources: questionnaire final-selection (rpc_school_leads) AND direct
+// "Demande d'infos" clicks on public formation pages (formation_info_requests).
+// Previously only the first source was ever fetched here, so leads from the
+// public formation page's request-info button never appeared for schools.
 router.get('/leads', authenticateToken, async (req, res) => {
   try {
     const db = requireAdminClient(res)
     if (!db) return
 
-    const company = await resolveOwnedCompany(db, req.user.id)
+    const company = await resolveAccessibleCompany(db, req.user.id)
     if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
     if (!requireApprovedCompany(company, res)) return
 
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200)
     const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0)
 
-    const { data, error } = await db.rpc('rpc_school_leads', {
-      p_school_name: company.name,
-      p_limit: limit,
-      p_offset: offset
-    })
-
-    if (error) throw error
-
-    const leads = data || []
-    const total = leads.length > 0 ? Number(leads[0].total_count) : 0
-    const revealedKeys = await fetchRevealedKeys(db, company.id)
+    const allLeads = await loadMergedLeads(db, company)
+    const filtered = applyLeadFilters(allLeads, req.query)
+    const total = filtered.length
+    const page = filtered.slice(offset, offset + limit)
 
     res.json({
-      leads: leads.map((lead) => {
-        const { total_count, ...rest } = lead
-        const revealed = revealedKeys.has(`user:${rest.user_id}`)
-        return {
-          ...rest,
-          email: revealed ? rest.email : maskEmail(rest.email),
-          nom: revealed ? rest.nom : maskName(rest.nom),
-          revealed
-        }
-      }),
+      leads: page,
       total,
       limit,
       offset,
@@ -345,41 +471,25 @@ function csvEscape(value) {
   return text
 }
 
-// GET /api/school-portal/leads/export.csv - export the same leads as a CSV file
+// GET /api/school-portal/leads/export.csv - export the same merged leads as a CSV file
 router.get('/leads/export.csv', authenticateToken, async (req, res) => {
   try {
     const db = requireAdminClient(res)
     if (!db) return
 
-    const company = await resolveOwnedCompany(db, req.user.id)
+    const company = await resolveAccessibleCompany(db, req.user.id)
     if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
     if (!requireApprovedCompany(company, res)) return
 
-    const { data, error } = await db.rpc('rpc_school_leads', {
-      p_school_name: company.name,
-      p_limit: 5000,
-      p_offset: 0
-    })
-
-    if (error) throw error
-
-    const revealedKeys = await fetchRevealedKeys(db, company.id)
-    const maskedData = (data || []).map((lead) => {
-      const revealed = revealedKeys.has(`user:${lead.user_id}`)
-      return {
-        ...lead,
-        email: revealed ? lead.email : maskEmail(lead.email),
-        nom: revealed ? lead.nom : maskName(lead.nom)
-      }
-    })
+    const leads = applyLeadFilters(await loadMergedLeads(db, company), req.query)
 
     const columns = [
-      'prenom', 'nom', 'email', 'genre', 'age', 'departement', 'classe_actuelle',
-      'niveau_vise', 'moyenne', 'budget', 'preference_geo', 'matieres_fortes',
-      'formations_choisies_ecole', 'nb_demandes_infos_ecole', 'inscrit_le'
+      'source', 'prenom', 'nom', 'email', 'genre', 'age', 'departement', 'classe_actuelle',
+      'niveau_vise', 'moyenne', 'budget', 'preference_geo', 'matieres_fortes', 'formation_title',
+      'formations_choisies_ecole', 'nb_demandes_infos_ecole', 'status', 'note', 'inscrit_le'
     ]
 
-    const rows = maskedData.map((lead) => columns.map((column) => csvEscape(lead[column])).join(';'))
+    const rows = leads.map((lead) => columns.map((column) => csvEscape(lead[column])).join(';'))
     const csv = [columns.join(';'), ...rows].join('\n')
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
@@ -391,13 +501,113 @@ router.get('/leads/export.csv', authenticateToken, async (req, res) => {
   }
 })
 
+// PATCH /api/school-portal/leads/:leadKey/status - set/update CRM status + note on a lead
+router.patch('/leads/:leadKey/status', authenticateToken, async (req, res) => {
+  try {
+    const db = requireAdminClient(res)
+    if (!db) return
+
+    const company = await resolveAccessibleCompany(db, req.user.id)
+    if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
+    if (!requireApprovedCompany(company, res)) return
+
+    const leadKey = decodeURIComponent(req.params.leadKey)
+    const status = req.body?.status !== undefined ? String(req.body.status).trim() : undefined
+    const note = req.body?.note !== undefined ? String(req.body.note).slice(0, 2000) : undefined
+
+    if (status && !VALID_LEAD_STATUSES.includes(status)) {
+      return res.status(400).json({ error: 'Statut invalide' })
+    }
+    if (status === undefined && note === undefined) {
+      return res.status(400).json({ error: 'Aucune donnée à mettre à jour' })
+    }
+
+    const leads = await loadMergedLeads(db, company)
+    if (!leads.some((lead) => lead.leadKey === leadKey)) {
+      return res.status(404).json({ error: 'Lead introuvable pour cet établissement' })
+    }
+
+    const payload = { company_id: company.id, lead_key: leadKey, updated_at: new Date().toISOString() }
+    if (status !== undefined) payload.status = status
+    if (note !== undefined) payload.note = note
+
+    const { data, error } = await db
+      .from('school_lead_status')
+      .upsert(payload, { onConflict: 'company_id,lead_key' })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    res.json({ status: data.status, note: data.note || '' })
+  } catch (error) {
+    console.error('PATCH /school-portal/leads/:leadKey/status error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// GET /api/school-portal/stats - aggregate counters for the dashboard (KPIs + charts)
+router.get('/stats', authenticateToken, async (req, res) => {
+  try {
+    const db = requireAdminClient(res)
+    if (!db) return
+
+    const company = await resolveAccessibleCompany(db, req.user.id)
+    if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
+    if (!requireApprovedCompany(company, res)) return
+
+    const leads = await loadMergedLeads(db, company)
+
+    const bySource = { questionnaire: 0, direct_request: 0 }
+    const byStatus = { nouveau: 0, a_contacter: 0, contacte: 0, converti: 0, archive: 0 }
+    const formationCounts = new Map()
+    const weekCounts = new Map()
+
+    leads.forEach((lead) => {
+      bySource[lead.source] = (bySource[lead.source] || 0) + 1
+      byStatus[lead.status] = (byStatus[lead.status] || 0) + 1
+
+      const formationNames = lead.source === 'direct_request'
+        ? [lead.formation_title].filter(Boolean)
+        : String(lead.formations_choisies_ecole || '').split('  •  ').map((name) => name.trim()).filter(Boolean)
+      formationNames.forEach((name) => formationCounts.set(name, (formationCounts.get(name) || 0) + 1))
+
+      if (lead.inscrit_le) {
+        const date = new Date(lead.inscrit_le)
+        if (!Number.isNaN(date.getTime())) {
+          const weekStart = new Date(date)
+          weekStart.setUTCHours(0, 0, 0, 0)
+          weekStart.setUTCDate(weekStart.getUTCDate() - weekStart.getUTCDay())
+          const key = weekStart.toISOString().slice(0, 10)
+          weekCounts.set(key, (weekCounts.get(key) || 0) + 1)
+        }
+      }
+    })
+
+    const topFormations = Array.from(formationCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([name, count]) => ({ name, count }))
+
+    const leadsPerWeek = Array.from(weekCounts.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(-12)
+      .map(([week, count]) => ({ week, count }))
+
+    res.json({ total: leads.length, bySource, byStatus, topFormations, leadsPerWeek })
+  } catch (error) {
+    console.error('GET /school-portal/stats error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 // POST /api/school-portal/leads/:userId/reveal - unmask a specific lead's email/nom (persisted)
 router.post('/leads/:userId/reveal', authenticateToken, async (req, res) => {
   try {
     const db = requireAdminClient(res)
     if (!db) return
 
-    const company = await resolveOwnedCompany(db, req.user.id)
+    const company = await resolveAccessibleCompany(db, req.user.id)
     if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
     if (!requireApprovedCompany(company, res)) return
 
@@ -428,11 +638,11 @@ router.get('/formations', authenticateToken, async (req, res) => {
     const db = requireAdminClient(res)
     if (!db) return
 
-    const company = await resolveOwnedCompany(db, req.user.id)
+    const company = await resolveAccessibleCompany(db, req.user.id)
     if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
     if (!requireApprovedCompany(company, res)) return
 
-    const [nationalResult, partnerResult] = await Promise.all([
+    const [nationalResult, partnerResult, customResult] = await Promise.all([
       db
         .from('formation_france')
         .select('id, nm, fl, nmc, etab_nom, commune, departement, region, etab_url, fiche')
@@ -442,11 +652,18 @@ router.get('/formations', authenticateToken, async (req, res) => {
         .from('ecoles_partenaires')
         .select('id, school_name, formation_name, city, domain, diploma_level, description, link, contact_email')
         .eq('school_name', company.name)
+        .limit(300),
+      db
+        .from('custom_school_formations')
+        .select('id, title, city, diploma_level, link, contact_email')
+        .eq('company_id', company.id)
+        .eq('is_published', true)
         .limit(300)
     ])
 
     if (nationalResult.error) throw nationalResult.error
     if (partnerResult.error) throw partnerResult.error
+    if (customResult.error) throw customResult.error
 
     const nationalFormations = (nationalResult.data || []).map((row) => {
       const withDisplay = withFormationDisplayFields(row)
@@ -471,9 +688,277 @@ router.get('/formations', authenticateToken, async (req, res) => {
       externalLink: row.link || ''
     }))
 
-    res.json({ formations: [...nationalFormations, ...partnerFormations] })
+    const customFormations = (customResult.data || []).map((row) => ({
+      id: `custom:${row.id}`,
+      source: 'custom',
+      title: row.title,
+      city: row.city || '',
+      diplomaLevel: row.diploma_level || '',
+      link: row.link || (row.contact_email ? `mailto:${row.contact_email}` : ''),
+      externalLink: row.link || ''
+    }))
+
+    res.json({ formations: [...nationalFormations, ...partnerFormations, ...customFormations] })
   } catch (error) {
     console.error('GET /school-portal/formations error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// custom_school_formations CRUD - formation listings the school manages
+// themselves from within their portal (private to the portal for now).
+// ---------------------------------------------------------------------------
+
+router.get('/school-formations', authenticateToken, async (req, res) => {
+  try {
+    const db = requireAdminClient(res)
+    if (!db) return
+
+    const company = await resolveAccessibleCompany(db, req.user.id)
+    if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
+    if (!requireApprovedCompany(company, res)) return
+
+    const { data, error } = await db
+      .from('custom_school_formations')
+      .select('*')
+      .eq('company_id', company.id)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    res.json({ formations: data || [] })
+  } catch (error) {
+    console.error('GET /school-portal/school-formations error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+router.post('/school-formations', authenticateToken, async (req, res) => {
+  try {
+    const db = requireAdminClient(res)
+    if (!db) return
+
+    const company = await resolveAccessibleCompany(db, req.user.id)
+    if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
+    if (!requireApprovedCompany(company, res)) return
+
+    const title = String(req.body?.title || '').trim()
+    if (!title) return res.status(400).json({ error: 'Le titre est requis' })
+
+    const payload = {
+      company_id: company.id,
+      title,
+      description: String(req.body?.description || '').trim(),
+      diploma_level: String(req.body?.diplomaLevel || '').trim(),
+      city: String(req.body?.city || '').trim(),
+      domain: String(req.body?.domain || '').trim(),
+      image_url: String(req.body?.imageUrl || '').trim(),
+      link: String(req.body?.link || '').trim(),
+      contact_email: String(req.body?.contactEmail || '').trim(),
+      is_published: req.body?.isPublished !== false
+    }
+
+    const { data, error } = await db.from('custom_school_formations').insert(payload).select().single()
+    if (error) throw error
+
+    res.status(201).json({ formation: data })
+  } catch (error) {
+    console.error('POST /school-portal/school-formations error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+router.put('/school-formations/:id', authenticateToken, async (req, res) => {
+  try {
+    const db = requireAdminClient(res)
+    if (!db) return
+
+    const company = await resolveAccessibleCompany(db, req.user.id)
+    if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
+    if (!requireApprovedCompany(company, res)) return
+
+    const updates = { updated_at: new Date().toISOString() }
+    if (req.body?.title !== undefined) updates.title = String(req.body.title).trim()
+    if (req.body?.description !== undefined) updates.description = String(req.body.description).trim()
+    if (req.body?.diplomaLevel !== undefined) updates.diploma_level = String(req.body.diplomaLevel).trim()
+    if (req.body?.city !== undefined) updates.city = String(req.body.city).trim()
+    if (req.body?.domain !== undefined) updates.domain = String(req.body.domain).trim()
+    if (req.body?.imageUrl !== undefined) updates.image_url = String(req.body.imageUrl).trim()
+    if (req.body?.link !== undefined) updates.link = String(req.body.link).trim()
+    if (req.body?.contactEmail !== undefined) updates.contact_email = String(req.body.contactEmail).trim()
+    if (req.body?.isPublished !== undefined) updates.is_published = Boolean(req.body.isPublished)
+
+    const { data, error } = await db
+      .from('custom_school_formations')
+      .update(updates)
+      .eq('id', req.params.id)
+      .eq('company_id', company.id)
+      .select()
+      .maybeSingle()
+
+    if (error) throw error
+    if (!data) return res.status(404).json({ error: 'Formation introuvable' })
+
+    res.json({ formation: data })
+  } catch (error) {
+    console.error('PUT /school-portal/school-formations/:id error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+router.delete('/school-formations/:id', authenticateToken, async (req, res) => {
+  try {
+    const db = requireAdminClient(res)
+    if (!db) return
+
+    const company = await resolveAccessibleCompany(db, req.user.id)
+    if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
+    if (!requireApprovedCompany(company, res)) return
+
+    const { error } = await db
+      .from('custom_school_formations')
+      .delete()
+      .eq('id', req.params.id)
+      .eq('company_id', company.id)
+
+    if (error) throw error
+    res.json({ success: true })
+  } catch (error) {
+    console.error('DELETE /school-portal/school-formations/:id error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// school_portal_members - invite/list/remove teammates who can access this
+// school's leads/stats/formations. Only the owner may invite/remove; members
+// have read/status-update access via resolveAccessibleCompany elsewhere.
+// ---------------------------------------------------------------------------
+
+router.get('/members', authenticateToken, async (req, res) => {
+  try {
+    const db = requireAdminClient(res)
+    if (!db) return
+
+    const company = await resolveAccessibleCompany(db, req.user.id)
+    if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
+    if (!requireApprovedCompany(company, res)) return
+
+    const { data, error } = await db
+      .from('school_portal_members')
+      .select('id, user_id, role, created_at')
+      .eq('company_id', company.id)
+      .order('created_at', { ascending: true })
+
+    if (error) throw error
+
+    const memberRows = data || []
+    const emailResults = await Promise.all(
+      memberRows.map((row) => db.auth.admin.getUserById(row.user_id).catch(() => null))
+    )
+
+    res.json({
+      owner: {
+        email: company.email,
+        contactFirstName: company.contact_first_name || '',
+        contactLastName: company.contact_last_name || ''
+      },
+      members: memberRows.map((row, index) => ({
+        id: row.id,
+        userId: row.user_id,
+        role: row.role,
+        email: emailResults[index]?.data?.user?.email || '',
+        createdAt: row.created_at
+      }))
+    })
+  } catch (error) {
+    console.error('GET /school-portal/members error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// POST /api/school-portal/members - owner creates a teammate account directly
+// (email + temp password chosen by the owner, immediate creation - no invite
+// token/email flow for this first pass).
+router.post('/members', authenticateToken, async (req, res) => {
+  const db = requireAdminClient(res)
+  if (!db) return
+
+  let createdUserId = null
+  try {
+    const company = await resolveOwnedCompany(db, req.user.id)
+    if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
+    if (!requireApprovedCompany(company, res)) return
+
+    const email = String(req.body?.email || '').trim().toLowerCase()
+    const password = String(req.body?.password || '')
+    if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe sont requis' })
+    if (password.length < 6) return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' })
+
+    const { data: userResult, error: createUserError } = await db.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { profile_type: 'school_member' }
+    })
+    if (createUserError) return res.status(400).json({ error: createUserError.message })
+
+    createdUserId = userResult?.user?.id
+    if (!createdUserId) return res.status(500).json({ error: 'Impossible de créer le compte' })
+
+    const { data: member, error: memberError } = await db
+      .from('school_portal_members')
+      .insert({ company_id: company.id, user_id: createdUserId, role: 'member' })
+      .select()
+      .single()
+
+    if (memberError) {
+      await db.auth.admin.deleteUser(createdUserId)
+      const message = memberError.code === '23505' ? 'Ce compte est déjà membre de votre établissement' : memberError.message
+      return res.status(400).json({ error: message })
+    }
+
+    res.status(201).json({
+      member: { id: member.id, userId: createdUserId, email, role: member.role, createdAt: member.created_at }
+    })
+  } catch (error) {
+    console.error('POST /school-portal/members error:', error)
+    if (createdUserId) await db.auth.admin.deleteUser(createdUserId).catch(() => {})
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+router.delete('/members/:id', authenticateToken, async (req, res) => {
+  try {
+    const db = requireAdminClient(res)
+    if (!db) return
+
+    const company = await resolveOwnedCompany(db, req.user.id)
+    if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
+
+    const { data: member, error: fetchError } = await db
+      .from('school_portal_members')
+      .select('user_id')
+      .eq('id', req.params.id)
+      .eq('company_id', company.id)
+      .maybeSingle()
+
+    if (fetchError) throw fetchError
+    if (!member) return res.status(404).json({ error: 'Membre introuvable' })
+
+    const { error: deleteError } = await db
+      .from('school_portal_members')
+      .delete()
+      .eq('id', req.params.id)
+      .eq('company_id', company.id)
+
+    if (deleteError) throw deleteError
+
+    await db.auth.admin.deleteUser(member.user_id).catch(() => {})
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('DELETE /school-portal/members/:id error:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })
@@ -485,7 +970,7 @@ router.get('/direct-requests', authenticateToken, async (req, res) => {
     const db = requireAdminClient(res)
     if (!db) return
 
-    const company = await resolveOwnedCompany(db, req.user.id)
+    const company = await resolveAccessibleCompany(db, req.user.id)
     if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
     if (!requireApprovedCompany(company, res)) return
 
@@ -526,7 +1011,7 @@ router.post('/direct-requests/:id/reveal', authenticateToken, async (req, res) =
     const db = requireAdminClient(res)
     if (!db) return
 
-    const company = await resolveOwnedCompany(db, req.user.id)
+    const company = await resolveAccessibleCompany(db, req.user.id)
     if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
     if (!requireApprovedCompany(company, res)) return
 

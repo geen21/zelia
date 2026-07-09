@@ -693,24 +693,24 @@ function parseGeminiResponse(text) {
       sections.personalityType = cleanText(personalityTypeMatch[1])
     }
 
-    const personalityAnalysisMatch = text.match(/###Analyse de personnalité###\s*(.*?)\s*(?=###)/s)
+    const personalityAnalysisMatch = text.match(/###Analyse de personnalité###\s*(.*?)\s*(?=###|$)/s)
     if (personalityAnalysisMatch) {
       sections.personalityAnalysis = cleanText(personalityAnalysisMatch[1])
     }
 
     // Try to match "Tes qualités" first (for MBTI)
-    const qualitiesMatch = text.match(/###Tes qualités###\s*(.*?)\s*(?=###)/s)
+    const qualitiesMatch = text.match(/###Tes qualités###\s*(.*?)\s*(?=###|$)/s)
     if (qualitiesMatch) {
       sections.skillsAssessment = cleanText(qualitiesMatch[1])
     } else {
       // Fallback to standard skills assessment
-      const skillsMatch = text.match(/###Évaluation des compétences###\s*(.*?)\s*(?=###)/s)
+      const skillsMatch = text.match(/###Évaluation des compétences###\s*(.*?)\s*(?=###|$)/s)
       if (skillsMatch) {
         sections.skillsAssessment = cleanText(skillsMatch[1])
       }
     }
 
-    const jobsMatch = text.match(/###Recommandations d'emploi###\s*(.*?)\s*(?=###)/s)
+    const jobsMatch = text.match(/###Recommandations d'emploi###\s*(.*?)\s*(?=###|$)/s)
     if (jobsMatch) {
       const jobsText = jobsMatch[1].trim()
       sections.jobRecommendations = parseJobRecommendations(jobsText)

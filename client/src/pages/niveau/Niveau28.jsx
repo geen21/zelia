@@ -1,128 +1,36 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import apiClient, { usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
-import { FaMicrophone, FaTrophy } from 'react-icons/fa6'
-
-// Helper: build avatar URL from profile preferences, preferring explicit avatar_url
-function buildAvatarFromProfile(profile, seed = 'zelia') {
-  try {
-    if (profile?.avatar_url && typeof profile.avatar_url === 'string') {
-      return profile.avatar_url
-    }
-    if (profile?.avatar && typeof profile.avatar === 'string') {
-      return profile.avatar
-    }
-    if (profile?.avatar_json) {
-      let conf = profile.avatar_json
-      if (typeof conf === 'string') {
-        try { conf = JSON.parse(conf) } catch {}
-      }
-      if (conf && typeof conf === 'object') {
-        if (conf.url && typeof conf.url === 'string') {
-          try {
-            const u = new URL(conf.url)
-            if (!u.searchParams.has('seed')) u.searchParams.set('seed', String(seed))
-            if (!u.searchParams.has('size')) u.searchParams.set('size', '300')
-            return u.toString()
-          } catch {}
-        }
-        const params = new URLSearchParams()
-        params.set('seed', String(seed))
-        Object.entries(conf).forEach(([k, v]) => {
-          if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
-        })
-        if (!params.has('size')) params.set('size', '300')
-        return `https://api.dicebear.com/9.x/lorelei/svg?${params.toString()}`
-      }
-    }
-  } catch {}
-  const p = new URLSearchParams({ seed: String(seed), size: '300', radius: '15' })
-  return `https://api.dicebear.com/9.x/lorelei/svg?${p.toString()}`
-}
-
-// Typewriter for a single message with adjustable overall duration
-function useTypewriter(message, durationMs) {
-  const [text, setText] = useState('')
-  const [done, setDone] = useState(false)
-  const intervalRef = useRef(null)
-  const timeoutRef = useRef(null)
-
-  useEffect(() => {
-    setText('')
-    setDone(false)
-    const full = message || ''
-    let i = 0
-    const step = Math.max(15, Math.floor((durationMs || 1500) / Math.max(1, full.length)))
-    intervalRef.current = setInterval(() => {
-      i++
-      setText(full.slice(0, i))
-      if (i >= full.length) {
-        clearInterval(intervalRef.current)
-      }
-    }, step)
-    timeoutRef.current = setTimeout(() => {
-      clearInterval(intervalRef.current)
-      setText(full)
-      setDone(true)
-    }, Math.max(durationMs || 1500, (full.length + 1) * step))
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    }
-  }, [message, durationMs])
-
-  const skip = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current)
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    setText(message || '')
-    setDone(true)
-  }
-
-  return { text, done, skip }
-}
+import { FaMicrophone } from 'react-icons/fa6'
 
 export default function Niveau28() {
   const navigate = useNavigate()
-  const { pathname } = useLocation()
   const [profile, setProfile] = useState(null)
-  const [baseAvatarUrl, setBaseAvatarUrl] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-
-  const [idx, setIdx] = useState(0)
-  // phases: intro -> practice -> rate -> feedback|success
-  const [phase, setPhase] = useState('practice')
-  const [mouthAlt, setMouthAlt] = useState(false)
-  const [userId, setUserId] = useState('')
-
   const [jobTitleFromResults, setJobTitleFromResults] = useState('')
 
-  // recording state
   const mediaRecorderRef = useRef(null)
   const [recording, setRecording] = useState(false)
   const chunksRef = useRef([])
   const [audioUrl, setAudioUrl] = useState('')
-  const [rating, setRating] = useState(null) // Start with null to force user interaction
-  const [showSuccess, setShowSuccess] = useState(false)
-  const [showFeedback, setShowFeedback] = useState(false)
+  const [rating, setRating] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
 
-  // Load profile + set avatar + results
   useEffect(() => {
     let mounted = true
     ;(async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) { navigate('/login'); return }
-        setUserId(user.id)
         const pRes = await usersAPI.getProfile().catch(() => null)
         if (!mounted) return
         const prof = pRes?.data?.profile || pRes?.data || null
         setProfile(prof)
-        setBaseAvatarUrl(buildAvatarFromProfile(prof, user.id))
 
-        // Fetch results to decide preferred job title if needed
         try {
           const anal = await apiClient.get('/analysis/my-results', { headers: { 'Cache-Control': 'no-cache' }, params: { _: Date.now() } })
           const r = anal?.data?.results || {}
@@ -140,78 +48,6 @@ export default function Niveau28() {
     return () => { mounted = false }
   }, [navigate])
 
-  const messages = useMemo(() => {
-    const prenom = (profile?.first_name || '').trim()
-const intro = `Re ! En avant${prenom ? ` ${prenom}` : ''}. On va entrer dans le vif du sujet, avec un module pour apprendre à se présenter à l'oral.`
-    return ([
-      { text: intro, durationMs: 3200 },
-      { text: "L’idée c’est de pouvoir te présenter en 1 minute, ce qu’on appelle un “pitch”. Prends le micro et enregistre-toi jusqu’à ce que tu aies une présentation dont tu es fier/fière.", durationMs: 4200 },
-      { text: "Je sais que ça peut paraître un peu complexe ou te mettre mal à l'aise. Isole-toi si c'est le cas.", durationMs: 3000 },
-      { text: "Je te donne un texte d’exemple. Tu peux le répéter tel quel ou l’adapter. Tant que tu ne te donnes pas au moins 8/10, tu peux recommencer ;)", durationMs: 4000 },
-    ])
-  }, [profile])
-
-  const current = messages[idx] || { text: '', durationMs: 1500 }
-  const { text: typed, done: typedDone, skip } = useTypewriter(current.text, current.durationMs)
-
-  // Animate mouth every 0.2s while typing
-  useEffect(() => {
-    if (phase !== 'intro' || typedDone) return
-    const int = setInterval(() => setMouthAlt((v) => !v), 200)
-    return () => clearInterval(int)
-  }, [phase, typedDone])
-
-  // Helper to modify DiceBear lorelei URL params
-  function modifyDicebearUrl(urlStr, params = {}) {
-    try {
-      const u = new URL(urlStr)
-      const isDice = /api\.dicebear\.com/.test(u.host) && /\/lorelei\/svg/.test(u.pathname)
-      if (!isDice) return urlStr
-      Object.entries(params).forEach(([k, v]) => {
-        if (v === null || v === undefined || v === '') {
-          u.searchParams.delete(k)
-        } else {
-          u.searchParams.set(k, String(v))
-        }
-      })
-      if (!u.searchParams.has('size')) u.searchParams.set('size', '300')
-      return u.toString()
-    } catch {
-      return urlStr
-    }
-  }
-
-  const displayedAvatarUrl = useMemo(() => {
-    let url = baseAvatarUrl
-    if (!url) return url
-    const isDicebear = (() => {
-      try { const u = new URL(url); return /api\.dicebear\.com/.test(u.host) && /\/lorelei\/svg/.test(u.pathname) } catch { return false }
-    })()
-    if (!isDicebear) return url
-
-    // Eyes: last intro line -> variant16
-    if (phase === 'intro' && idx === 3) {
-      url = modifyDicebearUrl(url, { eyes: 'variant16' })
-    } else {
-      url = modifyDicebearUrl(url, {})
-    }
-
-    // Mouth animation while typing
-    if (phase === 'intro' && !typedDone) {
-      url = modifyDicebearUrl(url, { mouth: mouthAlt ? 'happy08' : null })
-    } else {
-      url = modifyDicebearUrl(url, { mouth: null })
-    }
-    return url
-  }, [baseAvatarUrl, phase, idx, typedDone, mouthAlt])
-
-  function next() {
-    if (!typedDone) { skip(); return }
-    if (idx + 1 < messages.length) setIdx((v) => v + 1)
-    else setPhase('practice')
-  }
-
-  // Pitch text computed from profile and results
   const pitchText = useMemo(() => {
     const fn = profile?.first_name || ''
     const ln = profile?.last_name || ''
@@ -222,24 +58,22 @@ const intro = `Re ! En avant${prenom ? ` ${prenom}` : ''}. On va entrer dans le 
       : (pref || jobTitleFromResults || 'un métier qui me correspond')
     return (
       `Bonjour, je m'appelle ${fn} ${ln}, j'habite actuellement dans le ${dep}. ` +
-      `Ce qui me motive profondément dans le métier de ${jobTitle}, c’est de comprendre comment les choses fonctionnent et comment les améliorer. ` +
-      `Je ne me contente jamais de la première réponse ; ma curiosité me pousse à explorer différentes perspectives avant d’agir.\n\n` +
-      `J'aborde chaque nouveau défi avec la même méthode : j’écoute, j’apprends vite, et je connecte les idées et les gens pour construire quelque chose qui a du sens. ` +
+      `Ce qui me motive profondément dans le métier de ${jobTitle}, c'est de comprendre comment les choses fonctionnent et comment les améliorer. ` +
+      `Je ne me contente jamais de la première réponse ; ma curiosité me pousse à explorer différentes perspectives avant d'agir.\n\n` +
+      `J'aborde chaque nouveau défi avec la même méthode : j'écoute, j'apprends vite, et je connecte les idées et les gens pour construire quelque chose qui a du sens. ` +
       `Je crois fermement que les meilleures solutions naissent de la collaboration et d'une vision d'ensemble.\n\n` +
       `Mon objectif n'est pas simplement d'accomplir des tâches, mais d'apporter une énergie positive et une volonté de faire avancer les projets. ` +
       `Je cherche à m'investir dans un environnement où je pourrai continuer à apprendre et avoir un impact concret.`
     )
   }, [profile, jobTitleFromResults])
 
-  // Recording handlers
   const startRecording = async () => {
     try {
-      setShowFeedback(false)
       setAudioUrl('')
+      setSaved(false)
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      // Pick a MIME type supported by the browser (iOS Safari does not support webm)
       const mimeType = ['audio/webm', 'audio/mp4', 'audio/ogg', 'audio/wav', ''].find(
-        t => !t || MediaRecorder.isTypeSupported(t)
+        (t) => !t || MediaRecorder.isTypeSupported(t)
       ) || ''
       const mr = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
       const chosenType = mr.mimeType || mimeType || 'audio/wav'
@@ -249,10 +83,8 @@ const intro = `Re ! En avant${prenom ? ` ${prenom}` : ''}. On va entrer dans le 
         const blob = new Blob(chunksRef.current, { type: chosenType })
         const url = URL.createObjectURL(blob)
         setAudioUrl(url)
-        setPhase('rate')
         setRecording(false)
-        // stop all tracks
-        stream.getTracks().forEach(t => t.stop())
+        stream.getTracks().forEach((t) => t.stop())
       }
       mediaRecorderRef.current = mr
       mr.start()
@@ -264,36 +96,33 @@ const intro = `Re ! En avant${prenom ? ` ${prenom}` : ''}. On va entrer dans le 
   }
 
   const stopRecording = () => {
-    try {
-      mediaRecorderRef.current?.stop()
-    } catch {}
+    try { mediaRecorderRef.current?.stop() } catch {}
   }
 
   const resetPractice = () => {
     setAudioUrl('')
-    setRating(null) // Reset to null
-    setPhase('practice')
+    setRating(null)
+    setSaved(false)
   }
 
-  const submitRating = async () => {
-    if (rating >= 8) {
-      setShowSuccess(true)
-      // Sauvegarder le rating et Level up
-      ;(async () => {
-        try {
-          await usersAPI.saveExtraInfo([
-            {
-              question_id: 'niveau28_pitch_rating',
-              question_text: 'Note auto-évaluation du pitch',
-              answer_text: `${rating}/10`
-            }
-          ])
-          await levelUp({ minLevel: 28, xpReward: XP_PER_LEVEL })
-        } catch (e) { console.warn('Progression update failed (non-blocking):', e) }
-      })()
-    } else {
-      setShowFeedback(true)
-      // After showing feedback message, let user restart practice
+  async function saveRating() {
+    if (rating === null || saving) return
+    setSaving(true)
+    try {
+      await usersAPI.saveExtraInfo([
+        {
+          question_id: 'niveau28_pitch_rating',
+          question_text: 'Note auto-évaluation du pitch',
+          answer_text: `${rating}/10`
+        }
+      ])
+      await levelUp({ minLevel: 28, xpReward: XP_PER_LEVEL })
+      setSaved(true)
+    } catch (e) {
+      console.warn('Progression update failed (non-blocking):', e)
+      setSaved(true)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -316,98 +145,25 @@ const intro = `Re ! En avant${prenom ? ` ${prenom}` : ''}. On va entrer dans le 
 
   return (
     <div className="p-2 md:p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        {/* Left: Avatar + Dialogue */}
+      <div className="max-w-4xl mx-auto space-y-6">
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-            <img src={displayedAvatarUrl} alt="Avatar" className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-52 lg:h-52 xl:w-60 xl:h-60 2xl:w-64 2xl:h-64 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto md:mx-0" />
-            <div className="flex-1 w-full">
-              <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
-                <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
-                  {phase === 'intro' ? (
-                    <>{typed}</>
-                  ) : phase === 'practice' ? (
-                    <>Tu peux maintenant lire le texte d’exemple et t'enregistrer quand tu veux.</>
-                  ) : phase === 'rate' ? (
-                    <>
-                      <div className="mb-4">Alors combien tu te noterais sur 10 ?</div>
-                      
-                      {/* Custom slider with visual feedback */}
-                      <div className="mb-4">
-                        <div className="flex flex-wrap justify-center gap-2 mb-3">
-                          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => (
-                            <button
-                              key={val}
-                              type="button"
-                              onClick={() => setRating(val)}
-                              className={`w-9 h-9 md:w-10 md:h-10 lg:w-11 lg:h-11 rounded-full font-bold text-sm md:text-base transition-all ${
-                                rating === val
-                                  ? (val >= 8 ? 'bg-[#F68FFF] text-black ring-2 ring-black' : 'bg-[#c1ff72] text-black ring-2 ring-black')
-                                  : rating !== null && val <= rating
-                                  ? (val >= 8 ? 'bg-[#F68FFF]/40 text-black' : 'bg-[#c1ff72]/40 text-black')
-                                  : 'bg-white/20 text-white/60 hover:bg-white/30'
-                              }`}
-                            >
-                              {val}
-                            </button>
-                          ))}
-                        </div>
-                        
-                        {/* Visual bar showing the rating */}
-                        <div className="relative h-2 bg-white/20 rounded-full overflow-hidden mx-2">
-                          <div
-                            className="absolute top-0 left-0 h-full bg-[#c1ff72] rounded-full transition-all duration-300"
-                            style={{ width: `${rating !== null ? (rating * 10) : 0}%` }}
-                          />
-                        </div>
-                        
-                        {rating !== null && (
-                          <div className="text-center mt-2 text-[#c1ff72] font-bold text-lg">
-                            {rating}/10
-                          </div>
-                        )}
-                      </div>
-                      
-                      <button 
-                        onClick={submitRating} 
-                        disabled={rating === null}
-                        className={`mt-3 px-4 py-2 rounded-lg border border-gray-200 w-full sm:w-auto transition-all ${
-                          rating === null 
-                            ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                            : 'bg-[#c1ff72] text-black hover:bg-[#b3ee5f]'
-                        }`}
-                      >
-                        Valider
-                      </button>
-                    </>
-                  ) : showFeedback ? (
-                    <>C'est déjà pas trop mal, on va essayer de le refaire, recommençons ensemble.</>
-                  ) : null}
-                </div>
-                <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
-              </div>
-
-              {phase === 'intro' && (
-                <div className="mt-4">
-                  <button onClick={next} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">
-                    {idx === messages.length - 1 ? 'Afficher le texte' : 'Suivant'}
-                  </button>
-                </div>
-              )}
-
-              {showFeedback && phase !== 'intro' && (
-                <div className="mt-4">
-                  <button onClick={resetPractice} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto">Recommencer</button>
-                </div>
-              )}
-            </div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaMicrophone className="w-5 h-5" /></div>
+            <h1 className="text-xl md:text-2xl font-bold">Entraînement pitch</h1>
           </div>
+          <p className="text-text-secondary">
+            Prépare-toi à te présenter en 1 minute. Lis (ou adapte) le texte d'exemple ci-dessous, enregistre-toi, puis note ta prestation.
+          </p>
         </div>
 
-        {/* Right: Pitch + Recorder */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          {/* Controls moved above the title */}
-          <div className="flex flex-wrap items-center gap-3 mb-4">
+          <h2 className="text-lg font-bold mb-3">Texte d'exemple</h2>
+          <div className="text-text-primary whitespace-pre-wrap">{pitchText}</div>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
+          <h2 className="text-lg font-bold mb-4">Enregistre-toi</h2>
+          <div className="flex flex-wrap items-center gap-3">
             {!recording && (
               <button onClick={startRecording} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">S'enregistrer</button>
             )}
@@ -421,38 +177,49 @@ const intro = `Re ! En avant${prenom ? ` ${prenom}` : ''}. On va entrer dans le 
               </>
             )}
           </div>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaMicrophone className="w-5 h-5" /></div>
-            <h2 className="text-xl font-bold">Pitch 60s</h2>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
+          <h2 className="text-lg font-bold mb-4">Note ta prestation</h2>
+          <div className="flex flex-wrap justify-center gap-2 mb-3">
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => { setRating(val); setSaved(false) }}
+                className={`w-9 h-9 md:w-10 md:h-10 rounded-full font-bold text-sm md:text-base transition-all border ${
+                  rating === val
+                    ? (val >= 8 ? 'bg-[#F68FFF] border-black' : 'bg-[#c1ff72] border-black')
+                    : 'bg-white border-gray-300 hover:border-black'
+                }`}
+              >
+                {val}
+              </button>
+            ))}
           </div>
-          {phase !== 'intro' ? (
-            <div className="text-text-primary whitespace-pre-wrap mb-4">{pitchText}</div>
-          ) : (
-            <div className="text-text-secondary text-sm mb-4">Le texte d’exemple s’affichera après avoir cliqué sur « Afficher le texte ».</div>
+          <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden mb-4">
+            <div
+              className="absolute top-0 left-0 h-full bg-[#c1ff72] rounded-full transition-all duration-300"
+              style={{ width: `${rating !== null ? rating * 10 : 0}%` }}
+            />
+          </div>
+          <button
+            onClick={saveRating}
+            disabled={rating === null || saving}
+            className="px-4 py-2 rounded-lg bg-black text-white border border-gray-200 disabled:opacity-50"
+          >
+            {saving ? 'Enregistrement…' : 'Enregistrer ma note'}
+          </button>
+
+          {saved && rating !== null && (
+            <p className="mt-4 text-sm text-text-secondary">
+              {rating >= 8
+                ? 'Belle prestation ! Ta note a été enregistrée.'
+                : "Note enregistrée. N'hésite pas à te réenregistrer et à retenter jusqu'à ce que tu sois vraiment fier·ère de toi."}
+            </p>
           )}
         </div>
       </div>
-
-      {/* Success overlay for Level 27 completion */}
-      {showSuccess && !pathname.includes('/outils') && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
-            <p className="text-text-secondary mb-4">Félicitations, ton pitch est prêt. Tu sais te présenter efficacement.</p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/29')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
-            </div>
-            <div className="pointer-events-none absolute inset-0 overflow-hidden">
-              <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />
-              <div className="absolute w-2 h-2 bg-yellow-400 rounded-full right-8 top-10 animate-ping" />
-              <div className="absolute w-2 h-2 bg-blue-400 rounded-full left-10 bottom-8 animate-ping" />
-              <div className="absolute w-2 h-2 bg-green-400 rounded-full right-6 bottom-10 animate-ping" />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

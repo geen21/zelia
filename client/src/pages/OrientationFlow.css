@@ -431,6 +431,65 @@
 .identity-note { width: 100%; color: #6b7280; font-size: 13px; line-height: 1.4; }
 .identity-error { color: #b42318 !important; font-size: 14px !important; line-height: 1.35 !important; }
 .identity-submit { width: 100%; min-width: 0; }
+.identity-banner {
+  width: 100%;
+  border: 1px solid rgba(193,255,114,.9);
+  background: #f8fff0;
+  border-radius: 14px;
+  padding: 10px 14px;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.identity-consent {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 16px;
+  background: var(--of-cream);
+  padding: 14px 16px;
+}
+.identity-consent-all {
+  justify-self: start;
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,.15);
+  background: #fff;
+  color: #000;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, transform .15s ease;
+}
+.identity-consent-all:hover { background: var(--of-lime); border-color: #a7ec4e; transform: translateY(-1px); }
+.identity-consent-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #374151;
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.identity-consent-row input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: var(--of-lime);
+  cursor: pointer;
+}
+.identity-consent-row a { color: #000; font-weight: 700; text-decoration: underline; }
+.identity-switch {
+  margin-top: 18px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+}
+.identity-switch a { color: #000; font-weight: 700; text-decoration: underline; }
 
 /* ---------- Persona reveal ---------- */
 .personality-stage { padding-top: clamp(20px, 4vh, 36px); }

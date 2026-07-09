@@ -8,6 +8,7 @@ import {
   persistAuthSessionAndOnboarding,
   rememberRegistrationConsent
 } from '../lib/authFlow'
+import './OrientationFlow.css'
 
 const DEPARTMENTS = [
   ['01', 'Ain'], ['02', 'Aisne'], ['03', 'Allier'], ['04', 'Alpes-de-Haute-Provence'], ['05', 'Hautes-Alpes'], ['06', 'Alpes-Maritimes'],
@@ -151,32 +152,35 @@ export default function Register() {
   }
 
   return (
-    <main className="min-h-[100svh] bg-[#fffbf7] text-black flex items-center justify-center px-4 py-3 sm:py-8 overflow-hidden">
-      <div className="w-full max-w-md">
-        <Link to="/" className="inline-flex mb-3 sm:mb-8" aria-label="Accueil Zelia">
-          <img src="/static/images/logo-dark.png" alt="Zelia" className="h-6 sm:h-8 w-auto" />
-        </Link>
-
-        <div className="bg-white border border-line rounded-lg shadow-card p-4 sm:p-7">
-          <div className="mb-3 sm:mb-6">
-            <p className="text-xs uppercase font-medium text-text-secondary tracking-normal mb-2">Inscription</p>
-            <h1 className="text-xl sm:text-2xl font-semibold leading-tight mb-1 sm:mb-2">Créer ton espace</h1>
-            <p className="text-xs sm:text-sm text-text-secondary">Ton parcours sera rattaché à ce compte.</p>
+    <main className="orientation-flow">
+      <header className="orientation-topbar">
+        <div className="topbar-row">
+          <div className="topbar-lead">
+            <Link to="/" className="back-button" aria-label="Accueil Zelia" title="Accueil Zelia">
+              <i className="ph ph-arrow-left" aria-hidden="true" />
+            </Link>
+            <img src="/static/images/logo-dark.png" alt="Zélia" />
           </div>
+          <span className="flow-step-label">Inscription</span>
+        </div>
+      </header>
+
+      <div className="orientation-stage compact identity-stage">
+        <form className="orientation-card identity-card" onSubmit={handleEmailRegister}>
+          <span className="orientation-pill">Inscription</span>
+          <h1>Créer ton espace</h1>
+          <p>Ton parcours sera rattaché à ce compte.</p>
 
           {hasOrientationCache && (
-            <div className="mb-3 sm:mb-4 rounded-lg border border-[#c1ff72] bg-[#f8fff0] px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium">
-              Ton parcours est prêt, il sera rattaché à ton compte après connexion.
-            </div>
+            <p className="identity-banner">Ton parcours est prêt, il sera rattaché à ton compte après connexion.</p>
           )}
 
-          <div className="mb-3 sm:mb-4">
-            <label className="block">
-              <span className="block text-xs font-medium text-text-secondary mb-1">Département</span>
+          <div className="identity-form-grid">
+            <label>
+              <span>Département</span>
               <select
                 value={departmentCode}
                 onChange={(event) => setDepartmentCode(event.target.value)}
-                className="w-full h-10 sm:h-11 rounded-lg border border-line px-3 outline-none bg-white focus:border-black text-sm sm:text-base"
                 required
               >
                 <option value="">Choisir mon département</option>
@@ -185,68 +189,55 @@ export default function Register() {
                 ))}
               </select>
             </label>
-          </div>
-
-          <form onSubmit={handleEmailRegister} className="space-y-2 sm:space-y-3">
-            <label className="block">
-              <span className="block text-xs font-medium text-text-secondary mb-1">Email</span>
+            <label>
+              <span>Email</span>
               <input
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="toi@email.com"
-                className="w-full h-10 sm:h-11 rounded-lg border border-line px-3 outline-none focus:border-black text-sm sm:text-base"
                 autoComplete="email"
               />
             </label>
-            <label className="block">
-              <span className="block text-xs font-medium text-text-secondary mb-1">Mot de passe</span>
+            <label>
+              <span>Mot de passe</span>
               <input
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="6 caractères minimum"
-                className="w-full h-10 sm:h-11 rounded-lg border border-line px-3 outline-none focus:border-black text-sm sm:text-base"
                 autoComplete="new-password"
               />
             </label>
+          </div>
 
-            <div className="space-y-1.5 sm:space-y-2 rounded-lg bg-[#fffbf7] border border-line p-2.5 sm:p-3 text-xs text-text-secondary">
-              <button
-                type="button"
-                onClick={acceptAll}
-                className="h-7 sm:h-8 px-3 rounded-lg border border-gray-200 bg-white text-black text-xs font-semibold hover:border-black"
-              >
-                Tout valider
-              </button>
-              <label className="flex items-start gap-2 cursor-pointer leading-snug">
-                <input type="checkbox" checked={acceptTerms} onChange={(event) => setAcceptTerms(event.target.checked)} className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[#c1ff72]" />
-                <span>J'accepte les <Link to="/legal/conditions" className="text-black underline">CGU</Link> et la politique de confidentialité.</span>
-              </label>
-              <label className="flex items-start gap-2 cursor-pointer leading-snug">
-                <input type="checkbox" checked={newsletterOptIn} onChange={(event) => setNewsletterOptIn(event.target.checked)} className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[#c1ff72]" />
-                <span>Recevoir les nouveautés Zélia.</span>
-              </label>
-              <label className="flex items-start gap-2 cursor-pointer leading-snug">
-                <input type="checkbox" checked={acceptDataTransfer} onChange={(event) => setAcceptDataTransfer(event.target.checked)} className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[#c1ff72]" />
-                <span>Autoriser le contact par des écoles partenaires.</span>
-              </label>
-            </div>
-
-            {error && <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs sm:text-sm text-red-700">{error}</div>}
-
-            <button
-              type="submit"
-              disabled={Boolean(loading)}
-              className="w-full h-11 sm:h-12 rounded-lg bg-black text-white font-semibold disabled:opacity-60"
-            >
-              {loading === 'email' ? 'Création...' : 'Créer avec email'}
+          <div className="identity-consent">
+            <button type="button" onClick={acceptAll} className="identity-consent-all">
+              Tout valider
             </button>
-          </form>
-        </div>
+            <label className="identity-consent-row">
+              <input type="checkbox" checked={acceptTerms} onChange={(event) => setAcceptTerms(event.target.checked)} />
+              <span>J'accepte les <Link to="/legal/conditions">CGU</Link> et la politique de confidentialité.</span>
+            </label>
+            <label className="identity-consent-row">
+              <input type="checkbox" checked={newsletterOptIn} onChange={(event) => setNewsletterOptIn(event.target.checked)} />
+              <span>Recevoir les nouveautés Zélia.</span>
+            </label>
+            <label className="identity-consent-row">
+              <input type="checkbox" checked={acceptDataTransfer} onChange={(event) => setAcceptDataTransfer(event.target.checked)} />
+              <span>Autoriser le contact par des écoles partenaires.</span>
+            </label>
+          </div>
 
-        <p className="mt-3 sm:mt-4 text-center text-xs sm:text-sm text-text-secondary">
-          Déjà un compte ? <Link to={`/login${after ? `?after=${after}` : ''}`} className="text-black font-medium underline">Se connecter</Link>
+          {error && <p className="identity-error" role="alert">{error}</p>}
+
+          <button className="primary-action identity-submit" type="submit" disabled={Boolean(loading)}>
+            {loading === 'email' ? 'Création...' : 'Créer avec email'}
+          </button>
+        </form>
+
+        <p className="identity-switch">
+          Déjà un compte ? <Link to={`/login${after ? `?after=${after}` : ''}`}>Se connecter</Link>
         </p>
       </div>
     </main>

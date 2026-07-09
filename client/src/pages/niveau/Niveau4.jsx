@@ -99,6 +99,7 @@ export default function Niveau4() {
   const [userId, setUserId] = useState('')
   const [busy, setBusy] = useState(false)
   const [finishing, setFinishing] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   const [shareOpen, setShareOpen] = useState(false)
   const [shareImgUrl, setShareImgUrl] = useState('')
@@ -161,7 +162,6 @@ export default function Niveau4() {
     return (qLen >= 38 && qLen <= 40) ? 40 : Math.max(qLen, 1)
   }, [questions.length])
   const progress = questions.length ? Math.round(((qIdx + 1) / questions.length) * 100) : 0
-  const answered = currentQ ? answers[currentQ.id] != null : false
 
   function choose(ans) {
     const qid = currentQ?.id
@@ -169,14 +169,21 @@ export default function Niveau4() {
     const newAnswers = { ...answers, [qid]: ans }
     setAnswers(newAnswers)
     const next = qIdx + 1
-    if (next < questions.length) setQIdx(next)
+    if (next < questions.length) {
+      setQIdx(next)
+    } else {
+      // Last question answered: submit automatically, no manual "Terminer" click needed.
+      submitZeliaProfile(newAnswers)
+    }
   }
 
-  async function submitZeliaProfile() {
+  async function submitZeliaProfile(answersOverride) {
+    const answersToSubmit = answersOverride || answers
     setBusy(true)
+    setSubmitError('')
     setPhase('generating')
     try {
-      const payload = { answers: Object.entries(answers).map(([qid, ans]) => ({ question_id: Number(qid), answer: ans })), questionnaireType: 'mbti' }
+      const payload = { answers: Object.entries(answersToSubmit).map(([qid, ans]) => ({ question_id: Number(qid), answer: ans })), questionnaireType: 'mbti' }
       await apiClient.post('/questionnaire/submit?type=mbti', payload)
       const resp = await apiClient.post('/analysis/generate-analysis-by-type', { questionnaireType: 'mbti' })
       const data = resp?.data?.analysis
@@ -198,7 +205,7 @@ export default function Niveau4() {
       ]).catch((err) => console.warn('Persist niveau4 completion failed (non-blocking):', err))
     } catch (e) {
       console.error('Zelia submit/analyze error', e)
-      setError("Impossible de générer l'analyse de personnalité")
+      setSubmitError("Impossible de générer ton analyse pour le moment. Réessaie.")
       setPhase('quiz')
     } finally {
       setBusy(false)
@@ -504,6 +511,19 @@ export default function Niveau4() {
             <div className="n4-progress-track"><span style={{ width: `${progress}%` }} /></div>
             <span className="n4-progress-label">{Math.min(total, qIdx + 1)} / {total}</span>
           </div>
+          {submitError && (
+            <div className="n4-inline-error">
+              <p>{submitError}</p>
+              <button
+                type="button"
+                className="n4-btn-primary"
+                onClick={() => submitZeliaProfile(answers)}
+                disabled={busy}
+              >
+                {busy ? 'Analyse…' : 'Réessayer'}
+              </button>
+            </div>
+          )}
           <p className="n4-question">{displayText}</p>
           <div className="n4-choices">
             {choices.map((opt) => (
@@ -512,6 +532,7 @@ export default function Niveau4() {
                 type="button"
                 onClick={() => choose(opt)}
                 className={`n4-choice${answers[currentQ?.id] === opt ? ' is-selected' : ''}`}
+                disabled={busy}
               >
                 {opt}
               </button>
@@ -522,20 +543,10 @@ export default function Niveau4() {
               type="button"
               className="n4-btn-outline"
               onClick={() => setQIdx((i) => Math.max(0, i - 1))}
-              disabled={qIdx === 0}
+              disabled={qIdx === 0 || busy}
             >
               Précédent
             </button>
-            {qIdx === questions.length - 1 && (
-              <button
-                type="button"
-                className="n4-btn-primary"
-                onClick={submitZeliaProfile}
-                disabled={!answered || busy}
-              >
-                {busy ? 'Analyse…' : 'Terminer'}
-              </button>
-            )}
           </div>
         </div>
       )}
@@ -695,6 +706,19 @@ const styles = `
 .n4-choice:hover { transform: translateY(-1px); }
 .n4-choice.is-selected { background: #111827; color: #c1ff72; border-color: #111827; }
 .n4-nav { display: flex; align-items: center; justify-content: space-between; margin-top: 24px; }
+.n4-inline-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: #fff1f8;
+  border: 1.5px solid #f68fff;
+}
+.n4-inline-error p { margin: 0; font-size: 14px; font-weight: 600; color: #111827; }
 
 .n4-btn-primary, .n4-btn-outline {
   display: inline-flex;

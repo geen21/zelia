@@ -25,8 +25,8 @@ const ACTIONS = [
 // Curated 10-step "Crée ton avenir" timeline shown on the dashboard header.
 const DASHBOARD_STEPS = [
   { actionId: 'bilan', title: "Test d'orientation", timeMin: 15, points: 60 },
-  { actionId: 'personality', title: 'Découvre tes domaines de prédilection', timeMin: 8, points: 35 },
   { actionId: 'cv', title: 'Prépare ton CV', timeMin: 10, points: 50 },
+  { actionId: 'personality', title: 'Découvre tes domaines de prédilection', timeMin: 8, points: 35 },
   { actionId: 'letter', title: 'Rédige ta lettre de motivation', timeMin: 8, points: 35 },
   { actionId: 'english', title: "Teste ton niveau d'anglais", timeMin: 6, points: 25 },
   { actionId: 'parcoursup', title: 'Comprends Parcoursup', timeMin: 5, points: 20 },

@@ -2305,7 +2305,7 @@ export default function OrientationFlow() {
                 return (
                   <div key={formation.id} className="formation-lead-card">
                     <div className="formation-lead-head">
-                      <strong>{cleanDetailText(formationName, 90)}</strong>
+                      <strong>{cleanDetailText(formationName, 220)}</strong>
                       {formation.matchScore != null && (
                         <span className="formation-lead-score">{formation.matchScore}%</span>
                       )}
@@ -2339,6 +2339,20 @@ export default function OrientationFlow() {
                   <strong>{formation.title}</strong>
                 </div>
               ))}
+            </div>
+          )}
+
+          {!dbFormationsLoading && dbFormations.length === 0 && formationRecommendations.length === 0 && (
+            <div className="formation-lead-empty">
+              <p className="formation-lead-empty-text">Aucune formation ne correspond exactement à ton profil pour le moment.</p>
+              <button
+                type="button"
+                className="formation-lead-empty-cta"
+                onClick={() => navigate('/formations')}
+              >
+                <i className="ph ph-magnifying-glass" aria-hidden="true" />
+                Voir d'autres formations
+              </button>
             </div>
           )}
         </div>

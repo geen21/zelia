@@ -132,6 +132,18 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="zelia-home-parents-teaser">
+        <div className="zelia-home-parents-teaser-inner">
+          <i className="ph ph-users-three" aria-hidden="true" />
+          <div>
+            <p className="zelia-home-kicker">Pour les parents</p>
+            <h2>Devenez le meilleur allié orientation de votre enfant</h2>
+            <p>Une formation pas-à-pas pour l'accompagner au lycée avec sérénité, sans stress ni conflit.</p>
+          </div>
+          <Link to="/parents" className="zelia-home-parents-teaser-cta">Découvrir la formation</Link>
+        </div>
+      </section>
+
       <section className="zelia-home-schools">
         <div className="zelia-home-schools-inner">
           <div>
@@ -397,6 +409,41 @@ const homeStyles = `
 .zelia-home-pillar-card h3 { margin: 4px 0 0; font-size: 16px; font-weight: 700; }
 .zelia-home-pillar-card p { margin: 0; font-size: 14px; line-height: 1.5; color: #4b5563; }
 
+/* ---------- Formation parents teaser ---------- */
+.zelia-home-parents-teaser {
+  padding: 0 clamp(18px, 6vw, 72px);
+  max-width: 1180px;
+  margin: 0 auto;
+}
+.zelia-home-parents-teaser-inner {
+  background: #f68fff;
+  border-radius: 24px;
+  padding: clamp(20px, 4vw, 30px) clamp(24px, 5vw, 36px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+}
+.zelia-home-parents-teaser-inner i { flex: 0 0 auto; font-size: 34px; color: #111827; }
+.zelia-home-parents-teaser-inner > div { flex: 1 1 320px; }
+.zelia-home-parents-teaser-inner .zelia-home-kicker { margin: 0 0 4px; color: #111827; opacity: .7; }
+.zelia-home-parents-teaser-inner h2 { margin: 0; font-size: 20px; }
+.zelia-home-parents-teaser-inner p { margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: #111827; max-width: 520px; }
+.zelia-home-parents-teaser-cta {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 24px;
+  border-radius: 999px;
+  background: #111827;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
 /* ---------- Ecole partenaire teaser ---------- */
 .zelia-home-schools {
   padding: clamp(32px, 6vw, 56px) clamp(18px, 6vw, 72px);
@@ -501,6 +548,8 @@ const homeStyles = `
   .zelia-home-actions button { width: 100%; }
   .zelia-home-proof span { width: 100%; justify-content: center; }
   .zelia-home-steps { padding: 40px 18px; }
+  .zelia-home-parents-teaser-inner { flex-direction: column; align-items: flex-start; }
+  .zelia-home-parents-teaser-cta { width: 100%; }
   .zelia-home-schools-inner { flex-direction: column; align-items: flex-start; }
   .zelia-home-schools-cta { width: 100%; }
   .zelia-home-footer-top { grid-template-columns: 1fr; gap: 24px; }

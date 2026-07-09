@@ -46,13 +46,13 @@ if (STRIPE_API_VERSION) {
 
 export const stripeParentTraining = STRIPE_PARENT_SECRET_KEY ? new Stripe(STRIPE_PARENT_SECRET_KEY, stripeParentOptions) : null
 
-const STRIPE_PARENT_PRICE_AMOUNT = Number(process.env.STRIPE_PARENT_PRICE_AMOUNT || 9900)
+const STRIPE_PARENT_PRICE_AMOUNT = Number(process.env.STRIPE_PARENT_PRICE_AMOUNT || 2500)
 const STRIPE_PARENT_PRICE_CURRENCY = (process.env.STRIPE_PARENT_PRICE_CURRENCY || 'eur').toLowerCase()
 const STRIPE_PARENT_PRODUCT_NAME = process.env.STRIPE_PARENT_PRODUCT_NAME || 'Formation Zélia — Devenez le meilleur allié orientation de votre enfant'
 
 export const PARENT_TRAINING_CONFIG = {
   publishableKey: process.env.STRIPE_PARENT_PUBLISHABLE_KEY || null,
-  priceAmount: Number.isFinite(STRIPE_PARENT_PRICE_AMOUNT) ? STRIPE_PARENT_PRICE_AMOUNT : 9900,
+  priceAmount: Number.isFinite(STRIPE_PARENT_PRICE_AMOUNT) ? STRIPE_PARENT_PRICE_AMOUNT : 2500,
   priceCurrency: STRIPE_PARENT_PRICE_CURRENCY,
   productName: STRIPE_PARENT_PRODUCT_NAME,
   successUrl: process.env.STRIPE_PARENT_SUCCESS_URL || `${defaultClientUrl}/parents?checkout=success`,

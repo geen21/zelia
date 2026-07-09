@@ -17,6 +17,11 @@ const BENEFITS = [
     icon: 'ph-shield-check',
     title: 'Un consentement respecté',
     detail: 'Seuls les élèves ayant accepté d\'être recontactés apparaissent dans votre espace.'
+  },
+  {
+    icon: 'ph-check-circle',
+    title: 'Un accès vérifié',
+    detail: 'Chaque compte est validé par notre équipe avant d\'accéder aux données de contact des élèves.'
   }
 ]
 
@@ -61,7 +66,7 @@ export default function SchoolPortalHome() {
         </div>
       </section>
 
-      <section className="max-w-5xl mx-auto px-4 pb-16 grid gap-4 sm:grid-cols-3">
+      <section className="max-w-5xl mx-auto px-4 pb-16 grid gap-4 sm:grid-cols-2">
         {BENEFITS.map((benefit) => (
           <div key={benefit.title} className="bg-white border border-line rounded-lg shadow-card p-5">
             <i className={`ph ${benefit.icon} text-2xl`} aria-hidden="true" />

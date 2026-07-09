@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiClient, { analysisAPI, usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 import { generateZeliaShareImage } from '../../lib/shareImage'
-import { FaFaceGrinWide, FaTrophy, FaXmark } from 'react-icons/fa6'
+import { FaXmark } from 'react-icons/fa6'
 
 let jsPdfFactoryPromise = null
 async function loadJsPdf() {
@@ -18,9 +18,7 @@ async function loadJsPdf() {
 function limitWords(text, maxWords) {
   if (!text || typeof text !== 'string' || !maxWords) return text || ''
   const words = text.trim().split(/\s+/)
-  if (words.length <= maxWords) {
-    return text.trim()
-  }
+  if (words.length <= maxWords) return text.trim()
   return `${words.slice(0, maxWords).join(' ')}…`
 }
 
@@ -43,7 +41,6 @@ function sanitizeAnalysisPayload(raw) {
     sanitized.personalityAnalysis = ensureJobMentions(sanitized.personalityAnalysis, jobsArray)
     sanitized.personalityAnalysis = limitWords(sanitized.personalityAnalysis, 300)
   }
-  // sanitized.skillsAssessment = null // Keep skillsAssessment for "Tes qualités"
   return sanitized
 }
 
@@ -88,48 +85,21 @@ function ensureJobMentions(text, jobs) {
   return `${text.trim()}\n\nCes points se retrouvent dans des métiers comme ${additionList}.`
 }
 
-// Simple typewriter
-function useTypewriter(message, durationMs) {
-  const [text, setText] = useState('')
-  const [done, setDone] = useState(false)
-  const intRef = useRef(null)
-  const toRef = useRef(null)
-  useEffect(() => {
-    const full = message || ''
-    setText('')
-    setDone(false)
-    let i = 0
-    const step = Math.max(15, Math.floor((durationMs || 1500) / Math.max(1, full.length)))
-    intRef.current = setInterval(() => {
-      i++
-      setText(full.slice(0, i))
-      if (i >= full.length) clearInterval(intRef.current)
-    }, step)
-    toRef.current = setTimeout(() => { clearInterval(intRef.current); setText(full); setDone(true) }, Math.max(durationMs || 1500, (full.length + 1) * step))
-    return () => { if (intRef.current) clearInterval(intRef.current); if (toRef.current) clearTimeout(toRef.current) }
-  }, [message, durationMs])
-  const skip = () => { if (intRef.current) clearInterval(intRef.current); if (toRef.current) clearTimeout(toRef.current); setText(message || ''); setDone(true) }
-  return { text, done, skip }
-}
-
 export default function Niveau4() {
   const navigate = useNavigate()
-  const [profile, setProfile] = useState(null)
   const [avatarUrl, setAvatarUrl] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const [phase, setPhase] = useState('quiz') // intro -> quiz -> generating -> results -> success
-  // Separate indices for intro messages and quiz questions
-  const [introIdx, setIntroIdx] = useState(0)
+  const [phase, setPhase] = useState('quiz') // 'quiz' -> 'generating' -> 'results'
   const [qIdx, setQIdx] = useState(0)
   const [questions, setQuestions] = useState([])
   const [answers, setAnswers] = useState({})
   const [analysis, setAnalysis] = useState(null)
   const [userId, setUserId] = useState('')
   const [busy, setBusy] = useState(false)
-  const [mouthAlt, setMouthAlt] = useState(false)
-  // Share state
+  const [finishing, setFinishing] = useState(false)
+
   const [shareOpen, setShareOpen] = useState(false)
   const [shareImgUrl, setShareImgUrl] = useState('')
   const [sharing, setSharing] = useState(false)
@@ -137,18 +107,14 @@ export default function Niveau4() {
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [previewing, setPreviewing] = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
-  // Results gating: first show actions, then confirmation step
-  const [resultsStep, setResultsStep] = useState('actions') // 'actions' | 'confirm'
 
-  const ZELIA_IG_HANDLE = '@zelia_orientation' // handle officiel
-
-  const renderParagraphs = (text, emptyLabel = '—') => {
+  const renderParagraphs = (text, emptyLabel = '—') => {
     const paragraphs = splitIntoParagraphs(text)
     if (!paragraphs.length) {
-      return [<p key="empty" className="whitespace-pre-wrap text-gray-800 leading-relaxed">{emptyLabel}</p>]
+      return [<p key="empty" className="n4-paragraph">{emptyLabel}</p>]
     }
     return paragraphs.map((paragraph, index) => (
-      <p key={index} className="whitespace-pre-wrap text-gray-800 leading-relaxed">{paragraph}</p>
+      <p key={index} className="n4-paragraph">{paragraph}</p>
     ))
   }
 
@@ -162,9 +128,8 @@ export default function Niveau4() {
         const pRes = await usersAPI.getProfile().catch(() => null)
         if (!mounted) return
         const prof = pRes?.data?.profile || null
-        setProfile(prof)
         setAvatarUrl(buildAvatarFromProfile(prof, user.id))
-  // Load Zélia personality questions (internally typed as "mbti")
+        // Load Zélia personality questions (internally typed as "mbti")
         const qRes = await apiClient.get('/questionnaire/questions', { params: { type: 'mbti', _: Date.now() } })
         const list = Array.isArray(qRes?.data) ? qRes.data : []
         setQuestions(list)
@@ -179,47 +144,6 @@ export default function Niveau4() {
     return () => { mounted = false }
   }, [navigate])
 
-  const firstName = useMemo(() => {
-    const raw = (profile?.first_name || profile?.prenom || '').trim()
-    if (!raw) return ''
-    const [first] = raw.split(/\s+/)
-    return first
-  }, [profile])
-
-  const messages = useMemo(() => {
-    const greeting = firstName
-      ? `Rebonjour ${firstName}, j'espère que ça va toujours`
-      : "Rebonjour, j'espère que ça va toujours"
-    const launchLine = firstName
-      ? `On y va ${firstName} !`
-  : "On y va, c'est parti !"
-    return ([
-      { text: greeting, durationMs: 2000 },
-      { text: "Je vais te poser quelques questions sur toi et je vais te donner des résultats concrets sur qui tu es vraiment, je vais essayer d'analyser en profondeur ta personne", durationMs: 4000 },
-      { text: "On va faire ensemble un petit test de personnalité en 40 questions", durationMs: 2000 },
-      { text: "Ça te permettra de comprendre un peu mieux qui tu es, et comment tu fonctionnes", durationMs: 2000 },
-      { text: launchLine, durationMs: 500 },
-    ])
-  }, [firstName])
-  const current = messages[introIdx] || { text: '', durationMs: 1500 }
-  const { text: typed, done: typedDone, skip } = useTypewriter(current.text, current.durationMs)
-
-  useEffect(() => {
-    if (phase !== 'intro' || typedDone) return
-    const id = setInterval(() => setMouthAlt(v => !v), 200)
-    return () => clearInterval(id)
-  }, [phase, typedDone])
-
-  function nextIntro() {
-    if (!typedDone) { skip(); return }
-    if (introIdx + 1 < messages.length) {
-      setIntroIdx(introIdx + 1)
-    } else {
-      setPhase('quiz')
-      setQIdx(0)
-    }
-  }
-
   const choices = useMemo(() => ['Oui', 'Un peu', 'Je ne sais pas', 'Pas trop', 'Non'], [])
   const currentQ = questions[qIdx]
   const displayText = useMemo(() => {
@@ -232,24 +156,25 @@ export default function Niveau4() {
     return raw
   }, [currentQ])
 
+  const total = useMemo(() => {
+    const qLen = questions.length || 0
+    return (qLen >= 38 && qLen <= 40) ? 40 : Math.max(qLen, 1)
+  }, [questions.length])
   const progress = questions.length ? Math.round(((qIdx + 1) / questions.length) * 100) : 0
   const answered = currentQ ? answers[currentQ.id] != null : false
 
-  // Align answer behavior with signup questionnaire: click = select + auto-advance
   function choose(ans) {
     const qid = currentQ?.id
     if (!qid) return
     const newAnswers = { ...answers, [qid]: ans }
     setAnswers(newAnswers)
-    // Auto-advance if not on last question
     const next = qIdx + 1
-    if (next < questions.length) {
-      setQIdx(next)
-    }
+    if (next < questions.length) setQIdx(next)
   }
 
   async function submitZeliaProfile() {
     setBusy(true)
+    setPhase('generating')
     try {
       const payload = { answers: Object.entries(answers).map(([qid, ans]) => ({ question_id: Number(qid), answer: ans })), questionnaireType: 'mbti' }
       await apiClient.post('/questionnaire/submit?type=mbti', payload)
@@ -258,43 +183,38 @@ export default function Niveau4() {
       if (data) {
         const normalized = sanitizeAnalysisPayload(data)
         setAnalysis(normalized)
-        if (normalized.shareImageUrl) {
-          setShareImgUrl(normalized.shareImageUrl)
-        } else {
-          setShareImgUrl('')
-        }
+        setShareImgUrl(normalized.shareImageUrl || '')
       }
       setPhase('results')
     } catch (e) {
       console.error('Zelia submit/analyze error', e)
       setError("Impossible de générer l'analyse de personnalité")
+      setPhase('quiz')
     } finally {
       setBusy(false)
     }
   }
 
-  function finishLevel() {
-    setPhase('success')
-    ;(async () => {
-      try {
-  await levelUp({ minLevel: 4, xpReward: XP_PER_LEVEL })
-      } catch (e) { console.warn('Progression update failed (non-blocking):', e) }
-    })()
+  async function finishLevel() {
+    if (finishing) return
+    setFinishing(true)
+    try {
+      await levelUp({ minLevel: 4, xpReward: XP_PER_LEVEL })
+    } catch (e) {
+      console.warn('Progression update failed (non-blocking):', e)
+    } finally {
+      navigate('/app/results')
+    }
   }
 
-  // Utilities for share image
-
-  // Generate a portrait PDF (A4) with the generated image filling the page
   async function generatePdfFromImage(dataUrl) {
     try {
       setGeneratingPdf(true)
-      // Create jsPDF in portrait, mm, A4
       const JsPDF = await loadJsPdf()
       const pdf = new JsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
       const pageWidth = pdf.internal.pageSize.getWidth()
       const pageHeight = pdf.internal.pageSize.getHeight()
 
-      // Image is 1080x1920 (ratio 9:16). Fit to A4 (210x297) preserving aspect
       const img = new Image()
       const blob = await (await fetch(dataUrl)).blob()
       const imgUrl = URL.createObjectURL(blob)
@@ -313,7 +233,7 @@ export default function Niveau4() {
       const x = (pageWidth - drawW) / 2
       const y = (pageHeight - drawH) / 2
       pdf.addImage(dataUrl, 'PNG', x, y, drawW, drawH, undefined, 'FAST')
-  pdf.save('zelia-profil-zelia.pdf')
+      pdf.save('zelia-profil-zelia.pdf')
       URL.revokeObjectURL(imgUrl)
     } catch (e) {
       console.error('PDF generation failed', e)
@@ -345,11 +265,11 @@ export default function Niveau4() {
 
       const response = await fetch(url)
       const blob = await response.blob()
-  const file = new File([blob], 'zelia-story.png', { type: 'image/png' })
+      const file = new File([blob], 'zelia-profil.png', { type: 'image/png' })
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           title: analysis?.personalityType || 'Profil Zélia',
-          text: `Mon profil personnalité Zélia — ${analysis?.personalityType || ''}`.trim(),
+          text: `Mon profil personnalité Zélia — ${analysis?.personalityType || ''}`.trim(),
           files: [file]
         })
         return
@@ -360,9 +280,7 @@ export default function Niveau4() {
     } catch (error) {
       console.warn('Native share failed, falling back to modal', error)
       const fallbackUrl = await ensureShareImage()
-      if (fallbackUrl) {
-        setShareImgUrl(fallbackUrl)
-      }
+      if (fallbackUrl) setShareImgUrl(fallbackUrl)
       setShareOpen(true)
     } finally {
       setSharing(false)
@@ -380,10 +298,9 @@ export default function Niveau4() {
       const usable = pageWidth - margin * 2
       let y = margin
 
-      // Header
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(18)
-  const title = analysis?.personalityType ? `Profil Zélia — ${analysis.personalityType}` : 'Profil Zélia'
+      const title = analysis?.personalityType ? `Profil Zélia — ${analysis.personalityType}` : 'Profil Zélia'
       doc.text(title, margin, y)
       y += 8
       doc.setDrawColor(0)
@@ -391,7 +308,6 @@ export default function Niveau4() {
       doc.line(margin, y, pageWidth - margin, y)
       y += 6
 
-      // Section: Analyse de personnalité
       if (analysis?.personalityAnalysis) {
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(14)
@@ -408,7 +324,6 @@ export default function Niveau4() {
         y += 2
       }
 
-      // Section: Recommandations d'emploi
       if (Array.isArray(analysis?.jobRecommendations) && analysis.jobRecommendations.length) {
         if (y > 270) { doc.addPage(); y = margin }
         doc.setFont('helvetica', 'bold')
@@ -420,11 +335,11 @@ export default function Niveau4() {
         const jobs = analysis.jobRecommendations
         for (let i = 0; i < jobs.length; i++) {
           const j = jobs[i]
-          const title = typeof j === 'string' ? j : (j?.title || '')
-          if (!title) continue
+          const jobTitle = typeof j === 'string' ? j : (j?.title || '')
+          if (!jobTitle) continue
           if (y > 275) { doc.addPage(); y = margin }
           doc.setFont('helvetica', 'bold')
-          doc.text(`• ${title}`, margin, y)
+          doc.text(`• ${jobTitle}`, margin, y)
           y += 6
           doc.setFont('helvetica', 'normal')
           if (Array.isArray(j?.skills) && j.skills.length) {
@@ -440,10 +355,9 @@ export default function Niveau4() {
         }
       }
 
-      // Footer
       doc.setFont('helvetica', 'italic')
       doc.setFontSize(9)
-  const footer = 'Généré par Zélia — Test de personnalité'
+      const footer = 'Généré par Zélia — Test de personnalité'
       const pageCount = doc.getNumberOfPages()
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i)
@@ -451,7 +365,7 @@ export default function Niveau4() {
         doc.text(footer, (pageWidth - w) / 2, 295)
       }
 
-  doc.save('zelia-resultats-personnalite.pdf')
+      doc.save('zelia-resultats-personnalite.pdf')
     } catch (e) {
       console.error('PDF report generation failed', e)
     } finally {
@@ -477,11 +391,7 @@ export default function Niveau4() {
       }
 
       const sanitized = sanitizeAnalysisPayload(merged)
-
-      setAnalysis(prev => {
-        if (!prev) return sanitized
-        return { ...prev, ...sanitized }
-      })
+      setAnalysis(prev => (prev ? { ...prev, ...sanitized } : sanitized))
       return sanitized
     } catch (error) {
       console.warn('Failed to refresh analysis snapshot', error)
@@ -497,16 +407,14 @@ export default function Niveau4() {
       return analysis.shareImageUrl
     }
 
-    if (shareUploading) {
-      return shareImgUrl || ''
-    }
+    if (shareUploading) return shareImgUrl || ''
 
     const snapshot = await refreshAnalysisSnapshot() || analysis
     if (!snapshot) return ''
 
     setShareUploading(true)
     try {
-  const dataUrl = await generateZeliaShareImage({ analysis: snapshot, avatarUrl })
+      const dataUrl = await generateZeliaShareImage({ analysis: snapshot, avatarUrl })
       if (!dataUrl) return ''
       setShareImgUrl(dataUrl)
 
@@ -544,275 +452,163 @@ export default function Niveau4() {
       return
     }
     ensureShareImage()
-  }, [analysis, ensureShareImage, phase])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analysis, phase])
 
   if (loading) {
     return (
-      <div className="p-6 text-center">
-        <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargement…</p>
+      <div className="n4-page">
+        <style>{styles}</style>
+        <div className="n4-card n4-state">
+          <div className="n4-spinner" />
+          <p>Chargement…</p>
+        </div>
       </div>
     )
   }
+
   if (error) {
     return (
-      <div className="p-6">
-        <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">{error}</div>
+      <div className="n4-page">
+        <style>{styles}</style>
+        <div className="n4-card n4-state">
+          <i className="ph ph-warning-circle" aria-hidden="true" />
+          <p>{error}</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="p-2 md:p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        {/* Left: Avatar + Dialogue / Controls */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-            <img src={avatarUrl} alt="Avatar" className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-52 lg:h-52 xl:w-60 xl:h-60 2xl:w-64 2xl:h-64 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto md:mx-0" />
-            <div className="flex-1 w-full">
-              <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
-                <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
-                  {phase === 'intro' ? (
-                    <>{typed}</>
-                  ) : phase === 'quiz' ? (
-                    <>Réponds aux questions pour récupérer ton analyse.</>
-                  ) : phase === 'generating' ? (
-                    <>J'analyse tes réponses, cela peut prendre jusqu'à 1 minute, ne recharge pas la page…</>
-                  ) : phase === 'results' ? (
-                    <>
-                      {resultsStep === 'confirm'
-                        ? "Hésite pas à nous taguer dans ta story pour qu'on te republie si t'as aimé les résultats"
-                        : <>
-                            Et voilà le tour est joué, ton analyse de personnalité est prête !
-                            <br />
-                            <br />
-                            Tu devrais partager tes résultats d’orientation et de personnalité sur TikTok ou Insta ou directement à tes potes pour voir comment ils réagissent <FaFaceGrinWide className="inline w-4 h-4" />
-                            <br />
-                            <br />
-                            Tu peux me mentionner aussi : <strong>@zelia_orientation</strong> pour que je reposte !
-                          </>}
-                    </>
-                  ) : phase === 'success' ? (
-                    <>Module terminé !</>
-                  ) : null}
-                </div>
-                <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
-              </div>
+    <div className="n4-page">
+      <style>{styles}</style>
 
-              {phase === 'intro' && (
-                <div className="mt-4">
-                  <button onClick={nextIntro} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">Suivant</button>
-                </div>
-              )}
-
-              {phase === 'results' && (
-                <div className="mt-4">
-                  {resultsStep === 'actions' ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <button onClick={onPreview} disabled={previewing} className="w-full h-12 px-3 rounded-lg bg-white text-gray-900 border border-gray-300">
-                        <span className="w-full h-full flex items-center justify-center gap-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8S2 12 2 12Z" strokeLinecap="round" strokeLinejoin="round"/><circle cx="12" cy="12" r="3"/></svg>
-                          <span className="font-medium">{previewing ? 'Préparation…' : 'Aperçu'}</span>
-                        </span>
-                      </button>
-                      <button onClick={generatePdfReport} disabled={generatingReport} className="w-full h-12 px-3 rounded-lg bg-white text-gray-900 border border-gray-300">
-                        <span className="w-full h-full flex items-center justify-center gap-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 14h8M8 18h5"/></svg>
-                          <span className="font-medium">{generatingReport ? 'Création du PDF…' : 'PDF'}</span>
-                        </span>
-                      </button>
-                      <button onClick={onShare} disabled={sharing} className="w-full h-12 px-3 rounded-lg bg-[#f68fff] text-black border border-gray-200">
-                        <span className="w-full h-full flex items-center justify-center gap-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 16V4"/><path d="m8 8 4-4 4 4"/></svg>
-                          <span className="font-medium">{sharing ? 'Préparation…' : 'Partager'}</span>
-                        </span>
-                      </button>
-                      <button onClick={() => setResultsStep('confirm')} className="w-full h-12 px-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200">
-                        <span className="w-full h-full flex items-center justify-center gap-2">
-                          <span className="font-medium">Continuer</span>
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="m9 18 6-6-6-6" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        </span>
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex justify-end">
-                      <button onClick={finishLevel} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Valider et terminer</button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right: Quiz or Results */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          {phase === 'quiz' && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xl font-bold">Test de personnalité Zélia</h2>
-                {(() => {
-                  const startNum = 1
-                  const qLen = questions.length || 0
-                  // Aim total to 40 when plausible, else fall back to shifted length
-                  const total = (qLen >= 38 && qLen <= 40) ? 40 : Math.max(startNum - 1 + qLen, startNum)
-                  const current = Math.min(total, startNum + qIdx)
-                  return (
-                    <div className="text-sm text-text-secondary">{current} / {total} • {progress}%</div>
-                  )
-                })()}
-              </div>
-              <div className="mb-4 text-text-primary whitespace-pre-wrap">{displayText}</div>
-              <div className="flex flex-wrap gap-2">
-                {choices.map((opt, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => choose(opt)}
-                    className={`px-3 py-2 rounded-lg border ${answers[currentQ?.id]===opt ? 'border-black bg-black text-white':'border-line'}`}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-between mt-6">
-                <button
-                  type="button"
-                  className="h-10 px-4 rounded-lg border border-line disabled:opacity-50"
-                  onClick={() => setQIdx(i => Math.max(0, i-1))}
-                  disabled={qIdx===0}
-                >
-                  Précédent
-                </button>
-                {qIdx === questions.length - 1 && (
-                  <button
-                    type="button"
-                    className="h-10 px-4 rounded-lg bg-black text-white disabled:opacity-50"
-                    onClick={() => { setPhase('generating'); submitZeliaProfile() }}
-                    disabled={!answered || busy}
-                  >
-                    {busy ? 'Analyse…' : 'Terminer'}
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {phase === 'results' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-bold">Mes Résultats</h2>
-                <p className="text-text-secondary">Analyse personnalisée de ton test Zélia</p>
-              </div>
-
-              <section className="bg-surface border border-line rounded-xl shadow-card p-6">
-                <h3 className="text-lg font-semibold mb-2">Analyse de personnalité</h3>
-                <div className="space-y-4">
-                  {renderParagraphs(analysis?.personalityAnalysis)}
-                </div>
-              </section>
-
-              {analysis?.skillsAssessment && (
-                <section className="bg-surface border border-line rounded-xl shadow-card p-6">
-                  <h3 className="text-lg font-semibold mb-2">Tes qualités</h3>
-                  <div className="space-y-4">
-                    {renderParagraphs(analysis.skillsAssessment)}
-                  </div>
-                </section>
-              )}
-
-              {Array.isArray(analysis?.jobRecommendations) && analysis.jobRecommendations.length > 0 && (
-                <section className="bg-surface border border-line rounded-xl shadow-card p-6">
-                  <h3 className="text-lg font-semibold mb-4">Recommandations d'emploi</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {analysis.jobRecommendations.map((job, i) => (
-                      <div key={i} className="bg-white border border-gray-200 rounded-lg p-4">
-                        <h4 className="font-semibold mb-2">{job.title}</h4>
-                        {!!(job.skills?.length) && (
-                          <ul className="list-disc list-inside text-sm text-gray-700">
-                            {job.skills.map((s, j) => <li key={j}>{s}</li>)}
-                          </ul>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* Pas de recommandations d'études pour ce test */}
-            </div>
-          )}
-        </div>
+      <div className="n4-card n4-header">
+        <h1>Test de personnalité</h1>
+        <p>Réponds aux questions pour découvrir ton profil Zélia.</p>
       </div>
 
-      {/* Success overlay */}
-      {phase === 'success' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
-            <p className="text-text-secondary mb-4">Bravo, tu as complété le test Zélia et découvert ton profil.</p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/5')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
-              <button onClick={() => navigate('/app/results')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300">Voir mes résultats</button>
-            </div>
-            <div className="pointer-events-none absolute inset-0 overflow-hidden">
-              <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />
-              <div className="absolute w-2 h-2 bg-yellow-400 rounded-full right-8 top-10 animate-ping" />
-              <div className="absolute w-2 h-2 bg-blue-400 rounded-full left-10 bottom-8 animate-ping" />
-              <div className="absolute w-2 h-2 bg-green-400 rounded-full right-6 bottom-10 animate-ping" />
-            </div>
+      {phase === 'quiz' && currentQ && (
+        <div className="n4-card">
+          <div className="n4-progress">
+            <div className="n4-progress-track"><span style={{ width: `${progress}%` }} /></div>
+            <span className="n4-progress-label">{Math.min(total, qIdx + 1)} / {total}</span>
+          </div>
+          <p className="n4-question">{displayText}</p>
+          <div className="n4-choices">
+            {choices.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => choose(opt)}
+                className={`n4-choice${answers[currentQ?.id] === opt ? ' is-selected' : ''}`}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+          <div className="n4-nav">
+            <button
+              type="button"
+              className="n4-btn-outline"
+              onClick={() => setQIdx((i) => Math.max(0, i - 1))}
+              disabled={qIdx === 0}
+            >
+              Précédent
+            </button>
+            {qIdx === questions.length - 1 && (
+              <button
+                type="button"
+                className="n4-btn-primary"
+                onClick={submitZeliaProfile}
+                disabled={!answered || busy}
+              >
+                {busy ? 'Analyse…' : 'Terminer'}
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      {/* Share Preview Modal */}
-      {shareOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 overscroll-contain" onClick={() => setShareOpen(false)}>
-          <div
-            className="relative bg-white rounded-2xl shadow-2xl w-[92%] max-w-[360px] sm:max-w-[420px] md:max-w-[560px] lg:max-w-[720px] p-4 md:p-5 border border-gray-200 max-h-[88vh] sm:max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Close button */}
-            <button
-              onClick={() => setShareOpen(false)}
-              aria-label="Fermer"
-              className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black text-white flex items-center justify-center shadow-sm hover:opacity-90"
-            ><FaXmark className="w-3 h-3" /></button>
+      {phase === 'generating' && (
+        <div className="n4-card n4-state">
+          <div className="n4-dots" aria-hidden="true"><span /><span /><span /></div>
+          <p>On analyse tes réponses, ça peut prendre jusqu'à une minute…</p>
+        </div>
+      )}
 
-            <h3 className="text-lg font-bold pr-8">Prévisualisation à partager</h3>
+      {phase === 'results' && (
+        <>
+          <div className="n4-card">
+            <h2>Analyse de personnalité</h2>
+            <div className="n4-paragraphs">{renderParagraphs(analysis?.personalityAnalysis)}</div>
+          </div>
 
-            {shareImgUrl ? (
-              <img src={shareImgUrl} alt="Visuel à partager Zélia" className="mt-3 w-full h-auto rounded-lg border border-gray-200" />
-            ) : (
-              <div className="text-center py-10">Génération de l'image…</div>
-            )}
-
-            <div className="flex items-center justify-center gap-6 mt-3 opacity-80">
-              <img src="/assets/images/social/instagram.svg" alt="Instagram" className="w-7 h-7" />
-              <img src="/assets/images/social/twitter.svg" alt="Twitter" className="w-7 h-7" />
-              <img src="/assets/images/social/snapchat.svg" alt="Snapchat" className="w-7 h-7" />
+          {analysis?.skillsAssessment && (
+            <div className="n4-card">
+              <h2>Tes qualités</h2>
+              <div className="n4-paragraphs">{renderParagraphs(analysis.skillsAssessment)}</div>
             </div>
-            <p className="mt-3 text-sm text-gray-600">Astuce: Partage la story sur Instagram et tag {ZELIA_IG_HANDLE} pour qu'on puisse la republier.</p>
+          )}
 
-            {/* Sticky action bar */}
-            <div className="sticky bottom-0 pt-3 mt-3 bg-white/95 supports-[backdrop-filter]:bg-white/80 backdrop-blur border-t border-gray-200">
-              <div className="flex flex-col sm:flex-row gap-2 justify-end">
-                <div className="flex-1 text-left">
-                  {shareImgUrl && (
-                    <button onClick={() => generatePdfFromImage(shareImgUrl)} disabled={generatingPdf} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 mr-2">{generatingPdf ? 'Création du PDF…' : 'Télécharger PDF'}</button>
-                  )}
-                </div>
-                {shareImgUrl && (
-                  <a href={shareImgUrl} download="zelia-story.png" className="px-4 py-2 rounded-lg bg-black text-white border border-gray-200">Enregistrer l'image</a>
-                )}
-                {shareImgUrl && (
-  				  <button onClick={async () => { try { const res = await fetch(shareImgUrl); const blob = await res.blob(); const file = new File([blob], 'zelia-story.png', { type: 'image/png' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ title: analysis?.personalityType || 'Profil Zélia', text: `Mon profil personnalité Zélia - ${analysis?.personalityType || ''}`.trim(), files: [file] }); setShareOpen(false) } else { alert('Le partage natif n\'est pas supporté sur cet appareil. Tu peux enregistrer l\'image puis la partager manuellement.') } } catch (e) { console.warn('Share from modal failed', e) } }} className="px-4 py-2 rounded-lg bg-[#f68fff] text-black border border-gray-200">Partager</button>
-                )}
-                <button onClick={() => setShareOpen(false)} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300">Fermer</button>
+          {Array.isArray(analysis?.jobRecommendations) && analysis.jobRecommendations.length > 0 && (
+            <div className="n4-card">
+              <h2>Recommandations d'emploi</h2>
+              <div className="n4-jobs-grid">
+                {analysis.jobRecommendations.map((job, i) => (
+                  <div key={i} className="n4-job-card">
+                    <h3>{job.title}</h3>
+                    {!!(job.skills?.length) && (
+                      <ul>{job.skills.map((s, j) => <li key={j}>{s}</li>)}</ul>
+                    )}
+                  </div>
+                ))}
               </div>
+            </div>
+          )}
+
+          <div className="n4-card n4-actions">
+            <button type="button" className="n4-btn-outline" onClick={onPreview} disabled={previewing}>
+              <i className="ph ph-eye" aria-hidden="true" />
+              {previewing ? 'Préparation…' : 'Aperçu'}
+            </button>
+            <button type="button" className="n4-btn-outline" onClick={generatePdfReport} disabled={generatingReport}>
+              <i className="ph ph-file-pdf" aria-hidden="true" />
+              {generatingReport ? 'Création du PDF…' : 'PDF'}
+            </button>
+            <button type="button" className="n4-btn-outline" onClick={onShare} disabled={sharing}>
+              <i className="ph ph-share-network" aria-hidden="true" />
+              {sharing ? 'Préparation…' : 'Partager'}
+            </button>
+            <button type="button" className="n4-btn-primary" onClick={finishLevel} disabled={finishing}>
+              {finishing ? 'Validation…' : 'Terminer'}
+            </button>
+          </div>
+        </>
+      )}
+
+      {shareOpen && (
+        <div className="n4-modal-overlay" onClick={() => setShareOpen(false)}>
+          <div className="n4-modal" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="n4-modal-close" onClick={() => setShareOpen(false)} aria-label="Fermer">
+              <FaXmark />
+            </button>
+            <h3>Aperçu à partager</h3>
+            {shareImgUrl ? (
+              <img src={shareImgUrl} alt="Visuel à partager" className="n4-modal-image" />
+            ) : (
+              <div className="n4-state"><p>Génération de l'image…</p></div>
+            )}
+            <div className="n4-modal-actions">
+              {shareImgUrl && (
+                <button type="button" className="n4-btn-outline" onClick={() => generatePdfFromImage(shareImgUrl)} disabled={generatingPdf}>
+                  {generatingPdf ? 'Création…' : 'Télécharger PDF'}
+                </button>
+              )}
+              {shareImgUrl && (
+                <a href={shareImgUrl} download="zelia-profil.png" className="n4-btn-outline">Enregistrer l'image</a>
+              )}
+              <button type="button" className="n4-btn-primary" onClick={() => setShareOpen(false)}>Fermer</button>
             </div>
           </div>
         </div>
@@ -820,3 +616,146 @@ export default function Niveau4() {
     </div>
   )
 }
+
+const styles = `
+.n4-page {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-bottom: 24px;
+  font-family: "Bricolage Grotesque", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  color: #000;
+}
+.n4-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 28px;
+  box-shadow: 0 26px 60px -30px rgba(0,0,0,.22), 0 2px 10px rgba(0,0,0,.04);
+  padding: clamp(20px, 4vw, 32px);
+}
+.n4-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 30px;
+  right: 30px;
+  height: 6px;
+  border-radius: 0 0 8px 8px;
+  background: #c1ff72;
+}
+.n4-header h1 { margin: 0; font-size: 24px; font-weight: 800; line-height: 1.1; }
+.n4-header p { margin: 4px 0 0; color: #6b7280; font-size: 14px; }
+.n4-card h2 { margin: 0 0 12px; font-size: 18px; font-weight: 800; }
+.n4-card h3 { margin: 0 0 6px; font-size: 14px; font-weight: 750; }
+
+.n4-state { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.n4-state i { font-size: 30px; color: #6b7280; }
+.n4-state p { margin: 0; color: #6b7280; font-size: 14px; }
+.n4-spinner { width: 26px; height: 26px; border: 3px solid rgba(0,0,0,.12); border-top-color: #000; border-radius: 999px; animation: n4Spin .8s linear infinite; }
+@keyframes n4Spin { to { transform: rotate(360deg); } }
+.n4-dots { display: flex; align-items: center; gap: 9px; }
+.n4-dots span { width: 12px; height: 12px; border-radius: 999px; background: #111827; animation: n4Bounce 1s ease-in-out infinite; }
+.n4-dots span:nth-child(1) { background: #c1ff72; }
+.n4-dots span:nth-child(2) { background: #f68fff; animation-delay: .15s; }
+.n4-dots span:nth-child(3) { background: #111827; animation-delay: .3s; }
+@keyframes n4Bounce { 0%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-10px); } }
+
+.n4-progress { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.n4-progress-track { flex: 1; height: 10px; border-radius: 999px; background: rgba(0,0,0,.08); overflow: hidden; }
+.n4-progress-track span { display: block; height: 100%; background: #c1ff72; border-radius: inherit; transition: width .3s ease; }
+.n4-progress-label { font-size: 13px; font-weight: 700; color: #111827; white-space: nowrap; }
+.n4-question { margin: 0 0 18px; font-size: 19px; font-weight: 700; line-height: 1.4; }
+.n4-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.n4-choice {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(0,0,0,.14);
+  background: #fff;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .15s ease, background .15s ease, border-color .15s ease;
+}
+.n4-choice:hover { transform: translateY(-1px); }
+.n4-choice.is-selected { background: #111827; color: #c1ff72; border-color: #111827; }
+.n4-nav { display: flex; align-items: center; justify-content: space-between; margin-top: 24px; }
+
+.n4-btn-primary, .n4-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 20px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform .15s ease;
+}
+.n4-btn-primary { border: 0; background: #111827; color: #c1ff72; }
+.n4-btn-primary:hover:not(:disabled) { transform: translateY(-1px); }
+.n4-btn-primary:disabled { opacity: .6; cursor: default; }
+.n4-btn-outline { border: 1.5px solid rgba(0,0,0,.16); background: #fff; color: #111827; }
+.n4-btn-outline:hover:not(:disabled) { border-color: #000; transform: translateY(-1px); }
+.n4-btn-outline:disabled { opacity: .6; cursor: default; }
+
+.n4-paragraphs { display: flex; flex-direction: column; gap: 10px; color: #374151; font-size: 14px; line-height: 1.6; }
+.n4-paragraph { margin: 0; white-space: pre-wrap; }
+
+.n4-jobs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.n4-job-card { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 16px; padding: 14px 16px; }
+.n4-job-card ul { margin: 0; padding-left: 18px; font-size: 13px; color: #4b5563; }
+
+.n4-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.n4-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.6);
+  padding: 16px;
+}
+.n4-modal {
+  position: relative;
+  background: #fff;
+  border-radius: 24px;
+  padding: 20px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+.n4-modal h3 { margin: 0 0 12px; font-size: 17px; font-weight: 800; padding-right: 32px; }
+.n4-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 0;
+  background: #111827;
+  color: #fff;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+}
+.n4-modal-image { width: 100%; height: auto; border-radius: 14px; border: 1px solid rgba(0,0,0,.08); }
+.n4-modal-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+
+@media (max-width: 640px) {
+  .n4-card { padding: 18px; border-radius: 22px; }
+  .n4-nav { flex-wrap: wrap; gap: 10px; }
+}
+`

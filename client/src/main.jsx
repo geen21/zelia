@@ -42,6 +42,7 @@ const SchoolPortalHome = lazy(() => import('./pages/school-portal/SchoolPortalHo
 const SchoolPortalRegister = lazy(() => import('./pages/school-portal/SchoolPortalRegister.jsx'))
 const SchoolPortalLogin = lazy(() => import('./pages/school-portal/SchoolPortalLogin.jsx'))
 const SchoolPortalLeads = lazy(() => import('./pages/school-portal/SchoolPortalLeads.jsx'))
+const SchoolPortalAdmin = lazy(() => import('./pages/school-portal/SchoolPortalAdmin.jsx'))
 
 // Boîte à outils : les anciens composants restent internes, exposés via des URLs fonctionnelles.
 const toolModules = import.meta.glob([
@@ -159,6 +160,7 @@ function App() {
     <Route path="/espace-ecoles/inscription" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalRegister /></Suspense>} />
     <Route path="/espace-ecoles/connexion" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalLogin /></Suspense>} />
     <Route path="/espace-ecoles/leads" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalLeads /></Suspense>} />
+    <Route path="/espace-ecoles/admin" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalAdmin /></Suspense>} />
         <Route path="/app" element={<RequireAuth><Layout /></RequireAuth>}>
           <Route index element={<Suspense fallback={<div className="p-6 text-center">Chargement de Zélia…</div>}><ConversationalHome /></Suspense>} />
           <Route path="discuter" element={<Suspense fallback={<div className="p-6 text-center">Chargement de la discussion…</div>}><DiscuterZelia /></Suspense>} />

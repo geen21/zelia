@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { schoolPortalSupabase } from '../../lib/schoolPortalSupabase'
 
 export default function SchoolPortalLogin() {
   const [email, setEmail] = useState('')
@@ -16,7 +16,7 @@ export default function SchoolPortalLogin() {
     setLoading(true)
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+      const { error: signInError } = await schoolPortalSupabase.auth.signInWithPassword({ email, password })
       if (signInError) throw signInError
       navigate('/espace-ecoles/leads', { replace: true })
     } catch (loginError) {

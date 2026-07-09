@@ -97,7 +97,7 @@ class ZeliaGameEngine {
 
         if (leveledUp) {
             emotion = 'celebratory';
-            speak = `Bravo ! Tu passes au niveau ${level} ! `;
+            speak = `Bravo, tu progresses bien dans ton parcours ! `;
             newPerks = this.unlockPerks(level);
         }
 
@@ -462,14 +462,11 @@ const Activites = () => {
     }, [navigate, gameEngine]);
 
     // Keep hook order stable across renders: compute progress before any early returns
-    const levelForProgress = gameState?.progression?.level ?? 1;
-    const xpForProgress = gameState?.progression?.xp ?? 0;
+    const questsDoneCount = useMemo(() => new Set(gameState?.quests || []).size, [gameState]);
     const progressPercent = useMemo(() => {
-        // Global progress over 50 levels (5000 XP total)
-        const totalXp = MAX_LEVEL * XP_PER_LEVEL;
-        const clamped = Math.max(0, Math.min(totalXp, xpForProgress));
-        return Math.round((clamped / totalXp) * 100);
-    }, [xpForProgress]);
+        const total = ALL_QUEST_IDS.length || 1;
+        return Math.round((Math.min(questsDoneCount, total) / total) * 100);
+    }, [questsDoneCount]);
 
     useEffect(() => {
         if (!shareFeedback) return;
@@ -518,24 +515,14 @@ const Activites = () => {
         );
     }
 
-    const { progression } = gameState;
-    // Compute available level route (cap to implemented levels)
-    const maxLevelRoute = MAX_LEVEL;
-    const currentLevel = progression?.level || 1;
-    const targetLevel = Math.min(Math.max(1, currentLevel), maxLevelRoute);
-    const hasAccessibleLevel = targetLevel >= 1 && targetLevel <= maxLevelRoute;
-    const showLevelButton = hasAccessibleLevel && currentLevel < 10;
-    const { ui, avatar, perks, xpGained } = lastResponse;
+    const { ui, avatar, perks } = lastResponse;
 
-    // Level 1 blocking logic: if level 1 and no results yet, block everything except the results button
-    const isLevel1Blocked = progression?.level === 1 && !resultsAvailable;
-    // Display 0.5 if at level 1 (start), otherwise show current level
-    const effectiveLevel = (progression?.level === 1) ? 0.5 : currentLevel;
-    const effectiveXp = (progression?.level === 1) ? 50 : progression.xp;
+    // Block the dashboard behind the results card until the orientation test is complete.
+    const isBlockedBeforeResults = !resultsAvailable;
 
     return (
         <>
-            {isLevel1Blocked && (
+            {isBlockedBeforeResults && (
                 <div className="fixed inset-0 bg-black/60 z-[90] transition-opacity duration-500 backdrop-blur-sm" />
             )}
             <div className="min-h-screen bg-white p-4">
@@ -557,15 +544,12 @@ const Activites = () => {
                                     width="96"
                                     height="96"
                                 />
-                                <div className="absolute -bottom-2 -right-2 bg-yellow-400 text-black px-2 py-1 rounded-full text-xs font-bold">
-                                    Niv. {effectiveLevel}
-                                </div>
                             </div>
                             <div className="text-center sm:text-left">
                                 <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-3">
                                     <div className="flex items-center gap-3">
                                         <h1 className="text-xl md:text-2xl font-black mb-1">
-                                            Aventure Zélia - Niveau {effectiveLevel}
+                                            Zélia, ta conseillère d'orientation
                                         </h1>
                                         <div className="flex items-center gap-2">
                                             <button
@@ -588,16 +572,6 @@ const Activites = () => {
                                             </button>
                                         </div>
                                     </div>
-                                    {showLevelButton && (
-                                        <button
-                                            onClick={() => navigate(`/app/niveau/${targetLevel}`)}
-                                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border transition bg-[#f68fff] text-white border-transparent hover:opacity-90"
-                                            title={`Aller au Niveau ${targetLevel}`}
-                                        >
-                                            <span role="img" aria-label="jeu">🎮</span>
-                                            <span>{`Aller au Niveau ${targetLevel}`}</span>
-                                        </button>
-                                    )}
                                     <button
                                         onClick={() => navigate('/app/outils')}
                                         type="button"
@@ -618,23 +592,16 @@ const Activites = () => {
                                 </p>
                             </div>
                         </div>
-                        
-                        {/* XP Notification */}
-                        {xpGained > 0 && (
-                            <div className="bg-[#c1ff72] text-black px-4 py-2 rounded-lg font-bold border border-gray-200 text-center md:text-right">
-                                +{xpGained} XP !
-                            </div>
-                        )}
                     </div>
-                    
-                    {/* Progress Bar */}
+
+                    {/* Progression (sans niveaux) */}
                     <div className="mt-6">
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-sm font-medium text-gray-700">
-                                {effectiveXp} / {MAX_LEVEL * XP_PER_LEVEL} XP
+                                {questsDoneCount} / {ALL_QUEST_IDS.length} étapes complétées
                             </span>
                             <span className="text-sm font-medium text-gray-700">
-                                {progression.level >= MAX_LEVEL ? 'Niveau max atteint' : `${progression.toNext} XP jusqu'au niveau ${progression.level + 1}`}
+                                {questsDoneCount >= ALL_QUEST_IDS.length ? 'Parcours complet' : 'Continue à ton rythme'}
                             </span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-4">
@@ -699,13 +666,13 @@ const Activites = () => {
                 </div>
 
                 {/* Revoir mes résultats */}
-                <div className={`bg-white rounded-3xl p-6 border border-gray-200 shadow-card ${isLevel1Blocked ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md z-[100] ring-4 ring-[#c1ff72] shadow-2xl' : ''}`}>
+                <div className={`bg-white rounded-3xl p-6 border border-gray-200 shadow-card ${isBlockedBeforeResults ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md z-[100] ring-4 ring-[#c1ff72] shadow-2xl' : ''}`}>
                     <div className="flex items-center justify-between mb-2">
                         <h3 className="text-lg font-semibold">Revoir mes résultats</h3>
                         <button
                             onClick={() => navigate('/app/results')}
                             className="text-sm text-text-secondary hover:text-text-primary"
-                            disabled={isLevel1Blocked}
+                            disabled={isBlockedBeforeResults}
                         >
                             Voir tout
                         </button>
@@ -715,7 +682,7 @@ const Activites = () => {
                             Consulte ton analyse et tes recommandations personnalisées pour guider tes prochaines actions.
                         </div>
                         <div className="text-right relative">
-                            {isLevel1Blocked && (
+                            {isBlockedBeforeResults && (
                                 <>
                                     <div className="md:hidden absolute -top-14 left-1/2 -translate-x-1/2 text-4xl animate-bounce z-[101]">
                                         👇
@@ -727,7 +694,7 @@ const Activites = () => {
                             )}
                             <button
                                 onClick={() => navigate('/app/results')}
-                                className={`inline-flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg text-sm relative ${isLevel1Blocked ? 'z-[101] ring-2 ring-offset-2 ring-black scale-110' : ''}`}
+                                className={`inline-flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg text-sm relative ${isBlockedBeforeResults ? 'z-[101] ring-2 ring-offset-2 ring-black scale-110' : ''}`}
                             >
                                 <i className="ph ph-arrow-up-right"></i>
                                 Ouvrir mes résultats

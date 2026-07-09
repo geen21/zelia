@@ -1,9 +1,9 @@
 import React from 'react'
-import { PORTRAIT_LABELS } from '../lib/personas.js'
 import './PersonaRevealCard.css'
 
-// Shared persona reveal card (portrait-chinois style), used by
-// OrientationFlow (reveal phase) and Results (orientation tab).
+// Shared persona reveal card, used by OrientationFlow (reveal phase) and
+// Results (orientation tab). Designed to read like a shareable portrait
+// image (centered, poster-style) rather than a page section.
 export default function PersonaRevealCard({
   persona,
   avatarUrl,
@@ -16,34 +16,40 @@ export default function PersonaRevealCard({
 }) {
   if (!persona) return null
   const traits = [...(persona.traits || []), ...extraTraits].slice(0, 4)
+  const domaines = (persona.domaines || []).slice(0, 3)
+  const posterStyle = persona.avatar?.bg ? { '--persona-poster-bg': persona.avatar.bg } : undefined
 
   return (
-    <div className="persona-card">
-      <div className="persona-card-head">
-        <div>
-          <span className="persona-kicker">Ton portrait chinois</span>
-          <h1 className="persona-name">{persona.name}</h1>
-        </div>
-        {avatarUrl && <img className="persona-avatar" src={avatarUrl} alt={`Avatar ${persona.name}`} />}
-      </div>
-
-      <div className="persona-traits">
-        {traits.map((trait, index) => (
-          <span key={trait} className={`persona-trait tone-${index % 3}`}>{trait}</span>
-        ))}
-      </div>
-
+    <div className="persona-card persona-card-poster" style={posterStyle}>
+      <span className="persona-kicker">Ton profil Zélia</span>
+      {avatarUrl && <img className="persona-avatar persona-avatar-poster" src={avatarUrl} alt={`Avatar ${persona.name}`} />}
+      <h1 className="persona-name">{persona.name}</h1>
       <p className="persona-tagline">{persona.tagline}</p>
 
-      <div className="persona-portrait-grid">
-        {Object.entries(persona.portrait || {}).map(([key, item]) => (
-          <div key={key} className="persona-portrait-tile">
-            <small>{PORTRAIT_LABELS[key] || key}</small>
-            <span className="persona-portrait-emoji" aria-hidden="true">{item.emoji}</span>
-            <strong>{item.label}</strong>
+      {traits.length > 0 && (
+        <div className="persona-section">
+          <p className="persona-section-title">Compétences clés</p>
+          <div className="persona-traits">
+            {traits.map((trait, index) => (
+              <span key={trait} className={`persona-trait tone-${index % 3}`}>{trait}</span>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
+
+      {domaines.length > 0 && (
+        <div className="persona-section">
+          <p className="persona-section-title">Où tu peux exceller</p>
+          <div className="persona-domain-list">
+            {domaines.map((domaine) => (
+              <span key={domaine} className="persona-domain-chip">
+                <i className="ph ph-check-circle" aria-hidden="true" />
+                {domaine}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {(onShare || onContinue) && (
         <div className="persona-actions">
@@ -58,7 +64,7 @@ export default function PersonaRevealCard({
             </button>
           )}
           {(onDownload || onShare) && (
-            <button type="button" className="persona-icon-btn" onClick={onDownload || onShare} disabled={sharing} aria-label="Télécharger mon portrait" title="Télécharger">
+            <button type="button" className="persona-icon-btn" onClick={onDownload || onShare} disabled={sharing} aria-label="Télécharger mon profil" title="Télécharger">
               <i className="ph ph-download-simple" aria-hidden="true" />
             </button>
           )}
@@ -72,4 +78,5 @@ export default function PersonaRevealCard({
     </div>
   )
 }
+
 

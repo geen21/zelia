@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { usersAPI } from '../lib/api'
 import { TOOLBOX_ITEMS, TOOLBOX_CATEGORIES, TOOLBOX_CATEGORY_DETAILS } from '../lib/levelMapping'
 import { fetchProgression } from '../lib/progression'
@@ -126,11 +126,28 @@ export default function BoiteAOutils() {
   }
 
   return (
-    <div className="p-2 md:p-6">
-      <div className="mb-6">
-        <h1 className="text-xl md:text-2xl font-semibold mb-1">Boîte à outils</h1>
-        <p className="text-gray-500">Choisis ce que tu veux faire aujourd'hui : les outils sont regroupés par objectif.</p>
-      </div>
+    <div className="outils-page">
+      <style>{outilsStyles}</style>
+      <section className="outils-card outils-header">
+        <div>
+          <h1>Boîte à outils</h1>
+          <p>Choisis ce que tu veux faire aujourd'hui : les outils sont regroupés par objectif.</p>
+        </div>
+        <nav className="outils-pill-nav" aria-label="Navigation rapide">
+          <Link to="/app" className="outils-pill">
+            <i className="ph ph-compass" aria-hidden="true" />
+            <span>Conseiller</span>
+          </Link>
+          <Link to="/app/formations" className="outils-pill">
+            <i className="ph ph-graduation-cap" aria-hidden="true" />
+            <span>Formations</span>
+          </Link>
+          <Link to="/app/results" className="outils-pill">
+            <i className="ph ph-chart-line-up" aria-hidden="true" />
+            <span>Résultats</span>
+          </Link>
+        </nav>
+      </section>
 
       <div className="flex flex-wrap gap-2 mb-8">
         {groupedTools.map((group) => (
@@ -188,3 +205,58 @@ export default function BoiteAOutils() {
     </div>
   )
 }
+
+const outilsStyles = `
+.outils-page {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 8px 8px 24px;
+  font-family: "Bricolage Grotesque", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+}
+.outils-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 28px;
+  box-shadow: 0 26px 60px -30px rgba(0,0,0,.22), 0 2px 10px rgba(0,0,0,.04);
+  padding: clamp(20px, 4vw, 32px);
+  margin-bottom: 24px;
+}
+.outils-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 30px;
+  right: 30px;
+  height: 6px;
+  border-radius: 0 0 8px 8px;
+  background: #c1ff72;
+}
+.outils-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; color: #000; }
+.outils-header h1 { margin: 0; font-size: 24px; font-weight: 800; line-height: 1.1; }
+.outils-header p { margin: 4px 0 0; color: #6b7280; font-size: 14px; }
+.outils-pill-nav { display: flex; gap: 8px; }
+.outils-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: #000;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform .15s ease;
+}
+.outils-pill:hover { transform: translateY(-2px); }
+.outils-pill i { font-size: 17px; color: #c1ff72; }
+@media (max-width: 640px) {
+  .outils-card { padding: 18px; border-radius: 22px; }
+  .outils-pill { min-height: 38px; font-size: 12px; padding: 0 11px; }
+  .outils-pill span { display: none; }
+}
+`
+

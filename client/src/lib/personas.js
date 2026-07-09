@@ -1,242 +1,191 @@
-// Persona system for the orientation flow.
-// 5 binary axes (matching questions.category / options[].value in the DB)
-// + 8 curated personas with portrait-chinois attributes.
+// Zélia persona system (v2) — replaces the old 8-archetype "ZL-xx" mapping used only for
+// share images. These 10 personas match the "workshop zélia" mockups: each has a canonical
+// representative first name, a display title with correct French gender agreement, a short
+// tagline, and a list of domaines (fields/sectors) it tends to fit.
+//
+// Matching is done fully client-side from data we already have after the AI analysis call
+// (personalityAnalysis text, skillsAssessment text, job recommendations, liked job swipes).
+// This avoids any backend/schema change: it is a pure text-scoring heuristic with a stable
+// deterministic fallback so a user always gets a persona, even if the AI text is generic.
 
-export const AXES = [
-  { id: 'hands_mind', poles: ['mains', 'tete'] },
-  { id: 'solo_team', poles: ['solo', 'equipe'] },
-  { id: 'creative_structured', poles: ['creatif', 'structure'] },
-  { id: 'field_office', poles: ['terrain', 'bureau'] },
-  { id: 'risk_safety', poles: ['audace', 'securite'] }
-]
-
-export const PERSONAS = [
-  {
-    slug: 'explorateur-creatif',
-    name: "L'Explorateur Créatif",
-    tagline: 'Tu observes le monde avec des yeux neufs et tu transformes tout ce que tu croises en idée.',
-    traits: ['Empathie', 'Imagination', 'Sens du détail', 'Curiosité'],
-    domaines: ['Création', 'Voyage & découverte', 'Communication'],
-    signature: { hands_mind: 'tete', solo_team: 'solo', creative_structured: 'creatif', field_office: 'terrain', risk_safety: 'audace' },
-    portrait: {
-      animal: { emoji: '🐙', label: 'La pieuvre' },
-      couleur: { emoji: '🟠', label: 'Orange' },
-      ville: { emoji: '🗼', label: 'Tokyo' },
-      objet: { emoji: '📷', label: "L'appareil photo" },
-      personnage: { emoji: '🐀', label: 'Rémy (Ratatouille)' }
-    },
-    avatar: { bg: '#FFF7E6', hair: '#a55728' }
-  },
-  {
-    slug: 'batisseur',
-    name: 'Le Bâtisseur',
-    tagline: 'Tu aimes le concret : quand tu construis quelque chose, il tient debout et il sert à tout le monde.',
-    traits: ['Fiabilité', 'Sens pratique', 'Persévérance', 'Esprit d\u2019équipe'],
-    domaines: ['Technique & artisanat', 'Construction', 'Production'],
-    signature: { hands_mind: 'mains', solo_team: 'equipe', creative_structured: 'structure', field_office: 'terrain', risk_safety: 'securite' },
-    portrait: {
-      animal: { emoji: '🦫', label: 'Le castor' },
-      couleur: { emoji: '🟤', label: 'Terracotta' },
-      ville: { emoji: '🚲', label: 'Amsterdam' },
-      objet: { emoji: '🧰', label: 'La boîte à outils' },
-      personnage: { emoji: '👷', label: 'Bob le bricoleur' }
-    },
-    avatar: { bg: '#FDE7E9', hair: '#6b4423' }
-  },
-  {
-    slug: 'stratege',
-    name: 'Le Stratège',
-    tagline: 'Trois coups d\u2019avance, toujours. Tu comprends vite et tu vois ce que les autres ne voient pas.',
-    traits: ['Logique', 'Anticipation', 'Concentration', 'Précision'],
-    domaines: ['Sciences & data', 'Ingénierie', 'Jeux & stratégie'],
-    signature: { hands_mind: 'tete', solo_team: 'solo', creative_structured: 'structure', field_office: 'bureau', risk_safety: 'securite' },
-    portrait: {
-      animal: { emoji: '🦉', label: 'La chouette' },
-      couleur: { emoji: '🔵', label: 'Bleu nuit' },
-      ville: { emoji: '🏔️', label: 'Genève' },
-      objet: { emoji: '♟️', label: "L'échiquier" },
-      personnage: { emoji: '🧙', label: 'Hermione Granger' }
-    },
-    avatar: { bg: '#E3F2FD', hair: '#2f2f2f' }
-  },
-  {
-    slug: 'connecteur',
-    name: 'Le Connecteur',
-    tagline: 'Tu rassembles les gens sans effort : avec toi, un groupe devient une équipe.',
-    traits: ['Énergie', 'Communication', 'Enthousiasme', 'Ouverture'],
-    domaines: ['Relationnel', 'Événementiel', 'Commerce & médias'],
-    signature: { hands_mind: 'tete', solo_team: 'equipe', creative_structured: 'creatif', field_office: 'terrain', risk_safety: 'audace' },
-    portrait: {
-      animal: { emoji: '🐬', label: 'Le dauphin' },
-      couleur: { emoji: '🟡', label: 'Jaune soleil' },
-      ville: { emoji: '🏖️', label: 'Rio' },
-      objet: { emoji: '🎤', label: 'Le micro' },
-      personnage: { emoji: '🏴‍☠️', label: 'Luffy (One Piece)' }
-    },
-    avatar: { bg: '#FFF7E6', hair: '#b58143' }
-  },
-  {
-    slug: 'protecteur',
-    name: 'Le Protecteur',
-    tagline: 'Tu veilles sur les autres : ta force tranquille rassure et fait avancer tout le monde.',
-    traits: ['Bienveillance', 'Sang-froid', 'Sens du devoir', 'Écoute'],
-    domaines: ['Santé & social', 'Sécurité', 'Environnement'],
-    signature: { hands_mind: 'mains', solo_team: 'equipe', creative_structured: 'structure', field_office: 'terrain', risk_safety: 'securite' },
-    portrait: {
-      animal: { emoji: '🐘', label: "L'éléphant" },
-      couleur: { emoji: '🟢', label: 'Vert forêt' },
-      ville: { emoji: '🍁', label: 'Montréal' },
-      objet: { emoji: '🧭', label: 'La boussole' },
-      personnage: { emoji: '🦁', label: 'Mufasa' }
-    },
-    avatar: { bg: '#EAF7F0', hair: '#3b2c2a' }
-  },
-  {
-    slug: 'observateur',
-    name: "L'Observateur",
-    tagline: 'Rien ne t\u2019échappe. Tu captes les détails et tu en fais des idées qui comptent.',
-    traits: ['Curiosité', 'Finesse', 'Indépendance', 'Créativité calme'],
-    domaines: ['Recherche', 'Écriture & analyse', 'Numérique'],
-    signature: { hands_mind: 'tete', solo_team: 'solo', creative_structured: 'creatif', field_office: 'bureau', risk_safety: 'securite' },
-    portrait: {
-      animal: { emoji: '🐈', label: 'Le chat' },
-      couleur: { emoji: '🟣', label: 'Violet' },
-      ville: { emoji: '⛩️', label: 'Kyoto' },
-      objet: { emoji: '📓', label: 'Le carnet de notes' },
-      personnage: { emoji: '🕵️', label: 'L (Death Note)' }
-    },
-    avatar: { bg: '#F3E8FF', hair: '#2f2f2f' }
-  },
-  {
-    slug: 'createur',
-    name: 'Le Créateur',
-    tagline: 'Tu fabriques des choses que personne n\u2019avait imaginées : ton style, tes règles.',
-    traits: ['Originalité', 'Sensibilité', 'Audace', 'Savoir-faire'],
-    domaines: ['Arts & design', 'Contenu digital', 'Mode & image'],
-    signature: { hands_mind: 'mains', solo_team: 'solo', creative_structured: 'creatif', field_office: 'bureau', risk_safety: 'audace' },
-    portrait: {
-      animal: { emoji: '🦊', label: 'Le renard' },
-      couleur: { emoji: '🌸', label: 'Rose' },
-      ville: { emoji: '🌆', label: 'Séoul' },
-      objet: { emoji: '🎨', label: 'La tablette graphique' },
-      personnage: { emoji: '🕸️', label: 'Miles Morales' }
-    },
-    avatar: { bg: '#FDE7E9', hair: '#a55728' }
-  },
-  {
-    slug: 'competiteur',
-    name: 'Le Compétiteur',
-    tagline: 'Tu vises haut et tu embarques ton équipe avec toi : le dépassement, c\u2019est ton moteur.',
-    traits: ['Détermination', 'Leadership', 'Énergie', 'Goût du défi'],
-    domaines: ['Sport & performance', 'Entrepreneuriat', 'Commerce'],
-    signature: { hands_mind: 'mains', solo_team: 'equipe', creative_structured: 'structure', field_office: 'terrain', risk_safety: 'audace' },
-    portrait: {
-      animal: { emoji: '🐆', label: 'Le guépard' },
-      couleur: { emoji: '🔴', label: 'Rouge' },
-      ville: { emoji: '⚽', label: 'Barcelone' },
-      objet: { emoji: '⏱️', label: 'Le chrono' },
-      personnage: { emoji: '🥇', label: 'Kylian Mbappé' }
-    },
-    avatar: { bg: '#FFF7E6', hair: '#2f2f2f' }
-  }
-]
-
-export const PORTRAIT_LABELS = {
-  animal: 'Un animal',
-  couleur: 'Une couleur',
-  ville: 'Une ville',
-  objet: 'Un objet',
-  personnage: 'Personnage de fiction'
+function normalizeText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
-export function getPersonaBySlug(slug) {
-  return PERSONAS.find((persona) => persona.slug === slug) || null
-}
-
-function hashString(value) {
+function stableHash(text) {
+  const normalized = String(text || '')
   let hash = 0
-  const text = String(value || '')
-  for (let i = 0; i < text.length; i += 1) {
-    hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0
+  for (let index = 0; index < normalized.length; index += 1) {
+    hash = ((hash << 5) - hash + normalized.charCodeAt(index)) | 0
   }
   return Math.abs(hash)
 }
 
-// Tallies pole picks per axis from answered questions and returns the closest persona.
-// `questions`: [{ id, category, options: [{label, value}] }], `answers`: { [questionId]: label }
-export function computePersonaFromAnswers(questions, answers) {
-  const tally = {}
-  for (const question of Array.isArray(questions) ? questions : []) {
-    const answerLabel = answers?.[question.id]
-    if (!answerLabel || !question.category || !Array.isArray(question.options)) continue
-    const picked = question.options.find((option) => option.label === answerLabel || option.value === answerLabel)
-    if (!picked?.value) continue
-    tally[question.category] = tally[question.category] || {}
-    tally[question.category][picked.value] = (tally[question.category][picked.value] || 0) + 1
+export const PERSONAS = [
+  {
+    id: 'strategiste',
+    name: 'Kylian',
+    gender: 'm',
+    title: 'Stratège',
+    displayTitle: 'le Stratège',
+    tagline: 'Tu vois trois coups à l\u2019avance.',
+    domaines: ['Ingénierie', 'Finance', 'Data', 'Jeux vidéo', 'Conseil'],
+    keywords: ['strateg', 'analys', 'logique', 'anticip', 'planif', 'organis', 'rigoureux', 'methodique', 'calcul', 'raisonnement', 'echecs', 'optimis']
+  },
+  {
+    id: 'batisseur',
+    name: 'Léon',
+    gender: 'm',
+    title: 'Bâtisseur',
+    displayTitle: 'le Bâtisseur',
+    tagline: 'Tu préfères construire plutôt que parler.',
+    domaines: ['Artisanat', 'BTP', 'Informatique', 'Chirurgie'],
+    keywords: ['construi', 'concret', 'manuel', 'fabriqu', 'reparer', 'bricol', 'pratique', 'terrain', 'technique', 'geste', 'precision', 'batir']
+  },
+  {
+    id: 'connecteur',
+    name: 'David',
+    gender: 'm',
+    title: 'Connecteur',
+    displayTitle: 'le Connecteur',
+    tagline: 'Tu crées du lien partout où tu passes.',
+    domaines: ['Communication', 'RH', 'Événementiel', 'Commerce'],
+    keywords: ['relation', 'social', 'communicat', 'reseau', 'echange', 'convivial', 'energie', 'anima', 'contact', 'equipe', 'entourage', 'charisme']
+  },
+  {
+    id: 'protecteur',
+    name: 'Louanne',
+    gender: 'f',
+    title: 'Protecteur',
+    displayTitle: 'la Protectrice',
+    tagline: 'Prendre soin des autres, c\u2019est instinctif chez toi.',
+    domaines: ['Social', 'Santé', 'Éducation', 'Justice'],
+    keywords: ['protege', 'aide', 'soin', 'ecoute', 'bienveillan', 'empath', 'soutien', 'rassur', 'attentionn', 'solidarite', 'sensible', 'devouement']
+  },
+  {
+    id: 'observateur',
+    name: 'Ines',
+    gender: 'f',
+    title: 'Observateur',
+    displayTitle: 'l\u2019Observatrice',
+    tagline: 'Tu comprends avant d\u2019agir.',
+    domaines: ['Recherche', 'Psychologie', 'Data', 'Écriture'],
+    keywords: ['observ', 'reflechi', 'curieux', 'curieuse', 'analyse', 'comprend', 'discret', 'introspect', 'attentif', 'ecrit', 'recherche', 'detail']
+  },
+  {
+    id: 'loyal',
+    name: 'Antoine',
+    gender: 'm',
+    title: 'Loyal',
+    displayTitle: 'le Loyal',
+    tagline: 'On peut compter sur toi, toujours.',
+    domaines: ['Santé', 'Enseignement', 'Fonction publique', 'RH'],
+    keywords: ['fiable', 'loyal', 'engage', 'serieux', 'stable', 'confiance', 'devoue', 'constant', 'responsab', 'discipline', 'respect', 'droiture']
+  },
+  {
+    id: 'insoumis',
+    name: 'Aya',
+    gender: 'f',
+    title: 'Insoumis',
+    displayTitle: 'l\u2019Insoumise',
+    tagline: 'Tu n\u2019attends pas la permission pour agir.',
+    domaines: ['Entrepreneuriat', 'Droit', 'Journalisme', 'Art engagé'],
+    keywords: ['independan', 'rebelle', 'liberte', 'convict', 'engage', 'audac', 'transgress', 'critique', 'justice', 'militant', 'nonconformis', 'franc']
+  },
+  {
+    id: 'competiteur',
+    name: 'Karim',
+    gender: 'm',
+    title: 'Compétiteur',
+    displayTitle: 'le Compétiteur',
+    tagline: 'Chaque défi est une occasion de progresser.',
+    domaines: ['Sport', 'Business', 'Sciences', 'Droit'],
+    keywords: ['competit', 'defi', 'depass', 'gagner', 'performance', 'ambitieux', 'ambitieuse', 'challenge', 'objectif', 'perseveran', 'exigean', 'resultat']
+  },
+  {
+    id: 'createur',
+    name: 'Angèle',
+    gender: 'f',
+    title: 'Créateur',
+    displayTitle: 'la Créatrice',
+    tagline: 'Tu vois le monde autrement, et ça se voit.',
+    domaines: ['Design', 'Architecture', 'Audiovisuel', 'Mode'],
+    keywords: ['creati', 'imagin', 'artistique', 'original', 'esthetique', 'invente', 'design', 'expression', 'sensibilite', 'inspir', 'vision', 'style']
+  },
+  {
+    id: 'explorateur',
+    name: 'Véro',
+    gender: 'f',
+    title: 'Explorateur',
+    displayTitle: 'l\u2019Exploratrice',
+    tagline: 'Le terrain t\u2019apprend plus que les livres.',
+    domaines: ['Voyage/tourisme', 'Sciences', 'Journalisme', 'Start-up'],
+    keywords: ['explor', 'decouvre', 'voyage', 'aventure', 'curiosite', 'nouveaut', 'ouverture', 'mobilite', 'adapt', 'spontane', 'independan', 'liberte']
   }
+]
 
-  // Build the dominant-pole profile per axis (falls back to first pole on tie/no data).
-  const profile = {}
-  for (const axis of AXES) {
-    const axisTally = tally[axis.id] || {}
-    const [a, b] = axis.poles
-    profile[axis.id] = (axisTally[b] || 0) > (axisTally[a] || 0) ? b : a
-  }
+export function getPersonaById(id) {
+  return PERSONAS.find((persona) => persona.id === id) || null
+}
 
-  let best = PERSONAS[0]
-  let bestScore = -1
-  for (const persona of PERSONAS) {
+function collectAnalysisText(analysisBlock, likedProposals = []) {
+  const parts = [
+    analysisBlock?.personalityAnalysis,
+    analysisBlock?.skillsAssessment,
+    analysisBlock?.personalityType
+  ]
+
+  const jobs = Array.isArray(analysisBlock?.jobRecommendations) ? analysisBlock.jobRecommendations : []
+  jobs.forEach((job) => {
+    parts.push(job?.title)
+    if (Array.isArray(job?.skills)) parts.push(job.skills.join(' '))
+  })
+
+  likedProposals.forEach((candidate) => {
+    parts.push(candidate?.title)
+    parts.push(candidate?.raw?.why)
+    if (Array.isArray(candidate?.raw?.skills)) parts.push(candidate.raw.skills.join(' '))
+  })
+
+  return normalizeText(parts.filter(Boolean).join(' '))
+}
+
+/**
+ * Scores each of the 10 personas against the available AI analysis text + liked job swipes,
+ * and returns the best match. Falls back to a deterministic (seed-based) pick so the result
+ * never depends on randomness and is stable across re-renders for the same user.
+ */
+export function matchPersonaFromAnalysis(analysisBlock, likedProposals = [], seed = '') {
+  const haystack = collectAnalysisText(analysisBlock, likedProposals)
+
+  let best = null
+  let bestScore = 0
+
+  PERSONAS.forEach((persona) => {
     let score = 0
-    for (const axis of AXES) {
-      if (persona.signature[axis.id] === profile[axis.id]) score += 1
-    }
+    persona.keywords.forEach((keyword) => {
+      if (haystack.includes(keyword)) score += 1
+    })
     if (score > bestScore) {
-      best = persona
       bestScore = score
+      best = persona
     }
-  }
+  })
 
-  // If we had no usable axis data at all (legacy Oui/Non questions), pick deterministically.
-  const hasAxisData = Object.keys(tally).length > 0
-  if (!hasAxisData) {
-    const seed = hashString(JSON.stringify(answers || {}))
-    best = PERSONAS[seed % PERSONAS.length]
-  }
+  if (best) return { persona: best, score: bestScore, matched: true }
 
-  return { persona: best, profile }
+  const fallbackSeed = seed || haystack || 'zelia'
+  const fallback = PERSONAS[stableHash(fallbackSeed) % PERSONAS.length]
+  return { persona: fallback, score: 0, matched: false }
 }
 
-function hexNoHash(hex) {
-  return (hex || '').replace('#', '')
-}
-
-export function buildLoreleiUrl(config, size = 360) {
-  const query = new URLSearchParams()
-  query.set('seed', config.seed || 'zelia')
-  query.set('size', String(size))
-  query.set('radius', String(config.radius ?? 30))
-  if (config.bg) {
-    query.set('backgroundType', 'solid')
-    query.set('backgroundColor', hexNoHash(config.bg))
-  }
-  if (config.skin) query.set('skinColor', hexNoHash(config.skin))
-  if (config.hair) query.set('hairColor', hexNoHash(config.hair))
-  query.set('accessoriesProbability', config.glasses ? '100' : '0')
-  if (config.glasses) query.set('accessories', 'glasses')
-  return `https://api.dicebear.com/9.x/lorelei/svg?${query.toString()}`
-}
-
-// Deterministic avatar per persona; `seedExtra` (user id / name) makes it unique per user.
-export function buildPersonaAvatarConfig(personaSlug, seedExtra = '') {
-  const persona = getPersonaBySlug(personaSlug) || PERSONAS[0]
-  const skinTones = ['#f9d7b8', '#f1c89e', '#d9a275', '#c68642', '#8d5524']
-  const seedHash = hashString(`${persona.slug}|${seedExtra}`)
-  return {
-    seed: `${persona.slug}-${seedHash.toString(36)}`,
-    bg: persona.avatar.bg,
-    hair: persona.avatar.hair,
-    skin: skinTones[seedHash % skinTones.length],
-    glasses: seedHash % 3 === 0,
-    radius: 30
-  }
+export function formatPersonaHeadline(persona) {
+  if (!persona) return ''
+  return `Tu ressembles à ${persona.name}, ${persona.displayTitle}`
 }

@@ -1,6 +1,7 @@
 import express from 'express'
 import { supabaseAdmin } from '../config/supabase.js'
 import { authenticateToken } from '../middleware/auth.js'
+import { withFormationDisplayFields } from '../utils/slug.js'
 
 const router = express.Router()
 
@@ -20,8 +21,35 @@ function sanitizeCompany(company) {
     email: company.email,
     contactFirstName: company.contact_first_name || '',
     contactLastName: company.contact_last_name || '',
+    approved: Boolean(company.approved_at),
+    approvedAt: company.approved_at || null,
     createdAt: company.created_at
   }
+}
+
+// Leads/formations reveal other students' PII, so they stay locked until an
+// admin has approved the school account (server/routes/schoolPortal.js admin routes).
+function requireApprovedCompany(company, res) {
+  if (!company.approved_at) {
+    res.status(403).json({
+      error: 'PENDING_APPROVAL',
+      message: 'Votre compte est en cours de validation par notre équipe. Vous serez notifié dès que l\'accès sera activé.'
+    })
+    return false
+  }
+  return true
+}
+
+function requireAdminKey(req, res, next) {
+  const configuredKey = process.env.SCHOOL_PORTAL_ADMIN_KEY
+  if (!configuredKey) {
+    return res.status(500).json({ error: 'SCHOOL_PORTAL_ADMIN_KEY is not configured' })
+  }
+  const providedKey = req.headers['x-admin-key']
+  if (!providedKey || providedKey !== configuredKey) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+  next()
 }
 
 function normalizeSchoolName(value) {
@@ -234,6 +262,7 @@ router.get('/leads', authenticateToken, async (req, res) => {
 
     const company = await resolveOwnedCompany(db, req.user.id)
     if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
+    if (!requireApprovedCompany(company, res)) return
 
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200)
     const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0)
@@ -281,6 +310,7 @@ router.get('/leads/export.csv', authenticateToken, async (req, res) => {
 
     const company = await resolveOwnedCompany(db, req.user.id)
     if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
+    if (!requireApprovedCompany(company, res)) return
 
     const { data, error } = await db.rpc('rpc_school_leads', {
       p_school_name: company.name,
@@ -304,6 +334,138 @@ router.get('/leads/export.csv', authenticateToken, async (req, res) => {
     res.send(`\uFEFF${csv}`)
   } catch (error) {
     console.error('GET /school-portal/leads/export.csv error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// GET /api/school-portal/formations - formations/fiches available on the site for this school, with dedicated links
+router.get('/formations', authenticateToken, async (req, res) => {
+  try {
+    const db = requireAdminClient(res)
+    if (!db) return
+
+    const company = await resolveOwnedCompany(db, req.user.id)
+    if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
+    if (!requireApprovedCompany(company, res)) return
+
+    const [nationalResult, partnerResult] = await Promise.all([
+      db
+        .from('formation_france')
+        .select('id, nm, fl, nmc, etab_nom, commune, departement, region, etab_url, fiche')
+        .eq('etab_nom', company.name)
+        .limit(300),
+      db
+        .from('ecoles_partenaires')
+        .select('id, school_name, formation_name, city, domain, diploma_level, description, link, contact_email')
+        .eq('school_name', company.name)
+        .limit(300)
+    ])
+
+    if (nationalResult.error) throw nationalResult.error
+    if (partnerResult.error) throw partnerResult.error
+
+    const nationalFormations = (nationalResult.data || []).map((row) => {
+      const withDisplay = withFormationDisplayFields(row)
+      return {
+        id: `formation_france:${row.id}`,
+        source: 'formation_france',
+        title: withDisplay.title,
+        city: row.commune || '',
+        diplomaLevel: '',
+        link: `/formations/${withDisplay.slug}`,
+        externalLink: row.etab_url || row.fiche || ''
+      }
+    })
+
+    const partnerFormations = (partnerResult.data || []).map((row) => ({
+      id: `ecoles_partenaires:${row.id}`,
+      source: 'ecoles_partenaires',
+      title: row.formation_name,
+      city: row.city || '',
+      diplomaLevel: row.diploma_level || '',
+      link: row.link || (row.contact_email ? `mailto:${row.contact_email}` : ''),
+      externalLink: row.link || ''
+    }))
+
+    res.json({ formations: [...nationalFormations, ...partnerFormations] })
+  } catch (error) {
+    console.error('GET /school-portal/formations error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Admin routes: approve/revoke school accounts. Protected by a shared secret
+// (x-admin-key header) since there is no admin role/UI in this app yet.
+// ---------------------------------------------------------------------------
+
+// GET /api/school-portal/admin/companies?status=pending|approved|all
+router.get('/admin/companies', requireAdminKey, async (req, res) => {
+  try {
+    const db = requireAdminClient(res)
+    if (!db) return
+
+    const status = String(req.query.status || 'pending')
+    let query = db.from('companies').select('*').order('created_at', { ascending: false })
+    if (status === 'pending') query = query.is('approved_at', null)
+    if (status === 'approved') query = query.not('approved_at', 'is', null)
+
+    const { data, error } = await query
+    if (error) throw error
+
+    res.json({ companies: (data || []).map(sanitizeCompany) })
+  } catch (error) {
+    console.error('GET /school-portal/admin/companies error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// POST /api/school-portal/admin/companies/:id/approve
+router.post('/admin/companies/:id/approve', requireAdminKey, async (req, res) => {
+  try {
+    const db = requireAdminClient(res)
+    if (!db) return
+
+    const { data, error } = await db
+      .from('companies')
+      .update({ approved_at: new Date().toISOString() })
+      .eq('id', req.params.id)
+      .select()
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') return res.status(404).json({ error: 'Compte introuvable' })
+      throw error
+    }
+
+    res.json({ company: sanitizeCompany(data) })
+  } catch (error) {
+    console.error('POST /school-portal/admin/companies/:id/approve error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// POST /api/school-portal/admin/companies/:id/revoke
+router.post('/admin/companies/:id/revoke', requireAdminKey, async (req, res) => {
+  try {
+    const db = requireAdminClient(res)
+    if (!db) return
+
+    const { data, error } = await db
+      .from('companies')
+      .update({ approved_at: null })
+      .eq('id', req.params.id)
+      .select()
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') return res.status(404).json({ error: 'Compte introuvable' })
+      throw error
+    }
+
+    res.json({ company: sanitizeCompany(data) })
+  } catch (error) {
+    console.error('POST /school-portal/admin/companies/:id/revoke error:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })

@@ -1,3 +1,5 @@
+import { PERSONAS, matchPersonaFromAnalysis } from './personas.js'
+
 const ZELIA_COLORS = {
   bg: '#f7f9fc',
   accent1: '#c1ff72',
@@ -7,38 +9,15 @@ const ZELIA_COLORS = {
 
 const DEFAULT_LOGO_PATH = '/assets/images/logo-dark.png'
 
-const ZELIA_ARCHETYPE_KEYS = {
-  'ZL-01': 'visionnaire',
-  'ZL-02': 'strategiste',
-  'ZL-03': 'mediateur',
-  'ZL-04': 'catalyseur',
-  'ZL-05': 'gardien',
-  'ZL-06': 'explorateur',
-  'ZL-07': 'connecteur',
-  'ZL-08': 'orchestrateur'
-}
-
-const ZELIA_ARCHETYPE_LABELS = {
-  visionnaire: ['visionnaire lumineux', 'visionnaire'],
-  strategiste: ['ingenieur strategiste', 'strategiste'],
-  mediateur: ['mediateur empathique', 'mediateur'],
-  catalyseur: ['catalyseur creatif', 'catalyseur'],
-  gardien: ['gardien pragmatique', 'gardien'],
-  explorateur: ['explorateur curieux', 'explorateur'],
-  connecteur: ['connecteur energique', 'connecteur'],
-  orchestrateur: ['orchestrateur visionnaire', 'orchestrateur']
-}
-
-const ZELIA_SIGNATURE_SKILLS = {
-  visionnaire: ['Vision stratégique', 'Empathie utilisateur', 'Leadership créatif', "Storytelling d'impact", 'Facilitation collective'],
-  strategiste: ['Analyse de données', 'Pensée systémique', 'Modélisation', 'Anticipation des risques', 'Optimisation continue'],
-  mediateur: ['Écoute active', 'Médiation', 'Intelligence émotionnelle', 'Accompagnement individuel', 'Gestion de communautés'],
-  catalyseur: ['Créativité', 'Conception visuelle', 'Expérimentation', 'Narration multimédia', 'Innovation produit'],
-  gardien: ['Rigueur opérationnelle', 'Gestion de la qualité', 'Organisation', 'Fiabilisation des processus', 'Sens du détail'],
-  explorateur: ['Recherche utilisateur', 'Curiosité', 'Veille stratégique', 'Pensée critique', 'Exploration prospective'],
-  connecteur: ['Animation de réseau', 'Communication engageante', 'Énergie collective', 'Gestion de partenariats', 'Sens relationnel'],
-  orchestrateur: ['Pilotage transverse', 'Vision long terme', 'Arbitrage', 'Gestion du changement', 'Structuration stratégique']
-}
+// Signature skills shown on the (legacy) share card per persona (10 Zélia personas).
+// Built from personas.js data (domaines) so both stay in sync — see personas.js for
+// the canonical persona list.
+const ZELIA_SIGNATURE_SKILLS = Object.fromEntries(
+  PERSONAS.map((persona) => [
+    persona.id,
+    [persona.title, ...persona.domaines.slice(0, 4)]
+  ])
+)
 
 const DEFAULT_ZELIA_SKILLS = [
   'Curiosité',
@@ -49,34 +28,12 @@ const DEFAULT_ZELIA_SKILLS = [
   'Apprentissage continu'
 ]
 
-function normalizeArchetypeLabel(text) {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[-–—]/g, ' ')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
+// Used by the legacy generateZeliaShareImage() (Profile.jsx / Niveau4.jsx, old MBTI
+// flow) to pick signature skills from a freeform "personalityType" string.
 function extractZeliaSignature(personalityType) {
   if (!personalityType || typeof personalityType !== 'string') return null
-
-  const codeMatch = personalityType.match(/\bZL-\d{2}\b/i)
-  if (codeMatch) {
-    const slug = ZELIA_ARCHETYPE_KEYS[codeMatch[0].toUpperCase()]
-    if (slug) return slug
-  }
-
-  const normalized = normalizeArchetypeLabel(personalityType)
-  for (const [slug, labels] of Object.entries(ZELIA_ARCHETYPE_LABELS)) {
-    if (labels.some((label) => normalized.includes(label))) {
-      return slug
-    }
-  }
-
-  return null
+  const { persona, matched } = matchPersonaFromAnalysis({ personalityType }, [], personalityType)
+  return matched ? persona.id : null
 }
 
 function truncate(text, max = 34) {
@@ -453,22 +410,14 @@ export async function generateZeliaShareImage({
   }
 }
 
-function drawRoundedRect(ctx, x, y, w, h, radius) {
-  ctx.beginPath()
-  ctx.moveTo(x + radius, y)
-  ctx.arcTo(x + w, y, x + w, y + h, radius)
-  ctx.arcTo(x + w, y + h, x, y + h, radius)
-  ctx.arcTo(x, y + h, x, y, radius)
-  ctx.arcTo(x, y, x + w, y, radius)
-  ctx.closePath()
-}
-
-// Flat-design (no gradients) portrait share card for the persona reveal.
-// Returns a PNG dataURL, or '' on failure.
+// New persona reveal share card (v2 persona system, see lib/personas.js). Flat brand
+// colors only (no gradients), portrait "social post" format (1080x1350).
 export async function generatePersonaShareCard({
   persona,
-  avatarUrl,
   firstName = '',
+  avatarUrl = '',
+  domaines = [],
+  competences = [],
   logoPath = DEFAULT_LOGO_PATH,
   width = 1080,
   height = 1350
@@ -485,131 +434,131 @@ export async function generatePersonaShareCard({
 
     ctx.fillStyle = '#fffbf7'
     ctx.fillRect(0, 0, width, height)
+
     ctx.fillStyle = '#c1ff72'
-    ctx.fillRect(0, 0, width, 26)
-    ctx.fillRect(0, height - 130, width, 130)
+    ctx.fillRect(0, 0, width, 64)
 
-    // Kicker + name
-    ctx.fillStyle = '#6b7280'
-    ctx.font = '800 34px system-ui, -apple-system, sans-serif'
-    ctx.textAlign = 'left'
-    ctx.textBaseline = 'top'
-    const marginX = 80
-    ctx.fillText((firstName ? `${firstName}, ton portrait chinois` : 'Ton portrait chinois').toUpperCase(), marginX, 90)
+    try {
+      const logoImg = await loadImage(logoPath)
+      const logoW = 200
+      const logoH = (logoImg.height / logoImg.width) * logoW
+      ctx.drawImage(logoImg, (width - logoW) / 2, 96, logoW, logoH)
+    } catch (logoError) {
+      console.warn('Logo not loaded for persona share card', logoError)
+    }
 
-    ctx.fillStyle = '#000'
-    ctx.font = '800 92px "Bricolage Grotesque", "ShareClashGrotesk", system-ui, sans-serif'
-    const nameLines = wrapText(ctx, persona.name, width - marginX * 2 - 260).slice(0, 2)
-    let nameY = 150
-    nameLines.forEach((line) => {
-      ctx.fillText(line, marginX, nameY)
-      nameY += 100
-    })
+    let cursorY = 220
 
-    // Avatar top-right
     if (avatarUrl) {
       try {
         const avatarImg = await loadImage(avatarUrl)
-        const size = 230
-        const x = width - marginX - size
-        const y = 90
+        const avatarSize = 320
+        const avatarX = (width - avatarSize) / 2
         ctx.save()
-        drawRoundedRect(ctx, x, y, size, size, 28)
-        ctx.clip()
-        ctx.drawImage(avatarImg, x, y, size, size)
+        ctx.shadowColor = 'rgba(0,0,0,0.12)'
+        ctx.shadowBlur = 24
+        ctx.shadowOffsetY = 10
+        ctx.drawImage(avatarImg, avatarX, cursorY, avatarSize, avatarSize)
         ctx.restore()
-        drawRoundedRect(ctx, x, y, size, size, 28)
-        ctx.strokeStyle = '#c1ff72'
-        ctx.lineWidth = 8
-        ctx.stroke()
+        cursorY += avatarSize + 60
       } catch (avatarError) {
         console.warn('Avatar not loaded for persona share card', avatarError)
+        cursorY += 40
       }
     }
 
-    // Trait chips
-    const traits = (persona.traits || []).slice(0, 4)
-    ctx.font = '700 34px system-ui, -apple-system, sans-serif'
-    let chipX = marginX
-    let chipY = Math.max(nameY + 30, 360)
-    const chipColors = ['#c1ff72', '#f68fff', '#111827']
-    traits.forEach((trait, index) => {
-      const padX = 28
-      const textW = ctx.measureText(trait).width
-      const chipW = textW + padX * 2
-      const chipH = 66
-      if (chipX + chipW > width - marginX) {
-        chipX = marginX
-        chipY += chipH + 16
-      }
-      const bg = chipColors[index % chipColors.length]
-      ctx.fillStyle = bg
-      drawRoundedRect(ctx, chipX, chipY, chipW, chipH, 33)
-      ctx.fill()
-      ctx.fillStyle = bg === '#111827' ? '#c1ff72' : '#000'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(trait, chipX + padX, chipY + chipH / 2 + 2)
-      ctx.textBaseline = 'top'
-      chipX += chipW + 16
-    })
-
-    // Portrait chinois tiles (2 rows x 3 cols, 5 tiles)
-    const entries = Object.entries(persona.portrait || {})
-    const labels = {
-      animal: 'Un animal',
-      couleur: 'Une couleur',
-      ville: 'Une ville',
-      objet: 'Un objet',
-      personnage: 'Personnage de fiction'
-    }
-    const tilesTop = chipY + 120
-    const gap = 24
-    const cols = 3
-    const tileW = (width - marginX * 2 - gap * (cols - 1)) / cols
-    const tileH = 250
-    entries.slice(0, 6).forEach(([key, item], index) => {
-      const col = index % cols
-      const row = Math.floor(index / cols)
-      const x = marginX + col * (tileW + gap)
-      const y = tilesTop + row * (tileH + gap)
-
-      ctx.fillStyle = '#ffffff'
-      drawRoundedRect(ctx, x, y, tileW, tileH, 24)
-      ctx.fill()
-      ctx.strokeStyle = 'rgba(0,0,0,0.1)'
-      ctx.lineWidth = 2
-      ctx.stroke()
-
-      ctx.textAlign = 'center'
-      ctx.fillStyle = '#6b7280'
-      ctx.font = '800 24px system-ui, -apple-system, sans-serif'
-      ctx.fillText((labels[key] || key).toUpperCase(), x + tileW / 2, y + 28)
-      ctx.font = '84px system-ui, -apple-system, sans-serif'
-      ctx.fillText(item.emoji || '✨', x + tileW / 2, y + 70)
-      ctx.fillStyle = '#000'
-      ctx.font = '800 30px system-ui, -apple-system, sans-serif'
-      const labelLines = wrapText(ctx, item.label || '', tileW - 32).slice(0, 2)
-      labelLines.forEach((line, lineIndex) => {
-        ctx.fillText(line, x + tileW / 2, y + 178 + lineIndex * 36)
-      })
-      ctx.textAlign = 'left'
-    })
-
-    // Footer: logo + prompt
-    ctx.textAlign = 'center'
-    try {
-      const logoImg = await loadImage(logoPath)
-      const logoW = 190
-      const logoH = (logoImg.height / logoImg.width) * logoW
-      ctx.drawImage(logoImg, (width - logoW) / 2, height - 65 - logoH / 2, logoW, logoH)
-    } catch {
-      ctx.fillStyle = '#000'
-      ctx.font = '800 44px "Bricolage Grotesque", "ShareClashGrotesk", system-ui, sans-serif'
-      ctx.fillText('zelia.fr', width / 2, height - 88)
-    }
     ctx.fillStyle = '#000'
-    ctx.font = '700 28px system-ui, -apple-system, sans-serif'
-    ctx.fillText('Découvre ton portrait sur zelia.fr', width / 2, height - 170)
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    ctx.font = '600 40px system-ui, -apple-system, sans-serif'
+    const headline = firstName ? `${firstName} ressemble à ${persona.name}` : `Tu ressembles à ${persona.name}`
+    ctx.fillText(headline, width / 2, cursorY)
+    cursorY += 60
+
+    ctx.font = '800 92px "Bricolage Grotesque", "ShareClashGrotesk", system-ui, sans-serif'
+    ctx.fillText(persona.displayTitle.toUpperCase(), width / 2, cursorY)
+    cursorY += 120
+
+    ctx.font = '500 34px system-ui, -apple-system, sans-serif'
+    ctx.fillStyle = '#374151'
+    const taglineLines = wrapText(ctx, persona.tagline || '', width - 160)
+    taglineLines.forEach((line) => {
+      ctx.fillText(line, width / 2, cursorY)
+      cursorY += 44
+    })
+    cursorY += 30
+
+    const chipValues = (Array.isArray(domaines) && domaines.length ? domaines : persona.domaines || []).slice(0, 4)
+    if (chipValues.length) {
+      ctx.font = '700 30px system-ui, -apple-system, sans-serif'
+      const padX = 26
+      const chipH = 56
+      const gap = 14
+      const chipWidths = chipValues.map((value) => ctx.measureText(value).width + padX * 2)
+      const maxRowWidth = width - 120
+      let rowWidth = 0
+      const rows = []
+      let currentRow = []
+      chipValues.forEach((value, index) => {
+        const chipW = chipWidths[index]
+        if (rowWidth + chipW > maxRowWidth && currentRow.length) {
+          rows.push(currentRow)
+          currentRow = []
+          rowWidth = 0
+        }
+        currentRow.push({ value, chipW })
+        rowWidth += chipW + gap
+      })
+      if (currentRow.length) rows.push(currentRow)
+
+      rows.forEach((row) => {
+        const rowTotalWidth = row.reduce((sum, item) => sum + item.chipW, 0) + gap * (row.length - 1)
+        let x = (width - rowTotalWidth) / 2
+        row.forEach((item, index) => {
+          const color = index % 2 === 0 ? '#c1ff72' : '#f68fff'
+          ctx.fillStyle = color
+          ctx.beginPath()
+          const radius = chipH / 2
+          ctx.moveTo(x + radius, cursorY)
+          ctx.arcTo(x + item.chipW, cursorY, x + item.chipW, cursorY + chipH, radius)
+          ctx.arcTo(x + item.chipW, cursorY + chipH, x, cursorY + chipH, radius)
+          ctx.arcTo(x, cursorY + chipH, x, cursorY, radius)
+          ctx.arcTo(x, cursorY, x + item.chipW, cursorY, radius)
+          ctx.closePath()
+          ctx.fill()
+
+          ctx.fillStyle = '#000'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(item.value, x + item.chipW / 2, cursorY + chipH / 2 + 2)
+          ctx.textBaseline = 'top'
+          x += item.chipW + gap
+        })
+        cursorY += chipH + gap
+      })
+      cursorY += 20
+    }
+
+    const skillValues = (Array.isArray(competences) ? competences : []).slice(0, 3)
+    if (skillValues.length) {
+      ctx.textAlign = 'center'
+      ctx.font = '800 44px "Bricolage Grotesque", "ShareClashGrotesk", system-ui, sans-serif'
+      ctx.fillStyle = '#000'
+      ctx.fillText('Compétences', width / 2, cursorY)
+      cursorY += 60
+
+      ctx.font = '600 32px system-ui, -apple-system, sans-serif'
+      skillValues.forEach((skill) => {
+        ctx.fillText(truncate(skill, 46), width / 2, cursorY)
+        cursorY += 44
+      })
+    }
+
+    ctx.fillStyle = '#000'
+    ctx.fillRect(0, height - 70, width, 70)
+    ctx.fillStyle = '#c1ff72'
+    ctx.font = '700 30px system-ui, -apple-system, sans-serif'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('zelia.io', width / 2, height - 35)
 
     return canvas.toDataURL('image/png')
   } catch (error) {

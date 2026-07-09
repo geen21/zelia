@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
-import { schoolPortalAPI } from '../../lib/api'
+import { schoolPortalSupabase } from '../../lib/schoolPortalSupabase'
+import { schoolPortalAPI } from '../../lib/schoolPortalApi'
 
 export default function SchoolPortalRegister() {
   const [email, setEmail] = useState('')
@@ -78,7 +78,7 @@ export default function SchoolPortalRegister() {
         contactLastName
       })
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+      const { error: signInError } = await schoolPortalSupabase.auth.signInWithPassword({ email, password })
       if (signInError) throw signInError
 
       navigate('/espace-ecoles/leads', { replace: true })
@@ -189,6 +189,10 @@ export default function SchoolPortalRegister() {
             </label>
 
             {error && <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+
+            <p className="text-xs text-text-secondary">
+              Après création, votre compte est soumis à validation par notre équipe avant l'accès aux leads.
+            </p>
 
             <button
               type="submit"

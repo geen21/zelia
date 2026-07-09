@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { usersAPI } from '../lib/api'
 import { buildAvatarFromProfile } from '../lib/avatar'
@@ -17,20 +17,6 @@ const DESKTOP_NAV_ITEMS = [HOME_NAV_ITEM, ...PRIMARY_NAV_ITEMS]
 
 const BOTTOM_NAV_ITEMS = [
   { to: '/app/results', label: 'Résultats', icon: 'ph-chart-line-up' }
-]
-
-const MOBILE_NAV_ITEMS = [HOME_NAV_ITEM, ...PRIMARY_NAV_ITEMS, ...BOTTOM_NAV_ITEMS]
-
-const PAGE_LABELS = [
-  { match: '/app/profile', label: 'Profil' },
-  { match: '/app/discuter', label: 'Discuter' },
-  { match: '/app/formations', label: 'Formations et écoles' },
-  { match: '/app/emplois', label: 'Métiers' },
-  { match: '/app/outils', label: 'Outils' },
-  { match: '/app/ecoles-partenaires', label: 'Formations et écoles' },
-  { match: '/app/lettre', label: 'Lettre' },
-  { match: '/app/results', label: 'Résultats' },
-  { match: '/app', label: "Conseiller d'orientation", exact: true }
 ]
 
 function isNavItemActive(item, pathname) {
@@ -78,14 +64,8 @@ export default function Layout() {
     return () => { mounted = false }
   }, [])
 
-  const pageTitle = useMemo(() => {
-    const found = PAGE_LABELS.find((item) => item.exact ? location.pathname === item.match : location.pathname.startsWith(item.match))
-    return found?.label || "Conseiller d'orientation"
-  }, [location.pathname])
-
   const isChatSurface = location.pathname.startsWith('/app/discuter')
   const isToolDetail = isStandaloneToolRoute(location.pathname)
-  const isHomeDashboard = location.pathname === '/app'
 
   useEffect(() => {
     if (!isToolDetail) return undefined
@@ -158,27 +138,6 @@ export default function Layout() {
     )
   }
 
-  const renderMobileNavItem = (item) => {
-    const isActive = isNavItemActive(item, location.pathname)
-    return (
-      <Link
-        key={item.to}
-        to={item.to}
-        aria-current={isActive ? 'page' : undefined}
-        className={`h-9 px-3 rounded-lg inline-flex items-center gap-2 text-sm font-medium whitespace-nowrap border ${
-          isActive ? 'bg-black text-white border-black' : 'bg-white text-gray-700 border-line'
-        }`}
-      >
-        {item.image ? (
-          <img src={item.image} alt="" className="h-5 w-auto" aria-hidden="true" />
-        ) : (
-          <i className={`ph ${item.icon}`} aria-hidden="true" />
-        )}
-        <span>{item.label}</span>
-      </Link>
-    )
-  }
-
   return (
     <>
     <style>{appShellStyles}</style>
@@ -223,39 +182,9 @@ export default function Layout() {
       </aside>
 
       <div className="zelia-app-main flex h-screen min-w-0 flex-col overflow-hidden">
-      {!isHomeDashboard && (
-      <header className="sticky top-0 z-30 border-b border-line bg-white/92 backdrop-blur shrink-0 lg:hidden">
-        <div className="h-14 px-3 flex items-center gap-2">
-          <Link to="/app" className="shrink-0" title="Accueil Zélia" aria-label="Accueil Zélia">
-            <img src="/static/images/logo-dark.png" alt="Zelia" className="h-6 w-auto" />
-          </Link>
-          <nav className="flex flex-1 min-w-0 overflow-x-auto gap-2" aria-label="Navigation principale mobile">
-            {MOBILE_NAV_ITEMS.map(renderMobileNavItem)}
-          </nav>
-          <Link
-            to="/app/profile"
-            className="h-9 w-9 shrink-0 rounded-lg border border-line bg-white inline-grid place-items-center hover:border-black"
-            title="Profil"
-            aria-label="Profil"
-          >
-            <img src={avatarUrl} className="w-6 h-6 rounded object-cover" alt="Avatar" />
-          </Link>
-          <button
-            type="button"
-            onClick={logout}
-            disabled={loggingOut}
-            className="h-9 w-9 shrink-0 rounded-lg border border-line bg-white inline-grid place-items-center hover:border-black"
-            title="Déconnexion"
-            aria-label="Déconnexion"
-          >
-            <i className={`ph ${loggingOut ? 'ph-spinner-gap animate-spin' : 'ph-sign-out'} text-base`} aria-hidden="true" />
-          </button>
-        </div>
-      </header>
-      )}
 
       <main className={isChatSurface ? 'flex-1 min-h-0 overflow-hidden' : 'flex-1 min-h-0 overflow-y-auto'}>
-        <div ref={contentRef} onClickCapture={handleToolClickCapture} className={isChatSurface ? 'w-full h-full min-h-0 max-w-none overflow-hidden px-3 sm:px-5 lg:px-8 py-3 sm:py-4' : isHomeDashboard ? 'w-full max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-6' : 'w-full max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6'}>
+        <div ref={contentRef} onClickCapture={handleToolClickCapture} className={isChatSurface ? 'w-full h-full min-h-0 max-w-none overflow-hidden px-3 sm:px-5 lg:px-8 py-3 sm:py-4' : 'w-full max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-6'}>
           {isToolDetail && (
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <Link

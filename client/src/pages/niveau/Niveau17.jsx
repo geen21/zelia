@@ -15,45 +15,6 @@ async function loadJsPdf() {
   return jsPdfFactoryPromise
 }
 
-function useTypewriter(message, durationMs) {
-  const [text, setText] = useState('')
-  const [done, setDone] = useState(false)
-  const intervalRef = useRef(null)
-  const timeoutRef = useRef(null)
-
-  useEffect(() => {
-    const full = message || ''
-    setText('')
-    setDone(false)
-    let i = 0
-    const step = Math.max(15, Math.floor((durationMs || 1500) / Math.max(1, full.length)))
-    intervalRef.current = setInterval(() => {
-      i += 1
-      setText(full.slice(0, i))
-      if (i >= full.length) clearInterval(intervalRef.current)
-    }, step)
-    timeoutRef.current = setTimeout(() => {
-      clearInterval(intervalRef.current)
-      setText(full)
-      setDone(true)
-    }, Math.max(durationMs || 1500, (full.length + 1) * step))
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    }
-  }, [message, durationMs])
-
-  const skip = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current)
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    setText(message || '')
-    setDone(true)
-  }
-
-  return { text, done, skip }
-}
-
 function hexToRgba(hex, alpha) {
   if (!hex) return `rgba(0,0,0,${alpha})`
   const cleaned = hex.replace('#', '')
@@ -91,14 +52,6 @@ function extractJson(raw) {
 function normalizeList(items) {
   if (!Array.isArray(items)) return []
   return items.map((item) => String(item || '').trim()).filter(Boolean)
-}
-
-function toListFromInput(text) {
-  if (!text) return []
-  return String(text)
-    .split(/,|;|\n/)
-    .map((item) => item.trim())
-    .filter(Boolean)
 }
 
 const DEFAULT_ACCENT = '#f68fff'
@@ -204,7 +157,6 @@ export default function Niveau17() {
   const [userEmail, setUserEmail] = useState('')
   const [userId, setUserId] = useState('')
 
-  const [step, setStep] = useState(2)
   const [companies, setCompanies] = useState([''])
   const [roles, setRoles] = useState([''])
   const [targetJob, setTargetJob] = useState('')
@@ -251,7 +203,6 @@ export default function Niveau17() {
         setAvatarUrl(avatar)
         setPhotoUrl(avatar)
 
-        // Fetch skills_assessment from user_results for suggestion bubbles
         try {
           const { data: userResultsData } = await supabase
             .from('user_results')
@@ -286,25 +237,6 @@ export default function Niveau17() {
     })()
     return () => { mounted = false }
   }, [navigate])
-
-  const firstName = useMemo(() => (
-    profile?.first_name || profile?.prenom || 'toi'
-  ), [profile])
-
-  const steps = useMemo(() => ([
-    { type: 'text', text: `On rentre dans le dur ${firstName}, c'est sûrement l'un des modules les plus longs`, durationMs: 2600 },
-    { type: 'text', text: "On va faire ton CV, bon, c'est moi qui vais le faire, mais il faut que tu m'aides !", durationMs: 2600 },
-    { type: 'form', key: 'experience', text: 'Dis-moi tes expériences professionnelles passées (stages, alternance, jobs, etc.)', durationMs: 2200 },
-    { type: 'form', key: 'target', text: 'Pour quel métier souhaites-tu postuler ?', durationMs: 1800 },
-    { type: 'form', key: 'education', text: 'Donne-moi maintenant ton parcours scolaire', durationMs: 2000 },
-    { type: 'form', key: 'qualities', text: 'Donne-moi tes qualités principales', durationMs: 1800 },
-    { type: 'form', key: 'skills', text: "Si tu as des compétences particulières, liste-les-moi ici (gestion d'un logiciel par exemple)", durationMs: 2200 },
-    { type: 'form', key: 'languages', text: 'Langues maîtrisées', durationMs: 1800 },
-    { type: 'final', key: 'final', text: 'Merci, je génère ton CV ! Clique sur le bouton : Générer mon CV.', durationMs: 2000 }
-  ]), [firstName])
-
-  const current = steps[Math.min(step, steps.length - 1)]
-  const { text: typed, done: typedDone, skip } = useTypewriter(current?.text || '', current?.durationMs || 1500)
 
   const accentSoft = useMemo(() => hexToRgba(accentColor, 0.16), [accentColor])
 
@@ -344,7 +276,31 @@ export default function Niveau17() {
     })
   }
 
-  const saveExtraInfo = async (entries) => {
+  const saveAllExtraInfo = async () => {
+    const entries = []
+
+    companies.map((c) => c.trim()).filter(Boolean).forEach((answer, idx) => {
+      entries.push({ question_id: `niveau17_experience_company_${idx + 1}`, question_text: 'Expérience professionnelle - Entreprise', answer_text: answer })
+    })
+    roles.map((r) => r.trim()).filter(Boolean).forEach((answer, idx) => {
+      entries.push({ question_id: `niveau17_experience_role_${idx + 1}`, question_text: 'Expérience professionnelle - Fonction exercée', answer_text: answer })
+    })
+    if (targetJob.trim()) {
+      entries.push({ question_id: 'niveau17_target_job', question_text: 'Métier visé', answer_text: targetJob.trim() })
+    }
+    education.map((item) => item.trim()).filter(Boolean).forEach((answer, idx) => {
+      entries.push({ question_id: `niveau17_education_${idx + 1}`, question_text: 'Parcours scolaire', answer_text: answer })
+    })
+    qualities.map((item) => item.trim()).filter(Boolean).forEach((answer, idx) => {
+      entries.push({ question_id: `niveau17_qualities_${idx + 1}`, question_text: 'Qualités principales', answer_text: answer })
+    })
+    skills.map((item) => item.trim()).filter(Boolean).forEach((answer, idx) => {
+      entries.push({ question_id: `niveau17_skills_${idx + 1}`, question_text: 'Compétences particulières', answer_text: answer })
+    })
+    languages.map((item) => item.trim()).filter(Boolean).forEach((answer, idx) => {
+      entries.push({ question_id: `niveau17_languages_${idx + 1}`, question_text: 'Langues maîtrisées', answer_text: answer })
+    })
+
     if (!entries.length) return
     setSavingInfo(true)
     setSaveError('')
@@ -356,87 +312,6 @@ export default function Niveau17() {
     } finally {
       setSavingInfo(false)
     }
-  }
-
-  const onValidateForm = async () => {
-    if (!typedDone) {
-      skip()
-      return
-    }
-    const key = current?.key
-    const entries = []
-
-    if (key === 'experience') {
-      const cleanCompanies = companies.map((c) => c.trim()).filter(Boolean)
-      const cleanRoles = roles.map((r) => r.trim()).filter(Boolean)
-      cleanCompanies.forEach((answer, idx) => {
-        entries.push({
-          question_id: `niveau17_experience_company_${idx + 1}`,
-          question_text: 'Expérience professionnelle - Entreprise',
-          answer_text: answer
-        })
-      })
-      cleanRoles.forEach((answer, idx) => {
-        entries.push({
-          question_id: `niveau17_experience_role_${idx + 1}`,
-          question_text: 'Expérience professionnelle - Fonction exercée',
-          answer_text: answer
-        })
-      })
-    }
-
-    if (key === 'target') {
-      if (targetJob.trim()) {
-        entries.push({
-          question_id: 'niveau17_target_job',
-          question_text: 'Métier visé',
-          answer_text: targetJob.trim()
-        })
-      }
-    }
-
-    if (key === 'education') {
-      education.map((item) => item.trim()).filter(Boolean).forEach((answer, idx) => {
-        entries.push({
-          question_id: `niveau17_education_${idx + 1}`,
-          question_text: 'Parcours scolaire',
-          answer_text: answer
-        })
-      })
-    }
-
-    if (key === 'qualities') {
-      qualities.map((item) => item.trim()).filter(Boolean).forEach((answer, idx) => {
-        entries.push({
-          question_id: `niveau17_qualities_${idx + 1}`,
-          question_text: 'Qualités principales',
-          answer_text: answer
-        })
-      })
-    }
-
-    if (key === 'skills') {
-      skills.map((item) => item.trim()).filter(Boolean).forEach((answer, idx) => {
-        entries.push({
-          question_id: `niveau17_skills_${idx + 1}`,
-          question_text: 'Compétences particulières',
-          answer_text: answer
-        })
-      })
-    }
-
-    if (key === 'languages') {
-      languages.map((item) => item.trim()).filter(Boolean).forEach((answer, idx) => {
-        entries.push({
-          question_id: `niveau17_languages_${idx + 1}`,
-          question_text: 'Langues maîtrisées',
-          answer_text: answer
-        })
-      })
-    }
-
-    await saveExtraInfo(entries)
-    setStep((prev) => Math.min(prev + 1, steps.length - 1))
   }
 
   const generateCv = async () => {
@@ -499,9 +374,7 @@ export default function Niveau17() {
         })
 
         const raw = resp?.data?.reply || ''
-        console.log('CV AI raw response:', raw)
         parsed = extractJson(raw)
-        console.log('CV AI parsed:', parsed)
       } catch (aiError) {
         console.warn('CV AI generation failed, using fallback CV', aiError)
       }
@@ -524,6 +397,11 @@ export default function Niveau17() {
     } finally {
       setGenerating(false)
     }
+  }
+
+  const handleGenerateClick = async () => {
+    await saveAllExtraInfo()
+    await generateCv()
   }
 
   // Keep the CV scaled to fit its container regardless of browser zoom
@@ -556,7 +434,6 @@ export default function Niveau17() {
     try {
       document.activeElement?.blur?.()
 
-      // Temporarily remove scale transform so html2canvas captures at full resolution
       const el = cvRef.current
       const savedTransform = el.style.transform
       const savedTransformOrigin = el.style.transformOrigin
@@ -578,7 +455,6 @@ export default function Niveau17() {
         height: 1123
       })
 
-      // Restore scale transform
       el.style.transform = savedTransform
       el.style.transformOrigin = savedTransformOrigin
       if (wrapper) {
@@ -625,11 +501,7 @@ export default function Niveau17() {
           setPdfUrl(url)
           try {
             await usersAPI.saveExtraInfo([
-              {
-                question_id: 'niveau17_cv_pdf_url',
-                question_text: 'CV - PDF (Cloudinary)',
-                answer_text: url
-              }
+              { question_id: 'niveau17_cv_pdf_url', question_text: 'CV - PDF (Cloudinary)', answer_text: url }
             ])
           } catch (e) {
             console.warn('Failed to store CV URL in extra info (non-blocking):', e)
@@ -651,712 +523,646 @@ export default function Niveau17() {
     if (finishing) return
     setFinishing(true)
     try {
-      // If PDF wasn't exported yet, save CV data anyway
       if (!pdfUrl && cvData) {
         try {
-          // Save CV data as JSON for later retrieval
           await usersAPI.saveExtraInfo([
-            {
-              question_id: 'niveau17_cv_data',
-              question_text: 'CV - Données JSON',
-              answer_text: JSON.stringify(cvData)
-            }
+            { question_id: 'niveau17_cv_data', question_text: 'CV - Données JSON', answer_text: JSON.stringify(cvData) }
           ])
         } catch (e) {
           console.warn('Failed to save CV data (non-blocking):', e)
         }
       }
-      
       await levelUp({ minLevel: 17, xpReward: XP_PER_LEVEL })
-      navigate('/dashboard')
     } catch (err) {
       console.warn('Progression update failed (non-blocking):', err)
     } finally {
       setFinishing(false)
+      navigate('/app/results')
     }
   }
 
   if (loading) {
     return (
-      <div className="p-6 text-center">
-        <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-        <p className="mt-2 text-text-secondary">Chargement…</p>
+      <div className="n17-page">
+        <style>{styles}</style>
+        <div className="n17-card n17-state">
+          <div className="n17-spinner" />
+          <p>Chargement…</p>
+        </div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="p-6">
-        <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">{error}</div>
+      <div className="n17-page">
+        <style>{styles}</style>
+        <div className="n17-card n17-state">
+          <i className="ph ph-warning-circle" aria-hidden="true" />
+          <p>{error}</p>
+        </div>
       </div>
     )
   }
 
   const phone = profile?.phone_number || profile?.numero_telephone || profile?.numeroTelephone || ''
   const location = profile?.department || profile?.departement || profile?.city || ''
-  const singleColumnAfterGeneration = Boolean(cvData)
+
+  const renderRemovableInput = (item, idx, setter, removeFn, placeholder) => (
+    <div key={idx} className="n17-field-row">
+      <input
+        type="text"
+        className="n17-input"
+        value={item}
+        onChange={(e) => updateList(setter, idx, e.target.value)}
+        placeholder={placeholder}
+      />
+      <button
+        type="button"
+        onClick={() => removeFn(idx)}
+        aria-label="Supprimer cette ligne"
+        className="n17-remove-btn"
+      ><FaXmark className="w-3 h-3" /></button>
+    </div>
+  )
 
   return (
-    <div className="p-2 md:p-6">
-      <div className={`grid grid-cols-1 ${singleColumnAfterGeneration ? '' : 'xl:grid-cols-[1fr_1.4fr]'} gap-6 items-start`}>
-        {/* Left: Avatar + Dialogue */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          <div className={`flex flex-col ${singleColumnAfterGeneration ? '' : 'xl:flex-row xl:items-start'} items-center gap-6`}>
-            <img
-              src={avatarUrl}
-              alt="Avatar"
-              className={`w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 ${singleColumnAfterGeneration ? '' : 'xl:w-52 xl:h-52 xl:mx-0'} rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto`}
-            />
-            <div className="flex-1 w-full">
-              <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
-                <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
-                  {typed}
-                </div>
-                <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
-              </div>
+    <div className="n17-page">
+      <style>{styles}</style>
 
-              {current?.type === 'text' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!typedDone) {
-                      skip()
-                      return
-                    }
-                    setStep((prev) => Math.min(prev + 1, steps.length - 1))
-                  }}
-                  className="mt-4 px-4 py-2 rounded-full bg-[#c1ff72] text-black border border-gray-200"
-                >
-                  {typedDone ? 'Suivant' : 'Passer'}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+      <div className="n17-card n17-header">
+        <h1>Création du CV</h1>
+        <p>Remplis tes informations, Zélia s'occupe de la mise en forme.</p>
+      </div>
 
-        {/* Right: Form + CV */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card space-y-6">
-          {saveError && (
-            <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg">{saveError}</div>
-          )}
+      {saveError && <div className="n17-card n17-error">{saveError}</div>}
 
-          {current?.type === 'form' && current?.key === 'experience' && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Expérience professionnelle</h3>
-              {companies.map((company, idx) => (
-                <div key={`exp-${idx}`} className="relative grid grid-cols-1 md:grid-cols-2 gap-3">
+      {!cvData && (
+        <>
+          <div className="n17-card">
+            <h2>Expérience professionnelle</h2>
+            {companies.map((company, idx) => (
+              <div key={`exp-${idx}`} className="n17-experience-row">
+                <div className="n17-field-row">
+                  <input
+                    type="text"
+                    className="n17-input"
+                    value={company}
+                    onChange={(e) => updateList(setCompanies, idx, e.target.value)}
+                    placeholder="Nom de l'entreprise"
+                  />
+                  <input
+                    type="text"
+                    className="n17-input"
+                    value={roles[idx] || ''}
+                    onChange={(e) => updateList(setRoles, idx, e.target.value)}
+                    placeholder="Fonction"
+                  />
                   <button
                     type="button"
                     onClick={() => removeExperienceLine(idx)}
                     aria-label="Supprimer cette expérience"
-                    className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-700 hover:bg-gray-50"
+                    className="n17-remove-btn"
                   ><FaXmark className="w-3 h-3" /></button>
-                  <div>
-                    <label className="text-sm text-text-secondary">Entreprise</label>
-                    <input
-                      type="text"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
-                      value={company}
-                      onChange={(e) => updateList(setCompanies, idx, e.target.value)}
-                      placeholder="Nom de l'entreprise"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-text-secondary">Fonction exercée</label>
-                    <input
-                      type="text"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
-                      value={roles[idx] || ''}
-                      onChange={(e) => updateList(setRoles, idx, e.target.value)}
-                      placeholder="Fonction"
-                    />
-                  </div>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={addExperienceLine}
-                className="px-4 py-2 rounded-full bg-white text-gray-900 border border-gray-300"
-              >
-                Ajouter une ligne
-              </button>
-
-              <button
-                type="button"
-                onClick={onValidateForm}
-                className="w-full mt-2 px-4 py-3 rounded-full bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
-                disabled={savingInfo}
-              >
-                {savingInfo ? 'Validation…' : 'Valider'}
-              </button>
-            </div>
-          )}
-
-          {current?.type === 'form' && current?.key === 'target' && (
-            <div className="space-y-3">
-              <label className="text-sm text-text-secondary">Métier souhaité</label>
-              <input
-                type="text"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
-                value={targetJob}
-                onChange={(e) => setTargetJob(e.target.value)}
-                placeholder="Ex: Chargé(e) de projet"
-              />
-
-              <button
-                type="button"
-                onClick={onValidateForm}
-                className="w-full mt-2 px-4 py-3 rounded-full bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
-                disabled={savingInfo}
-              >
-                {savingInfo ? 'Validation…' : 'Valider'}
-              </button>
-            </div>
-          )}
-
-          {current?.type === 'form' && current?.key === 'education' && (
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold">Parcours scolaire</h3>
-              {education.map((item, idx) => (
-                <div key={`edu-${idx}`} className="relative">
-                  <button
-                    type="button"
-                    onClick={() => removeLine(setEducation, idx)}
-                    aria-label="Supprimer cette ligne"
-                    className="absolute top-1/2 -translate-y-1/2 right-2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-700 hover:bg-gray-50"
-                  ><FaXmark className="w-3 h-3" /></button>
-                  <input
-                    type="text"
-                    className="w-full border border-gray-300 rounded-lg pl-3 pr-12 py-2 outline-none"
-                    value={item}
-                    onChange={(e) => updateList(setEducation, idx, e.target.value)}
-                    placeholder="Ex: BTS Communication, Lycée..."
-                  />
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => addLine(setEducation)}
-                className="px-4 py-2 rounded-full bg-white text-gray-900 border border-gray-300"
-              >
-                Ajouter une ligne
-              </button>
-
-              <button
-                type="button"
-                onClick={onValidateForm}
-                className="w-full mt-2 px-4 py-3 rounded-full bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
-                disabled={savingInfo}
-              >
-                {savingInfo ? 'Validation…' : 'Valider'}
-              </button>
-            </div>
-          )}
-
-          {current?.type === 'form' && current?.key === 'qualities' && (
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold">Qualités principales</h3>
-
-              {/* Suggestion bubbles from skills_assessment */}
-              {skillSuggestions.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Suggestions basées sur ton profil</p>
-                  <div className="flex flex-wrap gap-2">
-                    {skillSuggestions.map((suggestion) => (
-                      <button
-                        key={suggestion}
-                        type="button"
-                        onClick={() => {
-                          setQualities((prev) => {
-                            const hasEmpty = prev.some((s) => !s.trim())
-                            if (hasEmpty) {
-                              const idx = prev.findIndex((s) => !s.trim())
-                              const next = [...prev]
-                              next[idx] = suggestion
-                              return next
-                            }
-                            return [...prev, suggestion]
-                          })
-                          setSkillSuggestions((prev) => prev.filter((s) => s !== suggestion))
-                        }}
-                        className="rounded-full border border-gray-200 bg-white px-3 py-1 text-sm font-medium text-gray-700 transition hover:border-black hover:bg-gray-50"
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {qualities.map((item, idx) => (
-                <div key={`qual-${idx}`} className="relative">
-                  <button
-                    type="button"
-                    onClick={() => removeLine(setQualities, idx)}
-                    aria-label="Supprimer cette ligne"
-                    className="absolute top-1/2 -translate-y-1/2 right-2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-700 hover:bg-gray-50"
-                  ><FaXmark className="w-3 h-3" /></button>
-                  <input
-                    type="text"
-                    className="w-full border border-gray-300 rounded-lg pl-3 pr-12 py-2 outline-none"
-                    value={item}
-                    onChange={(e) => updateList(setQualities, idx, e.target.value)}
-                    placeholder="Ex: Organisé(e), créatif(ve)"
-                  />
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => addLine(setQualities)}
-                className="px-4 py-2 rounded-full bg-white text-gray-900 border border-gray-300"
-              >
-                Ajouter une ligne
-              </button>
-
-              <button
-                type="button"
-                onClick={onValidateForm}
-                className="w-full mt-2 px-4 py-3 rounded-full bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
-                disabled={savingInfo}
-              >
-                {savingInfo ? 'Validation…' : 'Valider'}
-              </button>
-            </div>
-          )}
-
-          {current?.type === 'form' && current?.key === 'skills' && (
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold">Compétences particulières</h3>
-
-              {skills.map((item, idx) => (
-                <div key={`skill-${idx}`} className="relative">
-                  <button
-                    type="button"
-                    onClick={() => removeLine(setSkills, idx)}
-                    aria-label="Supprimer cette ligne"
-                    className="absolute top-1/2 -translate-y-1/2 right-2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-700 hover:bg-gray-50"
-                  ><FaXmark className="w-3 h-3" /></button>
-                  <input
-                    type="text"
-                    className="w-full border border-gray-300 rounded-lg pl-3 pr-12 py-2 outline-none"
-                    value={item}
-                    onChange={(e) => updateList(setSkills, idx, e.target.value)}
-                    placeholder="Ex: Suite Adobe, Figma, Excel"
-                  />
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => addLine(setSkills)}
-                className="px-4 py-2 rounded-full bg-white text-gray-900 border border-gray-300"
-              >
-                Ajouter une ligne
-              </button>
-
-              <button
-                type="button"
-                onClick={onValidateForm}
-                className="w-full mt-2 px-4 py-3 rounded-full bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
-                disabled={savingInfo}
-              >
-                {savingInfo ? 'Validation…' : 'Valider'}
-              </button>
-            </div>
-          )}
-
-          {current?.type === 'form' && current?.key === 'languages' && (
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold">Langues maîtrisées</h3>
-              {languages.map((item, idx) => (
-                <div key={`lang-${idx}`} className="relative">
-                  <button
-                    type="button"
-                    onClick={() => removeLine(setLanguages, idx)}
-                    aria-label="Supprimer cette ligne"
-                    className="absolute top-1/2 -translate-y-1/2 right-2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-700 hover:bg-gray-50"
-                  ><FaXmark className="w-3 h-3" /></button>
-                  <input
-                    type="text"
-                    className="w-full border border-gray-300 rounded-lg pl-3 pr-12 py-2 outline-none"
-                    value={item}
-                    onChange={(e) => updateList(setLanguages, idx, e.target.value)}
-                    placeholder="Ex: Français C2, Anglais B2"
-                  />
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => addLine(setLanguages)}
-                className="px-4 py-2 rounded-full bg-white text-gray-900 border border-gray-300"
-              >
-                Ajouter une ligne
-              </button>
-
-              <button
-                type="button"
-                onClick={onValidateForm}
-                className="w-full mt-2 px-4 py-3 rounded-full bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
-                disabled={savingInfo}
-              >
-                {savingInfo ? 'Validation…' : 'Valider'}
-              </button>
-            </div>
-          )}
-
-          {current?.type === 'final' && (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-4">
-                <div>
-                  <label className="text-sm text-text-secondary">Couleur principale</label>
-                  <input
-                    type="color"
-                    className="block w-16 h-10 border border-gray-300 rounded-lg"
-                    value={accentColor}
-                    onChange={(e) => setAccentColor(e.target.value)}
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="text-sm text-text-secondary">Photo de profil</label>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="mt-1 px-4 py-2 rounded-full bg-white text-gray-900 border border-gray-300"
-                  >
-                    Modifier la photo
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={onPhotoChange}
-                  />
                 </div>
               </div>
+            ))}
+            <button type="button" onClick={addExperienceLine} className="n17-add-btn">
+              <i className="ph ph-plus" aria-hidden="true" /> Ajouter une ligne
+            </button>
+          </div>
 
-              <button
-                type="button"
-                onClick={generateCv}
-                className="w-full px-4 py-3 rounded-full bg-[#c1ff72] text-black border border-gray-200"
-                disabled={generating}
-              >
-                {generating ? 'Génération…' : 'Générer mon CV'}
-              </button>
+          <div className="n17-card">
+            <h2>Métier visé</h2>
+            <input
+              type="text"
+              className="n17-input"
+              value={targetJob}
+              onChange={(e) => setTargetJob(e.target.value)}
+              placeholder="Ex: Chargé(e) de projet"
+            />
+          </div>
 
-              {generateError && (
-                <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg">{generateError}</div>
-              )}
-            </div>
-          )}
+          <div className="n17-card">
+            <h2>Parcours scolaire</h2>
+            {education.map((item, idx) => renderRemovableInput(item, idx, setEducation, (i) => removeLine(setEducation, i), "Ex: BTS Communication, Lycée..."))}
+            <button type="button" onClick={() => addLine(setEducation)} className="n17-add-btn">
+              <i className="ph ph-plus" aria-hidden="true" /> Ajouter une ligne
+            </button>
+          </div>
 
-          {cvData && (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={exportPdf}
-                  className="px-4 py-2 rounded-full bg-black text-white"
-                  disabled={exporting}
-                >
-                  {exporting ? 'Création du PDF…' : 'Télécharger en PDF'}
-                </button>
-                <button
-                  type="button"
-                  onClick={finishLevel}
-                  className="px-4 py-2 rounded-full bg-white text-gray-900 border border-gray-300"
-                  disabled={finishing}
-                >
-                  {finishing ? 'Validation…' : 'Terminer'}
-                </button>
-                {uploadingPdf && <span className="text-sm text-text-secondary">Upload Cloudinary…</span>}
-                {pdfUrl && (
-                  <a href={pdfUrl} target="_blank" rel="noreferrer" className="text-sm text-blue-600 underline">
-                    Voir le PDF en ligne
-                  </a>
-                )}
+          <div className="n17-card">
+            <h2>Qualités principales</h2>
+            {skillSuggestions.length > 0 && (
+              <div className="n17-suggestions">
+                <p>Suggestions basées sur ton profil</p>
+                <div className="n17-suggestion-list">
+                  {skillSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      className="n17-suggestion-chip"
+                      onClick={() => {
+                        setQualities((prev) => {
+                          const hasEmpty = prev.some((s) => !s.trim())
+                          if (hasEmpty) {
+                            const idx = prev.findIndex((s) => !s.trim())
+                            const next = [...prev]
+                            next[idx] = suggestion
+                            return next
+                          }
+                          return [...prev, suggestion]
+                        })
+                        setSkillSuggestions((prev) => prev.filter((s) => s !== suggestion))
+                      }}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
               </div>
+            )}
+            {qualities.map((item, idx) => renderRemovableInput(item, idx, setQualities, (i) => removeLine(setQualities, i), "Ex: Organisé(e), créatif(ve)"))}
+            <button type="button" onClick={() => addLine(setQualities)} className="n17-add-btn">
+              <i className="ph ph-plus" aria-hidden="true" /> Ajouter une ligne
+            </button>
+          </div>
 
-              <div ref={cvWrapperRef} className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm" style={{ height: 1123 * cvScale }}>
-                <div
-                  ref={cvRef}
-                  className="bg-white text-gray-900"
-                  style={{ width: 794, height: 1123, fontFamily: '"Bricolage Grotesque", "Inter", "Segoe UI", Arial, sans-serif', transform: `scale(${cvScale})`, transformOrigin: 'top left' }}
-                >
-                  <div className="grid grid-cols-[1fr_1.6fr] h-full">
-                    <div className="h-full p-6 flex flex-col gap-6" style={{ background: accentSoft }}>
-                      <div className="flex flex-col items-center gap-3">
-                        <button
-                          type="button"
-                          className="relative w-28 h-28 rounded-full overflow-hidden border-4 border-white shadow-lg"
-                          onClick={() => fileInputRef.current?.click()}
-                          data-html2canvas-ignore="true"
-                        >
-                          <img src={photoUrl || avatarUrl} alt="Profil" className="w-full h-full object-cover" />
-                          <span className="absolute inset-0 bg-black/40 text-white text-xs flex items-center justify-center opacity-0 hover:opacity-100">Modifier</span>
-                        </button>
-                        <div className="text-center">
-                          <EditableText
-                            value={cvData.fullName}
-                            onChange={(val) => setCvData((prev) => ({ ...prev, fullName: val }))}
-                            className="text-xl font-bold"
-                            tag="div"
-                            placeholder="Nom Prénom"
-                          />
-                          <EditableText
-                            value={cvData.title}
-                            onChange={(val) => setCvData((prev) => ({ ...prev, title: val }))}
-                            className="text-sm uppercase tracking-wide"
-                            tag="div"
-                            placeholder="Métier visé"
-                          />
-                        </div>
-                      </div>
+          <div className="n17-card">
+            <h2>Compétences particulières</h2>
+            {skills.map((item, idx) => renderRemovableInput(item, idx, setSkills, (i) => removeLine(setSkills, i), "Ex: Suite Adobe, Figma, Excel"))}
+            <button type="button" onClick={() => addLine(setSkills)} className="n17-add-btn">
+              <i className="ph ph-plus" aria-hidden="true" /> Ajouter une ligne
+            </button>
+          </div>
 
-                      <div className="space-y-3">
-                        <h4 className="text-xs font-bold uppercase" style={{ color: accentColor }}>Contact</h4>
-                        <div className="text-xs space-y-1">
-                          <div>{phone || 'Téléphone'}</div>
-                          <div>{userEmail || 'Email'}</div>
-                          <div>{location || 'Localisation'}</div>
-                        </div>
-                      </div>
+          <div className="n17-card">
+            <h2>Langues maîtrisées</h2>
+            {languages.map((item, idx) => renderRemovableInput(item, idx, setLanguages, (i) => removeLine(setLanguages, i), "Ex: Français C2, Anglais B2"))}
+            <button type="button" onClick={() => addLine(setLanguages)} className="n17-add-btn">
+              <i className="ph ph-plus" aria-hidden="true" /> Ajouter une ligne
+            </button>
+          </div>
 
-                      <div className="space-y-3">
-                        <h4 className="text-xs font-bold uppercase" style={{ color: accentColor }}>Compétences</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {cvData.skills.map((skill, idx) => (
-                            <EditableText
-                              key={`skill-${idx}`}
-                              value={skill}
-                              onChange={(val) => setCvData((prev) => {
-                                const next = [...prev.skills]
-                                next[idx] = val
-                                return { ...prev, skills: next }
-                              })}
-                              className="text-xs px-2 py-1 rounded-full border border-white"
-                              tag="span"
-                              placeholder="Compétence"
-                            />
-                          ))}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setCvData((prev) => ({ ...prev, skills: [...prev.skills, 'Nouvelle compétence'] }))}
-                          className="text-xs underline"
-                          data-html2canvas-ignore="true"
-                        >
-                          Ajouter
-                        </button>
-                      </div>
+          <div className="n17-card">
+            <h2>Personnalisation</h2>
+            <div className="n17-customize-row">
+              <div>
+                <label className="n17-label">Couleur principale</label>
+                <input
+                  type="color"
+                  className="n17-color-input"
+                  value={accentColor}
+                  onChange={(e) => setAccentColor(e.target.value)}
+                />
+              </div>
+              <div className="n17-customize-photo">
+                <label className="n17-label">Photo de profil</label>
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="n17-add-btn">
+                  Modifier la photo
+                </button>
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onPhotoChange} />
+              </div>
+            </div>
 
-                      <div className="space-y-3">
-                        <h4 className="text-xs font-bold uppercase" style={{ color: accentColor }}>Qualités</h4>
-                        <EditableList
-                          items={cvData.qualities}
-                          onChange={(next) => setCvData((prev) => ({ ...prev, qualities: next }))}
-                          className="text-xs list-disc list-inside space-y-1"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setCvData((prev) => ({ ...prev, qualities: [...prev.qualities, 'Nouvelle qualité'] }))}
-                          className="text-xs underline"
-                          data-html2canvas-ignore="true"
-                        >
-                          Ajouter
-                        </button>
-                      </div>
+            <button
+              type="button"
+              onClick={handleGenerateClick}
+              className="n17-generate-btn"
+              disabled={generating || savingInfo}
+            >
+              {generating ? 'Génération…' : savingInfo ? 'Enregistrement…' : 'Générer mon CV'}
+            </button>
+            {generateError && <div className="n17-error">{generateError}</div>}
+          </div>
+        </>
+      )}
 
-                      <div className="space-y-3">
-                        <h4 className="text-xs font-bold uppercase" style={{ color: accentColor }}>Langues</h4>
-                        <EditableList
-                          items={cvData.languages}
-                          onChange={(next) => setCvData((prev) => ({ ...prev, languages: next }))}
-                          className="text-xs list-disc list-inside space-y-1"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setCvData((prev) => ({ ...prev, languages: [...prev.languages, 'Nouvelle langue'] }))}
-                          className="text-xs underline"
-                          data-html2canvas-ignore="true"
-                        >
-                          Ajouter
-                        </button>
-                      </div>
+      {cvData && (
+        <div className="n17-card">
+          <div className="n17-cv-actions">
+            <button type="button" onClick={exportPdf} className="n17-generate-btn n17-generate-btn-compact" disabled={exporting}>
+              {exporting ? 'Création du PDF…' : 'Télécharger en PDF'}
+            </button>
+            <button type="button" onClick={finishLevel} className="n17-add-btn" disabled={finishing}>
+              {finishing ? 'Validation…' : 'Terminer'}
+            </button>
+            {uploadingPdf && <span className="n17-hint">Upload en cours…</span>}
+            {pdfUrl && <a href={pdfUrl} target="_blank" rel="noreferrer" className="n17-hint-link">Voir le PDF en ligne</a>}
+          </div>
+
+          <div ref={cvWrapperRef} className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm" style={{ height: 1123 * cvScale }}>
+            <div
+              ref={cvRef}
+              className="bg-white text-gray-900"
+              style={{ width: 794, height: 1123, fontFamily: '"Bricolage Grotesque", "Inter", "Segoe UI", Arial, sans-serif', transform: `scale(${cvScale})`, transformOrigin: 'top left' }}
+            >
+              <div className="grid grid-cols-[1fr_1.6fr] h-full">
+                <div className="h-full p-6 flex flex-col gap-6" style={{ background: accentSoft }}>
+                  <div className="flex flex-col items-center gap-3">
+                    <button
+                      type="button"
+                      className="relative w-28 h-28 rounded-full overflow-hidden border-4 border-white shadow-lg"
+                      onClick={() => fileInputRef.current?.click()}
+                      data-html2canvas-ignore="true"
+                    >
+                      <img src={photoUrl || avatarUrl} alt="Profil" className="w-full h-full object-cover" />
+                      <span className="absolute inset-0 bg-black/40 text-white text-xs flex items-center justify-center opacity-0 hover:opacity-100">Modifier</span>
+                    </button>
+                    <div className="text-center">
+                      <EditableText
+                        value={cvData.fullName}
+                        onChange={(val) => setCvData((prev) => ({ ...prev, fullName: val }))}
+                        className="text-xl font-bold"
+                        tag="div"
+                        placeholder="Nom Prénom"
+                      />
+                      <EditableText
+                        value={cvData.title}
+                        onChange={(val) => setCvData((prev) => ({ ...prev, title: val }))}
+                        className="text-sm uppercase tracking-wide"
+                        tag="div"
+                        placeholder="Métier visé"
+                      />
                     </div>
+                  </div>
 
-                    <div className="h-full p-6 flex flex-col gap-6">
-                      <div>
-                        <h2 className="text-2xl font-bold" style={{ color: accentColor }}>Profil</h2>
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold uppercase" style={{ color: accentColor }}>Contact</h4>
+                    <div className="text-xs space-y-1">
+                      <div>{phone || 'Téléphone'}</div>
+                      <div>{userEmail || 'Email'}</div>
+                      <div>{location || 'Localisation'}</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold uppercase" style={{ color: accentColor }}>Compétences</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {cvData.skills.map((skill, idx) => (
                         <EditableText
-                          value={cvData.summary}
-                          onChange={(val) => setCvData((prev) => ({ ...prev, summary: val }))}
-                          className="text-sm mt-2 leading-relaxed"
-                          tag="p"
-                          placeholder="Résumé professionnel"
+                          key={`skill-${idx}`}
+                          value={skill}
+                          onChange={(val) => setCvData((prev) => {
+                            const next = [...prev.skills]
+                            next[idx] = val
+                            return { ...prev, skills: next }
+                          })}
+                          className="text-xs px-2 py-1 rounded-full border border-white"
+                          tag="span"
+                          placeholder="Compétence"
                         />
-                      </div>
-
-                      <div>
-                        <h2 className="text-lg font-bold" style={{ color: accentColor }}>Expérience professionnelle</h2>
-                        <div className="space-y-4 mt-3">
-                          {cvData.experiences.map((exp, idx) => (
-                            <div key={`exp-${idx}`} className="space-y-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <EditableText
-                                  value={exp.company}
-                                  onChange={(val) => setCvData((prev) => {
-                                    const next = [...prev.experiences]
-                                    next[idx] = { ...next[idx], company: val }
-                                    return { ...prev, experiences: next }
-                                  })}
-                                  className="font-semibold"
-                                  tag="span"
-                                  placeholder="Entreprise"
-                                />
-                                <EditableText
-                                  value={exp.period}
-                                  onChange={(val) => setCvData((prev) => {
-                                    const next = [...prev.experiences]
-                                    next[idx] = { ...next[idx], period: val }
-                                    return { ...prev, experiences: next }
-                                  })}
-                                  className="text-xs text-text-secondary"
-                                  tag="span"
-                                  placeholder="Dates"
-                                />
-                              </div>
-                              <EditableText
-                                value={exp.role}
-                                onChange={(val) => setCvData((prev) => {
-                                  const next = [...prev.experiences]
-                                  next[idx] = { ...next[idx], role: val }
-                                  return { ...prev, experiences: next }
-                                })}
-                                className="text-sm font-medium"
-                                tag="div"
-                                placeholder="Fonction"
-                              />
-                              <EditableList
-                                items={exp.details || []}
-                                onChange={(nextDetails) => setCvData((prev) => {
-                                  const next = [...prev.experiences]
-                                  next[idx] = { ...next[idx], details: nextDetails }
-                                  return { ...prev, experiences: next }
-                                })}
-                                className="text-sm list-disc list-inside space-y-1"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => setCvData((prev) => {
-                                  const next = [...prev.experiences]
-                                  const details = Array.isArray(next[idx].details) ? [...next[idx].details] : []
-                                  details.push('Nouvelle mission')
-                                  next[idx] = { ...next[idx], details }
-                                  return { ...prev, experiences: next }
-                                })}
-                                className="text-xs underline"
-                                data-html2canvas-ignore="true"
-                              >
-                                Ajouter une mission
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div>
-                        <h2 className="text-lg font-bold" style={{ color: accentColor }}>Parcours scolaire</h2>
-                        <div className="space-y-3 mt-3">
-                          {cvData.education.map((edu, idx) => (
-                            <div key={`edu-${idx}`} className="space-y-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <EditableText
-                                  value={edu.title}
-                                  onChange={(val) => setCvData((prev) => {
-                                    const next = [...prev.education]
-                                    next[idx] = { ...next[idx], title: val }
-                                    return { ...prev, education: next }
-                                  })}
-                                  className="font-semibold"
-                                  tag="span"
-                                  placeholder="Diplôme"
-                                />
-                                <EditableText
-                                  value={edu.period}
-                                  onChange={(val) => setCvData((prev) => {
-                                    const next = [...prev.education]
-                                    next[idx] = { ...next[idx], period: val }
-                                    return { ...prev, education: next }
-                                  })}
-                                  className="text-xs text-text-secondary"
-                                  tag="span"
-                                  placeholder="Dates"
-                                />
-                              </div>
-                              <EditableList
-                                items={edu.details || []}
-                                onChange={(nextDetails) => setCvData((prev) => {
-                                  const next = [...prev.education]
-                                  next[idx] = { ...next[idx], details: nextDetails }
-                                  return { ...prev, education: next }
-                                })}
-                                className="text-sm list-disc list-inside space-y-1"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => setCvData((prev) => {
-                                  const next = [...prev.education]
-                                  const details = Array.isArray(next[idx].details) ? [...next[idx].details] : []
-                                  details.push('Nouvel élément')
-                                  next[idx] = { ...next[idx], details }
-                                  return { ...prev, education: next }
-                                })}
-                                className="text-xs underline"
-                                data-html2canvas-ignore="true"
-                              >
-                                Ajouter un détail
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div>
-                        <h2 className="text-lg font-bold" style={{ color: accentColor }}>Centres d'intérêt</h2>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {cvData.interests.map((interest, idx) => (
-                            <EditableText
-                              key={`int-${idx}`}
-                              value={interest}
-                              onChange={(val) => setCvData((prev) => {
-                                const next = [...prev.interests]
-                                next[idx] = val
-                                return { ...prev, interests: next }
-                              })}
-                              className="text-xs px-2 py-1 rounded-full border border-gray-200"
-                              tag="span"
-                              placeholder="Intérêt"
-                            />
-                          ))}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setCvData((prev) => ({ ...prev, interests: [...prev.interests, 'Nouvel intérêt'] }))}
-                          className="text-xs underline"
-                          data-html2canvas-ignore="true"
-                        >
-                          Ajouter
-                        </button>
-                      </div>
+                      ))}
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setCvData((prev) => ({ ...prev, skills: [...prev.skills, 'Nouvelle compétence'] }))}
+                      className="text-xs underline"
+                      data-html2canvas-ignore="true"
+                    >
+                      Ajouter
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold uppercase" style={{ color: accentColor }}>Qualités</h4>
+                    <EditableList
+                      items={cvData.qualities}
+                      onChange={(next) => setCvData((prev) => ({ ...prev, qualities: next }))}
+                      className="text-xs list-disc list-inside space-y-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setCvData((prev) => ({ ...prev, qualities: [...prev.qualities, 'Nouvelle qualité'] }))}
+                      className="text-xs underline"
+                      data-html2canvas-ignore="true"
+                    >
+                      Ajouter
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold uppercase" style={{ color: accentColor }}>Langues</h4>
+                    <EditableList
+                      items={cvData.languages}
+                      onChange={(next) => setCvData((prev) => ({ ...prev, languages: next }))}
+                      className="text-xs list-disc list-inside space-y-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setCvData((prev) => ({ ...prev, languages: [...prev.languages, 'Nouvelle langue'] }))}
+                      className="text-xs underline"
+                      data-html2canvas-ignore="true"
+                    >
+                      Ajouter
+                    </button>
+                  </div>
+                </div>
+
+                <div className="h-full p-6 flex flex-col gap-6">
+                  <div>
+                    <h2 className="text-2xl font-bold" style={{ color: accentColor }}>Profil</h2>
+                    <EditableText
+                      value={cvData.summary}
+                      onChange={(val) => setCvData((prev) => ({ ...prev, summary: val }))}
+                      className="text-sm mt-2 leading-relaxed"
+                      tag="p"
+                      placeholder="Résumé professionnel"
+                    />
+                  </div>
+
+                  <div>
+                    <h2 className="text-lg font-bold" style={{ color: accentColor }}>Expérience professionnelle</h2>
+                    <div className="space-y-4 mt-3">
+                      {cvData.experiences.map((exp, idx) => (
+                        <div key={`exp-${idx}`} className="space-y-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <EditableText
+                              value={exp.company}
+                              onChange={(val) => setCvData((prev) => {
+                                const next = [...prev.experiences]
+                                next[idx] = { ...next[idx], company: val }
+                                return { ...prev, experiences: next }
+                              })}
+                              className="font-semibold"
+                              tag="span"
+                              placeholder="Entreprise"
+                            />
+                            <EditableText
+                              value={exp.period}
+                              onChange={(val) => setCvData((prev) => {
+                                const next = [...prev.experiences]
+                                next[idx] = { ...next[idx], period: val }
+                                return { ...prev, experiences: next }
+                              })}
+                              className="text-xs text-text-secondary"
+                              tag="span"
+                              placeholder="Dates"
+                            />
+                          </div>
+                          <EditableText
+                            value={exp.role}
+                            onChange={(val) => setCvData((prev) => {
+                              const next = [...prev.experiences]
+                              next[idx] = { ...next[idx], role: val }
+                              return { ...prev, experiences: next }
+                            })}
+                            className="text-sm font-medium"
+                            tag="div"
+                            placeholder="Fonction"
+                          />
+                          <EditableList
+                            items={exp.details || []}
+                            onChange={(nextDetails) => setCvData((prev) => {
+                              const next = [...prev.experiences]
+                              next[idx] = { ...next[idx], details: nextDetails }
+                              return { ...prev, experiences: next }
+                            })}
+                            className="text-sm list-disc list-inside space-y-1"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setCvData((prev) => {
+                              const next = [...prev.experiences]
+                              const details = Array.isArray(next[idx].details) ? [...next[idx].details] : []
+                              details.push('Nouvelle mission')
+                              next[idx] = { ...next[idx], details }
+                              return { ...prev, experiences: next }
+                            })}
+                            className="text-xs underline"
+                            data-html2canvas-ignore="true"
+                          >
+                            Ajouter une mission
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h2 className="text-lg font-bold" style={{ color: accentColor }}>Parcours scolaire</h2>
+                    <div className="space-y-3 mt-3">
+                      {cvData.education.map((edu, idx) => (
+                        <div key={`edu-${idx}`} className="space-y-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <EditableText
+                              value={edu.title}
+                              onChange={(val) => setCvData((prev) => {
+                                const next = [...prev.education]
+                                next[idx] = { ...next[idx], title: val }
+                                return { ...prev, education: next }
+                              })}
+                              className="font-semibold"
+                              tag="span"
+                              placeholder="Diplôme"
+                            />
+                            <EditableText
+                              value={edu.period}
+                              onChange={(val) => setCvData((prev) => {
+                                const next = [...prev.education]
+                                next[idx] = { ...next[idx], period: val }
+                                return { ...prev, education: next }
+                              })}
+                              className="text-xs text-text-secondary"
+                              tag="span"
+                              placeholder="Dates"
+                            />
+                          </div>
+                          <EditableList
+                            items={edu.details || []}
+                            onChange={(nextDetails) => setCvData((prev) => {
+                              const next = [...prev.education]
+                              next[idx] = { ...next[idx], details: nextDetails }
+                              return { ...prev, education: next }
+                            })}
+                            className="text-sm list-disc list-inside space-y-1"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setCvData((prev) => {
+                              const next = [...prev.education]
+                              const details = Array.isArray(next[idx].details) ? [...next[idx].details] : []
+                              details.push('Nouvel élément')
+                              next[idx] = { ...next[idx], details }
+                              return { ...prev, education: next }
+                            })}
+                            className="text-xs underline"
+                            data-html2canvas-ignore="true"
+                          >
+                            Ajouter un détail
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h2 className="text-lg font-bold" style={{ color: accentColor }}>Centres d'intérêt</h2>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {cvData.interests.map((interest, idx) => (
+                        <EditableText
+                          key={`int-${idx}`}
+                          value={interest}
+                          onChange={(val) => setCvData((prev) => {
+                            const next = [...prev.interests]
+                            next[idx] = val
+                            return { ...prev, interests: next }
+                          })}
+                          className="text-xs px-2 py-1 rounded-full border border-gray-200"
+                          tag="span"
+                          placeholder="Intérêt"
+                        />
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCvData((prev) => ({ ...prev, interests: [...prev.interests, 'Nouvel intérêt'] }))}
+                      className="text-xs underline"
+                      data-html2canvas-ignore="true"
+                    >
+                      Ajouter
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
+
+const styles = `
+.n17-page {
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-bottom: 24px;
+  font-family: "Bricolage Grotesque", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  color: #000;
+}
+.n17-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 28px;
+  box-shadow: 0 26px 60px -30px rgba(0,0,0,.22), 0 2px 10px rgba(0,0,0,.04);
+  padding: clamp(20px, 4vw, 32px);
+}
+.n17-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 30px;
+  right: 30px;
+  height: 6px;
+  border-radius: 0 0 8px 8px;
+  background: #c1ff72;
+}
+.n17-header h1 { margin: 0; font-size: 24px; font-weight: 800; line-height: 1.1; }
+.n17-header p { margin: 4px 0 0; color: #6b7280; font-size: 14px; }
+.n17-card h2 { margin: 0 0 14px; font-size: 17px; font-weight: 800; }
+
+.n17-state { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.n17-state i { font-size: 30px; color: #6b7280; }
+.n17-state p { margin: 0; color: #6b7280; font-size: 14px; }
+.n17-spinner { width: 26px; height: 26px; border: 3px solid rgba(0,0,0,.12); border-top-color: #000; border-radius: 999px; animation: n17Spin .8s linear infinite; }
+@keyframes n17Spin { to { transform: rotate(360deg); } }
+
+.n17-error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 12px 16px; border-radius: 14px; font-size: 13px; margin-top: 10px; }
+
+.n17-field-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: center; margin-bottom: 10px; }
+.n17-experience-row .n17-field-row { grid-template-columns: 1fr 1fr auto; }
+.n17-input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(0,0,0,.12);
+  background: #fff;
+  font-size: 14px;
+  color: #111827;
+  outline: none;
+  font-family: inherit;
+}
+.n17-input:focus { border-color: #000; }
+.n17-remove-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,.12);
+  background: #fff;
+  color: #6b7280;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.n17-remove-btn:hover { border-color: #000; color: #000; }
+.n17-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(0,0,0,.16);
+  background: #fff;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.n17-add-btn:hover:not(:disabled) { border-color: #000; }
+.n17-add-btn:disabled { opacity: .6; cursor: default; }
+
+.n17-suggestions { margin-bottom: 14px; }
+.n17-suggestions p { margin: 0 0 8px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: #9ca3af; }
+.n17-suggestion-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.n17-suggestion-chip {
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,.14);
+  background: #f2fbe4;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  cursor: pointer;
+}
+.n17-suggestion-chip:hover { border-color: #000; }
+
+.n17-customize-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 20px; margin-bottom: 18px; }
+.n17-label { display: block; font-size: 13px; color: #6b7280; margin-bottom: 6px; }
+.n17-color-input { display: block; width: 64px; height: 42px; border-radius: 12px; border: 1.5px solid rgba(0,0,0,.12); padding: 2px; cursor: pointer; }
+.n17-customize-photo { flex: 1; min-width: 180px; }
+
+.n17-generate-btn {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 999px;
+  border: 0;
+  background: #111827;
+  color: #c1ff72;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.n17-generate-btn:hover:not(:disabled) { transform: translateY(-1px); }
+.n17-generate-btn:disabled { opacity: .6; cursor: default; }
+.n17-generate-btn-compact { width: auto; padding: 0 22px; }
+
+.n17-cv-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 18px; }
+.n17-hint { font-size: 13px; color: #6b7280; }
+.n17-hint-link { font-size: 13px; color: #111827; text-decoration: underline; text-underline-offset: 2px; }
+
+@media (max-width: 640px) {
+  .n17-card { padding: 18px; border-radius: 22px; }
+  .n17-experience-row .n17-field-row { grid-template-columns: 1fr auto; }
+  .n17-experience-row .n17-field-row .n17-input:first-child { grid-column: 1 / -1; }
+}
+`

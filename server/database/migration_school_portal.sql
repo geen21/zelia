@@ -7,6 +7,12 @@ ALTER TABLE public.companies
   ADD COLUMN IF NOT EXISTS contact_first_name TEXT,
   ADD COLUMN IF NOT EXISTS contact_last_name TEXT;
 
+-- A newly registered school account is pending until an admin approves it
+-- (NULL = pending, non-null = approved at that timestamp). Leads/formations
+-- endpoints are gated on this in server/routes/schoolPortal.js.
+ALTER TABLE public.companies
+  ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
+
 -- Needed for accent/case-insensitive school name matching (e.g. "Ecole" vs "École").
 CREATE EXTENSION IF NOT EXISTS unaccent;
 
@@ -82,7 +88,7 @@ RETURNS TABLE (
   inscrit_le timestamptz,
   total_count bigint
 )
-LANGUAGE sql STABLE
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, auth, pg_temp
 AS $$
   WITH normalized_target AS (
     SELECT lower(unaccent(trim(coalesce(p_school_name, '')))) AS target
@@ -200,3 +206,11 @@ AS $$
   LIMIT greatest(coalesce(p_limit, 100), 1)
   OFFSET greatest(coalesce(p_offset, 0), 0);
 $$;
+
+-- rpc_school_leads is SECURITY DEFINER (needed to read auth.users) and returns
+-- other students' PII, so it must NEVER be callable directly by anon/authenticated
+-- roles via PostgREST — only the backend (service_role via supabaseAdmin) may call it.
+REVOKE ALL ON FUNCTION public.rpc_school_leads(text, int, int) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.rpc_school_leads(text, int, int) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_school_leads(text, int, int) TO service_role;
+

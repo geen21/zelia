@@ -272,24 +272,20 @@ router.get('/formations/search', optionalAuth, async (req, res) => {
 
     console.warn('Catalog formations RPC search error, using fallback:', rpcError.message)
 
-    if (isStatementTimeout(rpcError)) {
-      const payload = makePagePayload([], page, pageSize)
-      setCachedFormationSearch(cacheKey, payload)
-      return res.json(payload)
-    }
-
     const fallback = await runFormationFallbackSearch({ normalizedQuery, region, departement, from, pageSize })
     if (fallback.error) {
       if (isStatementTimeout(fallback.error)) {
-        const payload = makePagePayload([], page, pageSize)
-        setCachedFormationSearch(cacheKey, payload)
-        return res.json(payload)
+        // Ne pas mettre en cache un résultat vide dû à un timeout : cela
+        // masquerait les retries pendant toute la durée du cache.
+        return res.json(makePagePayload([], page, pageSize))
       }
       return res.status(400).json({ error: fallback.error.message })
     }
 
     const payload = makePagePayload(fallback.data || [], page, pageSize)
-    setCachedFormationSearch(cacheKey, payload)
+    if ((fallback.data || []).length > 0) {
+      setCachedFormationSearch(cacheKey, payload)
+    }
     return res.json(payload)
   } catch (err) {
     console.error('Catalog formations search error:', err)

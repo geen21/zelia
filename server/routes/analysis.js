@@ -90,12 +90,26 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
     })
 
     // Prepare the prompt for Gemini
+    // NOTE: keep this list of 10 personas in sync with client/src/lib/personalities.js
+    const zeliaPersonaContext = `Voici la cartographie officielle des 10 personnalités Zélia. Choisis toujours celle qui correspond le mieux aux réponses :\n`
+      + `- ZL-01 - Stratège (ex. Kylian) : voit toujours plusieurs coups à l'avance, visionnaire et concentré. Domaines : ingénierie, finance, data, jeux vidéo, conseil.\n`
+      + `- ZL-02 - Bâtisseur (ex. Léon) : concret, minutieux, préfère construire que théoriser. Domaines : artisanat, BTP, informatique, chirurgie.\n`
+      + `- ZL-03 - Connecteur (ex. David) : sociable, énergique, sait fédérer les gens. Domaines : communication, RH, événementiel, commerce.\n`
+      + `- ZL-04 - Protecteur (ex. Louanne) : empathique, rassurant, prend soin des autres naturellement. Domaines : social, santé, éducation, justice.\n`
+      + `- ZL-05 - Observateur (ex. Ines) : curieuse, analytique, remarque ce que les autres ne voient pas. Domaines : recherche, psychologie, data, écriture.\n`
+      + `- ZL-06 - Loyal (ex. Antoine) : constant, rigoureux, fiable en toutes circonstances. Domaines : santé, enseignement, fonction publique, RH.\n`
+      + `- ZL-07 - Insoumis (ex. Aya) : libre, convaincue, préfère questionner les règles que les suivre. Domaines : entrepreneuriat, droit, journalisme, art engagé.\n`
+      + `- ZL-08 - Compétiteur (ex. Karim) : déterminé, ambitieux, n'aime pas perdre. Domaines : sport, business, sciences, droit.\n`
+      + `- ZL-09 - Créateur (ex. Angèle) : original, sensible, imagination débordante. Domaines : design, architecture, audiovisuel, mode.\n`
+      + `- ZL-10 - Explorateur (ex. Véro) : aventureuse, ouverte, jamais rassasiée de nouveauté. Domaines : voyage/tourisme, sciences, journalisme, start-up.`
+
     const prompt = `Vous êtes un conseiller d'orientation professionnel expert qui fournit des analyses courtes, utiles et chaleureuses en français. `
       + `Vous devez synthétiser les tendances sans citer les questions, les réponses brutes, ni les numéros. `
       + `INTERDICTION ABSOLUE d'écrire des références comme Q2, Q14, question 3, réponse 8, item 12, ou toute mention similaire. `
       + `Votre tâche est de générer une réponse structurée qui DOIT IMPÉRATIVEMENT contenir EXACTEMENT les sections suivantes:\n\n`
+      + `${zeliaPersonaContext}\n\n`
       + `###Type de personalité###\n`
-      + `[Nom de la personalité]\n\n`
+      + `[Choisis IMPÉRATIVEMENT l'une des 10 personnalités ci-dessus. Format obligatoire : "ZL-0X - Titre (ex. Prénom)", par exemple "ZL-01 - Stratège (ex. Kylian)". N'invente jamais une autre personnalité.]\n\n`
   + `###Analyse de personnalité###\n`
   + `[Analyse synthétique de la personnalité de l'utilisateur, avec un langage simple et pédagogique. 160 à 220 mots maximum. Ne cite jamais les questions ni les réponses.]\n\n`
       + `###Évaluation des compétences###\n`
@@ -367,11 +381,12 @@ router.post('/generate-analysis-by-type', authenticateToken, async (req, res) =>
 
     let prompt
     if (isMbti) {
-  const archetypeContext = `Voici la cartographie officielle des 8 archétypes de personnalités Zélia. Choisis toujours celui qui correspond le mieux aux réponses et utilise uniquement son code officiel :\n- ZL-01 - Visionnaire Lumineux : imagine des solutions ambitieuses, met l'humain au centre et projette des scénarios inspirants.\n- ZL-02 - Ingénieur Stratégiste : structure les idées, modélise des systèmes fiables et sécurise la croissance.\n- ZL-03 - Médiateur Empathique : connecte les personnes, apaise les tensions et crée des environnements inclusifs.\n- ZL-04 - Catalyseur Créatif : révèle des concepts inattendus, raconte des histoires impactantes et expérimente sans cesse.\n- ZL-05 - Gardien Pragmatique : fiabilise les opérations, protège la qualité et anticipe les risques.\n- ZL-06 - Explorateur Curieux : capte les signaux faibles, questionne les modèles établis et ouvre de nouvelles pistes.\n- ZL-07 - Connecteur Energique : fédère des communautés, active des réseaux et dynamise les projets.\n- ZL-08 - Orchestrateur Visionnaire : synchronise les parties prenantes, pilote les transformations et donne du sens collectif.`
+  // NOTE: keep this list of 10 personas in sync with client/src/lib/personalities.js
+  const archetypeContext = `Voici la cartographie officielle des 10 personnalités Zélia. Choisis toujours celle qui correspond le mieux aux réponses et utilise uniquement son code officiel :\n- ZL-01 - Stratège (ex. Kylian) : voit toujours plusieurs coups à l'avance, visionnaire et concentré. Domaines : ingénierie, finance, data, jeux vidéo, conseil.\n- ZL-02 - Bâtisseur (ex. Léon) : concret, minutieux, préfère construire que théoriser. Domaines : artisanat, BTP, informatique, chirurgie.\n- ZL-03 - Connecteur (ex. David) : sociable, énergique, sait fédérer les gens. Domaines : communication, RH, événementiel, commerce.\n- ZL-04 - Protecteur (ex. Louanne) : empathique, rassurant, prend soin des autres naturellement. Domaines : social, santé, éducation, justice.\n- ZL-05 - Observateur (ex. Ines) : curieuse, analytique, remarque ce que les autres ne voient pas. Domaines : recherche, psychologie, data, écriture.\n- ZL-06 - Loyal (ex. Antoine) : constant, rigoureux, fiable en toutes circonstances. Domaines : santé, enseignement, fonction publique, RH.\n- ZL-07 - Insoumis (ex. Aya) : libre, convaincue, préfère questionner les règles que les suivre. Domaines : entrepreneuriat, droit, journalisme, art engagé.\n- ZL-08 - Compétiteur (ex. Karim) : déterminé, ambitieux, n'aime pas perdre. Domaines : sport, business, sciences, droit.\n- ZL-09 - Créateur (ex. Angèle) : original, sensible, imagination débordante. Domaines : design, architecture, audiovisuel, mode.\n- ZL-10 - Explorateur (ex. Véro) : aventureuse, ouverte, jamais rassasiée de nouveauté. Domaines : voyage/tourisme, sciences, journalisme, start-up.`
 
       prompt = `${opening}\n\n${archetypeContext}\n\nTa réponse doit IMPÉRATIVEMENT suivre EXACTEMENT ces sections et titres :\n\n` +
         `###Type de personalité###\n` +
-  `[Format obligatoire : "ZL-0X - Nom de l'archétype" suivi d'une phrase d'accroche (max 25 mots) qui relie le profil à ses forces clés. N'utilise jamais de codes MBTI ou de suites de quatre lettres.]\n\n` +
+  `[Format obligatoire : "ZL-0X - Titre (ex. Prénom)" suivi d'une phrase d'accroche (max 25 mots) qui relie le profil à ses forces clés. N'utilise jamais de codes MBTI ou de suites de quatre lettres.]\n\n` +
         `###Analyse de personnalité###\n` +
         `[Analyse approfondie structurée en 3 à 4 paragraphes, maximum 300 mots. Fais explicitement le lien entre l'archétype Zélia retenu et des environnements de travail/métiers d'avenir adaptés. Cite au moins deux titres de métiers précis (identiques ou très proches de ceux listés ensuite) et explique en quoi ils valorisent les forces du profil.]\n\n` +
         `###Tes qualités###\n` +

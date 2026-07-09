@@ -20,7 +20,7 @@ function resolveApiBaseUrl() {
   }
 }
 
-const API_BASE_URL = resolveApiBaseUrl()
+export const API_BASE_URL = resolveApiBaseUrl()
 
 // Create axios instance with default configuration
 const apiClient = axios.create({
@@ -241,13 +241,4 @@ export const ecolesAPI = {
   matched: () => apiClient.get('/ecoles/matched'),
   submit: (formationId) => apiClient.post('/ecoles/submit', { formation_id: formationId }),
   mySubmissions: () => apiClient.get('/ecoles/my-submissions')
-}
-
-export const schoolPortalAPI = {
-  searchSchools: (q) => apiClient.get('/school-portal/schools/search', { params: { q } }),
-  register: (payload) => apiClient.post('/school-portal/register', payload),
-  getMe: () => apiClient.get('/school-portal/me'),
-  updateMe: (payload) => apiClient.put('/school-portal/me', payload),
-  getLeads: (params = {}) => apiClient.get('/school-portal/leads', { params }),
-  exportLeadsCsv: () => apiClient.get('/school-portal/leads/export.csv', { responseType: 'blob' })
 }

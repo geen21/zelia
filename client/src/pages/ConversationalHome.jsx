@@ -9,8 +9,6 @@ const ORIENTATION_VIDEO_DONE_IDS = ORIENTATION_VIDEO_ITEMS.map((video) => video.
 
 const ACTIONS = [
   { id: 'bilan', label: 'Mon bilan', detail: 'Relire ton analyse et tes pistes principales.', to: '/app/results', icon: 'ph-sparkle', doneWhen: 'hasResults' },
-  { id: 'formations', label: 'Formations et écoles', detail: 'Explorer les formations et écoles qui peuvent te correspondre.', to: '/app/formations', icon: 'ph-graduation-cap', doneIds: ['orientation_final_selection', 'niveau21_filieres', 'niveau22_preference', 'niveau23_schools'] },
-  { id: 'jobs', label: 'Métiers', detail: 'Comparer des métiers et opportunités.', to: '/app/emplois', icon: 'ph-briefcase', donePrefixes: ['niveau18_rank_'] },
   { id: 'cv', label: 'CV', detail: 'Zélia te pose les bonnes questions puis génère ton CV.', to: '/app/outils/cv', icon: 'ph-identification-card', doneIds: ['niveau17_cv_data', 'niveau17_cv_pdf_url'] },
   { id: 'letter', label: 'Lettre', detail: 'Créer une lettre claire pour une formation ou un métier.', to: '/app/lettre', icon: 'ph-file-text', doneIds: ['lettre_generated', 'niveau14_letter_generated'] },
   { id: 'english', label: 'Anglais', detail: 'Évaluer ton niveau et savoir quoi travailler.', to: '/app/outils/anglais', icon: 'ph-translate', doneIds: ['niv5_english_level'] },
@@ -27,9 +25,7 @@ const ACTIONS = [
 // Curated 10-step "Crée ton avenir" timeline shown on the dashboard header.
 const DASHBOARD_STEPS = [
   { actionId: 'bilan', title: "Test d'orientation", timeMin: 15, points: 60 },
-  { actionId: 'jobs', title: "Explore les métiers et tes centres d'intérêt", timeMin: 5, points: 40 },
   { actionId: 'personality', title: 'Découvre tes domaines de prédilection', timeMin: 8, points: 35 },
-  { actionId: 'formations', title: 'Trouve tes formations idéales', timeMin: 6, points: 30 },
   { actionId: 'cv', title: 'Prépare ton CV', timeMin: 10, points: 50 },
   { actionId: 'letter', title: 'Rédige ta lettre de motivation', timeMin: 8, points: 35 },
   { actionId: 'english', title: "Teste ton niveau d'anglais", timeMin: 6, points: 25 },
@@ -159,13 +155,13 @@ export default function ConversationalHome() {
             <i className="ph ph-wrench" aria-hidden="true" />
             <span>Outils</span>
           </Link>
-          <Link to="/app/emplois" className="dash-pill">
-            <i className="ph ph-briefcase" aria-hidden="true" />
-            <span>Métiers</span>
-          </Link>
           <Link to="/app/formations" className="dash-pill">
             <i className="ph ph-graduation-cap" aria-hidden="true" />
             <span>Formations</span>
+          </Link>
+          <Link to="/app/results" className="dash-pill">
+            <i className="ph ph-chart-line-up" aria-hidden="true" />
+            <span>Résultats</span>
           </Link>
         </nav>
       </section>

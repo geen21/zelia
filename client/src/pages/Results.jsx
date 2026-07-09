@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { jwtDecode } from 'jwt-decode'
+import { Link, useNavigate } from 'react-router-dom'
 import apiClient, { usersAPI } from '../lib/api.js'
 import PersonaRevealCard from '../components/PersonaRevealCard.jsx'
 import { getPersonaBySlug } from '../lib/personas.js'
@@ -11,24 +10,9 @@ export default function Results() {
 	const [orientationSelections, setOrientationSelections] = useState([])
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState('')
-	const [avatarUrls, setAvatarUrls] = useState({ type: '', analysis: '', skills: '', jobs: '', studies: '' })
 	const [personaInfo, setPersonaInfo] = useState(null) // { persona, avatarUrl }
-	const [activeTab, setActiveTab] = useState('orientation') // 'orientation' | 'personality' | 'final-selection'
 	const RESULT_GENERATION_ATTEMPTS = 3
 	const RESULT_RETRY_DELAY_MS = 1200
-
-	// Get user ID from token (used only for avatar seed)
-	const getUserId = () => {
-		const token = localStorage.getItem('supabase_auth_token') || localStorage.getItem('token')
-		if (!token) return null
-		try {
-			const decoded = jwtDecode(token)
-			return decoded.sub || decoded.user_id || decoded.id
-		} catch (e) {
-			console.error('Error decoding token:', e)
-			return null
-		}
-	}
 
 	useEffect(() => {
 		loadExistingResults()
@@ -53,43 +37,6 @@ export default function Results() {
 		})()
 		return () => { cancelled = true }
 	}, [])
-
-	const buildAvatarUrl = (base, config, { seed, eyes, mouth } = {}) => {
-		let urlStr = typeof base === 'string' && base.startsWith('http')
-			? base
-			: 'https://api.dicebear.com/7.x/adventurer/svg'
-
-		try {
-			const url = new URL(urlStr)
-			if (seed && !url.searchParams.has('seed')) url.searchParams.set('seed', String(seed))
-			if (eyes) url.searchParams.set('eyes', eyes)
-			if (mouth) url.searchParams.set('mouth', mouth)
-			return url.toString()
-		} catch {
-			return `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed || 'user')}`
-		}
-	}
-
-	useEffect(() => {
-		if (!analysisData) return
-		const userId = getUserId() || 'user'
-		const base = analysisData.avatarUrlBase || ''
-		const cfg = analysisData.avatarConfig || null
-		const eyesVariants = Array.from({ length: 24 }, (_, i) => `variant${String(i + 1).padStart(2, '0')}`)
-		const happyMouth = ['happy01', 'happy02', 'happy03']
-
-		const pick = (arr) => arr[Math.floor(Math.random() * arr.length)]
-		const build = (extraParams = {}) => buildAvatarUrl(base, cfg, { seed: userId, ...extraParams })
-
-		setAvatarUrls({
-			type: build({ eyes: pick(eyesVariants) }),
-			analysis: build({ mouth: pick(happyMouth) }),
-			skills: build({ eyes: pick(eyesVariants), mouth: pick(happyMouth) }),
-			jobs: build({ eyes: pick(eyesVariants) }),
-			studies: build({ mouth: pick(happyMouth) })
-		})
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [analysisData])
 
 	const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -263,7 +210,6 @@ export default function Results() {
 			try {
 				savedOrientationSelections = await fetchOrientationSelections()
 				setOrientationSelections(savedOrientationSelections)
-				if (savedOrientationSelections.length) setActiveTab('final-selection')
 			} catch (selectionErr) {
 				if (selectionErr.response?.status === 401) {
 					setError('Utilisateur non authentifié')
@@ -308,7 +254,6 @@ export default function Results() {
 					}
 					if (genErr.response?.status === 404) {
 						if (savedOrientationSelections.length) {
-							setActiveTab('final-selection')
 							setLoading(false)
 							return
 						}
@@ -325,7 +270,6 @@ export default function Results() {
 			}
 
 			if (savedOrientationSelections.length) {
-				setActiveTab('final-selection')
 				setLoading(false)
 				return
 			}
@@ -337,7 +281,6 @@ export default function Results() {
 				setError('Utilisateur non authentifié')
 				setLoading(false)
 			} else if (savedOrientationSelections.length) {
-				setActiveTab('final-selection')
 				setLoading(false)
 			} else {
 				console.error('Error loading results:', err)
@@ -569,17 +512,37 @@ export default function Results() {
 		return `${items.slice(0, -1).join(', ')} et ${items[items.length - 1]}`
 	}
 
+	const ResultsHeader = () => (
+		<section className="results-card results-header">
+			<div>
+				<h1>Mes résultats</h1>
+				<p>Ton bilan d'orientation, en un coup d'œil.</p>
+			</div>
+			<nav className="results-pill-nav" aria-label="Navigation rapide">
+				<Link to="/app/outils" className="results-pill">
+					<i className="ph ph-wrench" aria-hidden="true" />
+					<span>Outils</span>
+				</Link>
+				<Link to="/app/formations" className="results-pill">
+					<i className="ph ph-graduation-cap" aria-hidden="true" />
+					<span>Formations</span>
+				</Link>
+				<Link to="/app" className="results-pill">
+					<i className="ph ph-compass" aria-hidden="true" />
+					<span>Conseiller</span>
+				</Link>
+			</nav>
+		</section>
+	)
+
 	if (loading) {
 		return (
-			<div className="space-y-6">
-				<div>
-					<h1 className="text-xl md:text-2xl font-semibold mb-1">Mes Résultats</h1>
-					<p className="text-text-secondary">Analyse personnalisée de votre questionnaire</p>
-				</div>
-				{renderTabs()}
-				<div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">
-					<div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-					<p className="mt-2 text-text-secondary">Chargement... cela peut prendre jusqu'à 40 secondes…</p>
+			<div className="results-page">
+				<style>{resultsStyles}</style>
+				<ResultsHeader />
+				<div className="results-card results-state">
+					<div className="results-spinner" />
+					<p>Chargement... cela peut prendre jusqu'à 40 secondes…</p>
 				</div>
 			</div>
 		)
@@ -587,20 +550,13 @@ export default function Results() {
 
 	if (error) {
 		return (
-			<div className="space-y-6">
-				<div>
-					<h1 className="text-xl md:text-2xl font-semibold mb-1">Mes Résultats</h1>
-					<p className="text-text-secondary">Analyse personnalisée de votre questionnaire</p>
-				</div>
-				{renderTabs()}
-				<div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">
-					<div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-						<svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-						</svg>
-					</div>
-					<h3 className="text-lg font-semibold mb-2">Erreur</h3>
-					<p className="text-text-secondary">{error}</p>
+			<div className="results-page">
+				<style>{resultsStyles}</style>
+				<ResultsHeader />
+				<div className="results-card results-state">
+					<i className="ph ph-warning-circle" aria-hidden="true" />
+					<h3>Erreur</h3>
+					<p>{error}</p>
 				</div>
 			</div>
 		)
@@ -608,350 +564,241 @@ export default function Results() {
 
 	if (!analysisData && orientationSelections.length === 0) {
 		return (
-			<div className="space-y-6">
-				<div>
-					<h1 className="text-xl md:text-2xl font-semibold mb-1">Mes Résultats</h1>
-					<p className="text-text-secondary">Analyse personnalisée de votre questionnaire</p>
-				</div>
-				{renderTabs()}
-				<div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">
-					<div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-						<svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-						</svg>
-					</div>
-					<h3 className="text-lg font-semibold mb-2">Aucun résultat disponible</h3>
-					<p className="text-text-secondary">
-						Vous n'avez pas encore de résultats enregistrés. Une fois le questionnaire complété et l'analyse effectuée, vos résultats apparaîtront ici.
-					</p>
+			<div className="results-page">
+				<style>{resultsStyles}</style>
+				<ResultsHeader />
+				<div className="results-card results-state">
+					<i className="ph ph-info" aria-hidden="true" />
+					<h3>Aucun résultat disponible</h3>
+					<p>Tu n'as pas encore de résultats enregistrés. Une fois le questionnaire complété, tes résultats apparaîtront ici.</p>
+					<button type="button" className="results-cta" onClick={() => navigate('/orientation')}>Commencer le parcours</button>
 				</div>
 			</div>
 		)
 	}
 
-	const ContinueAdventureButton = () => {
-		return null
-	}
+	const data = buildOrientationDisplayData(analysisData?.inscriptionResults || analysisData)
+	const hasSelections = orientationSelections.length > 0
+	const formations = orientationSelections.filter((selection) => selection.type === 'formation')
+	const metiers = orientationSelections.filter((selection) => selection.type === 'metier')
+	const hasAnalysisDetail = Boolean(data?.personalityAnalysis || data?.skillsAssessment)
+	const showFallbackJobs = !hasSelections && Array.isArray(data?.jobRecommendations) && data.jobRecommendations.length > 0
+	const showFallbackStudies = !hasSelections && Array.isArray(data?.studyRecommendations) && data.studyRecommendations.length > 0
 
-	const renderOrientationTab = () => {
-		const data = buildOrientationDisplayData(analysisData?.inscriptionResults || analysisData) // fallback if only simple results
-		if (!data) {
-			return (
-				<div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">
-					<h2 className="text-lg font-semibold mb-2">Aucun bilan d'orientation disponible</h2>
-					<p className="text-text-secondary">Tu peux retrouver tes formations et métiers validés dans l'onglet dédié.</p>
-				</div>
-			)
-		}
-		return (
-			<div className="space-y-6">
-				{personaInfo?.persona ? (
-					<PersonaRevealCard persona={personaInfo.persona} avatarUrl={personaInfo.avatarUrl} />
-				) : data.personalityType && (
-					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
-						<div className="flex items-center gap-3 mb-3">
-							<div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center">
-								<svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-								</svg>
-							</div>
-							<h2 className="text-xl font-bold text-gray-900">Ton profil d'orientation</h2>
-						</div>
-						<p className="text-gray-800 font-semibold text-lg">{data.personalityType}</p>
-					</div>
-				)}
-				{(data.personalityAnalysis || data.skillsAssessment) && (
-					<details className="relative bg-surface border border-line rounded-xl shadow-card p-6">
-						<summary className="cursor-pointer text-lg font-bold select-none">Voir le détail de mon analyse</summary>
-						<div className="mt-4 space-y-6">
-							{data.personalityAnalysis && (
-								<div>
-									<h3 className="font-semibold mb-2">Ce que ton profil raconte</h3>
-									<div className="space-y-4">
-										{renderParagraphs(data.personalityAnalysis)}
-									</div>
-								</div>
-							)}
-							{data.skillsAssessment && (
-								<div>
-									<h3 className="font-semibold mb-2">Tes forces</h3>
-									<div className="space-y-3">
-										{renderParagraphs(data.skillsAssessment)}
-									</div>
-								</div>
-							)}
-						</div>
-					</details>
-				)}
-				<ContinueAdventureButton />
-				{data.jobRecommendations && data.jobRecommendations.length > 0 && (
-					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
-						<div className="flex items-center gap-3 mb-4">
-							<div className="w-10 h-10 bg-orange-600 rounded-full flex items-center justify-center">
-								<svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2V6" />
-								</svg>
-							</div>
-							<h2 className="text-xl font-bold">Idées de métiers</h2>
-						</div>
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							{data.jobRecommendations.map((job, index) => (
-								<div key={index} className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-									<h3 className="font-semibold text-orange-900 mb-2">{job.title}</h3>
-									{(job.skills || []).length > 0 && (
-										<ul className="text-sm text-orange-700 list-disc list-inside">
-											{job.skills.map((s, i) => <li key={i}>{s}</li>)}
-										</ul>
-									)}
-								</div>
-							))}
-						</div>
-					</div>
-				)}
-				<ContinueAdventureButton />
-				{data.studyRecommendations && data.studyRecommendations.length > 0 && (
-					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
-						<div className="flex items-center gap-3 mb-4">
-							<div className="w-10 h-10 bg-teal-600 rounded-full flex items-center justify-center">
-								<svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-								</svg>
-							</div>
-							<h2 className="text-xl font-bold">Pistes d'études</h2>
-						</div>
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							{data.studyRecommendations.map((study, index) => (
-								<div key={index} className="bg-teal-50 border border-teal-200 rounded-lg p-4">
-									<h3 className="font-semibold text-teal-900 mb-1">{study.degree}</h3>
-									<p className="text-sm text-teal-700">{study.type}</p>
-								</div>
-							))}
-						</div>
-					</div>
-				)}
-			</div>
-		)
-	}
+	return (
+		<div className="results-page">
+			<style>{resultsStyles}</style>
+			<ResultsHeader />
 
-	const renderPersonalityTab = () => {
-		// Personality tab strictly uses MBTI questionnaire results
-		const mbti = analysisData?.mbtiResults
-		if (!mbti) {
-			return (
-				<div className="bg-blue-50 border border-blue-200 rounded-xl p-8 text-center shadow-card">
-					<h2 className="text-xl font-bold text-blue-800 mb-2">Analyse de personnalité</h2>
-					<p className="text-blue-700">Complète le questionnaire de personnalité pour découvrir ton profil Zélia.</p>
-					<button
-						onClick={() => navigate('/app/outils')}
-						className="mt-4 px-5 py-2.5 bg-black text-white text-sm rounded-full font-medium hover:bg-gray-800 transition"
-					>
-						Aller à l'analyse de personnalité
-					</button>
-				</div>
-			)
-		}
+			{personaInfo?.persona && (
+				<PersonaRevealCard persona={personaInfo.persona} avatarUrl={personaInfo.avatarUrl} />
+			)}
 
-		return (
-			<div className="space-y-6">
-				{mbti.personalityType && (
-					<div className="relative bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl shadow-card p-6">
-						{avatarUrls.type && (
-							<img src={avatarUrls.type} alt="Avatar" className="absolute right-4 top-4 w-14 h-14 rounded-full border border-white shadow-sm bg-white object-contain" />
-						)}
-						<div className="flex items-center gap-3 mb-3">
-							<div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-								<svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-								</svg>
-							</div>
-							<h2 className="text-xl font-bold text-blue-900">Type de personnalité</h2>
-						</div>
-						<p className="text-blue-800 font-semibold text-lg">{mbti.personalityType}</p>
-					</div>
-				)}
-				<ContinueAdventureButton />
-				{mbti.personalityAnalysis && (
-					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
-						{avatarUrls.analysis && (
-							<img src={avatarUrls.analysis} alt="Avatar" className="absolute right-4 top-4 w-14 h-14 rounded-full border border-white shadow-sm bg-white object-contain" />
-						)}
-						<div className="flex items-center gap-3 mb-4">
-							<div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
-								<svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-							</svg>
-							</div>
-							<h2 className="text-xl font-bold">Analyse de personnalité</h2>
-						</div>
-						<div className="space-y-4">
-							{renderParagraphs(mbti.personalityAnalysis)}
-						</div>
-					</div>
-				)}
-				<ContinueAdventureButton />
-				{mbti.skillsAssessment && (
-					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
-						{avatarUrls.skills && (
-							<img src={avatarUrls.skills} alt="Avatar" className="absolute right-4 top-4 w-14 h-14 rounded-full border border-white shadow-sm bg-white object-contain" />
-						)}
-						<div className="flex items-center gap-3 mb-4">
-							<div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center">
-								<svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-								</svg>
-							</div>
-							<h2 className="text-xl font-bold">Tes qualités</h2>
-						</div>
-						<div className="space-y-4">
-							{renderParagraphs(mbti.skillsAssessment)}
-						</div>
-					</div>
-				)}
-				<ContinueAdventureButton />
-				{mbti.jobRecommendations && mbti.jobRecommendations.length > 0 && (
-					<div className="relative bg-surface border border-line rounded-xl shadow-card p-6">
-						{avatarUrls.jobs && (
-							<img src={avatarUrls.jobs} alt="Avatar" className="absolute right-4 top-4 w-14 h-14 rounded-full border border-white shadow-sm bg-white object-contain" />
-						)}
-						<div className="flex items-center gap-3 mb-4">
-							<div className="w-10 h-10 bg-orange-600 rounded-full flex items-center justify-center">
-								<svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2V6" />
-							</svg>
-							</div>
-							<h2 className="text-xl font-bold">Recommandations d'emploi</h2>
-						</div>
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							{mbti.jobRecommendations.map((job, index) => (
-								<div key={index} className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-									<h3 className="font-semibold text-orange-900 mb-2">{job.title}</h3>
-									<div className="text-sm text-orange-700">
-										<span className="font-medium">Compétences requises:</span>
-										<ul className="mt-1 list-disc list-inside">
-											{(job.skills || []).map((skill, skillIndex) => (
-												<li key={skillIndex}>{skill}</li>
-											))}
-										</ul>
-									</div>
-								</div>
-							))}
-						</div>
-					</div>
-				)}
-				<ContinueAdventureButton />
-			</div>
-		)
-	}
-
-	const renderFinalSelectionTab = () => {
-		if (!orientationSelections.length) {
-			return (
-				<div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">
-					<div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-						<i className="ph ph-list-checks text-2xl text-gray-700" aria-hidden="true" />
-					</div>
-					<h2 className="text-lg font-semibold mb-2">Aucune sélection enregistrée</h2>
-					<p className="text-text-secondary mb-4">Quand tu valides des formations ou métiers dans le flow d'orientation, ils apparaissent ici.</p>
-					<button
-						onClick={() => navigate('/orientation')}
-						className="px-5 py-2.5 bg-black text-white text-sm rounded-full font-medium hover:bg-gray-800 transition"
-					>
-						Relancer l'orientation
-					</button>
-				</div>
-			)
-		}
-
-		const formations = orientationSelections.filter((selection) => selection.type === 'formation')
-		const metiers = orientationSelections.filter((selection) => selection.type === 'metier')
-
-		return (
-			<div className="space-y-6">
-				<div className="bg-surface border border-line rounded-xl shadow-card p-6">
-					<div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
+			{hasSelections && (
+				<section className="results-card">
+					<div className="results-section-head">
 						<div>
-							<h2 className="text-xl font-bold">Formations & métiers gardés</h2>
-							<p className="text-sm text-text-secondary mt-1">Ta dernière sélection validée dans le flow d'orientation.</p>
+							<h2>Formations & métiers gardés</h2>
+							<p>Ta sélection validée dans le parcours d'orientation.</p>
 						</div>
-						<div className="flex gap-2 text-xs text-text-secondary">
-							<span className="px-3 py-1 rounded-full bg-teal-50 border border-teal-200">{formations.length} formations</span>
-							<span className="px-3 py-1 rounded-full bg-orange-50 border border-orange-200">{metiers.length} métiers</span>
+						<div className="results-count-chips">
+							<span className="results-chip results-chip-teal">{formations.length} formations</span>
+							<span className="results-chip results-chip-orange">{metiers.length} métiers</span>
 						</div>
 					</div>
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+					<div className="results-selection-grid">
 						{orientationSelections.map((selection) => (
-							<div key={selection.id} className={`border rounded-lg p-4 ${selection.type === 'metier' ? 'bg-orange-50 border-orange-200' : 'bg-teal-50 border-teal-200'}`}>
-								<div className="flex items-start justify-between gap-3 mb-2">
-									<span className={`text-xs font-medium px-2 py-1 rounded-full ${selection.type === 'metier' ? 'bg-orange-100 text-orange-800' : 'bg-teal-100 text-teal-800'}`}>
-										{selection.typeLabel}
-									</span>
+							<div key={selection.id} className={`results-selection-card ${selection.type === 'metier' ? 'is-metier' : 'is-formation'}`}>
+								<div className="results-selection-top">
+									<span className="results-selection-type">{selection.typeLabel}</span>
 									{selection.link && (
-										<a href={selection.link} target="_blank" rel="noreferrer" className="text-xs font-medium text-gray-700 hover:text-black underline underline-offset-2">
-											{selection.linkLabel}
-										</a>
+										<a href={selection.link} target="_blank" rel="noreferrer" className="results-selection-link">{selection.linkLabel}</a>
 									)}
 								</div>
-								<h3 className={`font-semibold mb-1 ${selection.type === 'metier' ? 'text-orange-950' : 'text-teal-950'}`}>{selection.title}</h3>
-								{selection.subtitle && <p className={`text-sm ${selection.type === 'metier' ? 'text-orange-800' : 'text-teal-800'}`}>{selection.subtitle}</p>}
-								{selection.description && <p className="text-sm text-gray-700 mt-3 leading-relaxed">{selection.description}</p>}
+								<h3>{selection.title}</h3>
+								{selection.subtitle && <p className="results-selection-subtitle">{selection.subtitle}</p>}
+								{selection.description && <p className="results-selection-description">{selection.description}</p>}
 								{selection.tags.length > 0 && (
-									<div className="flex flex-wrap gap-2 mt-3">
+									<div className="results-selection-tags">
 										{selection.tags.map((tag) => (
-											<span key={tag} className="px-2 py-1 rounded-full bg-white/70 border border-white text-xs text-gray-700">{tag}</span>
+											<span key={tag} className="results-selection-tag">{tag}</span>
 										))}
 									</div>
 								)}
 							</div>
 						))}
 					</div>
-				</div>
-			</div>
-		)
-	}
+				</section>
+			)}
 
-	function renderTabs() {
-		return (
-			<div className="flex flex-wrap gap-3 mt-4">
-				<button
-					className={`px-4 py-2 rounded-full text-sm font-medium border transition ${activeTab === 'orientation' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}
-					onClick={() => setActiveTab('orientation')}
-				>
-					Résultats d'orientation
-				</button>
-				<button
-					className={`px-4 py-2 rounded-full text-sm font-medium border transition ${activeTab === 'personality' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}
-					onClick={() => setActiveTab('personality')}
-				>
-					Analyse de personnalité
-				</button>
-				<button
-					className={`px-4 py-2 rounded-full text-sm font-medium border transition ${activeTab === 'final-selection' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}
-					onClick={() => setActiveTab('final-selection')}
-				>
-					Formations & métiers
-				</button>
-			</div>
-		)
-	}
-
-	return (
-		<div className="space-y-6">
-			<div>
-				<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-					<div>
-						<h1 className="text-xl md:text-2xl font-semibold mb-1">Mes Résultats</h1>
-						<p className="text-text-secondary">Analyse personnalisée basée sur vos réponses</p>
+			{hasAnalysisDetail && (
+				<details className="results-card results-details">
+					<summary>Voir le détail de mon analyse</summary>
+					<div className="results-details-body">
+						{data.personalityAnalysis && (
+							<div>
+								<h3>Ce que ton profil raconte</h3>
+								<div className="results-paragraphs">{renderParagraphs(data.personalityAnalysis)}</div>
+							</div>
+						)}
+						{data.skillsAssessment && (
+							<div>
+								<h3>Tes forces</h3>
+								<div className="results-paragraphs">{renderParagraphs(data.skillsAssessment)}</div>
+							</div>
+						)}
 					</div>
-					<button
-						onClick={() => navigate('/app/outils')}
-						className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
-					>
-						Ouvrir la boîte à outils
-					</button>
-				</div>
-				{renderTabs()}
-			</div>
-			{activeTab === 'final-selection' ? renderFinalSelectionTab() : activeTab === 'orientation' ? renderOrientationTab() : renderPersonalityTab()}
+				</details>
+			)}
+
+			{showFallbackJobs && (
+				<section className="results-card">
+					<h2>Idées de métiers</h2>
+					<div className="results-basic-grid">
+						{data.jobRecommendations.map((job, index) => (
+							<div key={index} className="results-basic-card is-orange">
+								<h3>{job.title}</h3>
+								{(job.skills || []).length > 0 && (
+									<ul>{job.skills.map((s, i) => <li key={i}>{s}</li>)}</ul>
+								)}
+							</div>
+						))}
+					</div>
+				</section>
+			)}
+
+			{showFallbackStudies && (
+				<section className="results-card">
+					<h2>Pistes d'études</h2>
+					<div className="results-basic-grid">
+						{data.studyRecommendations.map((study, index) => (
+							<div key={index} className="results-basic-card is-teal">
+								<h3>{study.degree}</h3>
+								<p>{study.type}</p>
+							</div>
+						))}
+					</div>
+				</section>
+			)}
 		</div>
 	)
 }
+
+const resultsStyles = `
+.results-page {
+	--results-lime: #c1ff72;
+	--results-pink: #f68fff;
+	--results-ink: #111827;
+	width: 100%;
+	max-width: 900px;
+	margin: 0 auto;
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+	padding-bottom: 24px;
+	font-family: "Bricolage Grotesque", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+	color: #000;
+}
+.results-card {
+	position: relative;
+	background: #fff;
+	border: 1px solid rgba(0,0,0,.06);
+	border-radius: 28px;
+	box-shadow: 0 26px 60px -30px rgba(0,0,0,.22), 0 2px 10px rgba(0,0,0,.04);
+	padding: clamp(20px, 4vw, 32px);
+}
+.results-card::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 30px;
+	right: 30px;
+	height: 6px;
+	border-radius: 0 0 8px 8px;
+	background: var(--results-lime);
+}
+.results-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.results-header h1 { margin: 0; font-size: 24px; font-weight: 800; line-height: 1.1; }
+.results-header p { margin: 4px 0 0; color: #6b7280; font-size: 14px; }
+.results-pill-nav { display: flex; gap: 8px; }
+.results-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	min-height: 42px;
+	padding: 0 14px;
+	border-radius: 999px;
+	background: #000;
+	color: #fff;
+	font-size: 13px;
+	font-weight: 700;
+	text-decoration: none;
+	transition: transform .15s ease;
+}
+.results-pill:hover { transform: translateY(-2px); }
+.results-pill i { font-size: 17px; color: var(--results-lime); }
+
+.results-state { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.results-state i { font-size: 32px; color: #6b7280; }
+.results-state h3 { margin: 4px 0 0; font-size: 18px; font-weight: 700; }
+.results-state p { margin: 0; color: #6b7280; font-size: 14px; max-width: 420px; }
+.results-spinner { width: 26px; height: 26px; border: 3px solid rgba(0,0,0,.12); border-top-color: #000; border-radius: 999px; animation: resultsSpin 0.8s linear infinite; }
+@keyframes resultsSpin { to { transform: rotate(360deg); } }
+.results-cta {
+	margin-top: 6px;
+	min-height: 46px;
+	padding: 0 22px;
+	border-radius: 999px;
+	border: 0;
+	background: #000;
+	color: #fff;
+	font-weight: 700;
+	font-size: 14px;
+	cursor: pointer;
+}
+
+.results-section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.results-section-head h2 { margin: 0; font-size: 20px; font-weight: 800; }
+.results-section-head p { margin: 4px 0 0; color: #6b7280; font-size: 14px; }
+.results-count-chips { display: flex; gap: 8px; font-size: 12px; color: #4b5563; }
+.results-chip { padding: 5px 12px; border-radius: 999px; font-weight: 700; }
+.results-chip-teal { background: #ecfdf5; border: 1px solid #99f6e4; }
+.results-chip-orange { background: #fff7ed; border: 1px solid #fed7aa; }
+
+.results-selection-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.results-selection-card { border-radius: 20px; padding: 18px; border: 1px solid transparent; }
+.results-selection-card.is-formation { background: #f0fdfa; border-color: #99f6e4; }
+.results-selection-card.is-metier { background: #fff7ed; border-color: #fed7aa; }
+.results-selection-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.results-selection-type { font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.7); text-transform: uppercase; letter-spacing: .03em; }
+.results-selection-link { font-size: 12px; font-weight: 700; color: #111827; text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
+.results-selection-card h3 { margin: 0 0 4px; font-size: 16px; font-weight: 750; }
+.results-selection-subtitle { margin: 0; font-size: 13px; color: #4b5563; }
+.results-selection-description { margin: 10px 0 0; font-size: 13px; color: #374151; line-height: 1.55; }
+.results-selection-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.results-selection-tag { padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.7); border: 1px solid rgba(255,255,255,.9); font-size: 11px; color: #374151; }
+
+.results-details summary { cursor: pointer; font-size: 17px; font-weight: 800; list-style: none; }
+.results-details summary::-webkit-details-marker { display: none; }
+.results-details summary::before { content: '+'; display: inline-block; width: 18px; font-weight: 800; }
+.results-details[open] summary::before { content: '−'; }
+.results-details-body { margin-top: 16px; display: flex; flex-direction: column; gap: 20px; }
+.results-details-body h3 { margin: 0 0 8px; font-size: 15px; font-weight: 750; }
+.results-paragraphs { display: flex; flex-direction: column; gap: 10px; color: #374151; font-size: 14px; line-height: 1.6; }
+
+.results-basic-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 14px; }
+.results-basic-card { border-radius: 16px; padding: 14px 16px; }
+.results-basic-card.is-orange { background: #fff7ed; border: 1px solid #fed7aa; }
+.results-basic-card.is-teal { background: #f0fdfa; border: 1px solid #99f6e4; }
+.results-basic-card h3 { margin: 0 0 6px; font-size: 14px; font-weight: 750; }
+.results-basic-card p, .results-basic-card ul { margin: 0; font-size: 13px; color: #4b5563; }
+.results-basic-card ul { padding-left: 18px; }
+
+@media (max-width: 640px) {
+	.results-page { gap: 14px; }
+	.results-card { padding: 18px; border-radius: 22px; }
+	.results-pill { min-height: 38px; font-size: 12px; padding: 0 11px; }
+	.results-pill span { display: none; }
+}
+`
+

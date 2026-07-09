@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import SEO from '../components/SEO'
 import BlogHeaderNav from './blog/BlogHeaderNav'
 import { formationsAPI } from '../lib/api'
+import { supabase } from '../lib/supabase'
 import './FormationPublic.css'
 import {
   getFormationTitle,
@@ -44,6 +45,127 @@ function RelatedCard({ formation }) {
         {[formation.etab_nom, formation.commune].filter(Boolean).join(' · ')}
       </div>
     </Link>
+  )
+}
+
+function RequestInfoCard({ formationId }) {
+  const [authChecked, setAuthChecked] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [email, setEmail] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [status, setStatus] = useState('idle') // idle | loading | done | error
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return
+      setIsAuthenticated(Boolean(data?.session?.access_token))
+      setAuthChecked(true)
+    }).catch(() => { if (active) setAuthChecked(true) })
+    return () => { active = false }
+  }, [])
+
+  async function submitRequest(payload) {
+    setStatus('loading')
+    setError('')
+    try {
+      await formationsAPI.requestInfo(formationId, payload)
+      setStatus('done')
+    } catch (requestError) {
+      setError(requestError?.response?.data?.error || 'Échec de la demande, réessaie plus tard.')
+      setStatus('error')
+    }
+  }
+
+  function handleAuthenticatedClick() {
+    submitRequest({})
+  }
+
+  function handleAnonymousSubmit(event) {
+    event.preventDefault()
+    if (!EMAIL_PATTERN.test(email)) {
+      setError('Merci de renseigner un email valide.')
+      setStatus('error')
+      return
+    }
+    submitRequest({ email, firstName, lastName })
+  }
+
+  if (!authChecked) return null
+
+  if (status === 'done') {
+    return (
+      <div className="fp-card">
+        <h2><i className="ph ph-check-circle" aria-hidden="true"></i>Demande envoyée</h2>
+        <p>L&apos;établissement recevra ta demande et pourra te recontacter.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="fp-card">
+      <h2><i className="ph ph-paper-plane-tilt" aria-hidden="true"></i>Demander plus d&apos;informations</h2>
+      <p>Envoie ta demande, l&apos;établissement pourra te recontacter directement.</p>
+
+      {isAuthenticated && !showForm && (
+        <button
+          type="button"
+          onClick={handleAuthenticatedClick}
+          disabled={status === 'loading'}
+          className="fp-btn fp-btn--primary"
+          style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
+        >
+          <i className="ph ph-paper-plane-tilt" aria-hidden="true"></i>
+          {status === 'loading' ? 'Envoi...' : 'Demander plus d\'informations'}
+        </button>
+      )}
+
+      {!isAuthenticated && !showForm && (
+        <button
+          type="button"
+          onClick={() => setShowForm(true)}
+          className="fp-btn fp-btn--primary"
+          style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
+        >
+          <i className="ph ph-paper-plane-tilt" aria-hidden="true"></i>Demander plus d&apos;informations
+        </button>
+      )}
+
+      {!isAuthenticated && showForm && (
+        <form onSubmit={handleAnonymousSubmit} style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="Ton email"
+            className="fp-input"
+          />
+          <input
+            type="text"
+            value={firstName}
+            onChange={(event) => setFirstName(event.target.value)}
+            placeholder="Prénom (optionnel)"
+            className="fp-input"
+          />
+          <input
+            type="text"
+            value={lastName}
+            onChange={(event) => setLastName(event.target.value)}
+            placeholder="Nom (optionnel)"
+            className="fp-input"
+          />
+          <button type="submit" disabled={status === 'loading'} className="fp-btn fp-btn--primary" style={{ width: '100%', justifyContent: 'center' }}>
+            {status === 'loading' ? 'Envoi...' : 'Envoyer ma demande'}
+          </button>
+        </form>
+      )}
+
+      {error && <p style={{ color: '#c0392b', marginTop: 8, fontSize: 13 }}>{error}</p>}
+    </div>
   )
 }
 

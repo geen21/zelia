@@ -130,6 +130,7 @@ export const formationsAPI = {
   create: (formationData) => apiClient.post('/formations', formationData),
   update: (id, formationData) => apiClient.put(`/formations/${id}`, formationData),
   delete: (id) => apiClient.delete(`/formations/${id}`),
+  requestInfo: (id, payload = {}) => apiClient.post(`/formations/${id}/request-info`, payload),
 }
 
 // Questionnaires API

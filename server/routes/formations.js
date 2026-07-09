@@ -1,9 +1,11 @@
 import express from 'express'
-import { supabase } from '../config/supabase.js'
+import { supabase, supabaseAdmin } from '../config/supabase.js'
 import { authenticateToken, optionalAuth } from '../middleware/auth.js'
 import { withFormationDisplayFields } from '../utils/slug.js'
 
 const router = express.Router()
+
+const REQUEST_INFO_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const PUBLIC_FORMATION_COLUMNS = `id,
          nm,
@@ -172,6 +174,67 @@ router.get('/:id', optionalAuth, async (req, res) => {
     res.json({ formation: withFormationDisplayFields(data) })
   } catch (error) {
     console.error('Formation fetch error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// POST /api/formations/:id/request-info - "demander plus d'informations" on the
+// public formation page. Works both for logged-in students (identity + profile
+// name/email reused) and anonymous visitors (email required in the body).
+// Creates/updates a lead the matching school can see in the school portal.
+router.post('/:id/request-info', optionalAuth, async (req, res) => {
+  try {
+    const { id } = req.params
+    const { data: formation, error: formationError } = await fetchFormationById(id)
+    if (formationError || !formation) {
+      return res.status(404).json({ error: 'Formation not found' })
+    }
+
+    const db = supabaseAdmin || supabase
+    let userId = null
+    let email = ''
+    let firstName = ''
+    let lastName = ''
+
+    if (req.user) {
+      userId = req.user.id
+      email = String(req.user.email || '').trim().toLowerCase()
+      const { data: profile } = await db
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('id', userId)
+        .maybeSingle()
+      firstName = profile?.first_name || ''
+      lastName = profile?.last_name || ''
+    } else {
+      email = String(req.body?.email || '').trim().toLowerCase()
+      firstName = String(req.body?.firstName || '').trim()
+      lastName = String(req.body?.lastName || '').trim()
+      if (!email || !REQUEST_INFO_EMAIL_PATTERN.test(email)) {
+        return res.status(400).json({ error: 'Merci de renseigner un email valide.' })
+      }
+    }
+
+    const withDisplay = withFormationDisplayFields(formation)
+
+    const { error: insertError } = await db
+      .from('formation_info_requests')
+      .upsert({
+        user_id: userId,
+        formation_source: 'formation_france',
+        formation_ref: String(formation.id),
+        school_name: formation.etab_nom || '',
+        formation_title: withDisplay.title,
+        email,
+        first_name: firstName,
+        last_name: lastName
+      }, { onConflict: 'formation_ref,email', ignoreDuplicates: true })
+
+    if (insertError) throw insertError
+
+    res.status(201).json({ message: 'Demande envoyée' })
+  } catch (error) {
+    console.error('POST /formations/:id/request-info error:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })

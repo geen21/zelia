@@ -52,6 +52,42 @@ function requireAdminKey(req, res, next) {
   next()
 }
 
+// Emails/names are masked server-side by default (never sent unmasked to the
+// browser) — this is a real redaction, not a CSS blur a school could remove
+// via devtools. A school can reveal a specific lead via the /reveal routes,
+// which is recorded in school_lead_reveals so the choice persists.
+function maskEmail(value) {
+  const email = String(value || '')
+  const at = email.indexOf('@')
+  if (at <= 0) return '••••••'
+  const local = email.slice(0, at)
+  const domain = email.slice(at + 1)
+  const dot = domain.lastIndexOf('.')
+  const domainName = dot > 0 ? domain.slice(0, dot) : domain
+  const tld = dot > 0 ? domain.slice(dot) : ''
+  const maskPart = (part) => (part.length <= 2 ? `${part.slice(0, 1)}•••` : `${part.slice(0, 2)}${'•'.repeat(Math.max(part.length - 2, 3))}`)
+  return `${maskPart(local)}@${maskPart(domainName)}${tld}`
+}
+
+function maskName(value) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  return `${text[0].toUpperCase()}${'•'.repeat(Math.max(text.length - 1, 3))}`
+}
+
+async function fetchRevealedKeys(db, companyId) {
+  const { data, error } = await db.from('school_lead_reveals').select('lead_key').eq('company_id', companyId)
+  if (error) throw error
+  return new Set((data || []).map((row) => row.lead_key))
+}
+
+async function revealLeadKey(db, companyId, leadKey) {
+  const { error } = await db
+    .from('school_lead_reveals')
+    .upsert({ company_id: companyId, lead_key: leadKey }, { onConflict: 'company_id,lead_key' })
+  if (error) throw error
+}
+
 function normalizeSchoolName(value) {
   return String(value || '')
     .toLowerCase()
@@ -277,11 +313,18 @@ router.get('/leads', authenticateToken, async (req, res) => {
 
     const leads = data || []
     const total = leads.length > 0 ? Number(leads[0].total_count) : 0
+    const revealedKeys = await fetchRevealedKeys(db, company.id)
 
     res.json({
       leads: leads.map((lead) => {
         const { total_count, ...rest } = lead
-        return rest
+        const revealed = revealedKeys.has(`user:${rest.user_id}`)
+        return {
+          ...rest,
+          email: revealed ? rest.email : maskEmail(rest.email),
+          nom: revealed ? rest.nom : maskName(rest.nom),
+          revealed
+        }
       }),
       total,
       limit,
@@ -320,13 +363,23 @@ router.get('/leads/export.csv', authenticateToken, async (req, res) => {
 
     if (error) throw error
 
+    const revealedKeys = await fetchRevealedKeys(db, company.id)
+    const maskedData = (data || []).map((lead) => {
+      const revealed = revealedKeys.has(`user:${lead.user_id}`)
+      return {
+        ...lead,
+        email: revealed ? lead.email : maskEmail(lead.email),
+        nom: revealed ? lead.nom : maskName(lead.nom)
+      }
+    })
+
     const columns = [
       'prenom', 'nom', 'email', 'genre', 'age', 'departement', 'classe_actuelle',
       'niveau_vise', 'moyenne', 'budget', 'preference_geo', 'matieres_fortes',
       'formations_choisies_ecole', 'nb_demandes_infos_ecole', 'inscrit_le'
     ]
 
-    const rows = (data || []).map((lead) => columns.map((column) => csvEscape(lead[column])).join(';'))
+    const rows = maskedData.map((lead) => columns.map((column) => csvEscape(lead[column])).join(';'))
     const csv = [columns.join(';'), ...rows].join('\n')
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
@@ -334,6 +387,37 @@ router.get('/leads/export.csv', authenticateToken, async (req, res) => {
     res.send(`\uFEFF${csv}`)
   } catch (error) {
     console.error('GET /school-portal/leads/export.csv error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// POST /api/school-portal/leads/:userId/reveal - unmask a specific lead's email/nom (persisted)
+router.post('/leads/:userId/reveal', authenticateToken, async (req, res) => {
+  try {
+    const db = requireAdminClient(res)
+    if (!db) return
+
+    const company = await resolveOwnedCompany(db, req.user.id)
+    if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
+    if (!requireApprovedCompany(company, res)) return
+
+    const targetUserId = req.params.userId
+
+    const { data, error } = await db.rpc('rpc_school_leads', {
+      p_school_name: company.name,
+      p_limit: 5000,
+      p_offset: 0
+    })
+    if (error) throw error
+
+    const match = (data || []).find((lead) => lead.user_id === targetUserId)
+    if (!match) return res.status(404).json({ error: 'Lead introuvable pour cet établissement' })
+
+    await revealLeadKey(db, company.id, `user:${targetUserId}`)
+
+    res.json({ email: match.email, nom: match.nom })
+  } catch (error) {
+    console.error('POST /school-portal/leads/:userId/reveal error:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })
@@ -390,6 +474,77 @@ router.get('/formations', authenticateToken, async (req, res) => {
     res.json({ formations: [...nationalFormations, ...partnerFormations] })
   } catch (error) {
     console.error('GET /school-portal/formations error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// GET /api/school-portal/direct-requests - "demander plus d'informations" clicks
+// on public formation pages, matched to this school. Also counted as leads.
+router.get('/direct-requests', authenticateToken, async (req, res) => {
+  try {
+    const db = requireAdminClient(res)
+    if (!db) return
+
+    const company = await resolveOwnedCompany(db, req.user.id)
+    if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
+    if (!requireApprovedCompany(company, res)) return
+
+    const { data, error } = await db
+      .from('formation_info_requests')
+      .select('*')
+      .eq('school_name', company.name)
+      .order('created_at', { ascending: false })
+      .limit(500)
+
+    if (error) throw error
+
+    const revealedKeys = await fetchRevealedKeys(db, company.id)
+
+    res.json({
+      requests: (data || []).map((row) => {
+        const revealed = revealedKeys.has(`request:${row.id}`)
+        return {
+          id: row.id,
+          formationTitle: row.formation_title || '',
+          firstName: row.first_name || '',
+          lastName: revealed ? (row.last_name || '') : maskName(row.last_name),
+          email: revealed ? row.email : maskEmail(row.email),
+          createdAt: row.created_at,
+          revealed
+        }
+      })
+    })
+  } catch (error) {
+    console.error('GET /school-portal/direct-requests error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// POST /api/school-portal/direct-requests/:id/reveal - unmask a direct request's email/nom (persisted)
+router.post('/direct-requests/:id/reveal', authenticateToken, async (req, res) => {
+  try {
+    const db = requireAdminClient(res)
+    if (!db) return
+
+    const company = await resolveOwnedCompany(db, req.user.id)
+    if (!company) return res.status(403).json({ error: 'Aucun compte école associé' })
+    if (!requireApprovedCompany(company, res)) return
+
+    const { data: row, error } = await db
+      .from('formation_info_requests')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('school_name', company.name)
+      .maybeSingle()
+
+    if (error) throw error
+    if (!row) return res.status(404).json({ error: 'Demande introuvable pour cet établissement' })
+
+    await revealLeadKey(db, company.id, `request:${row.id}`)
+
+    res.json({ email: row.email, lastName: row.last_name || '' })
+  } catch (error) {
+    console.error('POST /school-portal/direct-requests/:id/reveal error:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })

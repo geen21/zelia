@@ -1581,7 +1581,7 @@ export default function OrientationFlow() {
     localStorage.setItem('answers_cache', JSON.stringify(payload))
     setError('')
     setPhase('analysis')
-    setBusyMessage('Ton profil est en train de prendre forme...')
+    setBusyMessage('On te fait ton analyse de personnalité et on trouve des formations et métiers pour toi...')
 
     if (!(await isAuthenticated())) {
       setBusyMessage('')

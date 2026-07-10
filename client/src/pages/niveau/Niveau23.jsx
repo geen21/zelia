@@ -47,7 +47,7 @@ function useTypewriter(message, durationMs) {
 
 const SCHOOL_SEARCH_LIMIT = 20
 const MIN_RECOMMENDED_SCHOOLS = 5
-const SCHOOL_LOADING_MESSAGE = 'Ne quitte pas la page, on cherche parmi 35 000 formations rien que pour toi ;)'
+const SCHOOL_LOADING_MESSAGE = 'Ne quitte pas la page, on cherche parmi 127 498 formations rien que pour toi ;)'
 
 function formationKey(formation) {
   const nm = Array.isArray(formation?.nm) ? formation.nm.find(Boolean) : formation?.nm

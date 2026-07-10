@@ -264,6 +264,17 @@ router.get('/formations/search', optionalAuth, async (req, res) => {
       rpcError = retry.error
     }
 
+    // The formation_france/metiers_france tables intermittently throw a
+    // Postgres statement timeout (57014), especially on the first query
+    // after a while (cold start). This is transient - an immediate retry of
+    // the exact same query usually succeeds - so retry once before falling
+    // back to the slower ILIKE search (mirrors the pattern in formations.js).
+    if (rpcError && isStatementTimeout(rpcError)) {
+      const retry = await runFormationRpc(keywords)
+      rpcData = retry.data
+      rpcError = retry.error
+    }
+
     if (!rpcError) {
       const payload = makePagePayload(rpcData || [], page, pageSize)
       setCachedFormationSearch(cacheKey, payload)
@@ -272,7 +283,10 @@ router.get('/formations/search', optionalAuth, async (req, res) => {
 
     console.warn('Catalog formations RPC search error, using fallback:', rpcError.message)
 
-    const fallback = await runFormationFallbackSearch({ normalizedQuery, region, departement, from, pageSize })
+    let fallback = await runFormationFallbackSearch({ normalizedQuery, region, departement, from, pageSize })
+    if (fallback.error && isStatementTimeout(fallback.error)) {
+      fallback = await runFormationFallbackSearch({ normalizedQuery, region, departement, from, pageSize })
+    }
     if (fallback.error) {
       if (isStatementTimeout(fallback.error)) {
         // Ne pas mettre en cache un résultat vide dû à un timeout : cela

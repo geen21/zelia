@@ -18,7 +18,7 @@ const AI_FORMATION_KEYWORD_COUNT = 6
 const CATALOG_RETRY_ATTEMPTS = 2
 const PRESELECTED_CANDIDATES_PER_KIND = 4
 const MAX_PARTNER_FINAL_RESULTS = 4
-const FORMATION_SEARCH_WAITING_MESSAGE = 'Ne quitte pas la page, on cherche parmi 35 000 formations rien que pour toi ;)'
+const FORMATION_SEARCH_WAITING_MESSAGE = 'Ne quitte pas la page, on cherche parmi 127 498 formations rien que pour toi ;)'
 const CATALOG_SEARCH_CONCURRENCY = 4
 const MAX_FORMATION_QUERY_VARIANTS = 2
 const FINAL_FORMATION_SEARCH_PLAN_COUNT = 4
@@ -2283,7 +2283,7 @@ export default function OrientationFlow() {
           </div>
           <p className="persona-tagline">
             {dbFormationsLoading
-              ? 'On cherche parmi 35 000 formations celles qui collent vraiment à ton profil...'
+              ? 'On cherche parmi 127 498 formations celles qui collent vraiment à ton profil...'
               : dbFormations.length
                 ? "Sélectionnées à partir de tes réponses, ton niveau visé et ta localisation. Coche celles pour lesquelles tu veux plus d'infos."
                 : "On n'a pas trouvé de correspondance exacte tout de suite, mais voilà des pistes cohérentes avec ton profil."}

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import apiClient from '../lib/api'
 
-const FORMATION_LOADING_MESSAGE = 'Ne quitte pas la page, on cherche parmi 35 000 formations rien que pour toi ;)'
+const FORMATION_LOADING_MESSAGE = 'Ne quitte pas la page, on cherche parmi 127 498 formations rien que pour toi ;)'
 
 export default function Formations({ embedded = false } = {}){
 	const [q, setQ] = useState('')

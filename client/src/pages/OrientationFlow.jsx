@@ -714,6 +714,24 @@ function filterCandidatesByTargetStudyLevel(candidates = [], profile = {}) {
   return candidates.filter((candidate) => candidateMatchesTargetStudyLevel(candidate, targetLevel))
 }
 
+function buildGenericFormationPlans(targetLevel) {
+  const queries = targetLevel >= 8
+    ? ['médecine', 'master', 'ingénieur']
+    : targetLevel >= 5
+      ? ['master', 'ingénieur', 'école de commerce']
+      : targetLevel >= 3
+        ? ['licence', 'bachelor', 'but']
+        : targetLevel >= 2
+          ? ['bts', 'but', 'dut']
+          : ['bts', 'licence', 'bachelor']
+  return queries.map((query) => ({
+    kind: 'formation',
+    query,
+    title: `Formations ${query}`,
+    reason: 'Sélection large cohérente avec ton niveau visé'
+  }))
+}
+
 function buildTargetedFormationQueries(query, targetLevel) {
   const cleanQuery = cleanDetailText(query, 80)
   if (!cleanQuery) return []
@@ -1922,21 +1940,63 @@ export default function OrientationFlow() {
   const getInitialFormationDeckCandidates = async (profile, department, count = AI_FORMATION_DECK_SIZE) => {
     const analysisCandidates = filterCandidatesByTargetStudyLevel(getAnalysisFormationCandidates(analysisData, count), profile)
     const analysisPlans = buildAnalysisRecommendationPlans('formations', analysisData, flattenTextParts(profile).join(' ')).slice(0, count)
-    const catalogCandidates = analysisPlans.length
-      ? await fetchTableCandidates(analysisPlans, count, 'formations', {
-        studyLocation: profile.study_location,
-        department,
-        profile,
-        maxFormationPlans: Math.min(analysisPlans.length, count),
-        maxFormationQueryVariants: 1
-      }).catch((catalogError) => {
-        console.warn('Initial formation catalog search failed', catalogError)
-        return []
-      })
-      : []
+    const genericPlans = buildGenericFormationPlans(getTargetStudyLevel(profile))
 
+    // Progressive broadening: with 127k+ rows in formation_france, the deck
+    // must never come back empty. Each wave relaxes one constraint (department
+    // scoping, AI keywords, target-level filtering); we stop as soon as enough
+    // real database rows are collected.
+    const searchWaves = [
+      analysisPlans.length ? {
+        plans: analysisPlans,
+        context: {
+          studyLocation: profile.study_location,
+          department,
+          profile,
+          maxFormationPlans: Math.min(analysisPlans.length, count),
+          maxFormationQueryVariants: MAX_FORMATION_QUERY_VARIANTS
+        }
+      } : null,
+      analysisPlans.length ? {
+        plans: analysisPlans,
+        context: {
+          profile,
+          maxFormationPlans: Math.min(analysisPlans.length, count),
+          maxFormationQueryVariants: MAX_FORMATION_QUERY_VARIANTS
+        }
+      } : null,
+      {
+        plans: genericPlans,
+        context: {
+          studyLocation: profile.study_location,
+          department,
+          profile,
+          maxFormationQueryVariants: 1
+        }
+      },
+      {
+        // Last resort: generic diploma queries, no department, no level filter.
+        plans: genericPlans,
+        context: { profile: {}, maxFormationQueryVariants: 1 }
+      }
+    ].filter(Boolean)
+
+    let catalogCandidates = []
+    for (const wave of searchWaves) {
+      if (catalogCandidates.length >= count) break
+      const waveCandidates = await fetchTableCandidates(wave.plans, count, 'formations', wave.context)
+        .catch((catalogError) => {
+          console.warn('Formation catalog search wave failed', catalogError)
+          return []
+        })
+      catalogCandidates = mergeUniqueCandidates(catalogCandidates, waveCandidates)
+    }
+
+    // Real formation_france rows first: the reveal screen only keeps concrete
+    // candidates, and merging analysis tiles first would let them consume the
+    // one-per-formation-title diversity slots of the very DB rows they describe.
     return diversifyCandidates(
-      filterCandidatesByTargetStudyLevel(mergeUniqueCandidates(analysisCandidates, catalogCandidates), profile),
+      mergeUniqueCandidates(catalogCandidates, analysisCandidates),
       { maxPerFormation: 1, maxPerSchool: 2 }
     ).slice(0, count)
   }

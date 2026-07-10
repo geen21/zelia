@@ -5,10 +5,10 @@ import { parentTrainingAPI } from '../lib/api.js'
 import './OrientationFlow.css'
 import './ParentsFormation.css'
 
-// Fixed marketing link provided for the live session — same URL for every
-// attendee, added to their own calendar after payment (not a per-user booking).
-const CALENDAR_URL = 'https://calendar.google.com/calendar/event?action=TEMPLATE&tmeid=NnJhMGV1b3RhdjVlMzdmaDVlZXAycWNvbTVfMjAyNjA3MDhUMTAwMDAwWiBqb3Jpcy5nZWVyZGVzQDIxZGF0YXMuY2g&tmsrc=joris.geerdes%4021datas.ch&scp=ALL'
-const CALENDAR_BUTTON_IMG = 'https://calendar.google.com/calendar/images/ext/gc_button1_en-GB.gif'
+// Live session booking, embedded via Calendly (same widget for every attendee
+// after payment — not a per-user pre-generated link).
+const CALENDLY_URL = 'https://calendly.com/nicolas-wiegele-zelia/formation-orientation-zelia'
+const CALENDLY_SCRIPT_SRC = 'https://assets.calendly.com/assets/external/widget.js'
 
 const STATS = [
   {
@@ -110,12 +110,14 @@ export default function ParentsFormation() {
 
     if (checkout === 'cancelled') {
       setBanner({ tone: 'info', text: 'Paiement annulé. Vous pouvez réessayer quand vous le souhaitez.' })
+      scrollToInscription()
       return
     }
 
     if (!sessionId || verifyingRef.current) return
     verifyingRef.current = true
     setBanner({ tone: 'info', text: 'Vérification de votre paiement en cours…' })
+    scrollToInscription()
 
     ;(async () => {
       try {
@@ -132,6 +134,17 @@ export default function ParentsFormation() {
       }
     })()
   }, [searchParams])
+
+  // Load the Calendly widget script only once the payment is confirmed and
+  // the inline widget is actually rendered.
+  useEffect(() => {
+    if (!paid) return
+    if (document.querySelector(`script[src="${CALENDLY_SCRIPT_SRC}"]`)) return
+    const script = document.createElement('script')
+    script.src = CALENDLY_SCRIPT_SRC
+    script.async = true
+    document.body.appendChild(script)
+  }, [paid])
 
   const formattedPrice = useMemo(() => {
     if (!config?.priceAmount || config.priceAmount <= 0) return null
@@ -303,15 +316,12 @@ export default function ParentsFormation() {
           <div className="orientation-card parents-confirmation">
             <span className="orientation-pill">Inscription confirmée</span>
             <h3>Merci, votre accès à la formation est validé !</h3>
-            <p>Ajoutez la session à votre agenda pour ne pas la manquer :</p>
-            <a
-              className="parents-calendar-cta"
-              target="_blank"
-              rel="noopener noreferrer"
-              href={CALENDAR_URL}
-            >
-              <img border="0" src={CALENDAR_BUTTON_IMG} alt="Google Calendar" />
-            </a>
+            <p>Choisissez votre créneau pour la session en direct :</p>
+            <div
+              className="calendly-inline-widget"
+              data-url={CALENDLY_URL}
+              style={{ minWidth: 320, height: 700, width: '100%' }}
+            />
           </div>
         ) : (
           <form className="orientation-card identity-card parents-pricing-card" onSubmit={handleSubmit}>

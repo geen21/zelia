@@ -430,6 +430,20 @@
   transition: transform .15s ease, background .15s ease, color .15s ease;
 }
 .formation-lead-empty-cta:hover { background: #000; color: #fff; transform: translateY(-2px); }
+.formation-lead-empty.is-followup {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  text-align: left;
+  gap: 12px;
+  padding: 14px 18px;
+  border: 1px solid rgba(17,24,39,.1);
+  background: #fff;
+}
+.formation-lead-empty.is-followup .formation-lead-empty-cta {
+  padding: 10px 16px;
+  font-size: 13px;
+}
 .persona-name-secondary { font-size: 24px; }
 .persona-reveal-wrap > .persona-actions-standalone { justify-content: center; }
 .persona-actions-standalone .persona-continue { flex: 0 1 320px; }

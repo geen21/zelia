@@ -282,7 +282,7 @@ export default function Niveau36() {
       await levelUp({ minLevel: 36, xpReward: XP_PER_LEVEL }).catch(e => console.warn('levelUp N36 failed', e))
       await completeQuest('tool:intelligence-emotionnelle').catch(e => console.warn('completeQuest N36 failed', e))
       if (pathname.includes('/outils')) {
-        navigate('/app/outils')
+        navigate('/app')
         return
       }
       setShowSuccess(true)

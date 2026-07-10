@@ -286,7 +286,7 @@ export default function Niveau38() {
       await levelUp({ minLevel: 38, xpReward: XP_PER_LEVEL }).catch(e => console.warn('levelUp N38 failed', e))
       await completeQuest('tool:resolution-problemes').catch(e => console.warn('completeQuest N38 failed', e))
       if (pathname.includes('/outils')) {
-        navigate('/app/outils')
+        navigate('/app')
         return
       }
       setShowSuccess(true)

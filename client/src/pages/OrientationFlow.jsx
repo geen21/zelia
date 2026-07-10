@@ -2342,9 +2342,13 @@ export default function OrientationFlow() {
             </div>
           )}
 
-          {!dbFormationsLoading && dbFormations.length === 0 && formationRecommendations.length === 0 && (
-            <div className="formation-lead-empty">
-              <p className="formation-lead-empty-text">Aucune formation ne correspond exactement à ton profil pour le moment.</p>
+          {!dbFormationsLoading && (
+            <div className={`formation-lead-empty${dbFormations.length > 0 || formationRecommendations.length > 0 ? ' is-followup' : ''}`}>
+              <p className="formation-lead-empty-text">
+                {dbFormations.length > 0 || formationRecommendations.length > 0
+                  ? "Aucune de ces formations ne te convient ?"
+                  : "Aucune formation ne correspond exactement à ton profil pour le moment."}
+              </p>
               <button
                 type="button"
                 className="formation-lead-empty-cta"

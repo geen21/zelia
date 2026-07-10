@@ -2412,7 +2412,7 @@ export default function OrientationFlow() {
               <button
                 type="button"
                 className="formation-lead-empty-cta"
-                onClick={() => navigate('/formations')}
+                onClick={() => window.open('/formations', '_blank', 'noopener,noreferrer')}
               >
                 <i className="ph ph-magnifying-glass" aria-hidden="true" />
                 Voir d'autres formations

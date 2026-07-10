@@ -320,18 +320,13 @@ const homeStyles = `
   margin-top: 22px;
 }
 .zelia-home-proof span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  border-radius: 999px;
-  background: #c1ff72;
+  display: inline-block;
   color: #000;
-  padding: 0 12px;
+  padding: 0;
   font-size: 13px;
   font-weight: 600;
 }
-.zelia-home-proof span:nth-child(2) { background: #f68fff; color: #000; }
-.zelia-home-proof span:nth-child(3) { background: #fff; border: 1px solid rgba(0,0,0,.1); }
+.zelia-home-proof span:not(:last-child)::after { content: '·'; margin-left: 8px; color: #6b7280; }
 .zelia-home h2 { margin: 0; font-size: 30px; line-height: 1.12; font-weight: 650; }
 
 .zelia-home-steps {
@@ -540,13 +535,23 @@ const homeStyles = `
   .zelia-home-footer-top { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 560px) {
-  .zelia-home-nav { align-items: flex-start; }
-  .zelia-home-nav-actions a:not(.nav-cta) { display: none; }
+  .zelia-home-nav { align-items: center; flex-wrap: wrap; }
+  .zelia-home-nav-actions {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .zelia-home-nav-actions::-webkit-scrollbar { display: none; }
+  .zelia-home-nav-actions a { flex: 0 0 auto; }
   .zelia-home h1 { font-size: 34px; }
   .zelia-home h2 { font-size: 26px; }
   .zelia-home-actions { flex-direction: column; }
   .zelia-home-actions button { width: 100%; }
-  .zelia-home-proof span { width: 100%; justify-content: center; }
+  .zelia-home-proof { gap: 4px 8px; }
+  .zelia-home-proof span { width: auto; }
   .zelia-home-steps { padding: 40px 18px; }
   .zelia-home-parents-teaser-inner { flex-direction: column; align-items: flex-start; }
   .zelia-home-parents-teaser-cta { width: 100%; }

@@ -485,131 +485,132 @@ export async function generatePersonaShareCard({
 
     ctx.fillStyle = '#fffbf7'
     ctx.fillRect(0, 0, width, height)
+
+    const cardX = 70
+    const cardY = 60
+    const cardW = width - cardX * 2
+    const cardH = height - 150
+    const centerX = width / 2
+    const posterBackground = persona.avatar?.bg || '#fffbf7'
+
+    // Mirror PersonaRevealCard's poster mode instead of the retired portrait-chinois design.
+    ctx.fillStyle = posterBackground
+    drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 48)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(0,0,0,0.08)'
+    ctx.lineWidth = 3
+    ctx.stroke()
     ctx.fillStyle = '#c1ff72'
-    ctx.fillRect(0, 0, width, 26)
-    ctx.fillRect(0, height - 130, width, 130)
+    drawRoundedRect(ctx, cardX + 80, cardY, cardW - 160, 14, 7)
+    ctx.fill()
 
-    // Kicker + name
-    ctx.fillStyle = '#6b7280'
-    ctx.font = '800 34px system-ui, -apple-system, sans-serif'
-    ctx.textAlign = 'left'
+    ctx.textAlign = 'center'
     ctx.textBaseline = 'top'
-    const marginX = 80
-    ctx.fillText((firstName ? `${firstName}, ton portrait chinois` : 'Ton portrait chinois').toUpperCase(), marginX, 90)
+    ctx.fillStyle = '#6b7280'
+    ctx.font = '800 30px "Bricolage Grotesque", system-ui, sans-serif'
+    ctx.fillText('TON PROFIL ZÉLIA', centerX, cardY + 70)
 
-    ctx.fillStyle = '#000'
-    ctx.font = '800 92px "Bricolage Grotesque", "ShareClashGrotesk", system-ui, sans-serif'
-    const nameLines = wrapText(ctx, persona.name, width - marginX * 2 - 260).slice(0, 2)
-    let nameY = 150
-    nameLines.forEach((line) => {
-      ctx.fillText(line, marginX, nameY)
-      nameY += 100
-    })
-
-    // Avatar top-right
     if (avatarUrl) {
       try {
         const avatarImg = await loadImage(avatarUrl)
         const size = 230
-        const x = width - marginX - size
-        const y = 90
+        const x = centerX - size / 2
+        const y = cardY + 130
+        ctx.fillStyle = '#fff'
+        drawRoundedRect(ctx, x - 6, y - 6, size + 12, size + 12, 58)
+        ctx.fill()
         ctx.save()
-        drawRoundedRect(ctx, x, y, size, size, 28)
+        drawRoundedRect(ctx, x, y, size, size, 52)
         ctx.clip()
         ctx.drawImage(avatarImg, x, y, size, size)
         ctx.restore()
-        drawRoundedRect(ctx, x, y, size, size, 28)
-        ctx.strokeStyle = '#c1ff72'
-        ctx.lineWidth = 8
-        ctx.stroke()
       } catch (avatarError) {
         console.warn('Avatar not loaded for persona share card', avatarError)
       }
     }
 
-    // Trait chips
-    const traits = (persona.traits || []).slice(0, 4)
-    ctx.font = '700 34px system-ui, -apple-system, sans-serif'
-    let chipX = marginX
-    let chipY = Math.max(nameY + 30, 360)
-    const chipColors = ['#c1ff72', '#f68fff', '#111827']
-    traits.forEach((trait, index) => {
-      const padX = 28
-      const textW = ctx.measureText(trait).width
-      const chipW = textW + padX * 2
-      const chipH = 66
-      if (chipX + chipW > width - marginX) {
-        chipX = marginX
-        chipY += chipH + 16
-      }
-      const bg = chipColors[index % chipColors.length]
-      ctx.fillStyle = bg
-      drawRoundedRect(ctx, chipX, chipY, chipW, chipH, 33)
-      ctx.fill()
-      ctx.fillStyle = bg === '#111827' ? '#c1ff72' : '#000'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(trait, chipX + padX, chipY + chipH / 2 + 2)
-      ctx.textBaseline = 'top'
-      chipX += chipW + 16
+    ctx.fillStyle = '#000'
+    ctx.font = '800 78px "Bricolage Grotesque", "ShareClashGrotesk", system-ui, sans-serif'
+    const nameLines = wrapText(ctx, persona.name || '', cardW - 130).slice(0, 2)
+    let cursorY = cardY + 410
+    nameLines.forEach((line) => {
+      ctx.fillText(line, centerX, cursorY)
+      cursorY += 84
     })
 
-    // Portrait chinois tiles (2 rows x 3 cols, 5 tiles)
-    const entries = Object.entries(persona.portrait || {})
-    const labels = {
-      animal: 'Un animal',
-      couleur: 'Une couleur',
-      ville: 'Une ville',
-      objet: 'Un objet',
-      personnage: 'Personnage de fiction'
-    }
-    const tilesTop = chipY + 120
-    const gap = 24
-    const cols = 3
-    const tileW = (width - marginX * 2 - gap * (cols - 1)) / cols
-    const tileH = 250
-    entries.slice(0, 6).forEach(([key, item], index) => {
-      const col = index % cols
-      const row = Math.floor(index / cols)
-      const x = marginX + col * (tileW + gap)
-      const y = tilesTop + row * (tileH + gap)
+    ctx.fillStyle = '#4b5563'
+    ctx.font = '500 33px "Bricolage Grotesque", system-ui, sans-serif'
+    const taglineLines = wrapText(ctx, persona.tagline || '', cardW - 170).slice(0, 3)
+    cursorY += 16
+    taglineLines.forEach((line) => {
+      ctx.fillText(line, centerX, cursorY)
+      cursorY += 43
+    })
 
-      ctx.fillStyle = '#ffffff'
-      drawRoundedRect(ctx, x, y, tileW, tileH, 24)
-      ctx.fill()
-      ctx.strokeStyle = 'rgba(0,0,0,0.1)'
-      ctx.lineWidth = 2
-      ctx.stroke()
-
-      ctx.textAlign = 'center'
-      ctx.fillStyle = '#6b7280'
-      ctx.font = '800 24px system-ui, -apple-system, sans-serif'
-      ctx.fillText((labels[key] || key).toUpperCase(), x + tileW / 2, y + 28)
-      ctx.font = '84px system-ui, -apple-system, sans-serif'
-      ctx.fillText(item.emoji || '✨', x + tileW / 2, y + 70)
-      ctx.fillStyle = '#000'
-      ctx.font = '800 30px system-ui, -apple-system, sans-serif'
-      const labelLines = wrapText(ctx, item.label || '', tileW - 32).slice(0, 2)
-      labelLines.forEach((line, lineIndex) => {
-        ctx.fillText(line, x + tileW / 2, y + 178 + lineIndex * 36)
+    const drawPills = (items, colors, top) => {
+      if (!items.length) return top
+      ctx.font = '700 29px "Bricolage Grotesque", system-ui, sans-serif'
+      const gap = 16
+      const padX = 26
+      const pillH = 60
+      const rows = [[]]
+      let rowWidth = 0
+      items.forEach((item) => {
+        const pillW = ctx.measureText(item).width + padX * 2
+        const nextWidth = rows[rows.length - 1].length ? rowWidth + gap + pillW : pillW
+        if (nextWidth > cardW - 140 && rows[rows.length - 1].length) {
+          rows.push([])
+          rowWidth = 0
+        }
+        rows[rows.length - 1].push({ item, pillW })
+        rowWidth += rowWidth ? gap + pillW : pillW
       })
-      ctx.textAlign = 'left'
-    })
+      rows.forEach((row, rowIndex) => {
+        const totalWidth = row.reduce((sum, pill) => sum + pill.pillW, 0) + gap * (row.length - 1)
+        let x = centerX - totalWidth / 2
+        row.forEach((pill, itemIndex) => {
+          const color = colors[(rowIndex + itemIndex) % colors.length]
+          ctx.fillStyle = color
+          drawRoundedRect(ctx, x, top + rowIndex * (pillH + 14), pill.pillW, pillH, pillH / 2)
+          ctx.fill()
+          ctx.fillStyle = color === '#111827' ? '#c1ff72' : '#000'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(pill.item, x + pill.pillW / 2, top + rowIndex * (pillH + 14) + pillH / 2 + 2)
+          ctx.textBaseline = 'top'
+          x += pill.pillW + gap
+        })
+      })
+      return top + rows.length * (pillH + 14)
+    }
 
-    // Footer: logo + prompt
-    ctx.textAlign = 'center'
+    const traits = (persona.traits || []).slice(0, 4)
+    const domaines = (persona.domaines || []).slice(0, 3)
+    if (traits.length) {
+      ctx.fillStyle = 'rgba(0,0,0,0.45)'
+      ctx.font = '800 24px "Bricolage Grotesque", system-ui, sans-serif'
+      ctx.fillText('COMPETENCES CLES', centerX, cursorY + 32)
+      cursorY = drawPills(traits, ['#c1ff72', '#f68fff', '#111827'], cursorY + 78)
+    }
+    if (domaines.length) {
+      ctx.fillStyle = 'rgba(0,0,0,0.45)'
+      ctx.font = '800 24px "Bricolage Grotesque", system-ui, sans-serif'
+      ctx.fillText('OU TU PEUX EXCELLER', centerX, cursorY + 22)
+      ctx.font = '700 27px "Bricolage Grotesque", system-ui, sans-serif'
+      const domainLines = domaines.map((domaine) => `✓  ${domaine}`)
+      drawPills(domainLines, ['rgba(255,255,255,0.72)'], cursorY + 66)
+    }
+
+    // Footer stays outside the card, as a discreet Zelia signature.
     try {
       const logoImg = await loadImage(logoPath)
-      const logoW = 190
+      const logoW = 170
       const logoH = (logoImg.height / logoImg.width) * logoW
-      ctx.drawImage(logoImg, (width - logoW) / 2, height - 65 - logoH / 2, logoW, logoH)
+      ctx.drawImage(logoImg, centerX - logoW / 2, height - 90 - logoH / 2, logoW, logoH)
     } catch {
       ctx.fillStyle = '#000'
-      ctx.font = '800 44px "Bricolage Grotesque", "ShareClashGrotesk", system-ui, sans-serif'
-      ctx.fillText('zelia.fr', width / 2, height - 88)
+      ctx.font = '800 42px "Bricolage Grotesque", "ShareClashGrotesk", system-ui, sans-serif'
+      ctx.fillText('zelia.fr', centerX, height - 110)
     }
-    ctx.fillStyle = '#000'
-    ctx.font = '700 28px system-ui, -apple-system, sans-serif'
-    ctx.fillText('Découvre ton portrait sur zelia.fr', width / 2, height - 170)
 
     return canvas.toDataURL('image/png')
   } catch (error) {

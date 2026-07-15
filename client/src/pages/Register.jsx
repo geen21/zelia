@@ -10,6 +10,23 @@ import {
 } from '../lib/authFlow'
 import './OrientationFlow.css'
 
+const GENDER_OPTIONS = ['Femme', 'Homme', 'Non-binaire', 'Autre', 'Préfère ne pas répondre']
+const ORIENTATION_PROFILE_IDENTITY_KEY = 'orientation_profile_identity'
+const ORIENTATION_PROFILE_IDENTITY_COMPLETE_KEY = 'orientation_profile_identity_complete'
+
+function getStoredOrientationIdentity() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(ORIENTATION_PROFILE_IDENTITY_KEY) || '{}')
+    return {
+      firstName: String(stored.firstName || stored.first_name || '').trim(),
+      lastName: String(stored.lastName || stored.last_name || '').trim(),
+      gender: String(stored.gender || '').trim()
+    }
+  } catch {
+    return { firstName: '', lastName: '', gender: '' }
+  }
+}
+
 const DEPARTMENTS = [
   ['01', 'Ain'], ['02', 'Aisne'], ['03', 'Allier'], ['04', 'Alpes-de-Haute-Provence'], ['05', 'Hautes-Alpes'], ['06', 'Alpes-Maritimes'],
   ['07', 'Ardèche'], ['08', 'Ardennes'], ['09', 'Ariège'], ['10', 'Aube'], ['11', 'Aude'], ['12', 'Aveyron'], ['13', 'Bouches-du-Rhône'],
@@ -31,6 +48,7 @@ const DEPARTMENTS = [
 export default function Register() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [identity, setIdentity] = useState(() => getStoredOrientationIdentity())
   const [departmentCode, setDepartmentCode] = useState(() => {
     try { return JSON.parse(localStorage.getItem('registration_department') || '{}')?.code || '' } catch { return '' }
   })
@@ -65,17 +83,30 @@ export default function Register() {
     })
   }
 
+  function normalizedIdentity() {
+    return {
+      firstName: String(identity.firstName || '').trim(),
+      lastName: String(identity.lastName || '').trim(),
+      gender: String(identity.gender || '').trim()
+    }
+  }
+
   function validateRegistrationBasics() {
+    const completeIdentity = normalizedIdentity()
+    if (!completeIdentity.firstName || !completeIdentity.lastName || !completeIdentity.gender) {
+      setError('Indique ton prénom, ton nom et ton genre pour continuer.')
+      return null
+    }
     if (!selectedDepartment.code) {
       setError('Sélectionne ton département pour continuer.')
-      return false
+      return null
     }
     if (!acceptTerms) {
       setError('Tu dois accepter les CGU pour continuer.')
-      return false
+      return null
     }
     persistRegistrationBasics()
-    return true
+    return completeIdentity
   }
 
   function acceptAll() {
@@ -87,7 +118,9 @@ export default function Register() {
 
   async function handleEmailRegister(event) {
     event.preventDefault()
-    if (!validateRegistrationBasics() || loading) return
+    if (loading) return
+    const completeIdentity = validateRegistrationBasics()
+    if (!completeIdentity) return
     if (!email || !password) {
       setError('Email et mot de passe sont requis.')
       return
@@ -104,6 +137,9 @@ export default function Register() {
       const onboardingCache = getOnboardingCache()
       const userData = {
         profile_type: 'student',
+        first_name: completeIdentity.firstName,
+        last_name: completeIdentity.lastName,
+        gender: completeIdentity.gender,
         department: selectedDepartment.code,
         department_name: selectedDepartment.name,
         newsletter_opt_in: newsletterOptIn,
@@ -129,6 +165,9 @@ export default function Register() {
       const target = await persistAuthSessionAndOnboarding({
         after,
         profileData: buildProfileFromSupabaseUser(signInData.user, {
+          first_name: completeIdentity.firstName,
+          last_name: completeIdentity.lastName,
+          gender: completeIdentity.gender,
           contact_preference: acceptDataTransfer,
           department: selectedDepartment.code,
           institution_data: {
@@ -142,6 +181,10 @@ export default function Register() {
         }),
         submitAnswers: false
       })
+      if (after === 'orientation-analysis' || hasOrientationCache) {
+        localStorage.setItem(ORIENTATION_PROFILE_IDENTITY_KEY, JSON.stringify(completeIdentity))
+        localStorage.setItem(ORIENTATION_PROFILE_IDENTITY_COMPLETE_KEY, 'true')
+      }
       navigate(target, { replace: true })
     } catch (registerError) {
       const message = registerError?.response?.data?.error || registerError?.message || "Échec de l'inscription"
@@ -169,13 +212,44 @@ export default function Register() {
         <form className="orientation-card identity-card" onSubmit={handleEmailRegister}>
           <span className="orientation-pill">Inscription</span>
           <h1>Créer ton espace</h1>
-          <p>Ton parcours sera rattaché à ce compte.</p>
+          <p>Ton profil et ton parcours seront rattachés à ce compte.</p>
 
           {hasOrientationCache && (
             <p className="identity-banner">Ton parcours est prêt, il sera rattaché à ton compte après connexion.</p>
           )}
 
           <div className="identity-form-grid">
+            <label>
+              <span>Prénom</span>
+              <input
+                type="text"
+                value={identity.firstName}
+                onChange={(event) => setIdentity((current) => ({ ...current, firstName: event.target.value }))}
+                autoComplete="given-name"
+                required
+              />
+            </label>
+            <label>
+              <span>Nom</span>
+              <input
+                type="text"
+                value={identity.lastName}
+                onChange={(event) => setIdentity((current) => ({ ...current, lastName: event.target.value }))}
+                autoComplete="family-name"
+                required
+              />
+            </label>
+            <label>
+              <span>Genre</span>
+              <select
+                value={identity.gender}
+                onChange={(event) => setIdentity((current) => ({ ...current, gender: event.target.value }))}
+                required
+              >
+                <option value="">Choisir</option>
+                {GENDER_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
             <label>
               <span>Département</span>
               <select

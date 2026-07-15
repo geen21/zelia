@@ -22,7 +22,17 @@ const TOP_NAV_ITEMS = [HOME_NAV_ITEM, ...PRIMARY_NAV_ITEMS, ...BOTTOM_NAV_ITEMS]
 // Standalone tool pages that were rebuilt as single functional pages (no more
 // step-by-step "dialogue" flow) shouldn't get a forced "Terminer" button in
 // the shell topbar — only the "Retour aux outils" link.
-const TOOL_SLUGS_WITHOUT_FINISH_BUTTON = ['anglais', 'parcoursup', 'pitch', 'entretien']
+const TOOL_SLUGS_WITHOUT_FINISH_BUTTON = [
+  'anglais',
+  'parcoursup',
+  'pitch',
+  'entretien',
+  'axes-amelioration',
+  'classement-metiers',
+  'videos-orientation',
+  'quiz-orientation',
+  'lettre-futur'
+]
 
 function getToolSlug(pathname = '') {
   const match = String(pathname || '').match(/^\/app\/outils\/([^/]+)/)

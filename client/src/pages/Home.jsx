@@ -17,6 +17,28 @@ export default function Home() {
   const location = useLocation()
   const avatarUrl = useMemo(() => buildZeliaAvatarUrl(), [])
 
+  const shareLanding = async () => {
+    const shareData = {
+      title: 'Zélia',
+      text: 'Découvre Zélia pour mieux te connaître et préparer sereinement ton futur.',
+      url: window.location.href
+    }
+
+    try {
+      if (typeof navigator.share === 'function') {
+        await navigator.share(shareData)
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`)
+      } else {
+        window.prompt('Copie ce lien pour le partager :', shareData.url)
+      }
+    } catch (shareError) {
+      if (shareError?.name !== 'AbortError') {
+        console.warn('Landing share failed', shareError)
+      }
+    }
+  }
+
   useEffect(() => {
     let active = true
     ;(async () => {
@@ -38,9 +60,10 @@ export default function Home() {
   }, [location.hash, navigate])
 
   const proof = [
-    'Ton profil de personnalité en quelques minutes',
-    'Des formations qui te correspondent vraiment',
-    'Contacte les écoles en un clic'
+    '5 minutes',
+    '20 questions originales',
+    '100% gratuit',
+    'Approfondissant avec des activités'
   ]
 
   const steps = [
@@ -68,7 +91,7 @@ export default function Home() {
     <main className="zelia-home">
       <SEO
         title="Zelia - Trouve ton orientation scolaire et professionnelle"
-        description="Zélia aide les étudiants à mieux se connaître, découvrir des pistes de formation et de métiers, et garder un profil personnalisé."
+        description="Zélia accompagne les 15-20 ans pour apprendre à mieux se connaître et préparer sereinement leur futur."
         url="https://zelia.io/"
       />
       <style>{homeStyles}</style>
@@ -79,28 +102,28 @@ export default function Home() {
             <img src="/static/images/logo-dark.png" alt="Zelia" />
           </Link>
           <div className="zelia-home-nav-actions">
-            <Link to="/formations">Formations</Link>
-            <Link to="/blog">Blog</Link>
-            <Link to="/espace-ecoles">Espace écoles</Link>
-            <Link to="/login">Connexion</Link>
-            <Link to="/orientation" className="nav-cta">Commencer</Link>
+            <Link to="/espace-ecoles">Ambassadeur</Link>
+            <Link to="/parents">Parents</Link>
+            <Link to="/blog">Nos conseils</Link>
+            <Link to="/login">Me connecter</Link>
+            <Link to="/orientation" className="nav-cta">Me découvrir</Link>
           </div>
         </nav>
 
         <img className="zelia-home-avatar" src={avatarUrl} alt="Avatar Zelia" loading="eager" />
 
         <div className="zelia-home-hero-content">
-          <p className="zelia-home-kicker">Orientation scolaire et métiers</p>
-          <h1>Zélia t'aide à trouver ta formation et ton métier idéal.</h1>
+          <p className="zelia-home-kicker">Quand tu te connais, tu sais où aller</p>
+          <h1>L'expérience ultime des 15-20 ans pour apprendre à se connaître et préparer sereinement son futur.</h1>
+          <div className="zelia-home-proof" aria-label="Points clés Zélia">
+            {proof.map((item) => <span key={item}>{item}</span>)}
+          </div>
           <p className="zelia-home-lead">
-            Réponds à 20 questions, et Zélia te révèle ton profil, te propose des formations qui te correspondent vraiment et te permet de contacter les écoles en un clic.
+            On découvre ensemble qui tu es, quels sont les métiers et études faits pour toi !
           </p>
           <div className="zelia-home-actions">
-            <button type="button" onClick={() => navigate('/orientation')}>Commencer le parcours</button>
-            <button type="button" className="secondary" onClick={() => navigate('/blog')}>Lire les conseils</button>
-          </div>
-          <div className="zelia-home-proof" aria-label="Points clés Zelia">
-            {proof.map((item) => <span key={item}>{item}</span>)}
+            <button type="button" onClick={() => navigate('/orientation')}>Commencer !</button>
+            <button type="button" className="secondary" onClick={shareLanding}>Partager à un.e proche</button>
           </div>
         </div>
       </section>
@@ -129,6 +152,9 @@ export default function Home() {
               <p>{pillar.detail}</p>
             </div>
           ))}
+        </div>
+        <div className="zelia-home-start-cta">
+          <Link to="/orientation">Commencer !</Link>
         </div>
       </section>
 
@@ -403,6 +429,22 @@ const homeStyles = `
 .zelia-home-pillar-card i { font-size: 26px; color: #111827; }
 .zelia-home-pillar-card h3 { margin: 4px 0 0; font-size: 16px; font-weight: 700; }
 .zelia-home-pillar-card p { margin: 0; font-size: 14px; line-height: 1.5; color: #4b5563; }
+.zelia-home-start-cta { display: flex; justify-content: center; margin-top: 30px; }
+.zelia-home-start-cta a {
+  min-height: 52px;
+  padding: 0 30px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform .15s ease, box-shadow .15s ease;
+  box-shadow: 0 14px 28px rgba(0,0,0,.16);
+}
+.zelia-home-start-cta a:hover { transform: translateY(-2px); box-shadow: 0 18px 32px rgba(0,0,0,.22); }
 
 /* ---------- Formation parents teaser ---------- */
 .zelia-home-parents-teaser {
@@ -553,6 +595,7 @@ const homeStyles = `
   .zelia-home-proof { gap: 4px 8px; }
   .zelia-home-proof span { width: auto; }
   .zelia-home-steps { padding: 40px 18px; }
+  .zelia-home-start-cta a { width: 100%; }
   .zelia-home-parents-teaser-inner { flex-direction: column; align-items: flex-start; }
   .zelia-home-parents-teaser-cta { width: 100%; }
   .zelia-home-schools-inner { flex-direction: column; align-items: flex-start; }

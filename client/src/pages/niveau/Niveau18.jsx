@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   DndContext,
   PointerSensor,
@@ -17,54 +17,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import supabase from '../../lib/supabase'
 import apiClient, { usersAPI } from '../../lib/api'
-import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
-import { FaMedal, FaTrophy } from 'react-icons/fa6'
-
-const DIALOGUE = [
-  { text: 'On va peaufiner pour savoir si ton métier qui te correspond est vraiment le bon.', durationMs: 1700 },
-  { text: 'On va classer ensemble les métiers du meilleur au pire.', durationMs: 1500 },
-  { text: "C'est parti!", durationMs: 800 }
-]
-
-function useTypewriter(message, durationMs) {
-  const [text, setText] = useState('')
-  const [done, setDone] = useState(false)
-  const intervalRef = useRef(null)
-  const timeoutRef = useRef(null)
-
-  useEffect(() => {
-    const full = message || ''
-    setText('')
-    setDone(false)
-    let i = 0
-    const step = Math.max(15, Math.floor((durationMs || 1500) / Math.max(1, full.length)))
-    intervalRef.current = setInterval(() => {
-      i += 1
-      setText(full.slice(0, i))
-      if (i >= full.length) clearInterval(intervalRef.current)
-    }, step)
-    timeoutRef.current = setTimeout(() => {
-      clearInterval(intervalRef.current)
-      setText(full)
-      setDone(true)
-    }, Math.max(durationMs || 1500, (full.length + 1) * step))
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    }
-  }, [message, durationMs])
-
-  const skip = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current)
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    setText(message || '')
-    setDone(true)
-  }
-
-  return { text, done, skip }
-}
 
 function SortableItem({ id, label, index }) {
   const {
@@ -85,14 +38,19 @@ function SortableItem({ id, label, index }) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`touch-none flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm ${isDragging ? 'opacity-70' : ''}`}
-      onTouchStart={(e) => e.preventDefault()}
-      {...attributes}
-      {...listeners}
+      className={`flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm ${isDragging ? 'opacity-70' : ''}`}
     >
-      <div className="w-7 h-7 rounded-full bg-black text-white flex items-center justify-center text-xs font-semibold">{index + 1}</div>
+      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-black text-xs font-semibold text-white">{index + 1}</div>
       <div className="flex-1 font-medium text-gray-900">{label}</div>
-      <div className="text-gray-400 text-sm">⇅</div>
+      <button
+        type="button"
+        className="grid h-9 w-9 place-items-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-950"
+        aria-label={`Déplacer ${label}`}
+        {...attributes}
+        {...listeners}
+      >
+        <i className="ph ph-dots-six-vertical text-lg" aria-hidden="true" />
+      </button>
     </div>
   )
 }
@@ -129,16 +87,12 @@ function normalizeJobs(list) {
 
 export default function Niveau18() {
   const navigate = useNavigate()
-  const { pathname } = useLocation()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [profile, setProfile] = useState(null)
-  const [avatarUrl, setAvatarUrl] = useState('')
   const [items, setItems] = useState([])
-  const [showSuccess, setShowSuccess] = useState(false)
   const [saving, setSaving] = useState(false)
-
-  const [step, setStep] = useState(DIALOGUE.length)
+  const [saveError, setSaveError] = useState('')
+  const [completed, setCompleted] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -158,8 +112,6 @@ export default function Niveau18() {
         const pRes = await usersAPI.getProfile().catch(() => null)
         if (!mounted) return
         const prof = pRes?.data?.profile || pRes?.data || null
-        setProfile(prof)
-        setAvatarUrl(buildAvatarFromProfile(prof, user.id))
 
         const homePreference = (prof?.home_preference || '').trim()
         const isQuestionnaire = homePreference.toLowerCase() === 'questionnaire'
@@ -242,18 +194,6 @@ export default function Niveau18() {
     return () => { mounted = false }
   }, [navigate])
 
-  const current = DIALOGUE[Math.min(step, DIALOGUE.length - 1)]
-  const { text: typed, done: typedDone, skip } = useTypewriter(current?.text || '', current?.durationMs || 1200)
-  const started = step >= DIALOGUE.length
-
-  const onNext = () => {
-    if (!typedDone) {
-      skip()
-      return
-    }
-    setStep((prev) => Math.min(prev + 1, DIALOGUE.length))
-  }
-
   const handleDragEnd = (event) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
@@ -268,6 +208,7 @@ export default function Niveau18() {
   const onValidate = async () => {
     if (saving) return
     setSaving(true)
+    setSaveError('')
     try {
       const ranking = items.map((item, idx) => ({ position: idx + 1, title: item.label }))
       const entries = [
@@ -285,9 +226,10 @@ export default function Niveau18() {
 
       await usersAPI.saveExtraInfo(entries)
       await levelUp({ minLevel: 18, xpReward: XP_PER_LEVEL })
-      setShowSuccess(true)
+      setCompleted(true)
     } catch (err) {
       console.error('Niveau18 save error', err)
+      setSaveError("Impossible d'enregistrer ton classement pour le moment.")
     } finally {
       setSaving(false)
     }
@@ -311,89 +253,67 @@ export default function Niveau18() {
   }
 
   return (
-    <div className="p-2 md:p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-            <img
-              src={avatarUrl}
-              alt="Avatar"
-              className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-52 lg:h-52 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto md:mx-0"
-            />
-            <div className="flex-1 w-full">
-              <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
-                <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
-                  {typed}
-                </div>
-                <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
+    <div className="mx-auto max-w-3xl space-y-5 p-2 md:p-6">
+      <header className="flex items-start gap-3">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-black text-xl text-[#c1ff72]">
+          <i className="ph ph-sort-ascending" aria-hidden="true" />
+        </span>
+        <div>
+          <p className="text-xs font-semibold uppercase text-gray-500">Explorer les métiers</p>
+          <h1 className="mt-1 text-2xl font-semibold text-gray-950">Classement des métiers</h1>
+          <p className="mt-1 text-sm text-gray-500">Place les métiers du plus attirant au moins attirant.</p>
+        </div>
+      </header>
+
+      {saveError && (
+        <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+          {saveError}
+        </div>
+      )}
+
+      <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-card md:p-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-gray-950">Ton ordre de préférence</h2>
+          <span className="text-sm text-gray-500">{items.length} métiers</span>
+        </div>
+
+        {items.length > 0 ? (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-3">
+                {items.map((item, index) => (
+                  <SortableItem key={item.id} id={item.id} label={item.label} index={index} />
+                ))}
               </div>
+            </SortableContext>
+          </DndContext>
+        ) : (
+          <p className="rounded-lg bg-gray-50 px-4 py-5 text-sm text-gray-500">Aucun métier n’est disponible pour le moment.</p>
+        )}
 
-              {!started && (
-                <button
-                  type="button"
-                  onClick={onNext}
-                  className="mt-4 px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200"
-                >
-                  {step < DIALOGUE.length - 1 ? 'Suivant' : 'Commencer'}
-                </button>
-              )}
+        <button
+          type="button"
+          onClick={onValidate}
+          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-black px-4 text-sm font-semibold text-white hover:bg-gray-900 disabled:opacity-60"
+          disabled={saving || items.length === 0}
+        >
+          {saving ? 'Enregistrement...' : 'Enregistrer mon classement'}
+        </button>
+      </section>
+
+      {completed && (
+        <section className="flex flex-col gap-4 rounded-lg border border-[#c1ff72] bg-[#f8fff0] p-4 sm:flex-row sm:items-center sm:justify-between" role="status">
+          <div className="flex items-start gap-3">
+            <i className="ph ph-check-circle mt-0.5 text-xl text-green-700" aria-hidden="true" />
+            <div>
+              <h2 className="font-semibold text-gray-950">Classement enregistré</h2>
+              <p className="mt-1 text-sm text-gray-600">Tu peux le modifier et l’enregistrer de nouveau quand tu veux.</p>
             </div>
           </div>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaMedal className="w-5 h-5" /></div>
-            <h2 className="text-xl font-bold">Classement des métiers</h2>
-          </div>
-
-          {!started && (
-            <div className="text-text-secondary">Lis le dialogue puis lance-toi dans le classement.</div>
-          )}
-
-          {started && (
-            <>
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={items.map((it) => it.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-3 touch-none">
-                    {items.map((item, idx) => (
-                      <SortableItem key={item.id} id={item.id} label={item.label} index={idx} />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-              <button
-                type="button"
-                onClick={onValidate}
-                className="mt-4 w-full px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 disabled:opacity-60"
-                disabled={saving || items.length === 0}
-              >
-                {saving ? 'Validation…' : 'Valider mon classement'}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {showSuccess && !pathname.includes('/outils') && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="relative bg-white border border-gray-200 rounded-2xl p-8 shadow-2xl text-center max-w-md w-11/12">
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#c1ff72] rounded-full flex items-center justify-center shadow-md animate-bounce"><FaTrophy className="w-5 h-5 text-yellow-600" /></div>
-            <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
-            <p className="text-text-secondary mb-4">Ton classement est validé.</p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/19')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
-            </div>
-            {/* Subtle confetti dots */}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden">
-              <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />
-              <div className="absolute w-2 h-2 bg-yellow-400 rounded-full right-8 top-10 animate-ping" />
-              <div className="absolute w-2 h-2 bg-blue-400 rounded-full left-10 bottom-8 animate-ping" />
-              <div className="absolute w-2 h-2 bg-green-400 rounded-full right-6 bottom-10 animate-ping" />
-            </div>
-          </div>
-        </div>
+          <Link to="/app" className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-900 hover:border-black">
+            Retour au parcours
+          </Link>
+        </section>
       )}
     </div>
   )

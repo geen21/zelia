@@ -170,7 +170,7 @@ export const orientationAPI = {
     answers,
     questionnaireType: 'inscription'
   }),
-  generateInitialAnalysis: () => apiClient.post('/analysis/generate-analysis', {}),
+  generateInitialAnalysis: (payload = {}) => apiClient.post('/analysis/generate-analysis', payload),
   getResults: () => apiClient.get('/analysis/my-results', {
     headers: { 'Cache-Control': 'no-cache' },
     params: { _: Date.now() }

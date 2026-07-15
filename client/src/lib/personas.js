@@ -1,6 +1,6 @@
 // Persona system for the orientation flow.
 // 5 binary axes (matching questions.category / options[].value in the DB)
-// + 8 curated personas with portrait-chinois attributes.
+// + 12 curated personas with portrait-chinois attributes.
 
 export const AXES = [
   { id: 'hands_mind', poles: ['mains', 'tete'] },
@@ -16,7 +16,7 @@ export const PERSONAS = [
     name: "L'Explorateur Créatif",
     tagline: 'Tu observes le monde avec des yeux neufs et tu transformes tout ce que tu croises en idée.',
     traits: ['Empathie', 'Imagination', 'Sens du détail', 'Curiosité'],
-    domaines: ['Création', 'Voyage & découverte', 'Communication'],
+    domaines: ['Création', 'Voyage & découverte', 'Culture & environnement'],
     signature: { hands_mind: 'tete', solo_team: 'solo', creative_structured: 'creatif', field_office: 'terrain', risk_safety: 'audace' },
     portrait: {
       animal: { emoji: '🐙', label: 'La pieuvre' },
@@ -48,7 +48,7 @@ export const PERSONAS = [
     name: 'Le Stratège',
     tagline: 'Trois coups d\u2019avance, toujours. Tu comprends vite et tu vois ce que les autres ne voient pas.',
     traits: ['Logique', 'Anticipation', 'Concentration', 'Précision'],
-    domaines: ['Sciences & data', 'Ingénierie', 'Jeux & stratégie'],
+    domaines: ['Droit & analyse', 'Ingénierie', 'Sciences & stratégie'],
     signature: { hands_mind: 'tete', solo_team: 'solo', creative_structured: 'structure', field_office: 'bureau', risk_safety: 'securite' },
     portrait: {
       animal: { emoji: '🦉', label: 'La chouette' },
@@ -64,7 +64,7 @@ export const PERSONAS = [
     name: 'Le Connecteur',
     tagline: 'Tu rassembles les gens sans effort : avec toi, un groupe devient une équipe.',
     traits: ['Énergie', 'Communication', 'Enthousiasme', 'Ouverture'],
-    domaines: ['Relationnel', 'Événementiel', 'Commerce & médias'],
+    domaines: ['Relationnel', 'Animation & événementiel', 'Commerce terrain'],
     signature: { hands_mind: 'tete', solo_team: 'equipe', creative_structured: 'creatif', field_office: 'terrain', risk_safety: 'audace' },
     portrait: {
       animal: { emoji: '🐬', label: 'Le dauphin' },
@@ -81,7 +81,7 @@ export const PERSONAS = [
     tagline: 'Tu veilles sur les autres : ta force tranquille rassure et fait avancer tout le monde.',
     traits: ['Bienveillance', 'Sang-froid', 'Sens du devoir', 'Écoute'],
     domaines: ['Santé & social', 'Sécurité', 'Environnement'],
-    signature: { hands_mind: 'mains', solo_team: 'equipe', creative_structured: 'structure', field_office: 'terrain', risk_safety: 'securite' },
+    signature: { hands_mind: 'mains', solo_team: 'equipe', creative_structured: 'creatif', field_office: 'terrain', risk_safety: 'securite' },
     portrait: {
       animal: { emoji: '🐘', label: "L'éléphant" },
       couleur: { emoji: '🟢', label: 'Vert forêt' },
@@ -96,7 +96,7 @@ export const PERSONAS = [
     name: "L'Observateur",
     tagline: 'Rien ne t\u2019échappe. Tu captes les détails et tu en fais des idées qui comptent.',
     traits: ['Curiosité', 'Finesse', 'Indépendance', 'Créativité calme'],
-    domaines: ['Recherche', 'Écriture & analyse', 'Numérique'],
+    domaines: ['Recherche', 'Écriture & analyse', 'Qualité & expertise'],
     signature: { hands_mind: 'tete', solo_team: 'solo', creative_structured: 'creatif', field_office: 'bureau', risk_safety: 'securite' },
     portrait: {
       animal: { emoji: '🐈', label: 'Le chat' },
@@ -112,7 +112,7 @@ export const PERSONAS = [
     name: 'Le Créateur',
     tagline: 'Tu fabriques des choses que personne n\u2019avait imaginées : ton style, tes règles.',
     traits: ['Originalité', 'Sensibilité', 'Audace', 'Savoir-faire'],
-    domaines: ['Arts & design', 'Contenu digital', 'Mode & image'],
+    domaines: ['Arts & design', "Artisanat d'art", 'Mode & image'],
     signature: { hands_mind: 'mains', solo_team: 'solo', creative_structured: 'creatif', field_office: 'bureau', risk_safety: 'audace' },
     portrait: {
       animal: { emoji: '🦊', label: 'Le renard' },
@@ -128,7 +128,7 @@ export const PERSONAS = [
     name: 'Le Compétiteur',
     tagline: 'Tu vises haut et tu embarques ton équipe avec toi : le dépassement, c\u2019est ton moteur.',
     traits: ['Détermination', 'Leadership', 'Énergie', 'Goût du défi'],
-    domaines: ['Sport & performance', 'Entrepreneuriat', 'Commerce'],
+    domaines: ['Sport & performance', 'Commerce terrain', 'Logistique & challenge'],
     signature: { hands_mind: 'mains', solo_team: 'equipe', creative_structured: 'structure', field_office: 'terrain', risk_safety: 'audace' },
     portrait: {
       animal: { emoji: '🐆', label: 'Le guépard' },
@@ -138,6 +138,70 @@ export const PERSONAS = [
       personnage: { emoji: '🥇', label: 'Kylian Mbappé' }
     },
     avatar: { bg: '#FFF7E6', hair: '#2f2f2f' }
+  },
+  {
+    slug: 'mediateur',
+    name: 'Le Médiateur',
+    tagline: 'Tu poses les bonnes questions et tu sais trouver un terrain d’entente sans perdre de vue les règles du jeu.',
+    traits: ['Écoute', 'Équité', 'Diplomatie', 'Rigueur'],
+    domaines: ['Droit & médiation', 'Service public', 'Ressources humaines'],
+    signature: { hands_mind: 'tete', solo_team: 'equipe', creative_structured: 'structure', field_office: 'bureau', risk_safety: 'securite' },
+    portrait: {
+      animal: { emoji: '🦢', label: 'Le cygne' },
+      couleur: { emoji: '⚪', label: 'Blanc' },
+      ville: { emoji: '🏛️', label: 'Strasbourg' },
+      objet: { emoji: '⚖️', label: 'La balance' },
+      personnage: { emoji: '🛡️', label: 'Athéna' }
+    },
+    avatar: { bg: '#EEF2FF', hair: '#4a3728' }
+  },
+  {
+    slug: 'eclaireur',
+    name: "L'Éclaireur",
+    tagline: 'Tu avances avec méthode dans l’inconnu : tu observes, tu vérifies et tu trouves le passage.',
+    traits: ['Esprit d’analyse', 'Autonomie', 'Courage', 'Précision'],
+    domaines: ['Investigation & terrain', 'Environnement', 'Logistique'],
+    signature: { hands_mind: 'tete', solo_team: 'solo', creative_structured: 'structure', field_office: 'terrain', risk_safety: 'audace' },
+    portrait: {
+      animal: { emoji: '🦅', label: "L'aigle" },
+      couleur: { emoji: '🟤', label: 'Ocre' },
+      ville: { emoji: '🏔️', label: 'Chamonix' },
+      objet: { emoji: '🔦', label: 'La lampe torche' },
+      personnage: { emoji: '🧭', label: 'Indiana Jones' }
+    },
+    avatar: { bg: '#FFF3E2', hair: '#5a3825' }
+  },
+  {
+    slug: 'artisan-visionnaire',
+    name: "L'Artisan Visionnaire",
+    tagline: 'Tu imagines avec tes mains : tu préfères créer quelque chose de concret qui porte ta patte.',
+    traits: ['Savoir-faire', 'Créativité', 'Indépendance', 'Audace'],
+    domaines: ["Artisanat d'art", 'Cuisine & création', 'Paysage & design'],
+    signature: { hands_mind: 'mains', solo_team: 'solo', creative_structured: 'creatif', field_office: 'terrain', risk_safety: 'audace' },
+    portrait: {
+      animal: { emoji: '🐝', label: "L'abeille" },
+      couleur: { emoji: '🟡', label: 'Miel' },
+      ville: { emoji: '🎭', label: 'Venise' },
+      objet: { emoji: '🪡', label: 'Le fil' },
+      personnage: { emoji: '🧑‍🍳', label: 'Colette (Ratatouille)' }
+    },
+    avatar: { bg: '#FFF8E1', hair: '#8d4f2a' }
+  },
+  {
+    slug: 'coordinateur',
+    name: 'Le Coordinateur',
+    tagline: 'Tu fais circuler les idées et les moyens pour qu’un projet avance vraiment, du plan à la réalisation.',
+    traits: ['Organisation', 'Énergie', 'Sens pratique', 'Leadership'],
+    domaines: ['Organisation & logistique', 'Production', 'Événementiel'],
+    signature: { hands_mind: 'mains', solo_team: 'equipe', creative_structured: 'structure', field_office: 'bureau', risk_safety: 'audace' },
+    portrait: {
+      animal: { emoji: '🐕', label: 'Le chien de berger' },
+      couleur: { emoji: '🔴', label: 'Rouge brique' },
+      ville: { emoji: '🚆', label: 'Lyon' },
+      objet: { emoji: '📋', label: 'Le planning' },
+      personnage: { emoji: '🚀', label: 'Buzz l’Éclair' }
+    },
+    avatar: { bg: '#FDE7E9', hair: '#3c302b' }
   }
 ]
 
@@ -162,6 +226,20 @@ function hashString(value) {
   return Math.abs(hash)
 }
 
+function stableIndex(value, length) {
+  if (!length) return 0
+  let hash = 2166136261
+  const text = String(value || '')
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  hash ^= hash >>> 16
+  hash = Math.imul(hash, 0x85ebca6b)
+  hash ^= hash >>> 13
+  return (hash >>> 0) % length
+}
+
 // Tallies pole picks per axis from answered questions and returns the closest persona.
 // `questions`: [{ id, category, options: [{label, value}] }], `answers`: { [questionId]: label }
 export function computePersonaFromAnswers(questions, answers) {
@@ -175,16 +253,31 @@ export function computePersonaFromAnswers(questions, answers) {
     tally[question.category][picked.value] = (tally[question.category][picked.value] || 0) + 1
   }
 
-  // Build the dominant-pole profile per axis (falls back to first pole on tie/no data).
+  // Build the dominant-pole profile per axis. Four binary questions per axis can
+  // legitimately tie, so use the detailed answer pattern rather than always
+  // defaulting to the first pole.
   const profile = {}
   for (const axis of AXES) {
     const axisTally = tally[axis.id] || {}
     const [a, b] = axis.poles
-    profile[axis.id] = (axisTally[b] || 0) > (axisTally[a] || 0) ? b : a
+    const aCount = axisTally[a] || 0
+    const bCount = axisTally[b] || 0
+    if (aCount > bCount) {
+      profile[axis.id] = a
+    } else if (bCount > aCount) {
+      profile[axis.id] = b
+    } else {
+      const answerPattern = (Array.isArray(questions) ? questions : [])
+        .filter((question) => question.category === axis.id)
+        .map((question) => `${question.id}:${answers?.[question.id] || ''}`)
+        .join('|')
+      profile[axis.id] = axis.poles[stableIndex(`${axis.id}|${answerPattern}`, axis.poles.length)]
+    }
   }
 
   let best = PERSONAS[0]
   let bestScore = -1
+  let bestCandidates = []
   for (const persona of PERSONAS) {
     let score = 0
     for (const axis of AXES) {
@@ -193,7 +286,17 @@ export function computePersonaFromAnswers(questions, answers) {
     if (score > bestScore) {
       best = persona
       bestScore = score
+      bestCandidates = [persona]
+    } else if (score === bestScore) {
+      bestCandidates.push(persona)
     }
+  }
+
+  if (bestCandidates.length > 1) {
+    const answerPattern = (Array.isArray(questions) ? questions : [])
+      .map((question) => `${question.id}:${answers?.[question.id] || ''}`)
+      .join('|')
+    best = bestCandidates[stableIndex(`${JSON.stringify(profile)}|${answerPattern}`, bestCandidates.length)]
   }
 
   // If we had no usable axis data at all (legacy Oui/Non questions), pick deterministically.

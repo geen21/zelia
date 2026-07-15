@@ -89,7 +89,7 @@ function formatProfileContext(profile) {
   return rows.join('\n')
 }
 
-export default function Niveau19() {
+function LegacyNiveau19() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [loading, setLoading] = useState(true)
@@ -396,6 +396,293 @@ export default function Niveau19() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+const IMPROVEMENT_AXES = [
+  {
+    id: 'priorities',
+    icon: 'ph-list-checks',
+    title: 'Clarifier tes priorités',
+    description: 'Faire moins, mais avancer sur ce qui compte vraiment pour toi.',
+    example: 'Je bloque 20 minutes dimanche pour choisir mes 3 priorités de la semaine.'
+  },
+  {
+    id: 'confidence',
+    icon: 'ph-rocket-launch',
+    title: 'Prendre confiance dans tes choix',
+    description: 'Tester une piste avant de la juger et accepter de ne pas tout savoir tout de suite.',
+    example: "Je me renseigne sur une formation qui m'intrigue avant de dire que ce n'est pas pour moi."
+  },
+  {
+    id: 'communication',
+    icon: 'ph-chats-circle',
+    title: 'Mieux exprimer ce que tu veux',
+    description: 'Mettre des mots sur tes envies, tes doutes et ce dont tu as besoin.',
+    example: "Je parle de mes idées d'orientation avec une personne de confiance cette semaine."
+  },
+  {
+    id: 'action',
+    icon: 'ph-lightning',
+    title: "Passer davantage à l'action",
+    description: 'Transformer une envie en une petite action réalisable, sans attendre le moment parfait.',
+    example: "Je fais une recherche de 15 minutes sur un métier qui m'attire."
+  },
+  {
+    id: 'balance',
+    icon: 'ph-heart',
+    title: 'Trouver un rythme qui te convient',
+    description: 'Avancer régulièrement tout en gardant du temps pour souffler et prendre du recul.',
+    example: 'Je prévois un créneau sans écran pour faire le point sur ma semaine.'
+  }
+]
+
+function getFirstName(profile) {
+  const name = String(profile?.first_name || profile?.prenom || '').trim()
+  return name ? name.split(/\s+/)[0] : ''
+}
+
+function getPersonalityLabel(analysis) {
+  const value = analysis?.personalityType || analysis?.personality_type || analysis?.personaName
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+export default function Niveau19() {
+  const navigate = useNavigate()
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [profile, setProfile] = useState(null)
+  const [analysis, setAnalysis] = useState(null)
+  const [avatarUrl, setAvatarUrl] = useState('')
+  const [selectedAxisIds, setSelectedAxisIds] = useState([])
+  const [commitments, setCommitments] = useState({})
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    let active = true
+
+    const load = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          navigate('/login', { replace: true })
+          return
+        }
+
+        const profileResponse = await usersAPI.getProfile().catch(() => null)
+        if (!active) return
+        const nextProfile = profileResponse?.data?.profile || profileResponse?.data || null
+        setProfile(nextProfile)
+        setAvatarUrl(buildAvatarFromProfile(nextProfile, user.id))
+
+        const resultsResponse = await analysisAPI.getMyResults().catch(() => null)
+        if (active) setAnalysis(resultsResponse?.data?.results || null)
+      } catch (error) {
+        console.error('Niveau19 load error', error)
+        if (active) setLoadError('Impossible de charger ton espace pour le moment.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    load()
+    return () => { active = false }
+  }, [navigate])
+
+  const firstName = useMemo(() => getFirstName(profile), [profile])
+  const personalityLabel = useMemo(() => getPersonalityLabel(analysis), [analysis])
+  const selectedAxes = useMemo(
+    () => IMPROVEMENT_AXES.filter((axis) => selectedAxisIds.includes(axis.id)),
+    [selectedAxisIds]
+  )
+  const selectionLimitReached = selectedAxisIds.length >= 3
+
+  const toggleAxis = (axisId) => {
+    setSaveError('')
+    setSaved(false)
+    setSelectedAxisIds((current) => {
+      if (current.includes(axisId)) return current.filter((id) => id !== axisId)
+      if (current.length >= 3) return current
+      return [...current, axisId]
+    })
+  }
+
+  const updateCommitment = (axisId, value) => {
+    setCommitments((current) => ({ ...current, [axisId]: value }))
+    setSaveError('')
+    setSaved(false)
+  }
+
+  const savePlan = async () => {
+    if (!selectedAxes.length || saving) return
+
+    setSaving(true)
+    setSaveError('')
+    try {
+      const entries = selectedAxes.map((axis) => ({
+        question_id: `niveau19_axis_${axis.id}`,
+        question_text: `Axe de progression : ${axis.title}`,
+        answer_text: commitments[axis.id]?.trim() || axis.example
+      }))
+      entries.push({
+        question_id: 'niveau19_progression_plan_completed',
+        question_text: 'Plan de progression personnel',
+        answer_text: selectedAxes.map((axis) => axis.title).join(' | ')
+      })
+
+      await usersAPI.saveExtraInfo(entries)
+      setSaved(true)
+    } catch (error) {
+      console.error('Niveau19 save error', error)
+      setSaveError("Ton plan n'a pas pu être enregistré. Vérifie ta connexion puis réessaie.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6 text-center">
+        <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-black border-t-transparent" />
+        <p className="mt-2 text-text-secondary">Chargement de ton plan...</p>
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-xl p-2 md:p-6">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-800 shadow-card">
+          <h1 className="text-xl font-bold">On n'a pas pu ouvrir cet outil</h1>
+          <p className="mt-2">{loadError}</p>
+          <button type="button" onClick={() => window.location.reload()} className="mt-4 rounded-lg border border-red-300 bg-white px-4 py-2 font-semibold text-red-800">
+            Réessayer
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mx-auto max-w-5xl space-y-6 p-2 md:p-6">
+      <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-card">
+        <div className="h-1.5 bg-[#c1ff72]" />
+        <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center md:p-7">
+          <img
+            src={avatarUrl || '/static/images/logo-dark.png'}
+            alt="Ton avatar"
+            className="h-20 w-20 rounded-2xl border border-gray-100 bg-[#f2fbe4] object-contain p-1 shadow-sm"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="mb-1 text-sm font-bold uppercase tracking-normal text-gray-500">Ton plan de progression</p>
+            <h1 className="text-2xl font-extrabold text-black md:text-3xl">
+              {firstName ? `À toi de jouer, ${firstName}.` : 'À toi de jouer.'}
+            </h1>
+            <p className="mt-2 max-w-2xl text-text-secondary">
+              Pas de note ni de bonne réponse ici. Choisis les sujets que tu veux travailler maintenant, puis donne-toi un premier pas concret.
+            </p>
+          </div>
+          {personalityLabel && (
+            <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[#f2fbe4] px-3 py-2 text-sm font-semibold text-gray-800">
+              <i className="ph ph-sparkle" aria-hidden="true" />
+              {personalityLabel}
+            </span>
+          )}
+        </div>
+      </section>
+
+      <section aria-labelledby="axes-heading">
+        <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-normal text-gray-500">Étape 1</p>
+            <h2 id="axes-heading" className="text-2xl font-extrabold text-black">Choisis tes axes de progression</h2>
+          </div>
+          <p className="text-sm font-semibold text-gray-600">{selectedAxisIds.length} / 3 choisis</p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {IMPROVEMENT_AXES.map((axis) => {
+            const selected = selectedAxisIds.includes(axis.id)
+            const disabled = !selected && selectionLimitReached
+            return (
+              <button
+                key={axis.id}
+                type="button"
+                onClick={() => toggleAxis(axis.id)}
+                disabled={disabled}
+                aria-pressed={selected}
+                className={`min-h-[190px] rounded-2xl border p-5 text-left transition ${
+                  selected
+                    ? 'border-black bg-[#f2fbe4] shadow-sm'
+                    : disabled
+                      ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400 opacity-70'
+                      : 'border-gray-200 bg-white hover:-translate-y-0.5 hover:border-black hover:shadow-sm'
+                }`}
+              >
+                <span className="mb-5 flex items-center justify-between">
+                  <span className={`inline-grid h-10 w-10 place-items-center rounded-full ${selected ? 'bg-black text-[#c1ff72]' : 'bg-gray-100 text-black'}`}>
+                    <i className={`ph ${axis.icon} text-xl`} aria-hidden="true" />
+                  </span>
+                  <i className={`ph ${selected ? 'ph-check-circle text-2xl text-black' : 'ph-plus-circle text-2xl text-gray-400'}`} aria-hidden="true" />
+                </span>
+                <span className="block text-lg font-extrabold text-black">{axis.title}</span>
+                <span className="mt-2 block text-sm leading-relaxed text-gray-600">{axis.description}</span>
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
+      {selectedAxes.length > 0 && (
+        <section aria-labelledby="plan-heading" className="rounded-2xl border border-gray-200 bg-white p-5 shadow-card md:p-7">
+          <div className="mb-5">
+            <p className="text-sm font-bold uppercase tracking-normal text-gray-500">Étape 2</p>
+            <h2 id="plan-heading" className="text-2xl font-extrabold text-black">Ton premier pas</h2>
+            <p className="mt-1 text-text-secondary">Même une petite action compte. Tu pourras la modifier plus tard.</p>
+          </div>
+
+          <div className="space-y-4">
+            {selectedAxes.map((axis) => (
+              <label key={axis.id} className="block">
+                <span className="mb-2 flex items-center gap-2 text-sm font-bold text-black">
+                  <i className={`ph ${axis.icon} text-lg`} aria-hidden="true" />
+                  {axis.title}
+                </span>
+                <textarea
+                  value={commitments[axis.id] || ''}
+                  onChange={(event) => updateCommitment(axis.id, event.target.value)}
+                  placeholder={`Ex. ${axis.example}`}
+                  rows={2}
+                  className="w-full resize-y rounded-xl border border-gray-200 bg-[#fffbf7] px-4 py-3 text-sm leading-relaxed text-black outline-none transition placeholder:text-gray-400 focus:border-black"
+                />
+              </label>
+            ))}
+          </div>
+
+          {saveError && <p className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{saveError}</p>}
+          {saved && (
+            <p className="mt-4 flex items-center gap-2 rounded-xl border border-[#a7ec4e] bg-[#f2fbe4] p-3 text-sm font-semibold text-gray-800">
+              <i className="ph ph-check-circle text-lg" aria-hidden="true" />
+              Ton plan est enregistré. Reviens-y quand tu veux pour ajuster tes prochains pas.
+            </p>
+          )}
+
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={savePlan}
+              disabled={saving}
+              className="inline-flex min-h-11 items-center justify-center rounded-full bg-black px-5 py-2.5 font-bold text-white transition hover:bg-gray-800 disabled:cursor-wait disabled:opacity-60"
+            >
+              {saving ? 'Enregistrement...' : 'Enregistrer mon plan'}
+            </button>
+            <span className="text-sm text-gray-500">Choisis ce qui te ressemble aujourd'hui, pas ce que les autres attendent de toi.</span>
+          </div>
+        </section>
       )}
     </div>
   )

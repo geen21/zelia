@@ -7,7 +7,7 @@ const router = express.Router()
 
 const FINAL_SELECTION_QUESTION_ID = 'orientation_final_selection'
 const EXTRA_INFO_LIMIT = 250
-const FINAL_SELECTION_LIMIT = 12
+const FINAL_SELECTION_LIMIT = 16
 const MAX_ANSWER_TEXT_LENGTH = 12000
 
 function normalizeSchoolNameForMatch(value) {

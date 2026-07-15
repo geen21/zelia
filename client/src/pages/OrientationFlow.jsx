@@ -5,6 +5,7 @@ import { AI_JOB_DECK_SIZE } from '../lib/orientationJobs.js'
 import PersonaRevealCard from '../components/PersonaRevealCard.jsx'
 import { buildLoreleiUrl, buildPersonaAvatarConfig, computePersonaFromAnswers, getPersonaBySlug } from '../lib/personas.js'
 import { generatePersonaShareCard } from '../lib/shareImage.js'
+import { trackOrientationEvent } from '../lib/analytics.js'
 import './OrientationFlow.css'
 
 const QUESTION_LIMIT = 20
@@ -24,10 +25,8 @@ const MAX_FORMATION_QUERY_VARIANTS = 2
 const FINAL_FORMATION_SEARCH_PLAN_COUNT = 4
 const FINAL_FORMATION_PAGE_SIZE = 10
 const PROFILE_IDENTITY_KEY = 'orientation_profile_identity'
-const PROFILE_IDENTITY_COMPLETE_KEY = 'orientation_profile_identity_complete'
-const PROFILE_IDENTITY_COMPLETED_INTENTS_KEY = 'orientation_profile_identity_completed_intents'
+const ORIENTATION_SHARE_URL = 'https://zelia.io/orientation?utm_source=Appfinparcours&utm_medium=Appfinparcours&utm_campaign=SharedLink-Appfinparcours&utm_id=Tracker-Shared-Link'
 const DEFAULT_PROFILE_IDENTITY = { firstName: '', lastName: '', gender: '' }
-const GENDER_OPTIONS = ['Femme', 'Homme', 'Non-binaire', 'Autre', 'Préfère ne pas répondre']
 const FORMATION_ANCHOR_STOPWORDS = new Set(['formation', 'formations', 'piste', 'parcours', 'etude', 'etudes', 'ecole', 'ecoles', 'universite', 'lycee', 'cfa', 'iut', 'cnam', 'greta', 'diplome', 'metier', 'metiers', 'professionnel', 'professionnelle', 'initiale', 'alternance', 'bts', 'but', 'dut', 'licence', 'bachelor', 'master', 'mastere', 'mba', 'msc', 'ingenieur', 'de', 'du', 'des', 'en', 'et', 'a', 'au', 'aux', 'le', 'la', 'les', 'pour', 'avec', 'dans', 'niveau', 'vise'])
 
 const PARTNER_CITY_BY_DEPARTMENT_CODE = {
@@ -83,16 +82,6 @@ function getCategoryIcon(category) {
 
 const MICRO_STEPS = [
   {
-    id: 'budget',
-    title: 'Budgetise tes études',
-    options: [
-      { label: '0 - 2k/an', value: '0-2000' },
-      { label: '2k - 8k/an', value: '2000-8000' },
-      { label: '8k+/an', value: '8000+' },
-      { label: 'Je ne sais pas', value: 'unknown' }
-    ]
-  },
-  {
     id: 'grade_confidence',
     title: 'Indique ta moyenne dans tes matières fortes',
     options: [
@@ -145,6 +134,24 @@ const MICRO_STEPS = [
       { label: 'Éco', value: 'eco' },
       { label: 'Arts', value: 'arts' },
       { label: 'Numérique', value: 'numerique' }
+    ]
+  },
+  {
+    id: 'career_aspiration',
+    type: 'text',
+    title: 'Y a-t-il un métier ou un domaine qui t’attire déjà ?',
+    description: 'Même une idée vague suffit : grutier, avocate, cuisine, sport, soin...',
+    placeholder: 'Écris ce qui te fait envie'
+  },
+  {
+    id: 'budget',
+    title: 'Une idée de ton budget',
+    description: "Si tu ne sais pas, c'est normal, ce n'est pas grave.",
+    options: [
+      { label: '0 - 2k/an', value: '0-2000' },
+      { label: '2k - 8k/an', value: '2000-8000' },
+      { label: '8k+/an', value: '8000+' },
+      { label: 'Je ne sais pas', value: 'unknown' }
     ]
   }
 ]
@@ -244,43 +251,6 @@ function normalizeProfileIdentity(value = {}) {
     lastName: String(value.lastName || value.last_name || value.nom || '').trim(),
     gender: String(value.gender || value.genre || '').trim()
   }
-}
-
-function isProfileIdentityComplete(value = {}) {
-  const identity = normalizeProfileIdentity(value)
-  return Boolean(identity.firstName && identity.lastName && identity.gender)
-}
-
-function getCompletedProfileIdentityIntents() {
-  const stored = getStoredJson(PROFILE_IDENTITY_COMPLETED_INTENTS_KEY, [])
-  return new Set(Array.isArray(stored) ? stored.filter(Boolean) : [])
-}
-
-function hasCompletedProfileIdentityForIntent(intentValue) {
-  const completed = getCompletedProfileIdentityIntents()
-  return completed.has(intentValue) || completed.has('both')
-}
-
-function markProfileIdentityCompleteForIntent(intentValue) {
-  const completed = getCompletedProfileIdentityIntents()
-  if (intentValue) completed.add(intentValue)
-  if (intentValue === 'both') {
-    completed.add('formations')
-    completed.add('metiers')
-  }
-  localStorage.setItem(PROFILE_IDENTITY_COMPLETED_INTENTS_KEY, JSON.stringify([...completed]))
-}
-
-function getProfileIdentityNote(intentValue) {
-  if (intentValue === 'metiers') {
-    return "Ces infos servent à enregistrer ton parcours métier. Le genre ajuste seulement la formulation, jamais les propositions."
-  }
-
-  if (intentValue === 'both') {
-    return 'Ces infos servent à enregistrer ton parcours. Le genre ajuste seulement la formulation, jamais les propositions.'
-  }
-
-  return 'Ces infos servent à enregistrer ton parcours formation. Le genre ajuste seulement la formulation, jamais les propositions.'
 }
 
 function mergeProfileIdentity(current = DEFAULT_PROFILE_IDENTITY, incoming = DEFAULT_PROFILE_IDENTITY) {
@@ -1407,7 +1377,6 @@ function phaseIndex(phase) {
     'intro',
     'questions',
     'info',
-    'profileIdentity',
     'analysis',
     'personality',
     'formationReveal',
@@ -1419,6 +1388,7 @@ function phaseIndex(phase) {
 export default function OrientationFlow() {
   const navigate = useNavigate()
   const dragStartRef = useRef(null)
+  const orientationStepTrackingRef = useRef('')
   const [initialProfileIdentity] = useState(() => normalizeProfileIdentity(getStoredJson(PROFILE_IDENTITY_KEY, DEFAULT_PROFILE_IDENTITY)))
   const [phase, setPhase] = useState(() => (Object.keys(getStoredAnswersProgress()).length > 0 ? 'questions' : 'intro'))
   const [questions, setQuestions] = useState([])
@@ -1452,12 +1422,6 @@ export default function OrientationFlow() {
   const [dbFormationsLoading, setDbFormationsLoading] = useState(false)
   const [requestInfoSelections, setRequestInfoSelections] = useState(() => new Set())
   const [profileIdentity, setProfileIdentity] = useState(initialProfileIdentity)
-  const [profileIdentityComplete, setProfileIdentityComplete] = useState(() => (
-    localStorage.getItem(PROFILE_IDENTITY_COMPLETE_KEY) === 'true' && isProfileIdentityComplete(initialProfileIdentity)
-  ))
-  const profileIdentityCompleteRef = useRef(profileIdentityComplete)
-  const [profileIdentitySaving, setProfileIdentitySaving] = useState(false)
-  const [profileIdentityError, setProfileIdentityError] = useState('')
 
   const currentQuestion = questions[questionIndex]
   const analysisBlock = useMemo(() => getAnalysisBlock(analysisData), [analysisData])
@@ -1526,11 +1490,6 @@ export default function OrientationFlow() {
     setProfileIdentity((current) => {
       const nextIdentity = mergeProfileIdentity(current, incomingIdentity)
       localStorage.setItem(PROFILE_IDENTITY_KEY, JSON.stringify(nextIdentity))
-      if (isProfileIdentityComplete(nextIdentity)) {
-        profileIdentityCompleteRef.current = true
-        setProfileIdentityComplete(true)
-        localStorage.setItem(PROFILE_IDENTITY_COMPLETE_KEY, 'true')
-      }
       return nextIdentity
     })
   }, [])
@@ -1552,12 +1511,50 @@ export default function OrientationFlow() {
     if (phase === 'questions') return `Question ${Math.min(questionIndex + 1, questions.length)} / ${questions.length}`
     if (phase === 'info') return `Étape ${infoIndex + 1} / ${Math.max(activeMicroSteps.length, 1)}`
     if (phase === 'personality') return 'Ton profil'
-    if (phase === 'profileIdentity') return 'Ton profil'
     if (phase === 'formationReveal') return 'Tes formations'
     if (phase === 'metierReveal') return 'Tes métiers'
     if (phase === 'avatarReveal') return 'Ton avatar'
     return 'Zélia prépare la suite'
   }, [phase, questionIndex, questions.length, infoIndex, activeMicroSteps.length])
+
+  useEffect(() => {
+    if (loading || !phase) return
+
+    const orientationStep = {
+      intro: 'intro',
+      questions: 'questions',
+      info: 'micro_profile',
+      analysis: 'analysis',
+      personality: 'persona',
+      formationReveal: 'formations',
+      metierReveal: 'metiers',
+      avatarReveal: 'avatar'
+    }[phase] || phase
+    const tracking = {
+      orientation_step: orientationStep,
+      orientation_step_index: phaseIndex(phase) + 1,
+      orientation_total_steps: 8
+    }
+
+    if (phase === 'questions') {
+      tracking.orientation_step_index = questionIndex + 1
+      tracking.orientation_total_steps = questions.length
+      tracking.orientation_question_number = questionIndex + 1
+      tracking.orientation_question_category = currentQuestion?.category || 'unknown'
+    }
+
+    if (phase === 'info') {
+      const microStep = activeMicroSteps[infoIndex]
+      tracking.orientation_step_index = infoIndex + 1
+      tracking.orientation_total_steps = activeMicroSteps.length
+      tracking.orientation_micro_step = microStep?.id || 'unknown'
+    }
+
+    const trackingKey = [orientationStep, tracking.orientation_step_index, tracking.orientation_micro_step || ''].join(':')
+    if (orientationStepTrackingRef.current === trackingKey) return
+    orientationStepTrackingRef.current = trackingKey
+    trackOrientationEvent('orientation_step_viewed', tracking)
+  }, [activeMicroSteps, currentQuestion?.category, infoIndex, loading, phase, questionIndex, questions.length])
 
   useEffect(() => {
     if (!zeliaSpeaking) return
@@ -1602,13 +1599,22 @@ export default function OrientationFlow() {
     setBusyMessage('On te fait ton analyse de personnalité et on trouve des formations et métiers pour toi...')
 
     if (!(await isAuthenticated())) {
+      trackOrientationEvent('orientation_registration_required', {
+        orientation_step: 'analysis',
+        orientation_action: 'register'
+      })
       setBusyMessage('')
       goToAuth('/register')
       return
     }
 
+    trackOrientationEvent('orientation_analysis_started', {
+      orientation_step: 'analysis',
+      orientation_action: 'generate'
+    })
+
     // Persona + avatar are computed automatically from the answers (no manual picker).
-    const { persona: computedPersona } = computePersonaFromAnswers(sourceQuestions, sourceAnswers)
+    const { persona: computedPersona, profile: computedPersonaProfile } = computePersonaFromAnswers(sourceQuestions, sourceAnswers)
     const personaAvatarUrl = buildLoreleiUrl(buildPersonaAvatarConfig(computedPersona.slug, profileIdentity.firstName || 'zelia'), 360)
     setPersona(computedPersona)
     setAvatarUrl(personaAvatarUrl)
@@ -1627,13 +1633,27 @@ export default function OrientationFlow() {
       const department = await resolveUserDepartment().catch(() => userDepartment)
       await saveMicroProfile(finalMicroProfile, department).catch(() => null)
       await orientationAPI.submitInitialAnswers(payload.answers)
-      await orientationAPI.generateInitialAnalysis()
+      await orientationAPI.generateInitialAnalysis({
+        orientationProfile: {
+          personaSlug: computedPersona.slug,
+          personaName: computedPersona.name,
+          axes: computedPersonaProfile,
+          careerAspiration: String(finalMicroProfile.career_aspiration || '').trim().slice(0, 160)
+        }
+      })
       const { data } = await orientationAPI.getResults()
       setAnalysisData(data?.results || null)
       localStorage.removeItem('orientation_resume_after_auth')
+      trackOrientationEvent('orientation_analysis_completed', {
+        orientation_step: 'analysis'
+      })
       setPhase('personality')
     } catch (analysisError) {
       console.error('Orientation analysis error', analysisError)
+      trackOrientationEvent('orientation_analysis_failed', {
+        orientation_step: 'analysis',
+        orientation_error_stage: 'generate'
+      })
       setError("L'analyse n'a pas pu être générée. Réessaie dans quelques secondes.")
     } finally {
       setBusyMessage('')
@@ -1642,13 +1662,12 @@ export default function OrientationFlow() {
 
   const advanceFromInfo = useCallback(async (questionsOverride = null, profileOverride = null) => {
     setError('')
-    setProfileIdentityError('')
     if (!(await isAuthenticated())) {
+      trackOrientationEvent('orientation_registration_required', {
+        orientation_step: 'micro_profile',
+        orientation_action: 'register'
+      })
       goToAuth('/register')
-      return
-    }
-    if (!profileIdentityCompleteRef.current) {
-      setPhase('profileIdentity')
       return
     }
     await runInitialAnalysis(questionsOverride, null, profileOverride)
@@ -1706,6 +1725,12 @@ export default function OrientationFlow() {
     const optionList = getQuestionOptions(currentQuestion)
     const safeIndex = Math.max(0, Math.min(Number(optionIndex) || 0, optionList.length - 1))
     const picked = optionList[safeIndex]
+    trackOrientationEvent('orientation_question_answered', {
+      orientation_step: 'questions',
+      orientation_question_number: questionIndex + 1,
+      orientation_question_category: currentQuestion.category || 'unknown',
+      orientation_answer_position: safeIndex + 1
+    })
     const nextAnswers = persistAnswer(currentQuestion.id, picked.label)
     setDragX(safeIndex === 1 ? 360 : -360)
     window.setTimeout(() => {
@@ -1755,7 +1780,7 @@ export default function OrientationFlow() {
 
   const canGoBack = !loading && !error && (
     (phase === 'questions' && questionIndex > 0) ||
-    ['personality', 'info', 'profileIdentity', 'formationReveal', 'metierReveal', 'avatarReveal'].includes(phase)
+    ['personality', 'info', 'formationReveal', 'metierReveal', 'avatarReveal'].includes(phase)
   )
 
   const goBack = () => {
@@ -1769,10 +1794,6 @@ export default function OrientationFlow() {
     if (phase === 'info') {
       if (infoIndex > 0) setInfoIndex((index) => index - 1)
       else setPhase('questions')
-      return
-    }
-    if (phase === 'profileIdentity') {
-      setPhase('info')
       return
     }
     if (phase === 'personality') {
@@ -1816,6 +1837,31 @@ export default function OrientationFlow() {
       }
     } catch (shareError) {
       console.warn('Persona share failed', shareError)
+    } finally {
+      setSharingPersona(false)
+    }
+  }
+
+  const shareOrientationLink = async () => {
+    if (sharingPersona) return
+    setSharingPersona(true)
+    try {
+      const shareData = {
+        title: 'Découvre Zélia',
+        text: 'Découvre Zélia pour apprendre à mieux te connaître et y voir plus clair.',
+        url: ORIENTATION_SHARE_URL
+      }
+      if (typeof navigator.share === 'function') {
+        await navigator.share(shareData)
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(`${shareData.text}\n${ORIENTATION_SHARE_URL}`)
+      } else {
+        window.prompt('Copie ce lien pour le partager :', ORIENTATION_SHARE_URL)
+      }
+    } catch (shareError) {
+      if (shareError?.name !== 'AbortError') {
+        console.warn('Orientation link share failed', shareError)
+      }
     } finally {
       setSharingPersona(false)
     }
@@ -2043,9 +2089,8 @@ export default function OrientationFlow() {
     })
   }
 
-  const persistFormationSelection = async () => {
-    if (!dbFormations.length) return
-    const serialized = dbFormations.map((candidate) => serializeFinalCandidate(candidate, requestInfoSelections.has(candidate.id)))
+  const persistOrientationSelection = async (serialized, errorLabel) => {
+    if (!serialized.length) return
     const answerText = JSON.stringify(serialized)
     localStorage.setItem('orientation_final_selection', answerText)
     await usersAPI.saveExtraInfo([{
@@ -2053,13 +2098,71 @@ export default function OrientationFlow() {
       question_text: 'Sélection finale orientation',
       answer_text: answerText
     }]).catch((saveError) => {
-      console.warn('Formation selection save failed', saveError)
+      console.warn(`${errorLabel} save failed`, saveError)
     })
   }
 
+  const getSelectedFormations = () => dbFormations.map((candidate) => (
+    serializeFinalCandidate(candidate, requestInfoSelections.has(candidate.id))
+  ))
+
+  const persistFormationSelection = async () => {
+    await persistOrientationSelection(getSelectedFormations(), 'Formation selection')
+  }
+
+  const persistMetierSelection = async () => {
+    const serialized = [
+      ...getSelectedFormations(),
+      ...jobRecommendations.map((candidate) => serializeFinalCandidate(candidate, false))
+    ]
+    await persistOrientationSelection(serialized, 'Orientation selection')
+  }
+
   const continueFromFormationReveal = () => {
+    trackOrientationEvent('orientation_step_completed', {
+      orientation_step: 'formations',
+      orientation_item_count: dbFormations.length || formationRecommendations.length,
+      orientation_action: 'discover_jobs'
+    })
     persistFormationSelection()
     setPhase('metierReveal')
+  }
+
+  const continueFromMetierReveal = async () => {
+    await persistMetierSelection()
+    trackOrientationEvent('orientation_step_completed', {
+      orientation_step: 'metiers',
+      orientation_item_count: jobRecommendations.length,
+      orientation_action: 'discover_avatar'
+    })
+    setPhase('avatarReveal')
+  }
+
+  const advanceMicroStep = (nextProfile) => {
+    const completedStep = activeMicroSteps[infoIndex]
+    trackOrientationEvent('orientation_micro_step_completed', {
+      orientation_step: 'micro_profile',
+      orientation_step_index: infoIndex + 1,
+      orientation_total_steps: activeMicroSteps.length,
+      orientation_micro_step: completedStep?.id || 'unknown'
+    })
+    window.setTimeout(() => {
+      if (infoIndex >= activeMicroSteps.length - 1) advanceFromInfo(null, nextProfile)
+      else setInfoIndex((index) => index + 1)
+    }, 200)
+  }
+
+  const updateMicroText = (step, value) => {
+    const nextProfile = { ...microProfile, [step.id]: value }
+    setMicroProfile(nextProfile)
+    localStorage.setItem('orientation_micro_profile', JSON.stringify(nextProfile))
+  }
+
+  const continueMicroText = (step) => {
+    const nextProfile = { ...microProfile, [step.id]: String(microProfile[step.id] || '').trim() }
+    setMicroProfile(nextProfile)
+    localStorage.setItem('orientation_micro_profile', JSON.stringify(nextProfile))
+    advanceMicroStep(nextProfile)
   }
 
   const chooseMicroOption = (step, option) => {
@@ -2079,12 +2182,7 @@ export default function OrientationFlow() {
     setMicroProfile(nextProfile)
     localStorage.setItem('orientation_micro_profile', JSON.stringify(nextProfile))
 
-    if (!step.multi) {
-      window.setTimeout(() => {
-        if (infoIndex >= activeMicroSteps.length - 1) advanceFromInfo(null, nextProfile)
-        else setInfoIndex((index) => index + 1)
-      }, 200)
-    }
+    if (!step.multi) advanceMicroStep(nextProfile)
   }
 
   const saveMicroProfile = async (profile, departmentOverride = userDepartment) => {
@@ -2096,50 +2194,13 @@ export default function OrientationFlow() {
       { question_id: 'orientation_study_location', question_text: 'Préférence géographique', answer_text: profile.study_location || '' },
       { question_id: 'orientation_department', question_text: 'Département', answer_text: departmentOverride?.code || '' },
       { question_id: 'orientation_department_name', question_text: 'Département nom', answer_text: departmentOverride?.name || '' },
-      { question_id: 'orientation_strong_subjects', question_text: 'Matières fortes', answer_text: JSON.stringify(profile.strong_subjects || []) }
+      { question_id: 'orientation_strong_subjects', question_text: 'Matières fortes', answer_text: JSON.stringify(profile.strong_subjects || []) },
+      { question_id: 'orientation_career_aspiration', question_text: 'Métier ou domaine qui attire', answer_text: String(profile.career_aspiration || '').trim() }
     ].filter((entry) => entry.answer_text && entry.answer_text !== '[]')
     if (!entries.length) return
     await usersAPI.saveExtraInfo(entries).catch((saveError) => {
       console.warn('Micro profile save failed', saveError)
     })
-  }
-
-  const updateProfileIdentityField = (field, value) => {
-    const nextIdentity = { ...profileIdentity, [field]: value }
-    setProfileIdentity(nextIdentity)
-    localStorage.setItem(PROFILE_IDENTITY_KEY, JSON.stringify(nextIdentity))
-    if (profileIdentityError) setProfileIdentityError('')
-  }
-
-  const submitProfileIdentity = async (event) => {
-    event.preventDefault()
-    const identity = normalizeProfileIdentity(profileIdentity)
-    if (!isProfileIdentityComplete(identity)) {
-      setProfileIdentityError('Complète les trois champs pour continuer.')
-      return
-    }
-
-    setProfileIdentitySaving(true)
-    setProfileIdentityError('')
-    try {
-      await usersAPI.updateProfile({
-        first_name: identity.firstName,
-        last_name: identity.lastName,
-        gender: identity.gender
-      })
-      setProfileIdentity(identity)
-      localStorage.setItem(PROFILE_IDENTITY_KEY, JSON.stringify(identity))
-      localStorage.setItem(PROFILE_IDENTITY_COMPLETE_KEY, 'true')
-      markProfileIdentityCompleteForIntent(intent)
-      profileIdentityCompleteRef.current = true
-      setProfileIdentityComplete(true)
-      await runInitialAnalysis()
-    } catch (profileError) {
-      console.error('Profile identity save failed', profileError)
-      setProfileIdentityError(profileError?.response?.data?.error || "Impossible d'enregistrer ces infos pour le moment.")
-    } finally {
-      setProfileIdentitySaving(false)
-    }
   }
 
   const renderAvatarFace = (className = 'message-avatar') => (
@@ -2215,7 +2276,13 @@ export default function OrientationFlow() {
           personnalisé. Prêt·e ?
         </p>
       </div>
-      <button className="primary-action" onClick={() => setPhase('questions')}>C'est parti !</button>
+      <button className="primary-action" onClick={() => {
+        trackOrientationEvent('orientation_flow_started', {
+          orientation_step: 'intro',
+          orientation_action: 'start'
+        })
+        setPhase('questions')
+      }}>C'est parti !</button>
     </div>
   )
 
@@ -2229,8 +2296,14 @@ export default function OrientationFlow() {
             avatarUrl={avatarUrl}
             onShare={sharePersonaProfile}
             sharing={sharingPersona}
-            onContinue={() => setPhase('formationReveal')}
-            continueLabel="On continue !"
+            onContinue={() => {
+              trackOrientationEvent('orientation_step_completed', {
+                orientation_step: 'persona',
+                orientation_action: 'discover_studies'
+              })
+              setPhase('formationReveal')
+            }}
+            continueLabel="Découvre tes études"
           />
           {visiblePersonality.length > 0 && (
             <details className="personality-details">
@@ -2260,72 +2333,42 @@ export default function OrientationFlow() {
           {renderAvatarFace()}
           <span className="orientation-pill">{infoIndex + 1} / {activeMicroSteps.length}</span>
           <h1>{step.title}</h1>
-          <div className="choice-grid">
-            {step.options.map((option) => {
-              const active = step.multi ? Array.isArray(selected) && selected.includes(option.value) : selected === option.value
-              return (
-                <button key={option.value} className={`choice-chip ${active ? 'active' : ''}`} onClick={() => chooseMicroOption(step, option)}>
-                  {option.label}
-                </button>
-              )
-            })}
-          </div>
+          {step.description && <p>{step.description}</p>}
+          {step.type === 'text' ? (
+            <label className="micro-text-label">
+              <span>Ton idée, même si elle n’est pas encore précise</span>
+              <input
+                type="text"
+                value={selected || ''}
+                onChange={(event) => updateMicroText(step, event.target.value)}
+                placeholder={step.placeholder}
+                maxLength={160}
+                autoComplete="off"
+                autoFocus
+              />
+            </label>
+          ) : (
+            <div className="choice-grid">
+              {step.options.map((option) => {
+                const active = step.multi ? Array.isArray(selected) && selected.includes(option.value) : selected === option.value
+                return (
+                  <button key={option.value} className={`choice-chip ${active ? 'active' : ''}`} onClick={() => chooseMicroOption(step, option)}>
+                    {option.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
-        {step.multi && (
-          <button className="primary-action" onClick={() => advanceFromInfo()}>C'est parti !</button>
-        )}
-      </div>
-    )
-  }
-
-  const renderProfileIdentity = () => {
-    const identityNote = getProfileIdentityNote(intent)
-
-    return (
-      <div className="orientation-stage compact identity-stage">
-        <form className="orientation-card identity-card" onSubmit={submitProfileIdentity}>
-          {renderAvatarFace()}
-          <span className="orientation-pill">Profil</span>
-          <h1>Dis-moi qui tu es.</h1>
-          <div className="identity-form-grid">
-            <label>
-              <span>Prénom</span>
-              <input
-                type="text"
-                value={profileIdentity.firstName}
-                onChange={(event) => updateProfileIdentityField('firstName', event.target.value)}
-                autoComplete="given-name"
-                required
-              />
-            </label>
-            <label>
-              <span>Nom</span>
-              <input
-                type="text"
-                value={profileIdentity.lastName}
-                onChange={(event) => updateProfileIdentityField('lastName', event.target.value)}
-                autoComplete="family-name"
-                required
-              />
-            </label>
-            <label>
-              <span>Genre</span>
-              <select
-                value={profileIdentity.gender}
-                onChange={(event) => updateProfileIdentityField('gender', event.target.value)}
-                required
-              >
-                <option value="">Choisir</option>
-                {GENDER_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </label>
+        {step.type === 'text' && (
+          <div className="micro-text-actions">
+            <button type="button" className="primary-action" onClick={() => continueMicroText(step)}>Continuer</button>
+            <button type="button" className="secondary-action" onClick={() => continueMicroText(step)}>Passer</button>
           </div>
-          <p className="identity-note">{identityNote}</p>
-          {profileIdentityError && <p className="identity-error" role="alert">{profileIdentityError}</p>}
-          <button className="primary-action identity-submit" type="submit" disabled={profileIdentitySaving}>
-            {profileIdentitySaving ? 'On enregistre...' : 'On y va !'}
-          </button>
-        </form>
+        )}
+        {step.multi && (
+          <button className="primary-action" onClick={() => advanceMicroStep({ ...microProfile })}>Continuer</button>
+        )}
       </div>
     )
   }
@@ -2480,7 +2523,7 @@ export default function OrientationFlow() {
         )}
 
         <div className="persona-actions persona-actions-standalone">
-          <button type="button" className="persona-continue" onClick={continueFromFormationReveal}>On continue !</button>
+          <button type="button" className="persona-continue" onClick={continueFromFormationReveal}>Découvre tes métiers</button>
         </div>
       </div>
     </div>
@@ -2515,7 +2558,7 @@ export default function OrientationFlow() {
             </div>
           )}
           <div className="persona-actions">
-            <button type="button" className="persona-continue" onClick={() => setPhase('avatarReveal')}>On continue !</button>
+            <button type="button" className="persona-continue" onClick={continueFromMetierReveal}>On continue !</button>
           </div>
         </div>
       </div>
@@ -2537,12 +2580,19 @@ export default function OrientationFlow() {
             <div className="avatar-reveal-showcase">
               <img src={avatarUrl} alt="Ton avatar" className="avatar-reveal-image" />
             </div>
-            <p className="persona-tagline">Ton avatar est propre à ton profil. Tu le retrouveras partout dans ton espace Zélia.</p>
+            <p className="persona-tagline">Voilà tu as fini la première étape, la découverte de soi. Bravo ! Continue d'explorer l'app et apprends à te connaître en appuyant sur "Découvrir l'app".</p>
+            <p className="persona-tagline">Tu peux aussi partager Zélia à tes potes avec le lien, pour les aider à y voir plus clair.</p>
             <div className="persona-actions">
-              <button type="button" className="persona-icon-btn" onClick={sharePersonaProfile} disabled={sharingPersona} aria-label="Partager mon avatar" title="Partager">
+              <button type="button" className="persona-icon-btn" onClick={shareOrientationLink} disabled={sharingPersona} aria-label="Partager le lien Zélia" title="Partager le lien Zélia">
                 <i className="ph ph-share-network" aria-hidden="true" />
               </button>
-              <button type="button" className="persona-continue" onClick={() => navigate('/app')}>Terminer</button>
+              <button type="button" className="persona-continue" onClick={() => {
+                trackOrientationEvent('orientation_flow_completed', {
+                  orientation_step: 'avatar',
+                  orientation_action: 'open_app'
+                })
+                navigate('/app')
+              }}>Découvrir l'app</button>
             </div>
           </div>
         </div>
@@ -2567,7 +2617,6 @@ export default function OrientationFlow() {
     if (phase === 'analysis') return renderBusy()
     if (phase === 'personality') return renderPersonality()
     if (phase === 'info') return renderMicroInfo()
-    if (phase === 'profileIdentity') return renderProfileIdentity()
     if (phase === 'formationReveal') return renderFormationReveal()
     if (phase === 'metierReveal') return renderMetierReveal()
     if (phase === 'avatarReveal') return renderAvatarReveal()

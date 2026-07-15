@@ -578,9 +578,27 @@ export default function Results() {
 	}
 
 	const data = buildOrientationDisplayData(analysisData?.inscriptionResults || analysisData)
-	const hasSelections = orientationSelections.length > 0
-	const formations = orientationSelections.filter((selection) => selection.type === 'formation')
-	const metiers = orientationSelections.filter((selection) => selection.type === 'metier')
+	const persistedMetiers = orientationSelections.filter((selection) => selection.type === 'metier')
+	const restoredMetiers = orientationSelections.length > 0 && persistedMetiers.length === 0
+		? (Array.isArray(data?.jobRecommendations) ? data.jobRecommendations : [])
+			.map(normalizeJobRecommendation)
+			.filter(Boolean)
+			.map((job, index) => ({
+				id: `analysis-metier-${index}`,
+				type: 'metier',
+				typeLabel: 'Métier suggéré',
+				title: job.title,
+				subtitle: '',
+				description: '',
+				tags: job.skills,
+				link: '',
+				linkLabel: ''
+			}))
+		: []
+	const displayedSelections = [...orientationSelections, ...restoredMetiers]
+	const hasSelections = displayedSelections.length > 0
+	const formations = displayedSelections.filter((selection) => selection.type === 'formation')
+	const metiers = displayedSelections.filter((selection) => selection.type === 'metier')
 	const hasAnalysisDetail = Boolean(data?.personalityAnalysis || data?.skillsAssessment)
 	const showFallbackJobs = !hasSelections && Array.isArray(data?.jobRecommendations) && data.jobRecommendations.length > 0
 	const showFallbackStudies = !hasSelections && Array.isArray(data?.studyRecommendations) && data.studyRecommendations.length > 0
@@ -607,7 +625,7 @@ export default function Results() {
 						</div>
 					</div>
 					<div className="results-selection-grid">
-						{orientationSelections.map((selection) => (
+						{displayedSelections.map((selection) => (
 							<div key={selection.id} className={`results-selection-card ${selection.type === 'metier' ? 'is-metier' : 'is-formation'}`}>
 								<div className="results-selection-top">
 									<span className="results-selection-type">{selection.typeLabel}</span>

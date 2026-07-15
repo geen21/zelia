@@ -8,27 +8,29 @@ import { ORIENTATION_VIDEO_COMPLETION_ID, ORIENTATION_VIDEO_ITEMS, ORIENTATION_V
 const ORIENTATION_VIDEO_DONE_IDS = ORIENTATION_VIDEO_ITEMS.map((video) => video.questionId)
 
 const ACTIONS = [
-  { id: 'bilan', label: 'Mon bilan', detail: 'Relire ton analyse et tes pistes principales.', to: '/app/results', icon: 'ph-sparkle', doneWhen: 'hasResults' },
-  { id: 'cv', label: 'CV', detail: 'Zélia te pose les bonnes questions puis génère ton CV.', to: '/app/outils/cv', icon: 'ph-identification-card', doneIds: ['niveau17_cv_data', 'niveau17_cv_pdf_url'] },
-  { id: 'letter', label: 'Lettre', detail: 'Créer une lettre claire pour une formation ou un métier.', to: '/app/lettre', icon: 'ph-file-text', doneIds: ['lettre_generated', 'niveau14_letter_generated'] },
-  { id: 'english', label: 'Anglais', detail: 'Évaluer ton niveau et savoir quoi travailler.', to: '/app/outils/anglais', icon: 'ph-translate', doneIds: ['niv5_english_level'] },
-  { id: 'personality', label: 'Personnalité', detail: 'Faire le test de personnalité approfondi.', to: '/app/outils/personnalite', icon: 'ph-brain', donePrefixes: ['mbti_', 'niveau4_'] },
-  { id: 'orientation-videos', label: 'Vidéos orientation', detail: 'Suivre toutes les vidéos utiles du parcours au même endroit.', to: ORIENTATION_VIDEO_TOOL_PATH, icon: 'ph-video', doneIds: [ORIENTATION_VIDEO_COMPLETION_ID], doneAllIds: ORIENTATION_VIDEO_DONE_IDS },
-  { id: 'parcoursup', label: 'Parcoursup', detail: 'Revoir les infos importantes sur Parcoursup.', to: '/app/outils/parcoursup', icon: 'ph-info', doneIds: ['niveau26_parcoursup_read'] },
-  { id: 'pitch', label: 'Pitch oral', detail: "T'entraîner à te présenter clairement.", to: '/app/outils/pitch', icon: 'ph-microphone', doneIds: ['niveau28_pitch_rating'] },
-  { id: 'interview', label: 'Entretien', detail: "Faire une simulation d'entretien avec Zélia.", to: '/app/outils/entretien', icon: 'ph-chats-circle', doneIds: ['niveau29_interview_done'] },
-  { id: 'stress', label: 'Gérer son stress', detail: 'Comprendre ton profil et tester des exercices anti-stress.', to: '/app/outils/stress', icon: 'ph-heart', doneIds: ['niveau34_stress_profile'] },
-  { id: 'softskills', label: 'Soft skills', detail: 'Travailler adaptabilité et intelligence émotionnelle.', to: '/app/outils/intelligence-emotionnelle', icon: 'ph-smiley', doneIds: ['niveau36_adaptability_completed'] },
-  { id: 'problem', label: 'Problèmes', detail: 'T’entraîner à résoudre des situations concrètes.', to: '/app/outils/resolution-problemes', icon: 'ph-puzzle-piece', doneIds: ['niveau38_problem_solving_completed'] }
+  { id: 'jobs-ranking', label: 'Classement des métiers', detail: 'Classe les métiers proposés selon tes préférences.', to: '/app/outils/classement-metiers', icon: 'ph-sort-ascending', doneIds: ['niveau18_rank_1'] },
+  { id: 'orientation-videos', label: 'Vidéo orientation', detail: "Découvre les contenus utiles pour construire ton orientation.", to: ORIENTATION_VIDEO_TOOL_PATH, icon: 'ph-video', doneIds: [ORIENTATION_VIDEO_COMPLETION_ID], doneAllIds: ORIENTATION_VIDEO_DONE_IDS },
+  { id: 'orientation-quiz', label: 'Quiz stat orientation', detail: "Teste tes repères sur l'orientation après le bac.", to: '/app/outils/quiz-orientation', icon: 'ph-chart-pie', doneIds: ['niveau24_quiz_completed'] },
+  { id: 'personality', label: 'Découvre tes domaines de prédilection', detail: 'Explore tes préférences et tes points forts.', to: '/app/outils/personnalite', icon: 'ph-brain', donePrefixes: ['mbti_', 'niveau4_'] },
+  { id: 'future-letter', label: 'Lettre à soi-même', detail: 'Écris à la personne que tu seras dans cinq ans.', to: '/app/outils/lettre-futur', icon: 'ph-envelope', doneIds: ['niveau33_letter_completed'] },
+  { id: 'english', label: "Teste ton niveau d'anglais", detail: 'Évalue ton niveau et identifie tes prochaines priorités.', to: '/app/outils/anglais', icon: 'ph-translate', doneIds: ['niv5_english_level'] },
+  { id: 'cv', label: 'Prépare ton CV', detail: 'Génère automatiquement un CV structuré à partir de tes informations.', to: '/app/outils/cv', icon: 'ph-identification-card', doneIds: ['niveau17_cv_data', 'niveau17_cv_pdf_url'] },
+  { id: 'letter', label: 'Prépare ta lettre de motivation', detail: 'Génère automatiquement une lettre adaptée à ton projet.', to: '/app/lettre', icon: 'ph-file-text', doneIds: ['lettre_generated', 'niveau14_letter_generated'] },
+  { id: 'parcoursup', label: 'Comprends Parcoursup', detail: 'Retrouve les informations essentielles pour préparer tes vœux.', to: '/app/outils/parcoursup', icon: 'ph-info', doneIds: ['niveau26_parcoursup_read'] },
+  { id: 'pitch', label: 'Entraîne-toi à pitcher', detail: 'Prépare une présentation claire et convaincante.', to: '/app/outils/pitch', icon: 'ph-microphone', doneIds: ['niveau28_pitch_rating'] },
+  { id: 'interview', label: 'Simule un entretien', detail: "Entraîne-toi à répondre aux questions d'un entretien.", to: '/app/outils/entretien', icon: 'ph-chats-circle', doneIds: ['niveau29_interview_done'] }
 ]
 
-// Curated 10-step "Crée ton avenir" timeline shown on the dashboard header.
+// Curated activity roadmap shown on the dashboard header.
 const DASHBOARD_STEPS = [
-  { actionId: 'bilan', title: "Test d'orientation", timeMin: 15, points: 60 },
-  { actionId: 'cv', title: 'Prépare ton CV', timeMin: 10, points: 50 },
+  { actionId: 'jobs-ranking', title: 'Classement des métiers', timeMin: 5, points: 25 },
+  { actionId: 'orientation-videos', title: 'Vidéo orientation', timeMin: 8, points: 25 },
+  { actionId: 'orientation-quiz', title: 'Quiz stat orientation', timeMin: 4, points: 20 },
   { actionId: 'personality', title: 'Découvre tes domaines de prédilection', timeMin: 8, points: 35 },
-  { actionId: 'letter', title: 'Rédige ta lettre de motivation', timeMin: 8, points: 35 },
+  { actionId: 'future-letter', title: 'Lettre à soi-même', timeMin: 5, points: 20 },
   { actionId: 'english', title: "Teste ton niveau d'anglais", timeMin: 6, points: 25 },
+  { actionId: 'cv', title: 'Prépare ton CV', timeMin: 10, points: 50 },
+  { actionId: 'letter', title: 'Prépare ta lettre de motivation', timeMin: 8, points: 35 },
   { actionId: 'parcoursup', title: 'Comprends Parcoursup', timeMin: 5, points: 20 },
   { actionId: 'pitch', title: 'Entraîne-toi à pitcher', timeMin: 6, points: 30 },
   { actionId: 'interview', title: 'Simule un entretien', timeMin: 10, points: 45 }
@@ -166,6 +168,18 @@ export default function ConversationalHome() {
         </nav>
       </section>
 
+      <Link to="/app/discuter" className="dash-card dash-chat-cta">
+        <img src={avatarUrl} alt="" aria-hidden="true" />
+        <div className="dash-chat-cta-text">
+          <p>Discuter avec Zélia</p>
+          <h2>Une question ? Pose-la directement à ta conseillère.</h2>
+        </div>
+        <span className="dash-chat-cta-btn">
+          <i className="ph ph-chat-circle-dots" aria-hidden="true" />
+          Ouvrir la discussion
+        </span>
+      </Link>
+
       <section className="dash-card dash-timeline-card">
         <h2>Crée ton avenir !</h2>
         <p>Apprends à te connaître un peu plus à chaque étape pour cibler les études et les métiers qui te correspondent vraiment.</p>
@@ -201,18 +215,6 @@ export default function ConversationalHome() {
           })}
         </ol>
       </section>
-
-      <Link to="/app/discuter" className="dash-card dash-chat-cta">
-        <img src={avatarUrl} alt="" aria-hidden="true" />
-        <div className="dash-chat-cta-text">
-          <p>Discuter avec Zélia</p>
-          <h2>Une question ? Pose-la directement à ta conseillère.</h2>
-        </div>
-        <span className="dash-chat-cta-btn">
-          <i className="ph ph-chat-circle-dots" aria-hidden="true" />
-          Ouvrir la discussion
-        </span>
-      </Link>
     </div>
   )
 }

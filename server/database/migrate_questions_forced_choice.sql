@@ -26,7 +26,7 @@ INSERT INTO public.questions (id, content, category, questionnaire_type, options
 -- === Axe hands_mind (mains vs tete) ===
 (200, 'Ton projet idéal, ce serait plutôt...', 'hands_mind', 'inscription',
  '[{"label": "Construire un objet de A à Z", "value": "mains"}, {"label": "Résoudre une énigme complexe", "value": "tete"}]',
- '{"Construire un objet de A à Z": "Attirance pour le concret et le travail manuel : métiers de l''artisanat, du bâtiment, de la maintenance, du design produit ou de la restauration.", "Résoudre une énigme complexe": "Goût pour l''analyse et la réflexion : métiers de l''ingénierie, de la recherche, de l''informatique, du droit ou de la data."}'),
+ '{"Construire un objet de A à Z": "Attirance pour le concret et le travail manuel : métiers de l''artisanat, du bâtiment, de la maintenance, du design produit ou de la restauration.", "Résoudre une énigme complexe": "Goût pour l''analyse et la réflexion : métiers du droit, de la recherche, de la médecine, de l''ingénierie ou de la psychologie."}'),
 (201, 'Un samedi libre, tu préfères...', 'hands_mind', 'inscription',
  '[{"label": "Bricoler, cuisiner, créer de tes mains", "value": "mains"}, {"label": "Lire, débattre, comprendre un sujet", "value": "tete"}]',
  '{"Bricoler, cuisiner, créer de tes mains": "Besoin de manipuler et de voir un résultat tangible : métiers techniques, culinaires, artisanaux ou de production.", "Lire, débattre, comprendre un sujet": "Curiosité intellectuelle marquée : métiers de l''enseignement, du journalisme, de la stratégie ou de l''analyse."}'),
@@ -35,12 +35,12 @@ INSERT INTO public.questions (id, content, category, questionnaire_type, options
  '{"On manipule, on teste, on fabrique": "Apprentissage par la pratique : filières professionnelles, technologiques, ateliers et alternance lui conviennent bien.", "On analyse et on comprend la théorie": "Apprentissage par les concepts : filières générales, classes préparatoires et université lui conviennent bien."}'),
 (203, 'On te confie une mission, tu choisis...', 'hands_mind', 'inscription',
  '[{"label": "Réparer un truc cassé", "value": "mains"}, {"label": "Trouver pourquoi ça a cassé", "value": "tete"}]',
- '{"Réparer un truc cassé": "Orientation solution et geste technique : maintenance, mécanique, électrotechnique, prototypage.", "Trouver pourquoi ça a cassé": "Orientation diagnostic et investigation : qualité, R&D, audit, sciences, cybersécurité."}'),
+ '{"Réparer un truc cassé": "Orientation solution et geste technique : maintenance, mécanique, électrotechnique, prototypage.", "Trouver pourquoi ça a cassé": "Orientation diagnostic et investigation : maintenance industrielle, diagnostic mécanique, inspection BTP, enquête ou analyse scientifique."}'),
 
 -- === Axe solo_team (solo vs equipe) ===
 (204, 'Pour un exposé, tu préfères...', 'solo_team', 'inscription',
  '[{"label": "Le faire en solo, tranquille", "value": "solo"}, {"label": "Le faire en groupe, à plusieurs cerveaux", "value": "equipe"}]',
- '{"Le faire en solo, tranquille": "Autonomie forte : métiers où l''on gère son propre périmètre (développeur, graphiste, artisan, chercheur, traducteur).", "Le faire en groupe, à plusieurs cerveaux": "Énergie collective : métiers de projet, d''équipe et de coordination (chef de projet, soignant, commercial, événementiel)."}'),
+ '{"Le faire en solo, tranquille": "Autonomie forte : métiers où l''on gère son propre périmètre (avocat, artisan, architecte, chercheur, traducteur).", "Le faire en groupe, à plusieurs cerveaux": "Énergie collective : métiers de projet, d''équipe et de coordination (chef de projet, soignant, commercial, événementiel)."}'),
 (205, 'Ta journée parfaite, c''est...', 'solo_team', 'inscription',
  '[{"label": "Un moment calme rien qu''à toi", "value": "solo"}, {"label": "Une journée entouré(e) de monde", "value": "equipe"}]',
  '{"Un moment calme rien qu''à toi": "Se ressource seul(e) : environnements de travail calmes, missions en autonomie, télétravail.", "Une journée entouré(e) de monde": "Se ressource au contact des autres : métiers relationnels, accueil, animation, vente, enseignement."}'),
@@ -57,7 +57,7 @@ INSERT INTO public.questions (id, content, category, questionnaire_type, options
  '{"Un joyeux bazar créatif": "Fonctionne à l''inspiration : métiers créatifs (design, arts, communication, contenu, mode).", "Un espace rangé au carré": "Fonctionne à l''organisation : métiers de gestion, logistique, comptabilité, administration, qualité."}'),
 (209, 'Pour lancer un projet, tu commences par...', 'creative_structured', 'inscription',
  '[{"label": "Tester des idées au feeling", "value": "creatif"}, {"label": "Faire un plan étape par étape", "value": "structure"}]',
- '{"Tester des idées au feeling": "Démarche exploratoire et itérative : innovation, création, startup, prototypage.", "Faire un plan étape par étape": "Démarche méthodique : gestion de projet, ingénierie, planification, finance."}'),
+ '{"Tester des idées au feeling": "Démarche exploratoire et itérative : innovation, création, événementiel, prototypage, artisanat d''art.", "Faire un plan étape par étape": "Démarche méthodique : gestion de projet, ingénierie, planification, finance."}'),
 (210, 'Tu préfères les consignes...', 'creative_structured', 'inscription',
  '[{"label": "Libres : carte blanche !", "value": "creatif"}, {"label": "Claires : un cadre précis", "value": "structure"}]',
  '{"Libres : carte blanche !": "A besoin de liberté pour donner le meilleur : métiers artistiques, entrepreneuriat, conception.", "Claires : un cadre précis": "A besoin d''un cadre pour exceller : métiers réglementés, technique normée, secteur public, banque."}'),
@@ -68,7 +68,7 @@ INSERT INTO public.questions (id, content, category, questionnaire_type, options
 -- === Axe field_office (terrain vs bureau) ===
 (212, 'Ton futur job de rêve se passe...', 'field_office', 'inscription',
  '[{"label": "Dehors, en mouvement", "value": "terrain"}, {"label": "Au calme, dans un bureau", "value": "bureau"}]',
- '{"Dehors, en mouvement": "Besoin de bouger : métiers de terrain (environnement, sport, agriculture, BTP, secours, tourisme).", "Au calme, dans un bureau": "Préfère un environnement posé : métiers de bureau (informatique, gestion, études, création numérique)."}'),
+ '{"Dehors, en mouvement": "Besoin de bouger : métiers de terrain (BTP, transport, agriculture, environnement, secours, sport, tourisme).", "Au calme, dans un bureau": "Préfère un environnement posé : métiers de bureau (droit, comptabilité, gestion, rédaction, traduction, design)."}'),
 (213, 'Tu préfères apprendre...', 'field_office', 'inscription',
  '[{"label": "Sur le terrain, en vrai", "value": "terrain"}, {"label": "Dans les livres et les vidéos", "value": "bureau"}]',
  '{"Sur le terrain, en vrai": "Apprend en faisant : stages, alternance et immersion professionnelle sont ses meilleurs leviers.", "Dans les livres et les vidéos": "Apprend en étudiant : formations académiques et contenus théoriques lui réussissent."}'),
@@ -77,7 +77,7 @@ INSERT INTO public.questions (id, content, category, questionnaire_type, options
  '{"Bouger, changer de lieu": "Aime la variété et le mouvement : métiers itinérants, transport, commerce terrain, reportage.", "Un cocon fixe et confortable": "Aime la stabilité du cadre de travail : métiers sédentaires et environnements maîtrisés."}'),
 (215, 'Pour aider une asso, tu choisis...', 'field_office', 'inscription',
  '[{"label": "L''action sur place", "value": "terrain"}, {"label": "La gestion derrière l''écran", "value": "bureau"}]',
- '{"L''action sur place": "Engagement concret et humain : social, humanitaire, animation, santé, sécurité.", "La gestion derrière l''écran": "Engagement organisationnel : communication, gestion, collecte de fonds, web, coordination à distance."}'),
+ '{"L''action sur place": "Engagement concret et humain : social, humanitaire, animation, santé, sécurité.", "La gestion derrière l''écran": "Engagement organisationnel : communication, gestion, comptabilité, collecte de fonds, coordination à distance."}'),
 
 -- === Axe risk_safety (audace vs securite) ===
 (216, 'Face à un choix important, tu...', 'risk_safety', 'inscription',
@@ -85,7 +85,7 @@ INSERT INTO public.questions (id, content, category, questionnaire_type, options
  '{"Fonces, tu verras bien !": "Goût du risque et de la décision rapide : entrepreneuriat, commerce, urgences, création.", "Pèses le pour et le contre": "Prudence et discernement : métiers d''analyse, de conseil, de gestion des risques, de santé."}'),
 (217, 'Ton aventure idéale...', 'risk_safety', 'inscription',
  '[{"label": "Partir sans tout planifier", "value": "audace"}, {"label": "Un itinéraire bien préparé", "value": "securite"}]',
- '{"Partir sans tout planifier": "À l''aise avec l''imprévu : environnements changeants, startups, international, freelancing.", "Un itinéraire bien préparé": "A besoin de visibilité : parcours balisés, grandes structures, concours, fonction publique."}'),
+ '{"Partir sans tout planifier": "À l''aise avec l''imprévu : environnements changeants, voyage, projets événementiels, international, indépendance.", "Un itinéraire bien préparé": "A besoin de visibilité : parcours balisés, grandes structures, concours, fonction publique."}'),
 (218, 'Un projet un peu fou se présente...', 'risk_safety', 'inscription',
  '[{"label": "Tu tentes, tant pis si ça rate", "value": "audace"}, {"label": "Tu assures tes arrières d''abord", "value": "securite"}]',
  '{"Tu tentes, tant pis si ça rate": "Voit l''échec comme un apprentissage : innovation, création d''entreprise, spectacle, sport.", "Tu assures tes arrières d''abord": "Avance par étapes sécurisées : banque, assurance, ingénierie, administration, santé."}'),

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import SEO from '../components/SEO'
 import { supabase } from '../lib/supabase'
@@ -16,6 +16,7 @@ export default function Home() {
   const navigate = useNavigate()
   const location = useLocation()
   const avatarUrl = useMemo(() => buildZeliaAvatarUrl(), [])
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const shareLanding = async () => {
     const shareData = {
@@ -68,7 +69,7 @@ export default function Home() {
 
   const steps = [
     { icon: 'ph-chat-circle-dots', title: 'Réponds à 20 questions', detail: "Zélia apprend à te connaître à travers un quiz rapide et sans prise de tête." },
-    { icon: 'ph-sparkle', title: 'Découvre ton profil', detail: "Une carte dédiée révèle ta personnalité, tes forces et des idées de métiers qui te correspondent." },
+    { icon: 'ph-sparkle', title: 'Découvre ton profil', detail: 'Une carte dédiée révèle ta personnalité et tes forces.' },
     { icon: 'ph-graduation-cap', title: 'Reçois des formations qui matchent', detail: "Des formations chez nos écoles partenaires, sélectionnées selon ton profil et ta ville." },
     { icon: 'ph-paper-plane-tilt', title: 'Contacte les écoles en un clic', detail: "Demande plus d'infos directement depuis l'appli, sans formulaire interminable." }
   ]
@@ -101,12 +102,23 @@ export default function Home() {
           <Link to="/" className="zelia-home-logo" aria-label="Accueil Zelia">
             <img src="/static/images/logo-dark.png" alt="Zelia" />
           </Link>
-          <div className="zelia-home-nav-actions">
-            <Link to="/espace-ecoles">Ambassadeur</Link>
-            <Link to="/parents">Parents</Link>
-            <Link to="/blog">Nos conseils</Link>
-            <Link to="/login">Me connecter</Link>
-            <Link to="/orientation" className="nav-cta">Me découvrir</Link>
+          <button
+            type="button"
+            className="zelia-home-menu-toggle"
+            onClick={() => setMobileMenuOpen((open) => !open)}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="zelia-home-mobile-menu"
+            aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+            title={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+          >
+            <i className={`ph ${mobileMenuOpen ? 'ph-x' : 'ph-list'}`} aria-hidden="true" />
+          </button>
+          <div id="zelia-home-mobile-menu" className={`zelia-home-nav-actions${mobileMenuOpen ? ' is-open' : ''}`}>
+            <Link to="/espace-ecoles" onClick={() => setMobileMenuOpen(false)}>Ambassadeur</Link>
+            <Link to="/parents" onClick={() => setMobileMenuOpen(false)}>Parents</Link>
+            <Link to="/blog" onClick={() => setMobileMenuOpen(false)}>Nos conseils</Link>
+            <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Me connecter</Link>
+            <Link to="/orientation" className="nav-cta" onClick={() => setMobileMenuOpen(false)}>Me découvrir</Link>
           </div>
         </nav>
 
@@ -119,7 +131,7 @@ export default function Home() {
             {proof.map((item) => <span key={item}>{item}</span>)}
           </div>
           <p className="zelia-home-lead">
-            On découvre ensemble qui tu es, quels sont les métiers et études faits pour toi !
+            On découvre ensemble qui tu es et quelles formations sont faites pour toi !
           </p>
           <div className="zelia-home-actions">
             <button type="button" onClick={() => navigate('/orientation')}>Commencer !</button>
@@ -143,6 +155,9 @@ export default function Home() {
       </section>
 
       <section className="zelia-home-pillars">
+        <div className="zelia-home-start-cta">
+          <Link to="/orientation">Commencer !</Link>
+        </div>
         <h2>Pourquoi Zélia</h2>
         <div className="zelia-home-pillars-grid">
           {pillars.map((pillar) => (
@@ -152,9 +167,6 @@ export default function Home() {
               <p>{pillar.detail}</p>
             </div>
           ))}
-        </div>
-        <div className="zelia-home-start-cta">
-          <Link to="/orientation">Commencer !</Link>
         </div>
       </section>
 
@@ -197,7 +209,7 @@ export default function Home() {
         <div className="zelia-home-footer-top">
           <div className="zelia-home-footer-brand">
             <img src="/static/images/logo-dark.png" alt="Zelia" />
-            <p>Zélia t'aide à trouver ta formation et ton métier idéal, et te met en relation directe avec les écoles qui te correspondent.</p>
+            <p>Zélia t'aide à trouver les formations qui te correspondent et te met en relation directe avec les écoles adaptées à ton projet.</p>
           </div>
           <div className="zelia-home-footer-col">
             <h3>Produit</h3>
@@ -255,6 +267,18 @@ const homeStyles = `
   gap: 18px;
 }
 .zelia-home-logo img { height: 30px; width: auto; display: block; }
+.zelia-home-menu-toggle {
+  display: none;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid rgba(0,0,0,.12);
+  border-radius: 12px;
+  background: #fff;
+  color: #000;
+  font-size: 22px;
+  cursor: pointer;
+}
 .zelia-home-nav-actions { display: flex; align-items: center; gap: 8px; }
 .zelia-home-nav-actions a {
   min-height: 38px;
@@ -429,7 +453,7 @@ const homeStyles = `
 .zelia-home-pillar-card i { font-size: 26px; color: #111827; }
 .zelia-home-pillar-card h3 { margin: 4px 0 0; font-size: 16px; font-weight: 700; }
 .zelia-home-pillar-card p { margin: 0; font-size: 14px; line-height: 1.5; color: #4b5563; }
-.zelia-home-start-cta { display: flex; justify-content: center; margin-top: 30px; }
+.zelia-home-start-cta { display: flex; justify-content: center; margin-bottom: 30px; }
 .zelia-home-start-cta a {
   min-height: 52px;
   padding: 0 30px;
@@ -576,18 +600,29 @@ const homeStyles = `
   .zelia-home-avatar { opacity: .24; width: 520px; min-width: 520px; right: -170px; }
   .zelia-home-footer-top { grid-template-columns: 1fr 1fr; }
 }
-@media (max-width: 560px) {
-  .zelia-home-nav { align-items: center; flex-wrap: wrap; }
+@media (max-width: 700px) {
+  .zelia-home-hero { padding-top: 94px; }
+  .zelia-home-nav { top: 14px; }
+  .zelia-home-menu-toggle { display: inline-grid; }
   .zelia-home-nav-actions {
-    order: 3;
-    width: 100%;
-    overflow-x: auto;
-    justify-content: flex-start;
-    padding-bottom: 4px;
-    scrollbar-width: none;
+    display: none;
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    right: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid rgba(0,0,0,.1);
+    border-radius: 16px;
+    background: rgba(255,255,255,.98);
+    box-shadow: 0 18px 40px rgba(0,0,0,.14);
   }
-  .zelia-home-nav-actions::-webkit-scrollbar { display: none; }
-  .zelia-home-nav-actions a { flex: 0 0 auto; }
+  .zelia-home-nav-actions.is-open { display: grid; }
+  .zelia-home-nav-actions a { min-height: 44px; padding: 0 10px; font-size: 13px; white-space: nowrap; }
+  .zelia-home-nav-actions .nav-cta { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
   .zelia-home h1 { font-size: 34px; }
   .zelia-home h2 { font-size: 26px; }
   .zelia-home-actions { flex-direction: column; }

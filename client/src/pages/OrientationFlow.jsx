@@ -61,6 +61,28 @@ const FALLBACK_QUESTION_OPTIONS = [
   { label: 'Oui', value: 'oui' }
 ]
 
+const CAREER_DOMAIN_OPTIONS = [
+  { label: 'Soigner et aider', value: 'sante_soin', icon: 'ph-heart' },
+  { label: 'Construire et réparer', value: 'construction_technique', icon: 'ph-wrench' },
+  { label: 'Créer et communiquer', value: 'creation_communication', icon: 'ph-palette' },
+  { label: 'Protéger et accompagner', value: 'service_public', icon: 'ph-shield-check' },
+  { label: 'Bouger et être dehors', value: 'terrain_sport', icon: 'ph-mountains' },
+  { label: 'Comprendre et innover', value: 'science_numerique', icon: 'ph-lightbulb' },
+  { label: 'Cuisiner et accueillir', value: 'hotellerie_restauration', icon: 'ph-cooking-pot' },
+  { label: 'Vendre et entreprendre', value: 'commerce_entrepreneuriat', icon: 'ph-storefront' }
+]
+
+const CAREER_JOB_SUGGESTIONS = [
+  { label: 'Architecte', value: 'architecte' },
+  { label: 'Avocat ou avocate', value: 'avocate' },
+  { label: 'Grutier ou grutiere', value: 'grutier' },
+  { label: 'Infirmier ou infirmiere', value: 'infirmier' },
+  { label: 'Developpeur ou developpeuse', value: 'developpeur' },
+  { label: 'Cuisinier ou cuisiniere', value: 'cuisinier' },
+  { label: 'Mecanicien ou mecanicienne', value: 'mecanicien' },
+  { label: 'Educateur ou educatrice', value: 'educateur' }
+]
+
 function getQuestionOptions(question) {
   const options = Array.isArray(question?.options)
     ? question.options.filter((option) => option && option.label)
@@ -137,22 +159,21 @@ const MICRO_STEPS = [
     ]
   },
   {
-    id: 'career_aspiration',
-    type: 'text',
-    title: 'Y a-t-il un métier ou un domaine qui t’attire déjà ?',
-    description: 'Même une idée vague suffit : grutier, avocate, cuisine, sport, soin...',
-    placeholder: 'Écris ce qui te fait envie'
+    id: 'career_domains',
+    type: 'career_domains',
+    title: 'Quels univers t’attirent le plus ?',
+    description: 'Choisis jusqu’à trois univers, même si tu hésites encore.',
+    multi: true,
+    maxSelections: 3,
+    options: CAREER_DOMAIN_OPTIONS
   },
   {
-    id: 'budget',
-    title: 'Une idée de ton budget',
-    description: "Si tu ne sais pas, c'est normal, ce n'est pas grave.",
-    options: [
-      { label: '0 - 2k/an', value: '0-2000' },
-      { label: '2k - 8k/an', value: '2000-8000' },
-      { label: '8k+/an', value: '8000+' },
-      { label: 'Je ne sais pas', value: 'unknown' }
-    ]
+    id: 'career_aspiration',
+    type: 'career_aspiration',
+    title: 'Y a-t-il un métier qui t’attire déjà ?',
+    description: 'Choisis une idée ou écris la tienne. Tu pourras toujours changer plus tard.',
+    placeholder: 'Ex. architecte, grutier, cuisine...',
+    suggestions: CAREER_JOB_SUGGESTIONS
   }
 ]
 
@@ -160,6 +181,16 @@ const LOCATION_STEP_ID = 'study_location'
 
 function getMicroStepsForIntent() {
   return MICRO_STEPS
+}
+
+function buildCareerAspirationSignal(profile = {}) {
+  const explicitAspiration = String(profile.career_aspiration || '').trim()
+  const selectedDomains = Array.isArray(profile.career_domains) ? profile.career_domains : []
+  const domainLabels = CAREER_DOMAIN_OPTIONS
+    .filter((option) => selectedDomains.includes(option.value))
+    .map((option) => option.label)
+
+  return [explicitAspiration, ...domainLabels].filter(Boolean).join(' - ').slice(0, 160)
 }
 
 function sanitizeMicroProfileForIntent(profile, intent) {
@@ -1638,7 +1669,7 @@ export default function OrientationFlow() {
           personaSlug: computedPersona.slug,
           personaName: computedPersona.name,
           axes: computedPersonaProfile,
-          careerAspiration: String(finalMicroProfile.career_aspiration || '').trim().slice(0, 160)
+          careerAspiration: buildCareerAspirationSignal(finalMicroProfile)
         }
       })
       const { data } = await orientationAPI.getResults()
@@ -2158,8 +2189,8 @@ export default function OrientationFlow() {
     localStorage.setItem('orientation_micro_profile', JSON.stringify(nextProfile))
   }
 
-  const continueMicroText = (step) => {
-    const nextProfile = { ...microProfile, [step.id]: String(microProfile[step.id] || '').trim() }
+  const continueMicroText = (step, clearValue = false) => {
+    const nextProfile = { ...microProfile, [step.id]: clearValue ? '' : String(microProfile[step.id] || '').trim() }
     setMicroProfile(nextProfile)
     localStorage.setItem('orientation_micro_profile', JSON.stringify(nextProfile))
     advanceMicroStep(nextProfile)
@@ -2175,6 +2206,10 @@ export default function OrientationFlow() {
       return
     }
 
+    if (step.multi && Array.isArray(currentValue) && currentValue.length >= (step.maxSelections || Infinity)) {
+      return
+    }
+
     const nextValue = step.multi
       ? Array.from(new Set([...(Array.isArray(currentValue) ? currentValue : []), option.value]))
       : option.value
@@ -2185,9 +2220,13 @@ export default function OrientationFlow() {
     if (!step.multi) advanceMicroStep(nextProfile)
   }
 
+  const chooseCareerSuggestion = (step, value) => {
+    const currentValue = String(microProfile[step.id] || '').trim()
+    updateMicroText(step, currentValue === value ? '' : value)
+  }
+
   const saveMicroProfile = async (profile, departmentOverride = userDepartment) => {
     const entries = [
-      { question_id: 'orientation_budget', question_text: 'Budget études', answer_text: profile.budget || '' },
       { question_id: 'orientation_grade_confidence', question_text: 'Moyenne matières fortes', answer_text: profile.grade_confidence || '' },
       { question_id: 'orientation_school_level', question_text: 'Classe actuelle', answer_text: profile.school_level || '' },
       { question_id: 'orientation_target_level', question_text: "Niveau d'études visé", answer_text: profile.target_level || '' },
@@ -2195,6 +2234,7 @@ export default function OrientationFlow() {
       { question_id: 'orientation_department', question_text: 'Département', answer_text: departmentOverride?.code || '' },
       { question_id: 'orientation_department_name', question_text: 'Département nom', answer_text: departmentOverride?.name || '' },
       { question_id: 'orientation_strong_subjects', question_text: 'Matières fortes', answer_text: JSON.stringify(profile.strong_subjects || []) },
+      { question_id: 'orientation_career_domains', question_text: 'Domaines professionnels attirants', answer_text: JSON.stringify(profile.career_domains || []) },
       { question_id: 'orientation_career_aspiration', question_text: 'Métier ou domaine qui attire', answer_text: String(profile.career_aspiration || '').trim() }
     ].filter((entry) => entry.answer_text && entry.answer_text !== '[]')
     if (!entries.length) return
@@ -2327,14 +2367,66 @@ export default function OrientationFlow() {
     const step = activeMicroSteps[infoIndex]
     if (!step) return null
     const selected = microProfile[step.id]
+    const selectedCareerDomains = Array.isArray(selected) ? selected : []
     return (
       <div className="orientation-stage compact">
-        <div className="orientation-card choice-card">
+        <div className={`orientation-card choice-card${step.type === 'career_aspiration' || step.type === 'career_domains' ? ' career-choice-card' : ''}`}>
           {renderAvatarFace()}
           <span className="orientation-pill">{infoIndex + 1} / {activeMicroSteps.length}</span>
           <h1>{step.title}</h1>
           {step.description && <p>{step.description}</p>}
-          {step.type === 'text' ? (
+          {step.type === 'career_domains' ? (
+            <>
+              <div className="career-domain-grid" aria-label="Domaines professionnels">
+                {step.options.map((option) => {
+                  const active = selectedCareerDomains.includes(option.value)
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`career-domain-option${active ? ' active' : ''}`}
+                      onClick={() => chooseMicroOption(step, option)}
+                      aria-pressed={active}
+                    >
+                      <i className={`ph ${option.icon}`} aria-hidden="true" />
+                      <span>{option.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="career-selection-hint">{selectedCareerDomains.length}/3 univers sélectionnés</p>
+            </>
+          ) : step.type === 'career_aspiration' ? (
+            <div className="career-aspiration-content">
+              <div className="career-suggestion-grid" aria-label="Suggestions de métiers">
+                {step.suggestions.map((suggestion) => {
+                  const active = selected === suggestion.value
+                  return (
+                    <button
+                      key={suggestion.value}
+                      type="button"
+                      className={`career-suggestion${active ? ' active' : ''}`}
+                      onClick={() => chooseCareerSuggestion(step, suggestion.value)}
+                      aria-pressed={active}
+                    >
+                      {suggestion.label}
+                    </button>
+                  )
+                })}
+              </div>
+              <label className="micro-text-label career-text-label">
+                <span>Ou écris ton idée</span>
+                <input
+                  type="text"
+                  value={selected || ''}
+                  onChange={(event) => updateMicroText(step, event.target.value)}
+                  placeholder={step.placeholder}
+                  maxLength={160}
+                  autoComplete="off"
+                />
+              </label>
+            </div>
+          ) : step.type === 'text' ? (
             <label className="micro-text-label">
               <span>Ton idée, même si elle n’est pas encore précise</span>
               <input
@@ -2360,10 +2452,10 @@ export default function OrientationFlow() {
             </div>
           )}
         </div>
-        {step.type === 'text' && (
+        {(step.type === 'text' || step.type === 'career_aspiration') && (
           <div className="micro-text-actions">
             <button type="button" className="primary-action" onClick={() => continueMicroText(step)}>Continuer</button>
-            <button type="button" className="secondary-action" onClick={() => continueMicroText(step)}>Passer</button>
+            <button type="button" className="secondary-action" onClick={() => continueMicroText(step, true)}>Je ne sais pas encore</button>
           </div>
         )}
         {step.multi && (

@@ -66,10 +66,23 @@ const FORMATION_PREFERENCE_OPTIONS = [
   { label: 'BUT', value: 'but', icon: 'ph-buildings' },
   { label: 'Licence', value: 'licence', icon: 'ph-books' },
   { label: 'Bachelor', value: 'bachelor', icon: 'ph-graduation-cap' },
+  { label: 'Master', value: 'master', icon: 'ph-graduation-cap' },
+  { label: 'Doctorat', value: 'doctorat', icon: 'ph-flask' },
   { label: 'École spécialisée', value: 'ecole_specialisee', icon: 'ph-buildings' },
   { label: 'Alternance', value: 'alternance', icon: 'ph-briefcase' },
   { label: 'Prépa', value: 'prepa', icon: 'ph-path' },
   { label: 'CAP ou bac pro', value: 'voie_pro', icon: 'ph-toolbox' }
+]
+
+const CAREER_DOMAIN_OPTIONS = [
+  { label: 'Soigner et aider', value: 'sante_soin', icon: 'ph-heart' },
+  { label: 'Construire et réparer', value: 'construction_technique', icon: 'ph-wrench' },
+  { label: 'Créer et communiquer', value: 'creation_communication', icon: 'ph-palette' },
+  { label: 'Protéger et accompagner', value: 'service_public', icon: 'ph-shield-check' },
+  { label: 'Bouger et être dehors', value: 'terrain_sport', icon: 'ph-mountains' },
+  { label: 'Comprendre et innover', value: 'science_numerique', icon: 'ph-lightbulb' },
+  { label: 'Cuisiner et accueillir', value: 'hotellerie_restauration', icon: 'ph-cooking-pot' },
+  { label: 'Vendre et entreprendre', value: 'commerce_entrepreneuriat', icon: 'ph-storefront' }
 ]
 
 const STRONG_SUBJECT_OPTIONS = [
@@ -87,10 +100,33 @@ const FORMATION_PREFERENCE_SEARCH_QUERIES = {
   but: 'but',
   licence: 'licence',
   bachelor: 'bachelor',
+  master: 'master',
+  doctorat: 'doctorat',
   ecole_specialisee: 'école spécialisée',
   alternance: 'alternance',
   prepa: 'classe préparatoire',
   voie_pro: 'cap bac professionnel'
+}
+
+const FORMATION_PREFERENCE_LEVELS = {
+  voie_pro: 1,
+  bts: 2,
+  but: 3,
+  licence: 3,
+  bachelor: 3,
+  master: 5,
+  doctorat: 8
+}
+
+const CAREER_DOMAIN_SEARCH_QUERIES = {
+  sante_soin: 'santé soins',
+  construction_technique: 'construction technique',
+  creation_communication: 'création communication',
+  service_public: 'service public',
+  terrain_sport: 'sport environnement',
+  science_numerique: 'sciences numérique',
+  hotellerie_restauration: 'hôtellerie restauration',
+  commerce_entrepreneuriat: 'commerce entrepreneuriat'
 }
 
 const STRONG_SUBJECT_SEARCH_QUERIES = {
@@ -145,15 +181,13 @@ const MICRO_STEPS = [
     ]
   },
   {
-    id: 'target_level',
-    title: "Niveau d'études visé",
-    options: [
-      { label: 'Bac +2', value: 'Bac +2' },
-      { label: 'Bac +3', value: 'Bac +3' },
-      { label: 'Bac +5', value: 'Bac +5' },
-      { label: 'Bac +8', value: 'Bac +8' },
-      { label: 'Ouvert', value: 'open' }
-    ]
+    id: 'formation_preferences',
+    type: 'formation_preferences',
+    title: 'Quelles formations veux-tu voir en priorité ?',
+    description: 'Choisis jusqu’à trois formats. Tes choix guideront directement la recherche.',
+    multi: true,
+    maxSelections: 3,
+    options: FORMATION_PREFERENCE_OPTIONS
   },
   {
     id: 'study_location',
@@ -171,13 +205,13 @@ const MICRO_STEPS = [
     options: STRONG_SUBJECT_OPTIONS
   },
   {
-    id: 'formation_preferences',
-    type: 'formation_preferences',
-    title: 'Quelles formations veux-tu voir en priorité ?',
-    description: 'Choisis jusqu’à trois formats. Tes choix guideront directement la recherche.',
+    id: 'career_domains',
+    type: 'career_domains',
+    title: 'Quels univers t’attirent le plus ?',
+    description: 'Choisis jusqu’à trois univers, même si tu hésites encore.',
     multi: true,
     maxSelections: 3,
-    options: FORMATION_PREFERENCE_OPTIONS
+    options: CAREER_DOMAIN_OPTIONS
   }
 ]
 
@@ -199,10 +233,21 @@ function getSelectedFormationPreferenceOptions(profile = {}) {
   return FORMATION_PREFERENCE_OPTIONS.filter((option) => selectedPreferences.includes(option.value))
 }
 
+function getSelectedCareerDomainOptions(profile = {}) {
+  const selectedDomains = Array.isArray(profile.career_domains) ? profile.career_domains : []
+  return CAREER_DOMAIN_OPTIONS.filter((option) => selectedDomains.includes(option.value))
+}
+
 function buildFormationPreferenceSignal(profile = {}) {
   const preferenceLabels = getSelectedOptionLabels(FORMATION_PREFERENCE_OPTIONS, profile.formation_preferences)
 
   return preferenceLabels.join(', ').slice(0, 160)
+}
+
+function buildCareerDomainSignal(profile = {}) {
+  const domainLabels = getSelectedOptionLabels(CAREER_DOMAIN_OPTIONS, profile.career_domains)
+
+  return domainLabels.join(', ').slice(0, 160)
 }
 
 function buildOrientationSearchProfile(profile = {}) {
@@ -212,7 +257,8 @@ function buildOrientationSearchProfile(profile = {}) {
     targetLevel: String(profile.target_level || '').trim(),
     studyLocation: String(profile.study_location || '').trim(),
     strongSubjects: getSelectedOptionLabels(STRONG_SUBJECT_OPTIONS, profile.strong_subjects),
-    formationPreferences: getSelectedOptionLabels(FORMATION_PREFERENCE_OPTIONS, profile.formation_preferences)
+    formationPreferences: getSelectedOptionLabels(FORMATION_PREFERENCE_OPTIONS, profile.formation_preferences),
+    careerDomains: getSelectedOptionLabels(CAREER_DOMAIN_OPTIONS, profile.career_domains)
   }
 }
 
@@ -668,12 +714,16 @@ function flattenTextParts(value) {
 
 function getTargetStudyLevel(profile = {}) {
   const raw = String(profile?.target_level || '').trim().toLowerCase()
-  if (!raw || raw === 'open' || raw.includes('ouvert')) return null
-  if (raw.includes('8')) return 8
-  if (raw.includes('5')) return 5
-  if (raw.includes('3')) return 3
-  if (raw.includes('2')) return 2
-  return null
+  if (raw && raw !== 'open' && !raw.includes('ouvert')) {
+    if (raw.includes('8')) return 8
+    if (raw.includes('5')) return 5
+    if (raw.includes('3')) return 3
+    if (raw.includes('2')) return 2
+  }
+
+  const selectedPreferences = Array.isArray(profile?.formation_preferences) ? profile.formation_preferences : []
+  if (selectedPreferences.length !== 1) return null
+  return FORMATION_PREFERENCE_LEVELS[selectedPreferences[0]] || null
 }
 
 function getFormationLevelText(candidate) {
@@ -752,7 +802,7 @@ function buildGenericFormationPlans(targetLevel) {
     kind: 'formation',
     query,
     title: `Formations ${query}`,
-    reason: 'Sélection large cohérente avec ton niveau visé'
+    reason: 'Sélection large cohérente avec ton profil'
   }))
 }
 
@@ -762,6 +812,15 @@ function buildFormationPreferencePlans(profile = {}) {
     query: FORMATION_PREFERENCE_SEARCH_QUERIES[option.value] || option.label,
     title: option.label,
     reason: `Format choisi : ${option.label}`
+  }))
+}
+
+function buildCareerDomainPlans(profile = {}) {
+  return getSelectedCareerDomainOptions(profile).map((option) => ({
+    kind: 'formation',
+    query: CAREER_DOMAIN_SEARCH_QUERIES[option.value] || option.label,
+    title: option.label,
+    reason: `Univers choisi : ${option.label}`
   }))
 }
 
@@ -1485,7 +1544,7 @@ export default function OrientationFlow() {
   const [likedProposals, setLikedProposals] = useState([])
   const [proposalHistory, setProposalHistory] = useState([])
   const [infoIndex, setInfoIndex] = useState(0)
-  const [microProfile, setMicroProfile] = useState(() => getStoredJson('orientation_micro_profile', {}))
+  const [microProfile, setMicroProfile] = useState(() => sanitizeMicroProfileForIntent(getStoredJson('orientation_micro_profile', {}), ''))
   const [finalCandidates, setFinalCandidates] = useState([])
   const [checkedIds, setCheckedIds] = useState([])
   const [requestInfoIds, setRequestInfoIds] = useState([])
@@ -1715,6 +1774,7 @@ export default function OrientationFlow() {
           personaName: computedPersona.name,
           axes: computedPersonaProfile,
           formationPreference: buildFormationPreferenceSignal(finalMicroProfile),
+          careerDomains: buildCareerDomainSignal(finalMicroProfile),
           searchProfile: buildOrientationSearchProfile(finalMicroProfile)
         }
       })
@@ -2054,12 +2114,14 @@ export default function OrientationFlow() {
     const anchorPlans = likedFormations.length ? buildFormationAnchorPlans(likedFormations, count) : []
     const formationPreferencePlans = buildFormationPreferencePlans(profile)
     const strongSubjectPlans = buildStrongSubjectPlans(profile)
+    const careerDomainPlans = buildCareerDomainPlans(profile)
     const analysisPlans = likedFormations.length
       ? []
       : buildAnalysisRecommendationPlans('formations', analysisData, flattenTextParts(profile).join(' '))
     const plans = uniquePlans([
       ...formationPreferencePlans,
       ...strongSubjectPlans,
+      ...careerDomainPlans,
       ...directPlans,
       ...anchorPlans,
       ...analysisPlans
@@ -2068,6 +2130,7 @@ export default function OrientationFlow() {
       ? uniquePlans([
         ...formationPreferencePlans,
         ...strongSubjectPlans,
+        ...careerDomainPlans,
         ...filterFormationPlansByAnchorTerms([...directPlans, ...anchorPlans, ...analysisPlans], anchorTerms)
       ])
       : plans
@@ -2079,12 +2142,17 @@ export default function OrientationFlow() {
     const analysisPlans = buildAnalysisRecommendationPlans('formations', analysisData, flattenTextParts(profile).join(' ')).slice(0, count)
     const formationPreferencePlans = buildFormationPreferencePlans(profile)
     const strongSubjectPlans = buildStrongSubjectPlans(profile)
+    const careerDomainPlans = buildCareerDomainPlans(profile)
     const primaryPlans = uniquePlans([
       ...formationPreferencePlans,
       ...strongSubjectPlans,
+      ...careerDomainPlans,
       ...analysisPlans
     ]).slice(0, count)
-    const genericPlans = buildGenericFormationPlans(getTargetStudyLevel(profile))
+    const genericPlans = uniquePlans([
+      ...formationPreferencePlans,
+      ...buildGenericFormationPlans(getTargetStudyLevel(profile))
+    ])
 
     // Progressive broadening: with 127k+ rows in formation_france, the deck
     // must never come back empty. Each wave relaxes one constraint (department
@@ -2278,12 +2346,12 @@ export default function OrientationFlow() {
     const entries = [
       { question_id: 'orientation_grade_confidence', question_text: 'Moyenne matières fortes', answer_text: profile.grade_confidence || '' },
       { question_id: 'orientation_school_level', question_text: 'Classe actuelle', answer_text: profile.school_level || '' },
-      { question_id: 'orientation_target_level', question_text: "Niveau d'études visé", answer_text: profile.target_level || '' },
       { question_id: 'orientation_study_location', question_text: 'Préférence géographique', answer_text: profile.study_location || '' },
       { question_id: 'orientation_department', question_text: 'Département', answer_text: departmentOverride?.code || '' },
       { question_id: 'orientation_department_name', question_text: 'Département nom', answer_text: departmentOverride?.name || '' },
       { question_id: 'orientation_strong_subjects', question_text: 'Matières fortes', answer_text: JSON.stringify(profile.strong_subjects || []) },
-      { question_id: 'orientation_formation_preferences', question_text: 'Formats de formation à privilégier', answer_text: JSON.stringify(profile.formation_preferences || []) }
+      { question_id: 'orientation_formation_preferences', question_text: 'Formats de formation à privilégier', answer_text: JSON.stringify(profile.formation_preferences || []) },
+      { question_id: 'orientation_career_domains', question_text: 'Domaines professionnels attirants', answer_text: JSON.stringify(profile.career_domains || []) }
     ].filter((entry) => entry.answer_text && entry.answer_text !== '[]')
     if (!entries.length) return
     await usersAPI.saveExtraInfo(entries).catch((saveError) => {
@@ -2416,9 +2484,10 @@ export default function OrientationFlow() {
     if (!step) return null
     const selected = microProfile[step.id]
     const selectedFormationPreferences = Array.isArray(selected) ? selected : []
+    const selectedCareerDomains = Array.isArray(selected) ? selected : []
     return (
       <div className="orientation-stage compact">
-        <div className={`orientation-card choice-card${step.type === 'formation_preferences' ? ' formation-preference-card' : ''}`}>
+        <div className={`orientation-card choice-card${step.type === 'formation_preferences' ? ' formation-preference-card' : step.type === 'career_domains' ? ' career-domain-card' : ''}`}>
           {renderAvatarFace()}
           <span className="orientation-pill">{infoIndex + 1} / {activeMicroSteps.length}</span>
           <h1>{step.title}</h1>
@@ -2443,6 +2512,27 @@ export default function OrientationFlow() {
                 })}
               </div>
               <p className="formation-preference-hint">{selectedFormationPreferences.length}/3 formats sélectionnés</p>
+            </>
+          ) : step.type === 'career_domains' ? (
+            <>
+              <div className="career-domain-grid" aria-label="Domaines professionnels">
+                {step.options.map((option) => {
+                  const active = selectedCareerDomains.includes(option.value)
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`career-domain-option${active ? ' active' : ''}`}
+                      onClick={() => chooseMicroOption(step, option)}
+                      aria-pressed={active}
+                    >
+                      <i className={`ph ${option.icon}`} aria-hidden="true" />
+                      <span>{option.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="career-domain-hint">{selectedCareerDomains.length}/3 univers sélectionnés</p>
             </>
           ) : (
             <div className="choice-grid">

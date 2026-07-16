@@ -342,7 +342,25 @@ const DOMAIN_TO_TOKENS = {
   'batiment travaux publics': [],
   'cuisine hotellerie': [],
   'social humanitaire': [],
-  'culture patrimoine': []
+  'culture patrimoine': [],
+  'sante soin': ['sante', 'soin', 'medical', 'paramedical', 'infirmier', 'social'],
+  'construction technique': ['construction', 'btp', 'genie', 'maintenance', 'mecanique', 'industrie', 'technicien'],
+  'creation communication': ['creation', 'communication', 'design', 'audiovisuel', 'graphique', 'marketing'],
+  'service public': ['droit', 'justice', 'securite', 'administration', 'social', 'education'],
+  'terrain sport': ['sport', 'environnement', 'agriculture', 'logistique', 'terrain'],
+  'science numerique': ['sciences', 'informatique', 'numerique', 'data', 'recherche', 'ingenieur'],
+  'hotellerie restauration': ['hotellerie', 'restauration', 'cuisine', 'tourisme'],
+  'commerce entrepreneuriat': ['commerce', 'vente', 'business', 'entrepreneuriat', 'management']
+}
+
+const FORMATION_PREFERENCE_LEVELS = {
+  'voie pro': 1,
+  bts: 2,
+  but: 3,
+  licence: 3,
+  bachelor: 3,
+  master: 5,
+  doctorat: 8
 }
 
 function tokensForDomain(domainNormalized) {
@@ -369,6 +387,12 @@ function parseLevel(raw) {
   const m = n.match(/bac\+?(\d+)/)
   if (!m) return null
   return parseInt(m[1], 10)
+}
+
+function parseFormationPreferenceLevels(raw) {
+  return [...new Set(parseTopDomains(raw)
+    .map((preference) => FORMATION_PREFERENCE_LEVELS[preference])
+    .filter((level) => Number.isFinite(level)))]
 }
 
 // Build a weighted token bag from the user signals.
@@ -470,19 +494,30 @@ function scoreLevel(userLevelN, formationLevelN) {
   return 0
 }
 
+function scoreLevels(userLevels, formationLevelN) {
+  if (!Array.isArray(userLevels) || userLevels.length === 0) return 0
+  return Math.max(...userLevels.map((level) => scoreLevel(level, formationLevelN)))
+}
+
 function scoreFormations(formations, entryMap, pickFirstValue, jobRecommendations, userCityOverride = '') {
   // Extract user signals
-  const topDomainsRaw = pickFirstValue('orientation_strong_subjects')
-  const topDomains = parseTopDomains(topDomainsRaw)
-  const userLevelRaw = pickFirstValue('orientation_target_level')
-  const userLevelN = parseLevel(userLevelRaw)
+  const strongSubjects = parseTopDomains(pickFirstValue('orientation_strong_subjects'))
+  const careerDomains = parseTopDomains(pickFirstValue('orientation_career_domains'))
+  const topDomains = [...careerDomains, ...strongSubjects]
+  const formationPreferencesRaw = pickFirstValue('orientation_formation_preferences')
+  const legacyLevel = parseLevel(pickFirstValue('orientation_target_level'))
+  const userLevels = [
+    ...parseFormationPreferenceLevels(formationPreferencesRaw),
+    ...(legacyLevel == null ? [] : [legacyLevel])
+  ]
   const userCity = userCityOverride || pickFirstValue('orientation_city')
 
   const jobKeywordsParts = [
     pickFirstValue('orientation_final_selection'),
     pickFirstValue('orientation_refine_job_projection'),
     pickFirstValue('orientation_refine_study_projection'),
-    pickFirstValue('orientation_refine_main_priority')
+    pickFirstValue('orientation_refine_main_priority'),
+    formationPreferencesRaw
   ].filter(Boolean)
   const jobKeywordsRaw = jobKeywordsParts.join(' ')
   const jobRecommendationsRaw = buildJobRecommendationsText(jobRecommendations)
@@ -497,7 +532,7 @@ function scoreFormations(formations, entryMap, pickFirstValue, jobRecommendation
     .map((f) => {
       const { raw, hits } = hasContentSignal ? scoreFormationContent(f, userBag) : { raw: 0, hits: 0 }
       const cityBonus = scoreCity(userCity, f.city)
-      const levelBonus = scoreLevel(userLevelN, parseLevel(f.diploma_level))
+      const levelBonus = scoreLevels(userLevels, parseLevel(f.diploma_level))
       // Exclude only if both content AND city give nothing
       if (hits === 0 && cityBonus === 0) return null
       const total = raw + cityBonus + levelBonus

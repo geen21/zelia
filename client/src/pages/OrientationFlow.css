@@ -604,8 +604,10 @@
 .micro-text-actions { display: flex; flex-wrap: wrap; gap: 12px; width: 100%; }
 .micro-text-actions .primary-action,
 .micro-text-actions .secondary-action { flex: 1 1 180px; min-width: 0; }
-.formation-preference-card { gap: 16px; }
-.formation-preference-grid { display: grid; width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.formation-preference-card,
+.career-domain-card { gap: 16px; }
+.formation-preference-grid,
+.career-domain-grid { display: grid; width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .formation-preference-option {
   min-height: 92px;
   display: flex;
@@ -631,6 +633,31 @@
 .formation-preference-option.active { border-color: #8fe23f; background: #f8fff0; }
 .formation-preference-option.active i { color: #558419; }
 .formation-preference-hint { align-self: flex-end; color: #6b7280 !important; font-size: 12px !important; font-weight: 700; }
+.career-domain-option {
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border: 2px solid rgba(0,0,0,.08);
+  border-radius: 18px;
+  background: #fff;
+  color: #111827;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.career-domain-option i { font-size: 24px; color: #a83fae; }
+.career-domain-option:hover { transform: translateY(-2px); border-color: rgba(0,0,0,.22); }
+.career-domain-option.active { border-color: #8fe23f; background: #f8fff0; }
+.career-domain-option.active i { color: #558419; }
+.career-domain-hint { align-self: flex-end; color: #6b7280 !important; font-size: 12px !important; font-weight: 700; }
 .intent-button {
   display: flex;
   align-items: center;
@@ -794,10 +821,14 @@
   .final-row b, .final-row em { justify-self: start; }
   .recommendation-row { grid-template-columns: 1fr; }
   .candidate-speaker { grid-template-columns: 1fr; justify-items: start; }
-  .formation-preference-card { padding: 20px; }
-  .formation-preference-grid { gap: 8px; }
+  .formation-preference-card,
+  .career-domain-card { padding: 20px; }
+  .formation-preference-grid,
+  .career-domain-grid { gap: 8px; }
   .formation-preference-option { min-height: 84px; padding: 12px; border-radius: 16px; font-size: 13px; }
   .formation-preference-option i { font-size: 21px; }
+  .career-domain-option { min-height: 84px; padding: 12px; border-radius: 16px; font-size: 13px; }
+  .career-domain-option i { font-size: 21px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -102,6 +102,8 @@ const FORMATION_PREFERENCE_PATTERNS = {
   but: /\bbut\b/i,
   licence: /\blicence\b/i,
   bachelor: /\bbachelor\b/i,
+  master: /\bmaster(?:e|es)?\b|\bmba\b|\bmsc\b/i,
+  doctorat: /\bdoctorat\b|\bthese\b|\bphd\b/i,
   'ecole specialisee': /\b(e|é)cole\b/i,
   alternance: /\balternance\b|\bapprentissage\b/i,
   prepa: /\bpr[eé]pa\b|\bclasse pr[eé]paratoire\b/i,

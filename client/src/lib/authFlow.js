@@ -108,9 +108,9 @@ function buildMicroProfileEntries(profile) {
     { question_id: 'orientation_department_name', question_text: 'Nom departement', answer_text: profile.department_name || '' },
     { question_id: 'orientation_school_type', question_text: 'Preference public/prive', answer_text: profile.school_type || '' },
     { question_id: 'orientation_budget', question_text: 'Budget etudes', answer_text: profile.budget || '' },
-    { question_id: 'orientation_target_level', question_text: "Niveau d'etudes vise", answer_text: profile.target_level || '' },
     { question_id: 'orientation_strong_subjects', question_text: 'Matieres fortes', answer_text: JSON.stringify(profile.strong_subjects || []) },
-    { question_id: 'orientation_formation_preferences', question_text: 'Formats de formation à privilégier', answer_text: JSON.stringify(profile.formation_preferences || []) }
+    { question_id: 'orientation_formation_preferences', question_text: 'Formats de formation à privilégier', answer_text: JSON.stringify(profile.formation_preferences || []) },
+    { question_id: 'orientation_career_domains', question_text: 'Domaines professionnels attirants', answer_text: JSON.stringify(profile.career_domains || []) }
   ]
   return entries.filter((entry) => entry.answer_text && entry.answer_text !== '[]')
 }

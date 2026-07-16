@@ -47,10 +47,31 @@ function formatFormationPreferences(value) {
     but: 'BUT',
     licence: 'Licence',
     bachelor: 'Bachelor',
+    master: 'Master',
+    doctorat: 'Doctorat',
     ecole_specialisee: 'École spécialisée',
     alternance: 'Alternance',
     prepa: 'Prépa',
     voie_pro: 'CAP ou bac pro'
+  }
+  const parsed = parseMaybeJson(value)
+  if (!Array.isArray(parsed)) return formatJsonOrText(value)
+  return parsed
+    .map((item) => labels[String(item || '').trim()] || cleanText(item, 80))
+    .filter(Boolean)
+    .join(', ')
+}
+
+function formatCareerDomains(value) {
+  const labels = {
+    sante_soin: 'Soigner et aider',
+    construction_technique: 'Construire et réparer',
+    creation_communication: 'Créer et communiquer',
+    service_public: 'Protéger et accompagner',
+    terrain_sport: 'Bouger et être dehors',
+    science_numerique: 'Comprendre et innover',
+    hotellerie_restauration: 'Cuisiner et accueillir',
+    commerce_entrepreneuriat: 'Vendre et entreprendre'
   }
   const parsed = parseMaybeJson(value)
   if (!Array.isArray(parsed)) return formatJsonOrText(value)
@@ -98,6 +119,7 @@ export function buildUserContextSummary({ profile, results, extraInfos = [] }) {
   const budget = cleanText(getExtraValue(extraInfos, ['orientation_budget']))
   const strongSubjects = formatJsonOrText(getExtraValue(extraInfos, ['orientation_strong_subjects']))
   const formationPreferences = formatFormationPreferences(getExtraValue(extraInfos, ['orientation_formation_preferences']))
+  const careerDomains = formatCareerDomains(getExtraValue(extraInfos, ['orientation_career_domains']))
   const personality = cleanText(results?.personalityAnalysis || results?.personality_analysis, 240)
   const strengths = extractTitles(results?.strengths || results?.skillsAssessment || results?.skills_assessment)
   const jobs = extractTitles(results?.jobRecommendations || results?.job_recommendations)
@@ -113,6 +135,7 @@ export function buildUserContextSummary({ profile, results, extraInfos = [] }) {
   if (budget) lines.push(`Budget études: ${budget}`)
   if (strongSubjects) lines.push(`Matières fortes: ${strongSubjects}`)
   if (formationPreferences) lines.push(`Formats de formation préférés: ${formationPreferences}`)
+  if (careerDomains) lines.push(`Univers professionnels attirants: ${careerDomains}`)
   if (personality) lines.push(`Analyse Zélia: ${personality}`)
   if (strengths.length) lines.push(`Forces repérées: ${strengths.join(', ')}`)
   if (jobs.length) lines.push(`Métiers suggérés: ${jobs.join(', ')}`)

@@ -61,27 +61,47 @@ const FALLBACK_QUESTION_OPTIONS = [
   { label: 'Oui', value: 'oui' }
 ]
 
-const CAREER_DOMAIN_OPTIONS = [
-  { label: 'Soigner et aider', value: 'sante_soin', icon: 'ph-heart' },
-  { label: 'Construire et réparer', value: 'construction_technique', icon: 'ph-wrench' },
-  { label: 'Créer et communiquer', value: 'creation_communication', icon: 'ph-palette' },
-  { label: 'Protéger et accompagner', value: 'service_public', icon: 'ph-shield-check' },
-  { label: 'Bouger et être dehors', value: 'terrain_sport', icon: 'ph-mountains' },
-  { label: 'Comprendre et innover', value: 'science_numerique', icon: 'ph-lightbulb' },
-  { label: 'Cuisiner et accueillir', value: 'hotellerie_restauration', icon: 'ph-cooking-pot' },
-  { label: 'Vendre et entreprendre', value: 'commerce_entrepreneuriat', icon: 'ph-storefront' }
+const FORMATION_PREFERENCE_OPTIONS = [
+  { label: 'BTS', value: 'bts', icon: 'ph-certificate' },
+  { label: 'BUT', value: 'but', icon: 'ph-buildings' },
+  { label: 'Licence', value: 'licence', icon: 'ph-books' },
+  { label: 'Bachelor', value: 'bachelor', icon: 'ph-graduation-cap' },
+  { label: 'École spécialisée', value: 'ecole_specialisee', icon: 'ph-buildings' },
+  { label: 'Alternance', value: 'alternance', icon: 'ph-briefcase' },
+  { label: 'Prépa', value: 'prepa', icon: 'ph-path' },
+  { label: 'CAP ou bac pro', value: 'voie_pro', icon: 'ph-toolbox' }
 ]
 
-const CAREER_JOB_SUGGESTIONS = [
-  { label: 'Architecte', value: 'architecte' },
-  { label: 'Avocat ou avocate', value: 'avocate' },
-  { label: 'Grutier ou grutiere', value: 'grutier' },
-  { label: 'Infirmier ou infirmiere', value: 'infirmier' },
-  { label: 'Developpeur ou developpeuse', value: 'developpeur' },
-  { label: 'Cuisinier ou cuisiniere', value: 'cuisinier' },
-  { label: 'Mecanicien ou mecanicienne', value: 'mecanicien' },
-  { label: 'Educateur ou educatrice', value: 'educateur' }
+const STRONG_SUBJECT_OPTIONS = [
+  { label: 'Maths', value: 'maths' },
+  { label: 'Français', value: 'francais' },
+  { label: 'Anglais', value: 'anglais' },
+  { label: 'Sciences', value: 'sciences' },
+  { label: 'Éco', value: 'eco' },
+  { label: 'Arts', value: 'arts' },
+  { label: 'Numérique', value: 'numerique' }
 ]
+
+const FORMATION_PREFERENCE_SEARCH_QUERIES = {
+  bts: 'bts',
+  but: 'but',
+  licence: 'licence',
+  bachelor: 'bachelor',
+  ecole_specialisee: 'école spécialisée',
+  alternance: 'alternance',
+  prepa: 'classe préparatoire',
+  voie_pro: 'cap bac professionnel'
+}
+
+const STRONG_SUBJECT_SEARCH_QUERIES = {
+  maths: 'mathématiques',
+  francais: 'lettres',
+  anglais: 'langues',
+  sciences: 'sciences',
+  eco: 'économie',
+  arts: 'arts',
+  numerique: 'informatique'
+}
 
 function getQuestionOptions(question) {
   const options = Array.isArray(question?.options)
@@ -148,32 +168,16 @@ const MICRO_STEPS = [
     id: 'strong_subjects',
     title: 'Tu te sens solide en...',
     multi: true,
-    options: [
-      { label: 'Maths', value: 'maths' },
-      { label: 'Français', value: 'francais' },
-      { label: 'Anglais', value: 'anglais' },
-      { label: 'Sciences', value: 'sciences' },
-      { label: 'Éco', value: 'eco' },
-      { label: 'Arts', value: 'arts' },
-      { label: 'Numérique', value: 'numerique' }
-    ]
+    options: STRONG_SUBJECT_OPTIONS
   },
   {
-    id: 'career_domains',
-    type: 'career_domains',
-    title: 'Quels univers t’attirent le plus ?',
-    description: 'Choisis jusqu’à trois univers, même si tu hésites encore.',
+    id: 'formation_preferences',
+    type: 'formation_preferences',
+    title: 'Quelles formations veux-tu voir en priorité ?',
+    description: 'Choisis jusqu’à trois formats. Tes choix guideront directement la recherche.',
     multi: true,
     maxSelections: 3,
-    options: CAREER_DOMAIN_OPTIONS
-  },
-  {
-    id: 'career_aspiration',
-    type: 'career_aspiration',
-    title: 'Y a-t-il un métier qui t’attire déjà ?',
-    description: 'Choisis une idée ou écris la tienne. Tu pourras toujours changer plus tard.',
-    placeholder: 'Ex. architecte, grutier, cuisine...',
-    suggestions: CAREER_JOB_SUGGESTIONS
+    options: FORMATION_PREFERENCE_OPTIONS
   }
 ]
 
@@ -183,14 +187,33 @@ function getMicroStepsForIntent() {
   return MICRO_STEPS
 }
 
-function buildCareerAspirationSignal(profile = {}) {
-  const explicitAspiration = String(profile.career_aspiration || '').trim()
-  const selectedDomains = Array.isArray(profile.career_domains) ? profile.career_domains : []
-  const domainLabels = CAREER_DOMAIN_OPTIONS
-    .filter((option) => selectedDomains.includes(option.value))
+function getSelectedOptionLabels(options, selectedValues) {
+  const values = Array.isArray(selectedValues) ? selectedValues : []
+  return options
+    .filter((option) => values.includes(option.value))
     .map((option) => option.label)
+}
 
-  return [explicitAspiration, ...domainLabels].filter(Boolean).join(' - ').slice(0, 160)
+function getSelectedFormationPreferenceOptions(profile = {}) {
+  const selectedPreferences = Array.isArray(profile.formation_preferences) ? profile.formation_preferences : []
+  return FORMATION_PREFERENCE_OPTIONS.filter((option) => selectedPreferences.includes(option.value))
+}
+
+function buildFormationPreferenceSignal(profile = {}) {
+  const preferenceLabels = getSelectedOptionLabels(FORMATION_PREFERENCE_OPTIONS, profile.formation_preferences)
+
+  return preferenceLabels.join(', ').slice(0, 160)
+}
+
+function buildOrientationSearchProfile(profile = {}) {
+  return {
+    gradeConfidence: String(profile.grade_confidence || '').trim(),
+    schoolLevel: String(profile.school_level || '').trim(),
+    targetLevel: String(profile.target_level || '').trim(),
+    studyLocation: String(profile.study_location || '').trim(),
+    strongSubjects: getSelectedOptionLabels(STRONG_SUBJECT_OPTIONS, profile.strong_subjects),
+    formationPreferences: getSelectedOptionLabels(FORMATION_PREFERENCE_OPTIONS, profile.formation_preferences)
+  }
 }
 
 function sanitizeMicroProfileForIntent(profile, intent) {
@@ -731,6 +754,28 @@ function buildGenericFormationPlans(targetLevel) {
     title: `Formations ${query}`,
     reason: 'Sélection large cohérente avec ton niveau visé'
   }))
+}
+
+function buildFormationPreferencePlans(profile = {}) {
+  return getSelectedFormationPreferenceOptions(profile).map((option) => ({
+    kind: 'formation',
+    query: FORMATION_PREFERENCE_SEARCH_QUERIES[option.value] || option.label,
+    title: option.label,
+    reason: `Format choisi : ${option.label}`
+  }))
+}
+
+function buildStrongSubjectPlans(profile = {}) {
+  const selectedSubjects = Array.isArray(profile.strong_subjects) ? profile.strong_subjects : []
+  return STRONG_SUBJECT_OPTIONS
+    .filter((option) => selectedSubjects.includes(option.value))
+    .slice(0, 3)
+    .map((option) => ({
+      kind: 'formation',
+      query: STRONG_SUBJECT_SEARCH_QUERIES[option.value] || option.label,
+      title: `Formations ${option.label}`,
+      reason: `Matière forte : ${option.label}`
+    }))
 }
 
 function buildTargetedFormationQueries(query, targetLevel) {
@@ -1669,7 +1714,8 @@ export default function OrientationFlow() {
           personaSlug: computedPersona.slug,
           personaName: computedPersona.name,
           axes: computedPersonaProfile,
-          careerAspiration: buildCareerAspirationSignal(finalMicroProfile)
+          formationPreference: buildFormationPreferenceSignal(finalMicroProfile),
+          searchProfile: buildOrientationSearchProfile(finalMicroProfile)
         }
       })
       const { data } = await orientationAPI.getResults()
@@ -2006,17 +2052,38 @@ export default function OrientationFlow() {
     const anchorTerms = extractFormationAnchorTerms(likedFormations)
     const directPlans = buildCatalogPlansFromCandidates(likedFormations)
     const anchorPlans = likedFormations.length ? buildFormationAnchorPlans(likedFormations, count) : []
+    const formationPreferencePlans = buildFormationPreferencePlans(profile)
+    const strongSubjectPlans = buildStrongSubjectPlans(profile)
     const analysisPlans = likedFormations.length
       ? []
       : buildAnalysisRecommendationPlans('formations', analysisData, flattenTextParts(profile).join(' '))
-    const plans = uniquePlans([...directPlans, ...anchorPlans, ...analysisPlans])
-    const scopedPlans = likedFormations.length ? filterFormationPlansByAnchorTerms(plans, anchorTerms) : plans
+    const plans = uniquePlans([
+      ...formationPreferencePlans,
+      ...strongSubjectPlans,
+      ...directPlans,
+      ...anchorPlans,
+      ...analysisPlans
+    ])
+    const scopedPlans = likedFormations.length
+      ? uniquePlans([
+        ...formationPreferencePlans,
+        ...strongSubjectPlans,
+        ...filterFormationPlansByAnchorTerms([...directPlans, ...anchorPlans, ...analysisPlans], anchorTerms)
+      ])
+      : plans
     return (scopedPlans.length ? scopedPlans : directPlans).slice(0, count)
   }
 
   const getInitialFormationDeckCandidates = async (profile, department, count = AI_FORMATION_DECK_SIZE) => {
     const analysisCandidates = filterCandidatesByTargetStudyLevel(getAnalysisFormationCandidates(analysisData, count), profile)
     const analysisPlans = buildAnalysisRecommendationPlans('formations', analysisData, flattenTextParts(profile).join(' ')).slice(0, count)
+    const formationPreferencePlans = buildFormationPreferencePlans(profile)
+    const strongSubjectPlans = buildStrongSubjectPlans(profile)
+    const primaryPlans = uniquePlans([
+      ...formationPreferencePlans,
+      ...strongSubjectPlans,
+      ...analysisPlans
+    ]).slice(0, count)
     const genericPlans = buildGenericFormationPlans(getTargetStudyLevel(profile))
 
     // Progressive broadening: with 127k+ rows in formation_france, the deck
@@ -2024,21 +2091,21 @@ export default function OrientationFlow() {
     // scoping, AI keywords, target-level filtering); we stop as soon as enough
     // real database rows are collected.
     const searchWaves = [
-      analysisPlans.length ? {
-        plans: analysisPlans,
+      primaryPlans.length ? {
+        plans: primaryPlans,
         context: {
           studyLocation: profile.study_location,
           department,
           profile,
-          maxFormationPlans: Math.min(analysisPlans.length, count),
+          maxFormationPlans: Math.min(primaryPlans.length, count),
           maxFormationQueryVariants: MAX_FORMATION_QUERY_VARIANTS
         }
       } : null,
-      analysisPlans.length ? {
-        plans: analysisPlans,
+      primaryPlans.length ? {
+        plans: primaryPlans,
         context: {
           profile,
-          maxFormationPlans: Math.min(analysisPlans.length, count),
+          maxFormationPlans: Math.min(primaryPlans.length, count),
           maxFormationQueryVariants: MAX_FORMATION_QUERY_VARIANTS
         }
       } : null,
@@ -2183,19 +2250,6 @@ export default function OrientationFlow() {
     }, 200)
   }
 
-  const updateMicroText = (step, value) => {
-    const nextProfile = { ...microProfile, [step.id]: value }
-    setMicroProfile(nextProfile)
-    localStorage.setItem('orientation_micro_profile', JSON.stringify(nextProfile))
-  }
-
-  const continueMicroText = (step, clearValue = false) => {
-    const nextProfile = { ...microProfile, [step.id]: clearValue ? '' : String(microProfile[step.id] || '').trim() }
-    setMicroProfile(nextProfile)
-    localStorage.setItem('orientation_micro_profile', JSON.stringify(nextProfile))
-    advanceMicroStep(nextProfile)
-  }
-
   const chooseMicroOption = (step, option) => {
     const currentValue = microProfile[step.id]
     if (step.multi && Array.isArray(currentValue) && currentValue.includes(option.value)) {
@@ -2220,11 +2274,6 @@ export default function OrientationFlow() {
     if (!step.multi) advanceMicroStep(nextProfile)
   }
 
-  const chooseCareerSuggestion = (step, value) => {
-    const currentValue = String(microProfile[step.id] || '').trim()
-    updateMicroText(step, currentValue === value ? '' : value)
-  }
-
   const saveMicroProfile = async (profile, departmentOverride = userDepartment) => {
     const entries = [
       { question_id: 'orientation_grade_confidence', question_text: 'Moyenne matières fortes', answer_text: profile.grade_confidence || '' },
@@ -2234,8 +2283,7 @@ export default function OrientationFlow() {
       { question_id: 'orientation_department', question_text: 'Département', answer_text: departmentOverride?.code || '' },
       { question_id: 'orientation_department_name', question_text: 'Département nom', answer_text: departmentOverride?.name || '' },
       { question_id: 'orientation_strong_subjects', question_text: 'Matières fortes', answer_text: JSON.stringify(profile.strong_subjects || []) },
-      { question_id: 'orientation_career_domains', question_text: 'Domaines professionnels attirants', answer_text: JSON.stringify(profile.career_domains || []) },
-      { question_id: 'orientation_career_aspiration', question_text: 'Métier ou domaine qui attire', answer_text: String(profile.career_aspiration || '').trim() }
+      { question_id: 'orientation_formation_preferences', question_text: 'Formats de formation à privilégier', answer_text: JSON.stringify(profile.formation_preferences || []) }
     ].filter((entry) => entry.answer_text && entry.answer_text !== '[]')
     if (!entries.length) return
     await usersAPI.saveExtraInfo(entries).catch((saveError) => {
@@ -2367,24 +2415,24 @@ export default function OrientationFlow() {
     const step = activeMicroSteps[infoIndex]
     if (!step) return null
     const selected = microProfile[step.id]
-    const selectedCareerDomains = Array.isArray(selected) ? selected : []
+    const selectedFormationPreferences = Array.isArray(selected) ? selected : []
     return (
       <div className="orientation-stage compact">
-        <div className={`orientation-card choice-card${step.type === 'career_aspiration' || step.type === 'career_domains' ? ' career-choice-card' : ''}`}>
+        <div className={`orientation-card choice-card${step.type === 'formation_preferences' ? ' formation-preference-card' : ''}`}>
           {renderAvatarFace()}
           <span className="orientation-pill">{infoIndex + 1} / {activeMicroSteps.length}</span>
           <h1>{step.title}</h1>
           {step.description && <p>{step.description}</p>}
-          {step.type === 'career_domains' ? (
+          {step.type === 'formation_preferences' ? (
             <>
-              <div className="career-domain-grid" aria-label="Domaines professionnels">
+              <div className="formation-preference-grid" aria-label="Formats de formation">
                 {step.options.map((option) => {
-                  const active = selectedCareerDomains.includes(option.value)
+                  const active = selectedFormationPreferences.includes(option.value)
                   return (
                     <button
                       key={option.value}
                       type="button"
-                      className={`career-domain-option${active ? ' active' : ''}`}
+                      className={`formation-preference-option${active ? ' active' : ''}`}
                       onClick={() => chooseMicroOption(step, option)}
                       aria-pressed={active}
                     >
@@ -2394,51 +2442,8 @@ export default function OrientationFlow() {
                   )
                 })}
               </div>
-              <p className="career-selection-hint">{selectedCareerDomains.length}/3 univers sélectionnés</p>
+              <p className="formation-preference-hint">{selectedFormationPreferences.length}/3 formats sélectionnés</p>
             </>
-          ) : step.type === 'career_aspiration' ? (
-            <div className="career-aspiration-content">
-              <div className="career-suggestion-grid" aria-label="Suggestions de métiers">
-                {step.suggestions.map((suggestion) => {
-                  const active = selected === suggestion.value
-                  return (
-                    <button
-                      key={suggestion.value}
-                      type="button"
-                      className={`career-suggestion${active ? ' active' : ''}`}
-                      onClick={() => chooseCareerSuggestion(step, suggestion.value)}
-                      aria-pressed={active}
-                    >
-                      {suggestion.label}
-                    </button>
-                  )
-                })}
-              </div>
-              <label className="micro-text-label career-text-label">
-                <span>Ou écris ton idée</span>
-                <input
-                  type="text"
-                  value={selected || ''}
-                  onChange={(event) => updateMicroText(step, event.target.value)}
-                  placeholder={step.placeholder}
-                  maxLength={160}
-                  autoComplete="off"
-                />
-              </label>
-            </div>
-          ) : step.type === 'text' ? (
-            <label className="micro-text-label">
-              <span>Ton idée, même si elle n’est pas encore précise</span>
-              <input
-                type="text"
-                value={selected || ''}
-                onChange={(event) => updateMicroText(step, event.target.value)}
-                placeholder={step.placeholder}
-                maxLength={160}
-                autoComplete="off"
-                autoFocus
-              />
-            </label>
           ) : (
             <div className="choice-grid">
               {step.options.map((option) => {
@@ -2452,12 +2457,6 @@ export default function OrientationFlow() {
             </div>
           )}
         </div>
-        {(step.type === 'text' || step.type === 'career_aspiration') && (
-          <div className="micro-text-actions">
-            <button type="button" className="primary-action" onClick={() => continueMicroText(step)}>Continuer</button>
-            <button type="button" className="secondary-action" onClick={() => continueMicroText(step, true)}>Je ne sais pas encore</button>
-          </div>
-        )}
         {step.multi && (
           <button className="primary-action" onClick={() => advanceMicroStep({ ...microProfile })}>Continuer</button>
         )}

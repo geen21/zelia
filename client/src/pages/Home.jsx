@@ -54,7 +54,7 @@ export default function Home() {
       if (!active) return
       if (storedToken || data?.session?.access_token) {
         if (data?.session?.access_token) localStorage.setItem('supabase_auth_token', data.session.access_token)
-        navigate('/app/results', { replace: true })
+        navigate('/app', { replace: true })
       }
     })()
     return () => { active = false }

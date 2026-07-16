@@ -97,6 +97,16 @@ const FIELD_FALLBACK_JOBS = [
 
 const FIELD_JOB_PATTERN = /grue|gruti|engins?|chantier|btp|maintenance|m[ée]can|[ée]lectric|environnement|agricult|transport|secours|sport|cuisine|soin|infirm|artisan|paysag|logistique|technicien/i
 const SEDENTARY_JOB_PATTERN = /developpe|informatique|data|web|logiciel|programmeur|product owner|cybersecurite|\b(?:ux|ui)\s*(?:designer|design)\b|comptable|juriste|avocat|notaire|redacteur|traduct|administratif|gestionnaire|analyste financier|banquier|ressources humaines|\brh\b|secretaire|assistant(?:e)? de direction/i
+const FORMATION_PREFERENCE_PATTERNS = {
+  bts: /\bbts\b/i,
+  but: /\bbut\b/i,
+  licence: /\blicence\b/i,
+  bachelor: /\bbachelor\b/i,
+  'ecole specialisee': /\b(e|é)cole\b/i,
+  alternance: /\balternance\b|\bapprentissage\b/i,
+  prepa: /\bpr[eé]pa\b|\bclasse pr[eé]paratoire\b/i,
+  'cap ou bac pro': /\bcap\b|\bbac\s*pro(?:fessionnel)?\b/i
+}
 
 function normalizedText(value) {
   return String(value || '')
@@ -160,7 +170,24 @@ function isSedentaryJob(job) {
   return SEDENTARY_JOB_PATTERN.test(normalizedText(job?.title))
 }
 
-export function enforceOrientationRecommendationQuality({ jobRecommendations, studyRecommendations, careerAspiration, axes } = {}) {
+function prioritizeStudiesByFormationPreferences(studies, formationPreferences) {
+  const patterns = (Array.isArray(formationPreferences) ? formationPreferences : [])
+    .map((preference) => FORMATION_PREFERENCE_PATTERNS[normalizedText(preference)])
+    .filter(Boolean)
+
+  if (!patterns.length) return studies
+
+  const preferredStudies = patterns.flatMap((pattern) => studies.filter((study) => {
+    const text = normalizedText(`${study?.degree || ''} ${study?.type || ''}`)
+    return pattern.test(text)
+  }))
+
+  return preferredStudies.length
+    ? uniqueByTitle([...preferredStudies, ...studies], 'degree')
+    : studies
+}
+
+export function enforceOrientationRecommendationQuality({ jobRecommendations, studyRecommendations, careerAspiration, formationPreferences, axes } = {}) {
   let jobs = uniqueByTitle((Array.isArray(jobRecommendations) ? jobRecommendations : []).map(normalizeJob).filter(Boolean), 'title')
   let studies = uniqueByTitle((Array.isArray(studyRecommendations) ? studyRecommendations : []).map(normalizeStudy).filter(Boolean), 'degree')
   const anchor = getAspirationAnchor(careerAspiration)
@@ -194,6 +221,8 @@ export function enforceOrientationRecommendationQuality({ jobRecommendations, st
     const remainingFieldJobs = FIELD_FALLBACK_JOBS.filter((fallback) => !fieldJobs.some((job) => normalizedText(job.title) === normalizedText(fallback.title)))
     jobs = uniqueByTitle([...fieldJobs, ...nonOfficeJobs, ...officeJobs, ...remainingFieldJobs], 'title').slice(0, 6)
   }
+
+  studies = prioritizeStudiesByFormationPreferences(studies, formationPreferences)
 
   return {
     jobRecommendations: uniqueByTitle(jobs, 'title').slice(0, 6),

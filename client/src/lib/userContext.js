@@ -41,6 +41,25 @@ function formatJsonOrText(value) {
   return cleanText(value)
 }
 
+function formatFormationPreferences(value) {
+  const labels = {
+    bts: 'BTS',
+    but: 'BUT',
+    licence: 'Licence',
+    bachelor: 'Bachelor',
+    ecole_specialisee: 'École spécialisée',
+    alternance: 'Alternance',
+    prepa: 'Prépa',
+    voie_pro: 'CAP ou bac pro'
+  }
+  const parsed = parseMaybeJson(value)
+  if (!Array.isArray(parsed)) return formatJsonOrText(value)
+  return parsed
+    .map((item) => labels[String(item || '').trim()] || cleanText(item, 80))
+    .filter(Boolean)
+    .join(', ')
+}
+
 function extractTitles(list) {
   return asArray(list)
     .map((item) => {
@@ -78,6 +97,7 @@ export function buildUserContextSummary({ profile, results, extraInfos = [] }) {
   const studyLocation = cleanText(getExtraValue(extraInfos, ['orientation_study_location']))
   const budget = cleanText(getExtraValue(extraInfos, ['orientation_budget']))
   const strongSubjects = formatJsonOrText(getExtraValue(extraInfos, ['orientation_strong_subjects']))
+  const formationPreferences = formatFormationPreferences(getExtraValue(extraInfos, ['orientation_formation_preferences']))
   const personality = cleanText(results?.personalityAnalysis || results?.personality_analysis, 240)
   const strengths = extractTitles(results?.strengths || results?.skillsAssessment || results?.skills_assessment)
   const jobs = extractTitles(results?.jobRecommendations || results?.job_recommendations)
@@ -92,6 +112,7 @@ export function buildUserContextSummary({ profile, results, extraInfos = [] }) {
   if (studyLocation) lines.push(`Mobilité: ${studyLocation}`)
   if (budget) lines.push(`Budget études: ${budget}`)
   if (strongSubjects) lines.push(`Matières fortes: ${strongSubjects}`)
+  if (formationPreferences) lines.push(`Formats de formation préférés: ${formationPreferences}`)
   if (personality) lines.push(`Analyse Zélia: ${personality}`)
   if (strengths.length) lines.push(`Forces repérées: ${strengths.join(', ')}`)
   if (jobs.length) lines.push(`Métiers suggérés: ${jobs.join(', ')}`)

@@ -604,11 +604,9 @@
 .micro-text-actions { display: flex; flex-wrap: wrap; gap: 12px; width: 100%; }
 .micro-text-actions .primary-action,
 .micro-text-actions .secondary-action { flex: 1 1 180px; min-width: 0; }
-.career-choice-card { gap: 16px; }
-.career-domain-grid,
-.career-suggestion-grid { display: grid; width: 100%; gap: 10px; }
-.career-domain-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.career-domain-option {
+.formation-preference-card { gap: 16px; }
+.formation-preference-grid { display: grid; width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.formation-preference-option {
   min-height: 92px;
   display: flex;
   flex-direction: column;
@@ -628,31 +626,11 @@
   cursor: pointer;
   transition: border-color .15s ease, background .15s ease, transform .15s ease;
 }
-.career-domain-option i { font-size: 24px; color: #a83fae; }
-.career-domain-option:hover { transform: translateY(-2px); border-color: rgba(0,0,0,.22); }
-.career-domain-option.active { border-color: #8fe23f; background: #f8fff0; }
-.career-domain-option.active i { color: #558419; }
-.career-selection-hint { align-self: flex-end; color: #6b7280 !important; font-size: 12px !important; font-weight: 700; }
-.career-aspiration-content { display: grid; gap: 16px; width: 100%; }
-.career-suggestion-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.career-suggestion {
-  min-height: 50px;
-  padding: 10px 12px;
-  border: 1.5px solid rgba(17,24,39,.14);
-  border-radius: 14px;
-  background: #fff;
-  color: #111827;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 750;
-  line-height: 1.2;
-  text-align: left;
-  cursor: pointer;
-  transition: background .15s ease, border-color .15s ease, transform .15s ease;
-}
-.career-suggestion:hover { transform: translateY(-1px); border-color: #111827; }
-.career-suggestion.active { background: var(--of-lime); border-color: #8fe23f; color: #000; }
-.career-text-label { padding-top: 2px; border-top: 1px solid rgba(17,24,39,.08); }
+.formation-preference-option i { font-size: 24px; color: #a83fae; }
+.formation-preference-option:hover { transform: translateY(-2px); border-color: rgba(0,0,0,.22); }
+.formation-preference-option.active { border-color: #8fe23f; background: #f8fff0; }
+.formation-preference-option.active i { color: #558419; }
+.formation-preference-hint { align-self: flex-end; color: #6b7280 !important; font-size: 12px !important; font-weight: 700; }
 .intent-button {
   display: flex;
   align-items: center;
@@ -816,13 +794,10 @@
   .final-row b, .final-row em { justify-self: start; }
   .recommendation-row { grid-template-columns: 1fr; }
   .candidate-speaker { grid-template-columns: 1fr; justify-items: start; }
-  .career-choice-card { padding: 20px; }
-  .career-domain-grid { gap: 8px; }
-  .career-domain-option { min-height: 84px; padding: 12px; border-radius: 16px; font-size: 13px; }
-  .career-domain-option i { font-size: 21px; }
-  .career-suggestion-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
-  .career-suggestion { min-height: 48px; padding: 9px 10px; font-size: 12px; }
-  .career-aspiration-content { gap: 14px; }
+  .formation-preference-card { padding: 20px; }
+  .formation-preference-grid { gap: 8px; }
+  .formation-preference-option { min-height: 84px; padding: 12px; border-radius: 16px; font-size: 13px; }
+  .formation-preference-option i { font-size: 21px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

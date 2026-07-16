@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
   DndContext,
   PointerSensor,
@@ -44,8 +44,10 @@ function SortableItem({ id, label, index }) {
       <div className="flex-1 font-medium text-gray-900">{label}</div>
       <button
         type="button"
-        className="grid h-9 w-9 place-items-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-950"
+        className="touch-none grid h-11 w-11 shrink-0 place-items-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-950 sm:h-9 sm:w-9"
         aria-label={`Déplacer ${label}`}
+        style={{ touchAction: 'none' }}
+        onTouchStart={(event) => event.preventDefault()}
         {...attributes}
         {...listeners}
       >
@@ -92,7 +94,6 @@ export default function Niveau18() {
   const [items, setItems] = useState([])
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-  const [completed, setCompleted] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -226,7 +227,7 @@ export default function Niveau18() {
 
       await usersAPI.saveExtraInfo(entries)
       await levelUp({ minLevel: 18, xpReward: XP_PER_LEVEL })
-      setCompleted(true)
+      navigate('/app')
     } catch (err) {
       console.error('Niveau18 save error', err)
       setSaveError("Impossible d'enregistrer ton classement pour le moment.")
@@ -301,20 +302,6 @@ export default function Niveau18() {
         </button>
       </section>
 
-      {completed && (
-        <section className="flex flex-col gap-4 rounded-lg border border-[#c1ff72] bg-[#f8fff0] p-4 sm:flex-row sm:items-center sm:justify-between" role="status">
-          <div className="flex items-start gap-3">
-            <i className="ph ph-check-circle mt-0.5 text-xl text-green-700" aria-hidden="true" />
-            <div>
-              <h2 className="font-semibold text-gray-950">Classement enregistré</h2>
-              <p className="mt-1 text-sm text-gray-600">Tu peux le modifier et l’enregistrer de nouveau quand tu veux.</p>
-            </div>
-          </div>
-          <Link to="/app" className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-900 hover:border-black">
-            Retour au parcours
-          </Link>
-        </section>
-      )}
     </div>
   )
 }

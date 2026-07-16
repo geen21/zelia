@@ -101,6 +101,7 @@ export function buildProfileFromSupabaseUser(user, overrides = {}) {
 function buildMicroProfileEntries(profile) {
   if (!profile || typeof profile !== 'object') return []
   const entries = [
+    { question_id: 'orientation_grade_confidence', question_text: 'Moyenne matières fortes', answer_text: profile.grade_confidence || '' },
     { question_id: 'orientation_school_level', question_text: 'Classe actuelle', answer_text: profile.school_level || '' },
     { question_id: 'orientation_study_location', question_text: 'Preference geographique', answer_text: profile.study_location || '' },
     { question_id: 'orientation_department', question_text: 'Departement', answer_text: profile.department || '' },
@@ -108,7 +109,8 @@ function buildMicroProfileEntries(profile) {
     { question_id: 'orientation_school_type', question_text: 'Preference public/prive', answer_text: profile.school_type || '' },
     { question_id: 'orientation_budget', question_text: 'Budget etudes', answer_text: profile.budget || '' },
     { question_id: 'orientation_target_level', question_text: "Niveau d'etudes vise", answer_text: profile.target_level || '' },
-    { question_id: 'orientation_strong_subjects', question_text: 'Matieres fortes', answer_text: JSON.stringify(profile.strong_subjects || []) }
+    { question_id: 'orientation_strong_subjects', question_text: 'Matieres fortes', answer_text: JSON.stringify(profile.strong_subjects || []) },
+    { question_id: 'orientation_formation_preferences', question_text: 'Formats de formation à privilégier', answer_text: JSON.stringify(profile.formation_preferences || []) }
   ]
   return entries.filter((entry) => entry.answer_text && entry.answer_text !== '[]')
 }

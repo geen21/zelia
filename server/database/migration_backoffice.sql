@@ -172,7 +172,7 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE result_row jsonb; fields text[]; target_id text; changed_count int;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = p_actor AND lower(email) IN
-    ('joris.geerdes@21datas.ch', 'nicolas.weigele@zelia.io')) THEN
+    ('joris.geerdes@21datas.ch', 'nicolas.wiegele@zelia.io')) THEN
     RAISE EXCEPTION 'ADMIN_ACCESS_DENIED' USING ERRCODE = '42501';
   END IF;
   IF jsonb_typeof(p_patch) <> 'object' THEN RAISE EXCEPTION 'INVALID_PATCH' USING ERRCODE = '22023'; END IF;
@@ -281,11 +281,11 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE result_row jsonb;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = p_actor AND lower(email) IN
-    ('joris.geerdes@21datas.ch','nicolas.weigele@zelia.io')) THEN
+    ('joris.geerdes@21datas.ch','nicolas.wiegele@zelia.io')) THEN
     RAISE EXCEPTION 'ADMIN_ACCESS_DENIED' USING ERRCODE = '42501';
   END IF;
   IF EXISTS (SELECT 1 FROM auth.users WHERE id = p_user_id AND lower(email) IN
-    ('joris.geerdes@21datas.ch','nicolas.weigele@zelia.io')) THEN
+    ('joris.geerdes@21datas.ch','nicolas.wiegele@zelia.io')) THEN
     RAISE EXCEPTION 'PROTECTED_ADMIN_ACCOUNT' USING ERRCODE = '42501';
   END IF;
   IF length(trim(p_reason)) NOT BETWEEN 1 AND 1000 THEN RAISE EXCEPTION 'REASON_REQUIRED' USING ERRCODE = '22023'; END IF;

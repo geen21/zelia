@@ -44,7 +44,7 @@ try {
     GRANT SELECT, INSERT, UPDATE, DELETE ON public.profiles, public.companies, public.contact_submitted TO authenticated;
     GRANT SELECT ON public.ecoles_partenaires TO authenticated;
     INSERT INTO auth.users (id,email) VALUES
-      ('${joris}','joris.geerdes@21datas.ch'), ('${nicolas}','nicolas.weigele@zelia.io'), ('${student}','student@example.com');
+      ('${joris}','joris.geerdes@21datas.ch'), ('${nicolas}','nicolas.wiegele@zelia.io'), ('${student}','student@example.com');
     INSERT INTO auth.users(id,email) SELECT gen_random_uuid(), 'fixture-' || series || '@example.com' FROM generate_series(1,1001) series;
     INSERT INTO public.profiles(id,first_name) VALUES ('${student}','Original');
     INSERT INTO public.companies(name,email,owner_id) VALUES ('School','school@example.com','${student}');
@@ -52,7 +52,13 @@ try {
     INSERT INTO public.ecoles_partenaires(id,school_name,formation_name,city) VALUES('${partner}','School','Bachelor','Paris');
     INSERT INTO public.user_results(id,user_id,questionnaire_type) VALUES(1,'${student}','inscription');
   `)
-  await db.exec(await readFile(new URL('../database/migration_backoffice.sql', import.meta.url), 'utf8'))
+  const migration = await readFile(new URL('../database/migration_backoffice.sql', import.meta.url), 'utf8')
+  await db.exec(migration.replaceAll('nicolas.wiegele@zelia.io', 'nicolas.weigele@zelia.io'))
+  await assert.rejects(db.query('SELECT public.backoffice_change($1,$2,$3,$4,$5)', [nicolas,'profile',student,JSON.stringify({ first_name: 'Nicolas' }),'Test']), /ADMIN_ACCESS_DENIED/)
+  const emailCorrection = await readFile(new URL('../database/migration_backoffice_admin_email.sql', import.meta.url), 'utf8')
+  await db.exec(emailCorrection)
+  await db.exec(emailCorrection)
+  await db.query('SELECT public.backoffice_change($1,$2,$3,$4,$5)', [nicolas,'profile',student,JSON.stringify({ first_name: 'Nicolas' }),'Test'])
   const auditPermissions = (await db.query("SELECT has_table_privilege('service_role','public.backoffice_audit','SELECT') AS read, has_table_privilege('service_role','public.backoffice_audit','INSERT') AS append, has_table_privilege('service_role','public.backoffice_audit','UPDATE,DELETE,TRUNCATE') AS modify")).rows[0]
   assert.deepEqual(auditPermissions,{ read:true,append:true,modify:false })
   const rpc = async (sql, parameters = []) => (await db.query(sql, parameters)).rows[0].result

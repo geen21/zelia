@@ -10,6 +10,7 @@ const environment = {
   BACKOFFICE_NICOLAS_USER_ID: '22222222-2222-4222-8222-222222222222'
 }
 const identities = getAdminIdentities(environment)
+assert.equal(identities[1].email, 'nicolas.wiegele@zelia.io')
 const guard = createPlatformAdminGuard(() => identities)
 
 function checkGuard(middleware, user, headers = {}) {
@@ -24,6 +25,7 @@ function checkGuard(middleware, user, headers = {}) {
 }
 
 for (const identity of identities) assert.equal(checkGuard(guard, identity).allowed, true)
+assert.equal(checkGuard(guard, { ...identities[1], email: 'nicolas.weigele@zelia.io' }).status, 403)
 assert.equal(checkGuard(guard, undefined).status, 401)
 assert.equal(checkGuard(guard, { id: '33333333-3333-4333-8333-333333333333', email: identities[0].email }).status, 403)
 assert.equal(checkGuard(guard, { id: identities[0].id, email: identities[1].email }).status, 403)
@@ -54,4 +56,5 @@ await assert.rejects(resolveBackofficeIdentities({ ...fixtureClient, auth: { adm
 
 const migration = await readFile(new URL('../database/migration_backoffice.sql', import.meta.url), 'utf8')
 await parse(migration)
+await parse(await readFile(new URL('../database/migration_backoffice_admin_email.sql', import.meta.url), 'utf8'))
 console.log('Back-office identity guard, safe environment provisioning and PostgreSQL migration syntax verified.')

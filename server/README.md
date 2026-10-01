@@ -86,7 +86,7 @@ npm run dev
 
 L'interface `/admin` conserve Supabase comme stockage/Auth. Elle permet la consultation des utilisateurs, ecoles, formations, partenaires, resultats et du journal, ainsi que des modifications bornees et reversibles. Les resultats et le catalogue national sont en lecture seule. Aucun compte utilisateur/ecole n'est cree ou supprime depuis cette interface.
 
-Seuls les comptes existants et controles de `joris.geerdes@21datas.ch` et `nicolas.weigele@zelia.io` sont autorises. Configurer **cote serveur uniquement** :
+Seuls les comptes existants et controles de `joris.geerdes@21datas.ch` et `nicolas.wiegele@zelia.io` sont autorises. Configurer **cote serveur uniquement** :
 
 ```env
 BACKOFFICE_JORIS_USER_ID=<uuid-du-compte-joris-controle>

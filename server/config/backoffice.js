@@ -1,6 +1,6 @@
 export const ADMIN_EMAILS = Object.freeze([
   'joris.geerdes@21datas.ch',
-  'nicolas.weigele@zelia.io'
+  'nicolas.wiegele@zelia.io'
 ])
 
 export function getAdminIdentities(environment = process.env) {

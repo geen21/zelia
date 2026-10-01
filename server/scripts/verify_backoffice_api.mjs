@@ -7,7 +7,7 @@ import { createPlatformAdminGuard } from '../middleware/admin.js'
 import { assertAccountActive } from '../utils/accountStatus.js'
 
 const joris = { id: '11111111-1111-4111-8111-111111111111',email: 'joris.geerdes@21datas.ch' }
-const nicolas = { id: '22222222-2222-4222-8222-222222222222',email: 'nicolas.weigele@zelia.io' }
+const nicolas = { id: '22222222-2222-4222-8222-222222222222',email: 'nicolas.wiegele@zelia.io' }
 const student = { id: '33333333-3333-4333-8333-333333333333',email: 'student@example.com' }
 const calls = []
 let suspension = null

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { orientationAPI, usersAPI, ecolesAPI } from '../lib/api.js'
 import { AI_JOB_DECK_SIZE } from '../lib/orientationJobs.js'
 import PersonaRevealCard from '../components/PersonaRevealCard.jsx'
+import OrientationFormationResults from '../components/OrientationFormationResults.jsx'
 import { buildLoreleiUrl, buildPersonaAvatarConfig, computePersonaFromAnswers, getPersonaBySlug } from '../lib/personas.js'
 import { generatePersonaShareCard } from '../lib/shareImage.js'
 import { trackOrientationEvent } from '../lib/analytics.js'
@@ -1586,9 +1587,9 @@ export default function OrientationFlow() {
         let matched = Array.isArray(matchedRes?.data?.matched) ? matchedRes.data.matched : []
         if (matched.length === 0) {
           const partnersRes = await ecolesAPI.partenaires().catch(() => ({ data: { formations: [] } }))
-          matched = (Array.isArray(partnersRes?.data?.formations) ? partnersRes.data.formations : []).slice(0, 4)
+          matched = Array.isArray(partnersRes?.data?.formations) ? partnersRes.data.formations : []
         }
-        setPartnerFormations(matched.slice(0, 6))
+        setPartnerFormations(matched)
         const submittedIds = (submissionsRes?.data?.submissions || []).map((entry) => entry.formation_id)
         setSubmittedFormationIds(new Set(submittedIds))
       } catch (fetchError) {
@@ -2573,45 +2574,21 @@ export default function OrientationFlow() {
                 : "On n'a pas trouvé de correspondance exacte tout de suite, mais voilà des pistes cohérentes avec ton profil."}
           </p>
 
-          {dbFormationsLoading && (
+          {(dbFormationsLoading || partnerFormationsLoading) && (
             <div className="busy-dots" aria-hidden="true"><span /><span /><span /></div>
           )}
 
-          {!dbFormationsLoading && dbFormations.length > 0 && (
-            <div className="formation-lead-grid">
-              {dbFormations.map((formation) => {
-                const raw = formation.raw || {}
-                const formationName = getCandidateFormationTitle(formation)
-                const school = raw.etab_nom || ''
-                const city = raw.commune || raw.departement || ''
-                const level = raw.tc || ''
-                const checked = requestInfoSelections.has(formation.id)
-                return (
-                  <div key={formation.id} className="formation-lead-card">
-                    <div className="formation-lead-head">
-                      <strong>{cleanDetailText(formationName, 220)}</strong>
-                      {formation.matchScore != null && (
-                        <span className="formation-lead-score">{formation.matchScore}%</span>
-                      )}
-                    </div>
-                    {school && <p className="formation-lead-subtitle">{cleanDetailText(school, 80)}</p>}
-                    <div className="formation-lead-meta">
-                      {level && <span className="formation-lead-chip">{cleanDetailText(level, 30)}</span>}
-                      {city && <span className="formation-lead-chip"><i className="ph ph-map-pin" aria-hidden="true" />{cleanDetailText(city, 30)}</span>}
-                    </div>
-                    <label className={`formation-lead-check${checked ? ' is-checked' : ''}`}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleRequestInfoSelection(formation.id)}
-                      />
-                      <i className={`ph ${checked ? 'ph-check-square' : 'ph-square'}`} aria-hidden="true" />
-                      Je veux plus d'infos
-                    </label>
-                  </div>
-                )
-              })}
-            </div>
+          {(dbFormations.length > 0 || partnerFormations.length > 0) && (
+            <OrientationFormationResults
+              formations={dbFormationsLoading ? [] : dbFormations}
+              partners={partnerFormations}
+              selectedIds={requestInfoSelections}
+              submittedIds={submittedFormationIds}
+              submittingId={submittingFormationId}
+              onToggleInfo={toggleRequestInfoSelection}
+              onRequestInfo={handleRequestInfo}
+              getTitle={(formation) => cleanDetailText(getCandidateFormationTitle(formation), 220)}
+            />
           )}
 
           {!dbFormationsLoading && dbFormations.length === 0 && formationRecommendations.length > 0 && (
@@ -2627,9 +2604,9 @@ export default function OrientationFlow() {
           )}
 
           {!dbFormationsLoading && (
-            <div className={`formation-lead-empty${dbFormations.length > 0 || formationRecommendations.length > 0 ? ' is-followup' : ''}`}>
+            <div className={`formation-lead-empty${dbFormations.length > 0 || partnerFormations.length > 0 || formationRecommendations.length > 0 ? ' is-followup' : ''}`}>
               <p className="formation-lead-empty-text">
-                {dbFormations.length > 0 || formationRecommendations.length > 0
+                {dbFormations.length > 0 || partnerFormations.length > 0 || formationRecommendations.length > 0
                   ? "Aucune de ces formations ne te convient ?"
                   : "Aucune formation ne correspond exactement à ton profil pour le moment."}
               </p>
@@ -2644,64 +2621,6 @@ export default function OrientationFlow() {
             </div>
           )}
         </div>
-
-        {(partnerFormationsLoading || partnerFormations.length > 0) && (
-          <div className="persona-card">
-            <div className="persona-card-head">
-              <div>
-                <span className="persona-kicker">Écoles partenaires</span>
-                <h2 className="persona-name persona-name-secondary">Elles peuvent te recontacter directement</h2>
-              </div>
-            </div>
-            <p className="persona-tagline">
-              {partnerFormations.length
-                ? "Ces écoles partenaires proposent des formations proches de ton profil. Demande plus d'infos en un clic."
-                : 'On regarde ce que nos écoles partenaires proposent pour toi...'}
-            </p>
-
-            {partnerFormationsLoading && (
-              <div className="busy-dots" aria-hidden="true"><span /><span /><span /></div>
-            )}
-
-            {!partnerFormationsLoading && partnerFormations.length > 0 && (
-              <div className="formation-lead-grid">
-                {partnerFormations.map((formation) => {
-                  const isSubmitted = submittedFormationIds.has(formation.id)
-                  const isSubmitting = submittingFormationId === formation.id
-                  return (
-                    <div key={formation.id} className="formation-lead-card">
-                      <div className="formation-lead-head">
-                        <strong>{formation.formation_name}</strong>
-                        {formation.match_score != null && (
-                          <span className="formation-lead-score">{formation.match_score}%</span>
-                        )}
-                      </div>
-                      <p className="formation-lead-subtitle">{formation.school_name}</p>
-                      <div className="formation-lead-meta">
-                        {formation.diploma_level && <span className="formation-lead-chip">{formation.diploma_level}</span>}
-                        {formation.city && <span className="formation-lead-chip"><i className="ph ph-map-pin" aria-hidden="true" />{formation.city}</span>}
-                      </div>
-                      <button
-                        type="button"
-                        className={`formation-lead-cta${isSubmitted ? ' is-submitted' : ''}`}
-                        onClick={() => handleRequestInfo(formation.id)}
-                        disabled={isSubmitted || isSubmitting}
-                      >
-                        {isSubmitted ? (
-                          <><i className="ph ph-check-circle" aria-hidden="true" /> Demande envoyée</>
-                        ) : isSubmitting ? (
-                          'Envoi...'
-                        ) : (
-                          <><i className="ph ph-paper-plane-tilt" aria-hidden="true" /> Demande d'infos</>
-                        )}
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
 
         <div className="persona-actions persona-actions-standalone">
           <button type="button" className="persona-continue" onClick={continueFromFormationReveal}>Découvre tes métiers</button>

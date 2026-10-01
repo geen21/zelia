@@ -58,6 +58,9 @@ try {
   const emailCorrection = await readFile(new URL('../database/migration_backoffice_admin_email.sql', import.meta.url), 'utf8')
   await db.exec(emailCorrection)
   await db.exec(emailCorrection)
+  const partnerResultsMigration = await readFile(new URL('../database/migration_backoffice_partner_results.sql', import.meta.url), 'utf8')
+  await db.exec(partnerResultsMigration)
+  await db.exec(partnerResultsMigration)
   await db.query('SELECT public.backoffice_change($1,$2,$3,$4,$5)', [nicolas,'profile',student,JSON.stringify({ first_name: 'Nicolas' }),'Test'])
   const auditPermissions = (await db.query("SELECT has_table_privilege('service_role','public.backoffice_audit','SELECT') AS read, has_table_privilege('service_role','public.backoffice_audit','INSERT') AS append, has_table_privilege('service_role','public.backoffice_audit','UPDATE,DELETE,TRUNCATE') AS modify")).rows[0]
   assert.deepEqual(auditPermissions,{ read:true,append:true,modify:false })
@@ -71,6 +74,20 @@ try {
   const results = await rpc('SELECT public.backoffice_results() AS result')
   assert.equal(results.items[0].email, 'student@example.com')
   const change = (kind, id, patch) => rpc('SELECT public.backoffice_change($1,$2,$3,$4,$5) AS result', [joris,kind,id,JSON.stringify(patch),'Test'])
+  const partnerDisplay = await change('partner',partner,{ show_in_results:false,highlight_in_results:false,results_priority:40 })
+  assert.equal(partnerDisplay.show_in_results,false)
+  assert.equal(partnerDisplay.highlight_in_results,false)
+  assert.equal(partnerDisplay.results_priority,40)
+  assert.ok((await db.query("SELECT changed_fields FROM backoffice_audit WHERE resource_id=$1 ORDER BY id DESC LIMIT 1",[partner])).rows[0].changed_fields.includes('results_priority'))
+  const displayAuditBefore = (await db.query('SELECT count(*)::int AS count FROM backoffice_audit')).rows[0].count
+  await assert.rejects(change('partner',partner,{ results_priority:101 }), /check constraint/)
+  assert.equal((await db.query('SELECT count(*)::int AS count FROM backoffice_audit')).rows[0].count,displayAuditBefore)
+  const createdPartner = await change('partner',null,{ school_name:'School',formation_name:'New Bachelor',city:'Paris',show_in_results:false,highlight_in_results:true,results_priority:25 })
+  assert.equal(createdPartner.results_priority,25)
+  assert.equal(createdPartner.show_in_results,false)
+  await db.exec('SET ROLE authenticated')
+  try { await assert.rejects(db.query('UPDATE ecoles_partenaires SET results_priority=100'), /permission denied/) }
+  finally { await db.exec('RESET ROLE') }
   await change('profile',student,{ first_name: 'Corrected' })
   assert.equal((await db.query('SELECT first_name FROM profiles WHERE id=$1',[student])).rows[0].first_name,'Corrected')
   const auditBefore = (await db.query('SELECT count(*)::int AS count FROM backoffice_audit')).rows[0].count

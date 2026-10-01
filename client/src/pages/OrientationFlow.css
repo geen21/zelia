@@ -1,3 +1,21 @@
+.formation-lead-card.formation-lead-card-partner {
+  background: #f8fff1;
+  border-color: #dcebc9;
+  box-shadow: inset 3px 0 0 #c1ff72;
+}
+
+.formation-lead-partner-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 8px;
+  color: #4d6739;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.formation-lead-card { min-width: 0; }
+.formation-lead-head strong, .formation-lead-subtitle { overflow-wrap: anywhere; }
 /* ===== Zelia orientation flow - design system ===== */
 /* Brand tokens kept: lime #c1ff72, pink #f68fff, ink #000/#111827, cream #fffbf7. */
 .orientation-flow {

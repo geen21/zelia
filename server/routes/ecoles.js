@@ -229,6 +229,7 @@ router.get('/matched', authenticateToken, async (req, res) => {
       .from('ecoles_partenaires')
       .select('*')
       .eq('is_active', true)
+      .eq('show_in_results', true)
 
     if (formError) throw formError
     if (!formations || formations.length === 0) {

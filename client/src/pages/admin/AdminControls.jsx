@@ -48,7 +48,7 @@ function SchoolNameInput({ value,onChange }) {
 }
 
 export function EditForm({ fields, values = {}, submit, onSaved }) {
-  const [form,setForm] = useState(() => Object.fromEntries(fields.map(([key,,type]) => [key, values[key] ?? (type === 'checkbox' ? true : '')])))
+  const [form,setForm] = useState(() => Object.fromEntries(fields.map(([key,,type]) => [key, values[key] ?? (type === 'checkbox' ? true : key === 'results_priority' ? 0 : '')])))
   const [busy,setBusy] = useState(false)
   const [error,setError] = useState('')
   const [success,setSuccess] = useState('')
@@ -59,7 +59,7 @@ export function EditForm({ fields, values = {}, submit, onSaved }) {
   }
   return <form className="bo-edit-form" onSubmit={save}><div className="bo-form-grid">{fields.map(([key,label,type = 'text',required = false]) => {
     const update = (value) => { setForm((previous) => ({ ...previous,[key]: value })); setSuccess('') }
-    return <label key={key} className={type === 'textarea' || type === 'school' ? 'bo-form-wide' : type === 'checkbox' ? 'bo-checkbox' : ''}>{type === 'checkbox' ? <><input type="checkbox" checked={form[key]} onChange={(event) => update(event.target.checked)} />{label}</> : <>{label}{type === 'textarea' ? <textarea rows="4" maxLength="10000" value={form[key]} onChange={(event) => update(event.target.value)} /> : type === 'school' ? <SchoolPicker value={form[key]} onChange={update} /> : type === 'school-name' ? <SchoolNameInput value={form[key]} onChange={update} /> : <input type={type} required={required} maxLength="500" min={key === 'age' ? 3 : undefined} max={key === 'age' ? 120 : undefined} value={form[key]} onChange={(event) => update(event.target.value)} />}</>}</label>
+    return <label key={key} className={type === 'textarea' || type === 'school' ? 'bo-form-wide' : type === 'checkbox' ? 'bo-checkbox' : ''}>{type === 'checkbox' ? <><input type="checkbox" checked={form[key]} onChange={(event) => update(event.target.checked)} />{label}</> : <>{label}{type === 'textarea' ? <textarea rows="4" maxLength="10000" value={form[key]} onChange={(event) => update(event.target.value)} /> : type === 'school' ? <SchoolPicker value={form[key]} onChange={update} /> : type === 'school-name' ? <SchoolNameInput value={form[key]} onChange={update} /> : <input type={type} required={required} maxLength="500" min={key === 'age' ? 3 : key === 'results_priority' ? 0 : undefined} max={key === 'age' ? 120 : key === 'results_priority' ? 100 : undefined} value={form[key]} onChange={(event) => update(event.target.value)} />}</>}</label>
   })}</div>{error && <p role="alert" className="bo-error">{error}</p>}{success && <p role="status" className="bo-success">{success}</p>}<button className="bo-button bo-primary" type="submit" disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer'}<PiCheck aria-hidden="true" /></button></form>
 }
 

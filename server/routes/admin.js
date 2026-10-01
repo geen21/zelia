@@ -5,7 +5,7 @@ import { withFormationDisplayFields } from '../utils/slug.js'
 const profileFields = ['first_name','last_name','age','gender','department','school','phone_number']
 const schoolFields = ['name','email','contact_first_name','contact_last_name']
 const customFields = ['company_id','title','description','diploma_level','city','domain','image_url','link','contact_email','is_published']
-const partnerFields = ['school_name','formation_name','city','domain','diploma_level','description','link','contact_email','is_active']
+const partnerFields = ['school_name','formation_name','city','domain','diploma_level','description','link','contact_email','is_active','show_in_results','highlight_in_results','results_priority']
 
 export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin, isProtectedAdmin }) {
   const router = express.Router()

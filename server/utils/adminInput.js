@@ -30,8 +30,11 @@ export function validatePatch(body, allowed, required = []) {
   for (const [key, value] of Object.entries(body)) {
     if (key === 'reason') continue
     if (!allowed.includes(key)) throw invalid(`Champ non modifiable : ${key}`)
-    if (['is_active', 'is_published'].includes(key)) {
+    if (['is_active', 'is_published', 'show_in_results', 'highlight_in_results'].includes(key)) {
       if (typeof value !== 'boolean') throw invalid('Statut invalide.')
+      patch[key] = value
+    } else if (key === 'results_priority') {
+      if (!Number.isInteger(value) || value < 0 || value > 100) throw invalid('Priorite invalide (0 a 100).')
       patch[key] = value
     } else if (key === 'age') {
       if (value !== null && (!Number.isInteger(value) || value < 3 || value > 120)) throw invalid('Age invalide.')

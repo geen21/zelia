@@ -206,6 +206,8 @@ Cette procedure est manuelle. Le code et les tests locaux ne modifient pas Supab
 
 ### Configuration automatique des UUID
 
+**Avant de deployer la grille commune formations/partenaires**, appliquer [migration_backoffice_partner_results.sql](server/database/migration_backoffice_partner_results.sql) dans Supabase, apres la migration back-office principale. Elle ajoute les reglages d'affichage et met a jour l'edition auditee sans changer les permissions. Le script de configuration arrete le deploiement si ces colonnes manquent. Recetter ensuite `/admin/partenaires` (visibilite, accent, priorite) et l'ecran de recommandations ; les anciennes candidatures et les scores doivent rester inchanges.
+
 Si la migration back-office a deja ete appliquee avec l'ancienne adresse mal orthographiee, executer d'abord [migration_backoffice_admin_email.sql](server/database/migration_backoffice_admin_email.sql) dans Supabase. Ce patch corrige uniquement les deux fonctions administratives, conserve leurs privileges et peut etre rejoue. Pour une nouvelle installation, la migration principale contient deja `nicolas.wiegele@zelia.io`.
 
 Apres avoir applique la migration et confirme la maitrise des deux comptes existants, executer depuis la racine du depot :

@@ -107,6 +107,14 @@ Verification locale sans donnees de production : `npm run verify:admin` (identit
 
 Apres migration et verification de la maitrise des deux comptes, `node scripts/configure_backoffice.mjs` configure automatiquement leurs UUID depuis Supabase Auth en conservant le reste du fichier d'environnement. Le script refuse une migration manquante ou une configuration contradictoire, sauvegarde l'environnement original avec permissions privees et n'affiche pas les secrets. Utiliser `--check` pour verifier sans ecriture. Voir [la commande VPS](../DEPLOYMENT.md#configuration-automatique-des-uuid).
 
+### Resultats formations et partenaires
+
+Appliquer [migration_backoffice_partner_results.sql](database/migration_backoffice_partner_results.sql) apres la migration principale, avant de deployer cette version. Elle ajoute trois champs a `ecoles_partenaires` et conserve les permissions de la fonction d'edition : `show_in_results`, `highlight_in_results` et `results_priority` (entier de 0 a 100). Le script de configuration verifie aussi la presence de ces colonnes.
+
+Dans `/admin/partenaires`, chaque fiche permet de masquer une formation des recommandations, desactiver son accent visuel ou choisir sa priorite parmi les partenaires pertinents. Les mutations restent reservees aux administrateurs et auditees. Une formation masquee reste dans le catalogue partenaire si elle est active ; ses anciennes candidatures ne sont pas supprimees. L'accent desactive conserve la mention Partenaire.
+
+L'ecran d'orientation utilise une grille commune : une insertion partenaire apres trois formations nationales, avec au plus trois partenaires. La priorite departage les partenaires uniquement, sans modifier les scores ni l'ordre du catalogue national. Les selections nationales et les demandes directes aux partenaires gardent leurs actions distinctes.
+
 ## Database Schema
 
 The server expects the following Supabase tables:

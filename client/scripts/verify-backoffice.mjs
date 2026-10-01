@@ -3,13 +3,37 @@ import { mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chromium, expect } from '@playwright/test'
+import { mixFormationResults } from '../src/lib/orientationFormationResults.js'
+
+const nationalFixtures = Array.from({ length: 7 }, (_, index) => ({ id: index + 1 }))
+const partnerFixtures = [
+  { id: 1, results_priority: 0, match_score: 95 },
+  { id: 2, results_priority: 20, match_score: 80 },
+  { id: 3, show_in_results: false, results_priority: 100 },
+  { id: 4, is_active: false },
+  { id: 2, results_priority: 20, match_score: 80 }
+]
+const mixed = mixFormationResults(nationalFixtures, partnerFixtures)
+assert.deepEqual(mixed.filter((entry) => entry.source === 'national').map((entry) => entry.formation), nationalFixtures)
+assert.deepEqual(mixed.filter((entry) => entry.source === 'partner').map((entry) => entry.formation.id), [2, 1])
+assert.equal(mixed[3].key, 'partner-2')
+assert.equal(mixed[7].key, 'partner-1')
+assert.equal(new Set(mixed.map((entry) => entry.key)).size, mixed.length)
+assert.equal(mixFormationResults([], partnerFixtures).length, 2)
+assert.equal(mixFormationResults(nationalFixtures, []).length, 7)
+assert.equal(mixFormationResults([], Array.from({ length: 6 }, (_, index) => ({ id: index + 1 }))).length, 3)
+assert.equal(partnerFixtures[0].id, 1)
+if (process.argv.includes('--results-only')) {
+  console.log('Mixed formation results, editorial priority, visibility and stable national ordering verified.')
+  process.exit(0)
+}
 
 const base = process.env.BACKOFFICE_TEST_URL || 'http://127.0.0.1:5187'
 const output = join(tmpdir(),'zelia-backoffice-tests')
 await mkdir(output,{ recursive: true })
 const admin = { id:'11111111-1111-4111-8111-111111111111',email:'joris.geerdes@21datas.ch' }
 const user = { id:'33333333-3333-4333-8333-333333333333',email:'student@example.com',first_name:'Camille',last_name:'Martin',created_at:'2026-09-20T12:00:00Z',account_type:'student',is_suspended:false }
-const partner = { id:'44444444-4444-4444-8444-444444444444',school_name:'École Numérique',formation_name:'Bachelor Développement Web',city:'Paris',diploma_level:'Bac+3',is_active:true }
+const partner = { id:'44444444-4444-4444-8444-444444444444',school_name:'École Numérique',formation_name:'Bachelor Développement Web',city:'Paris',diploma_level:'Bac+3',is_active:true,show_in_results:true,highlight_in_results:true,results_priority:0 }
 const school = { id:1,name:'École Numérique',email:'school@example.com',owner_id:user.id,approved_at:null,contact_first_name:'Camille',contact_last_name:'Martin',created_at:'2026-09-20T12:00:00Z' }
 const analysis = { id:1,user_id:user.id,email:user.email,first_name:user.first_name,last_name:user.last_name,questionnaire_type:'inscription',updated_at:'2026-09-20T12:00:00Z' }
 const session = { access_token:'fixture-access-token',refresh_token:'fixture-refresh-token',expires_at:Math.floor(Date.now()/1000)+3600,expires_in:3600,token_type:'bearer',user:admin }
@@ -41,6 +65,7 @@ async function prepare(viewport,authenticated = true,denied = false) {
     if (denied) return route.fulfill({ status:403,contentType:'application/json',body:JSON.stringify({ error:'ADMIN_ACCESS_DENIED',message:'Accès réservé aux administrateurs Zélia.' }) })
     if (request.method() !== 'GET') {
       mutations.push({ path,method:request.method(),body:request.postDataJSON() })
+      if (path === `/partners/${partner.id}`) Object.assign(partner,request.postDataJSON())
       if (path.endsWith('/suspend')) user.is_suspended = true
       if (path.endsWith('/reactivate')) user.is_suspended = false
       if (path.endsWith('/approve')) school.approved_at = '2026-10-01T12:00:00Z'
@@ -120,6 +145,19 @@ try {
   await expect(formation).not.toBeVisible()
   await page.getByRole('link',{ name:'Partenaires',exact:true }).first().click()
   await page.getByRole('button',{ name:`Ouvrir la fiche ${partner.formation_name}`,exact:true }).click()
+  const partnerPanel = page.getByRole('dialog',{ name:partner.school_name,exact:true })
+  await partnerPanel.getByLabel('Afficher dans les recommandations',{ exact:true }).uncheck()
+  await partnerPanel.getByLabel('Accentuer la carte partenaire',{ exact:true }).uncheck()
+  await partnerPanel.getByLabel('Priorité d’affichage',{ exact:true }).fill('40')
+  const partnerSaved = page.waitForResponse((response) => response.url().endsWith(`/partners/${partner.id}`) && response.request().method() === 'PATCH')
+  await partnerPanel.getByRole('button',{ name:'Enregistrer',exact:true }).click()
+  await partnerSaved
+  await partnerPanel.getByRole('button',{ name:'Fermer la fiche',exact:true }).click()
+  await page.getByRole('button',{ name:`Ouvrir la fiche ${partner.formation_name}`,exact:true }).click()
+  await expect(partnerPanel.getByLabel('Priorité d’affichage',{ exact:true })).toHaveValue('40')
+  await expect(partnerPanel.getByLabel('Afficher dans les recommandations',{ exact:true })).not.toBeChecked()
+  await expect(partnerPanel.getByLabel('Accentuer la carte partenaire',{ exact:true })).not.toBeChecked()
+  assert.ok(mutations.some((entry) => entry.path === `/partners/${partner.id}` && entry.body.show_in_results === false && entry.body.highlight_in_results === false && entry.body.results_priority === 40))
   await expect(page.getByText('4 formations',{ exact:true })).toBeVisible()
   await page.getByRole('button',{ name:'Désactiver le campus',exact:true }).click()
   const campus = page.getByRole('dialog',{ name:'Désactiver le campus',exact:true })
@@ -175,5 +213,5 @@ try {
   assert.ok(mutations.some((entry) => entry.path === `/users/${user.id}` && entry.body.first_name === 'Camille corrigée'))
   assert.ok(mutations.some((entry) => entry.path.endsWith('/suspend') && entry.body.reason === 'Compte de test'))
   assert.ok(mutations.some((entry) => entry.path === '/partners/group-status' && entry.body.is_active === false))
-  console.log(`Back-office desktop/mobile, forms, confirmations, privacy, denial and isolated logout verified. Screenshots: ${output}`)
+  console.log(`Mixed result composition and back-office controls desktop/mobile, privacy and isolated logout verified. Screenshots: ${output}`)
 } finally { await browser.close() }

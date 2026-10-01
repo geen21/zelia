@@ -4,6 +4,8 @@
 
 La nouvelle interface est disponible sur `/admin/connexion`. Elle utilise une session Supabase distincte dans `sessionStorage`, sans deconnecter les sessions eleve ou ecole. Les deux administrateurs se connectent avec leurs comptes existants ; aucune inscription admin n'est proposee.
 
+Pour le pilotage de la grille commune de recommandations, appliquer aussi [migration_backoffice_partner_results.sql](server/database/migration_backoffice_partner_results.sql). Les trois reglages sont dans chaque fiche `/admin/partenaires` : affichage dans les recommandations, accent visuel et priorite (0 a 100). Le controle pur du melange peut etre execute sans navigateur : `node client/scripts/verify-backoffice.mjs --results-only`.
+
 Avant un usage reel, suivre [la mise en service](DEPLOYMENT.md#back-office-mise-en-service) : migrations portail/partenaires presentes, application manuelle de [migration_backoffice.sql](server/database/migration_backoffice.sql), puis configuration serveur des deux `BACKOFFICE_*_USER_ID`. Ne pas reinitialiser une base existante avec le script de setup ci-dessous. Sans migration, les routes privees repondent `503` par securite.
 
 Depuis la racine du workspace :

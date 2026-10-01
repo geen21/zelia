@@ -210,6 +210,10 @@ Cette procedure est manuelle. Le code et les tests locaux ne modifient pas Supab
 
 Si la migration back-office a deja ete appliquee avec l'ancienne adresse mal orthographiee, executer d'abord [migration_backoffice_admin_email.sql](server/database/migration_backoffice_admin_email.sql) dans Supabase. Ce patch corrige uniquement les deux fonctions administratives, conserve leurs privileges et peut etre rejoue. Pour une nouvelle installation, la migration principale contient deja `nicolas.wiegele@zelia.io`.
 
+**Avant de deployer le graphique d'evolution des eleves**, appliquer [migration_backoffice_student_growth.sql](server/database/migration_backoffice_student_growth.sql), apres la migration principale. Elle ajoute une RPC de statistiques reservee au serveur ; le script de configuration refuse le deploiement si elle manque. Recetter `/admin` sur les periodes 30 jours, 90 jours et 1 an, avec les deux administrateurs. Aucun compte ni resultat n'est modifie.
+
+**Avant de deployer la vue prioritaire des formations selectionnees**, appliquer [migration_backoffice_selections.sql](server/database/migration_backoffice_selections.sql), apres la migration principale. Elle utilise les tables existantes `informations_complementaires` et `contact_submitted`, ajoute un index de lecture et des fonctions reservees au serveur. Le script de configuration bloque le deploiement si la RPC manque. Recetter `/admin` puis `/admin/resultats` : dernieres selections, recherche utilisateur/formation/etablissement, filtre partenaires et acces aux analyses. Les recommandations non retenues ne doivent pas etre presentees comme des selections ; aucune sauvegarde utilisateur n'est modifiee par la migration.
+
 Apres avoir applique la migration et confirme la maitrise des deux comptes existants, executer depuis la racine du depot :
 
 ```bash

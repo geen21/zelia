@@ -58,4 +58,6 @@ const migration = await readFile(new URL('../database/migration_backoffice.sql',
 await parse(migration)
 await parse(await readFile(new URL('../database/migration_backoffice_admin_email.sql', import.meta.url), 'utf8'))
 await parse(await readFile(new URL('../database/migration_backoffice_partner_results.sql', import.meta.url), 'utf8'))
+await parse(await readFile(new URL('../database/migration_backoffice_student_growth.sql', import.meta.url), 'utf8'))
+await parse(await readFile(new URL('../database/migration_backoffice_selections.sql', import.meta.url), 'utf8'))
 console.log('Back-office identity guard, safe environment provisioning and PostgreSQL migration syntax verified.')

@@ -115,6 +115,22 @@ Dans `/admin/partenaires`, chaque fiche permet de masquer une formation des reco
 
 L'ecran d'orientation utilise une grille commune : une insertion partenaire apres trois formations nationales, avec au plus trois partenaires. La priorite departage les partenaires uniquement, sans modifier les scores ni l'ordre du catalogue national. Les selections nationales et les demandes directes aux partenaires gardent leurs actions distinctes.
 
+### Formations selectionnees
+
+Appliquer [migration_backoffice_selections.sql](database/migration_backoffice_selections.sql) apres la migration principale. La vue d'ensemble montre les dernieres selections, et `/admin/resultats` ouvre la liste des formations retenues ; les analyses restent dans un onglet distinct. Le script de configuration verifie la nouvelle RPC avant deploiement.
+
+`GET /api/admin/selections` accepte `q`, `source` (`all`, `orientation`, `partner`), `user_id`, `limit` (1 a 100) et `offset`. La RPC service-only `backoffice_selections` renvoie `items`, `total` et `totalUsers`, avec pagination et recherche cote SQL. Chaque ligne contient formation, etablissement, ville, utilisateur, origine et date d'enregistrement.
+
+L'orientation utilise uniquement le dernier `orientation_final_selection` de chaque utilisateur : `type="formation"` et `requestMoreInformation=true` (booleen JSON). Les metiers, propositions non cochees et anciens formats sans indicateur ne sont pas assimiles a des choix. Les doublons sont elimines ; un JSON invalide est ignore. Les demandes `contact_submitted` sont listees separement, y compris pour les partenaires archives. Ces donnees existent independamment d'une analyse enregistree.
+
+La date d'orientation est celle du dernier recapitulatif sauvegarde, pas celle d'un clic individuel. Les cases sont initialement preselectionnees dans le parcours ; la vue restitue le choix conserve lors de sa sauvegarde. Aucun historique de deselections ni des anciens recapitulatifs remplaces n'est reconstitue. La consultation reste en lecture seule et reservee aux deux administrateurs.
+
+### Evolution des eleves
+
+Appliquer [migration_backoffice_student_growth.sql](database/migration_backoffice_student_growth.sql) avant le deploiement. `GET /api/admin/student-growth?days=30` accepte uniquement 30, 90 ou 365 jours (30 par defaut) et utilise la RPC service-only `backoffice_student_growth`. Le script de configuration verifie sa presence.
+
+La reponse contient `periodDays`, `totalStudents`, `newStudents` et `points` (`date`, `registrations`, `total`). Chaque jour UTC est present, avec un cumul initial pour les comptes plus anciens. Les proprietaires et membres d'ecoles ainsi que les deux administrateurs sont exclus. Les comptes suspendus sont inclus ; les comptes supprimes et les anciens changements de role ne peuvent pas etre reconstitues. Aucune donnee individuelle ni modification de compte n'est exposee par cette route.
+
 ## Database Schema
 
 The server expects the following Supabase tables:

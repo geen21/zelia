@@ -29,7 +29,7 @@ const db = {
     rpcCalled = true; calls.push({ name,args })
     if (rpcError) return { data: null,error: rpcError }
     if (name === 'backoffice_account_change') return { data: { revision: '44444444-4444-4444-8444-444444444444' },error: null }
-    return { data: name === 'backoffice_users' || name === 'backoffice_results' ? { items: [],total: 0 } : { id: '1' },error: null }
+    return { data: ['backoffice_users','backoffice_results','backoffice_selections'].includes(name) ? { items: [],total: 0 } : { id: '1' },error: null }
   },
   auth: { admin: { async updateUserById(id,patch) { calls.push({ name: 'Auth',id,patch }); return { error: authError } } } }
 }
@@ -51,7 +51,7 @@ async function request(path,token = 'joris',method = 'GET',body) {
 }
 
 try {
-  for (const [path,method] of [['/me','GET'],['/overview','GET'],['/users','GET'],['/schools','GET'],['/formations','GET'],['/partners','GET'],['/results','GET'],['/audit','GET'],[`/users/${student.id}`,'PATCH'],['/schools/1/approve','POST'],['/partners','POST'],['/formations/custom','POST']]) {
+  for (const [path,method] of [['/me','GET'],['/overview','GET'],['/student-growth','GET'],['/selections','GET'],['/users','GET'],['/schools','GET'],['/formations','GET'],['/partners','GET'],['/results','GET'],['/audit','GET'],[`/users/${student.id}`,'PATCH'],['/schools/1/approve','POST'],['/partners','POST'],['/formations/custom','POST']]) {
     assert.equal((await request(path,null,method,method === 'GET' ? undefined : {})).status,401)
     assert.equal((await request(path,'student',method,method === 'GET' ? undefined : {})).status,403)
   }
@@ -62,7 +62,14 @@ try {
   assert.equal(me.headers.get('cache-control'),'no-store')
   assert.deepEqual(await me.json(),{ user: joris })
   assert.equal((await request('/users?limit=101')).status,400)
+  assert.equal((await request('/student-growth?days=90')).status,200)
+  assert.deepEqual(calls.find((call) => call.name === 'backoffice_student_growth').args,{ p_days:90 })
+  for (const days of ['0','31','999','invalid','']) assert.equal((await request(`/student-growth?days=${days}`)).status,400)
   assert.equal((await request('/users?offset=-1')).status,400)
+  assert.equal((await request(`/selections?source=partner&user_id=${student.id}&q=Bachelor&limit=5&offset=10`)).status,200)
+  assert.deepEqual(calls.find((call) => call.name === 'backoffice_selections').args,{ p_query:'Bachelor',p_source:'partner',p_user_id:student.id,p_limit:5,p_offset:10 })
+  for (const query of ['source=unknown','user_id=invalid','limit=101','offset=-1']) assert.equal((await request(`/selections?${query}`)).status,400)
+  assert.equal((await request('/selections','joris','POST',{})).status,404)
   assert.equal((await request('/users?status=unknown')).status,400)
   assert.equal((await request('/formations?source=arbitrary_table')).status,400)
   assert.equal((await request('/users/not-a-uuid')).status,400)
@@ -96,6 +103,8 @@ try {
   assert.equal((await request('/formations/national/1','joris','PATCH',{})).status,404)
   rpcError = { code:'PGRST202' }
   assert.equal((await request('/overview')).status,503)
+  assert.equal((await request('/student-growth')).status,503)
+  assert.equal((await request('/selections')).status,503)
   rpcError = null
   suspension = { is_suspended:true }; rpcCalled = false
   assert.equal((await request('/overview')).status,403)

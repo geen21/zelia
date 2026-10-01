@@ -4,7 +4,11 @@
 
 La nouvelle interface est disponible sur `/admin/connexion`. Elle utilise une session Supabase distincte dans `sessionStorage`, sans deconnecter les sessions eleve ou ecole. Les deux administrateurs se connectent avec leurs comptes existants ; aucune inscription admin n'est proposee.
 
+Les formations selectionnees sont prioritaires : dernieres selections sur l'accueil, liste par defaut dans `/admin/resultats` et rappel dans les fiches utilisateurs/analyses. Appliquer [migration_backoffice_selections.sql](server/database/migration_backoffice_selections.sql) pour activer cette vue. La recherche porte sur formation, etablissement, ville et utilisateur ; les demandes partenaires ont un filtre et un statut distincts. Les analyses restent disponibles dans leur onglet, en lecture seule.
+
 Pour le pilotage de la grille commune de recommandations, appliquer aussi [migration_backoffice_partner_results.sql](server/database/migration_backoffice_partner_results.sql). Les trois reglages sont dans chaque fiche `/admin/partenaires` : affichage dans les recommandations, accent visuel et priorite (0 a 100). Le controle pur du melange peut etre execute sans navigateur : `node client/scripts/verify-backoffice.mjs --results-only`.
+
+La vue d'ensemble affiche le cumul des inscriptions eleves sur 30 jours, 90 jours ou 365 jours, avec les nouvelles inscriptions de la periode. Appliquer [migration_backoffice_student_growth.sql](server/database/migration_backoffice_student_growth.sql) pour activer cette statistique. Les comptes proprietaires/membres d'ecoles et les deux administrateurs sont exclus ; les comptes suspendus restent des inscriptions. La serie est calculee en SQL par jour UTC, sans limite de pagination. Elle est reconstruite a partir des comptes Auth encore presents et de leurs roles actuels : les suppressions et anciens changements de role ne constituent pas un historique conserve.
 
 Avant un usage reel, suivre [la mise en service](DEPLOYMENT.md#back-office-mise-en-service) : migrations portail/partenaires presentes, application manuelle de [migration_backoffice.sql](server/database/migration_backoffice.sql), puis configuration serveur des deux `BACKOFFICE_*_USER_ID`. Ne pas reinitialiser une base existante avec le script de setup ci-dessous. Sans migration, les routes privees repondent `503` par securite.
 
@@ -31,7 +35,7 @@ npm --prefix client run verify:admin-ui
 
 Ouvrir `http://127.0.0.1:5187/admin/connexion`. Le port 5187 est autorise par CORS uniquement en developpement ; `VITE_API_URL` doit cibler l'API locale. Pour un autre serveur client, definir `BACKOFFICE_TEST_URL` et configurer son origine cote backend. Les captures des tests sont dans le dossier temporaire `zelia-backoffice-tests`. Les tests navigateur/SQL n'utilisent pas les vrais comptes ni les donnees distantes.
 
-Les controles automatises couvrent les refus d'acces, les formulaires et confirmations, les sessions isolees, la pagination, les permissions RLS, ainsi que l'absence de suivi sur une entree directe `/admin`. La migration distante et les connexions des deux comptes reels restent a valider manuellement en staging.
+Les controles automatises couvrent les refus d'acces, les formulaires et confirmations, les sessions isolees, la pagination, les permissions RLS, ainsi que l'absence de suivi sur une entree directe `/admin`. Le graphique est verifie en SQL (cumul initial, jours vides, exclusions, calendrier UTC) et en navigateur (trace, periodes, etats vide/erreur, desktop/mobile). Les selections sont testees en SQL (dernier recapitulatif, indicateurs booleens, dedoublonnage, JSON invalide, partenaires archives, plus de 1000 lignes) et en navigateur (recherche, origine, utilisateur, pagination, details en lecture seule, etats vide/erreur, desktop/mobile). La migration distante et les connexions des deux comptes reels restent a valider manuellement en staging.
 
 ## Backend Setup Complete ✅
 

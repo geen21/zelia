@@ -64,7 +64,9 @@ async function main() {
   const identities = await resolveBackofficeIdentities(client)
   const partnerCheck = await client.from('ecoles_partenaires').select('id,is_active,show_in_results,highlight_in_results,results_priority').limit(1)
   const resultCheck = await client.rpc('backoffice_results', { p_user_id: identities[0].id, p_limit: 1 })
-  if (partnerCheck.error || resultCheck.error) throw new Error('Migration back-office incomplete. Aucun deploiement autorise.')
+  const growthCheck = await client.rpc('backoffice_student_growth', { p_days: 30 })
+  const selectionsCheck = await client.rpc('backoffice_selections', { p_limit: 1 })
+  if (partnerCheck.error || resultCheck.error || growthCheck.error || selectionsCheck.error) throw new Error('Migration back-office incomplete. Aucun deploiement autorise.')
   const updated = configureBackofficeEnvironment(source, identities)
   if (process.argv.includes('--check')) {
     console.log('Migration et identites Auth verifiees ; environnement non modifie.')

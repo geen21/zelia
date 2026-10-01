@@ -57,6 +57,11 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
 
   router.get('/me', run(async (req, res) => res.json({ user: { id: req.user.id, email: req.user.email } })))
   router.get('/overview', run(async (req, res) => res.json(await rpc('backoffice_overview'))))
+  router.get('/student-growth', run(async (req, res) => {
+    const days = Number(req.query.days ?? 30)
+    if (![30,90,365].includes(days)) throw invalid('Periode invalide.')
+    res.json(await rpc('backoffice_student_growth', { p_days: days }))
+  }))
   router.get('/users', run(async (req, res) => {
     const { limit, offset } = pagination(req.query)
     const status = req.query.status || 'all'
@@ -158,6 +163,12 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
   router.post('/partners', run(async (req, res) => res.status(201).json({ item: await change(req,'partner',null,validatePatch(req.body,partnerFields,['school_name','formation_name','city'])) })))
   router.patch('/partners/:id', run(async (req, res) => res.json({ item: await change(req,'partner',identifier(req.params.id,true),validatePatch(req.body,partnerFields)) })))
 
+  router.get('/selections', run(async (req, res) => {
+    const { limit,offset } = pagination(req.query)
+    const source = req.query.source || 'all'
+    if (!['all','orientation','partner'].includes(source)) throw invalid('Origine invalide.')
+    res.json({ ...await rpc('backoffice_selections',{ p_query:searchText(req.query.q),p_source:source,p_user_id:req.query.user_id ? identifier(req.query.user_id,true) : null,p_limit:limit,p_offset:offset }),limit,offset })
+  }))
   router.get('/results', run(async (req, res) => {
     const { limit, offset } = pagination(req.query)
     res.json({ ...await rpc('backoffice_results', { p_query: searchText(req.query.q), p_type: searchText(req.query.type), p_user_id: req.query.user_id ? identifier(req.query.user_id,true) : null, p_limit: limit, p_offset: offset }), limit, offset })

@@ -126,7 +126,62 @@ try {
   assert.equal((await asStudent('SELECT * FROM profiles')).rows.length,1)
   await change('school_revoke','1',{})
   assert.equal((await db.query('SELECT approved_at FROM companies')).rows[0].approved_at,null)
-  console.log('Back-office PostgreSQL functions, pagination >1000, atomic audit, suspension and RLS verified.')
+  const growthMigration = await readFile(new URL('../database/migration_backoffice_student_growth.sql', import.meta.url), 'utf8')
+  await db.exec(growthMigration)
+  await db.exec(growthMigration)
+  await db.exec("SET TIME ZONE 'Pacific/Honolulu'")
+  await db.exec(`UPDATE auth.users SET created_at=(timezone('UTC',now())::date - 60)::timestamp AT TIME ZONE 'UTC' WHERE email LIKE 'fixture-%';
+    INSERT INTO auth.users(id,email,created_at) VALUES
+      ('55555555-5555-4555-8555-555555555555','older@example.com',(timezone('UTC',now())::date - 40)::timestamp AT TIME ZONE 'UTC'),
+      ('66666666-6666-4666-8666-666666666666','yesterday@example.com',(timezone('UTC',now())::date - 1)::timestamp AT TIME ZONE 'UTC'),
+      ('77777777-7777-4777-8777-777777777777','today@example.com',now()),
+      ('88888888-8888-4888-8888-888888888888','member@example.com',now()),
+      ('99999999-9999-4999-8999-999999999999','future@example.com',(timezone('UTC',now())::date + 2)::timestamp AT TIME ZONE 'UTC');
+    INSERT INTO school_portal_members(company_id,user_id) VALUES(1,'88888888-8888-4888-8888-888888888888');`)
+  const growth = await rpc('SELECT public.backoffice_student_growth(30) AS result')
+  const todayUTC = new Date().toISOString().slice(0,10)
+  assert.equal(growth.points.length,30)
+  assert.equal(growth.points.at(-1).date,todayUTC)
+  assert.equal(growth.points[0].date,new Date(Date.parse(`${todayUTC}T00:00:00Z`) - 29*86400000).toISOString().slice(0,10))
+  assert.equal(growth.points[0].total,1002)
+  assert.equal(growth.points[0].registrations,0)
+  assert.equal(growth.points.at(-2).registrations,1)
+  assert.equal(growth.points.at(-1).registrations,1)
+  assert.equal(growth.totalStudents,1004)
+  assert.equal(growth.newStudents,2)
+  assert.equal((await rpc('SELECT public.backoffice_student_growth(90) AS result')).points.length,90)
+  assert.equal((await rpc('SELECT public.backoffice_student_growth(365) AS result')).points.length,365)
+  await assert.rejects(db.query('SELECT public.backoffice_student_growth(999)'),/INVALID_PERIOD/)
+  await assert.rejects(db.query('SELECT public.backoffice_student_growth(NULL)'),/INVALID_PERIOD/)
+  await assert.rejects(asStudent('SELECT public.backoffice_student_growth(30)'),/permission denied/)
+  await db.exec(`CREATE TABLE public.informations_complementaires(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,user_id uuid,question_id text,answer_text text,created_at timestamptz DEFAULT now());
+    INSERT INTO public.informations_complementaires(user_id,question_id,answer_text)
+      SELECT id,'orientation_final_selection','[{"id":"formation-1","type":"formation","title":"BTS Informatique","subtitle":"Universite Exemple","requestMoreInformation":true}]'
+      FROM auth.users WHERE email LIKE 'fixture-%';`)
+  const selectionsMigration = await readFile(new URL('../database/migration_backoffice_selections.sql', import.meta.url), 'utf8')
+  await db.exec(selectionsMigration)
+  await db.exec(selectionsMigration)
+  await db.query(`INSERT INTO informations_complementaires(user_id,question_id,answer_text,created_at) VALUES
+    ($1,'orientation_final_selection',$2,now()-interval '1 day'),($1,'orientation_final_selection',$3,now())`,[student,
+    JSON.stringify([{ id:'old',type:'formation',title:'Old choice',requestMoreInformation:true }]),
+    JSON.stringify({ candidates:[{ id:'chosen',type:'formation',title:'Chosen current',requestMoreInformation:true },{ id:'chosen',type:'formation',title:'Chosen current',requestMoreInformation:true },{ id:'ignored',type:'formation',title:'Not chosen',requestMoreInformation:false },{ id:'job',type:'metier',title:'Not formation',requestMoreInformation:true }] })])
+  const selections = await rpc('SELECT public.backoffice_selections() AS result')
+  assert.equal(selections.total,1003)
+  assert.equal(selections.totalUsers,1002)
+  assert.equal(selections.items.length,50)
+  assert.equal((await rpc("SELECT public.backoffice_selections('','all',50,1000) AS result")).items.length,3)
+  const personal = await rpc("SELECT public.backoffice_selections('','all',50,0,$1) AS result",[student])
+  assert.equal(personal.total,2)
+  assert.equal(personal.items.find((item) => item.source === 'orientation').formation_name,'Chosen current')
+  assert.equal(personal.items.find((item) => item.source === 'partner').formation_name,'Bachelor')
+  assert.equal((await rpc("SELECT public.backoffice_selections('Chosen current') AS result")).total,1)
+  assert.equal((await rpc("SELECT public.backoffice_selections('Old choice') AS result")).total,0)
+  assert.equal((await rpc("SELECT public.backoffice_selections('','partner') AS result")).total,1)
+  await db.query("INSERT INTO informations_complementaires(user_id,question_id,answer_text,created_at) VALUES($1,'orientation_final_selection','broken JSON',now()+interval '1 second')",[student])
+  assert.equal((await rpc("SELECT public.backoffice_selections('','orientation',50,0,$1) AS result",[student])).total,0)
+  await assert.rejects(asStudent('SELECT public.backoffice_selections()'),/permission denied/)
+  await assert.rejects(asStudent("SELECT public.backoffice_selected_candidates('[]')"),/permission denied/)
+  console.log('Back-office PostgreSQL functions, student growth/UTC/exclusions, pagination >1000, atomic audit, suspension and RLS verified.')
 } finally {
   await db.close()
 }

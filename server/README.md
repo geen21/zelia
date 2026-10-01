@@ -113,6 +113,8 @@ Appliquer [migration_backoffice_partner_results.sql](database/migration_backoffi
 
 Dans `/admin/partenaires`, chaque fiche permet de masquer une formation des recommandations, desactiver son accent visuel ou choisir sa priorite parmi les partenaires pertinents. Les mutations restent reservees aux administrateurs et auditees. Une formation masquee reste dans le catalogue partenaire si elle est active ; ses anciennes candidatures ne sont pas supprimees. L'accent desactive conserve la mention Partenaire.
 
+Si la sauvegarde de ces reglages est refusee, verifier que la migration partenaires ci-dessus a bien ete appliquee, et pas uniquement celle du graphique eleves. Elle peut etre rejouee dans le SQL Editor Supabase, apres toute reexecution de la migration principale : celle-ci remet l'ancienne definition de `backoffice_change`, meme si les colonnes partenaires existent encore. Une fonction SQL ancienne qui refuse les nouveaux champs renvoie maintenant un diagnostic de migration explicite ; aucune validation ni ecriture d'audit n'est contournee.
+
 L'ecran d'orientation utilise une grille commune : une insertion partenaire apres trois formations nationales, avec au plus trois partenaires. La priorite departage les partenaires uniquement, sans modifier les scores ni l'ordre du catalogue national. Les selections nationales et les demandes directes aux partenaires gardent leurs actions distinctes.
 
 ### Formations selectionnees

@@ -19,11 +19,13 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
   const run = (handler) => async (req, res) => {
     try { await handler(req, res) } catch (error) {
       const code = error.code || ''
-      const missingMigration = ['42P01','42883','PGRST202','PGRST205'].includes(code)
+      const missingPartnerMigration = code === 'BACKOFFICE_PARTNER_RESULTS_MIGRATION_REQUIRED'
+      const missingMigration = missingPartnerMigration || ['42P01','42703','42883','PGRST202','PGRST205'].includes(code)
       const status = error.status || (missingMigration ? 503 : ['P0002','PGRST116'].includes(code) ? 404
         : code === '42501' ? 403 : ['23505','40001'].includes(code) ? 409
           : ['22023','22P02','23503','23502','23514'].includes(code) ? 400 : 500)
-      const message = error.status === 400 ? error.message : missingMigration
+      const message = error.status === 400 ? error.message : missingPartnerMigration
+        ? 'Les reglages partenaires necessitent la migration migration_backoffice_partner_results.sql dans Supabase.' : missingMigration
         ? 'La migration SQL du back-office doit etre appliquee.' : status === 404 ? 'Element introuvable.'
           : status === 409 ? 'Modification concurrente ou doublon. Actualisez puis reessayez.'
             : status === 403 ? 'Cette action est interdite.' : 'Impossible de terminer cette operation.'
@@ -38,9 +40,19 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
     return response
   }
   const rpc = async (name, args = {}) => (await query(db.rpc(name, args))).data
-  const change = (req, kind, id, patch) => rpc('backoffice_change', {
-    p_actor: req.user.id, p_kind: kind, p_id: id, p_patch: patch, p_reason: mutationReason(req.body)
-  })
+  const change = async (req, kind, id, patch) => {
+    try {
+      return await rpc('backoffice_change', {
+        p_actor: req.user.id, p_kind: kind, p_id: id, p_patch: patch, p_reason: mutationReason(req.body)
+      })
+    } catch (error) {
+      if (kind === 'partner' && error.code === '22023' && error.message === 'INVALID_FIELD'
+        && ['show_in_results','highlight_in_results','results_priority'].some((field) => Object.hasOwn(patch,field))) {
+        throw Object.assign(new Error('BACKOFFICE_PARTNER_RESULTS_MIGRATION_REQUIRED'),{ code:'BACKOFFICE_PARTNER_RESULTS_MIGRATION_REQUIRED' })
+      }
+      throw error
+    }
+  }
   const list = async (builder, req, res, map = (row) => row) => {
     const { limit, offset } = pagination(req.query)
     if (req.query.from) {

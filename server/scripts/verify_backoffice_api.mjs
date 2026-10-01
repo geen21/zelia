@@ -98,6 +98,19 @@ try {
   assert.equal(displayCall.args.p_patch.results_priority,40)
   for (const results_priority of [-1,101,1.5,'20',null]) assert.equal((await request('/partners','joris','POST',{ school_name:'School',formation_name:'Bachelor',city:'Paris',results_priority })).status,400)
   assert.equal((await request('/partners','joris','POST',{ school_name:'School',formation_name:'Bachelor',city:'Paris',show_in_results:'false' })).status,400)
+  rpcError = { code:'22023',message:'INVALID_FIELD' }
+  const missingPartnerMigration = await request('/partners/44444444-4444-4444-8444-444444444444','joris','PATCH',{ show_in_results:false })
+  assert.equal(missingPartnerMigration.status,503)
+  const migrationResponse = await missingPartnerMigration.json()
+  assert.equal(migrationResponse.error,'BACKOFFICE_MIGRATION_REQUIRED')
+  assert.match(migrationResponse.message,/migration_backoffice_partner_results\.sql/)
+  assert.equal((await request(`/users/${student.id}`,'joris','PATCH',{ first_name:'Valid' })).status,400)
+  assert.equal((await request('/partners/44444444-4444-4444-8444-444444444444','joris','PATCH',{ formation_name:'Bachelor' })).status,400)
+  rpcError = { code:'42703',message:'Missing database column' }
+  const missingColumn = await request('/partners/44444444-4444-4444-8444-444444444444','joris','PATCH',{ show_in_results:false })
+  assert.equal(missingColumn.status,503)
+  assert.equal((await missingColumn.json()).error,'BACKOFFICE_MIGRATION_REQUIRED')
+  rpcError = null
   assert.equal((await request('/partners/group-status','joris','POST',{ school_name:'School',city:'Paris',is_active:false,reason:'Test' })).status,200)
   assert.equal((await request('/results/1','joris','PATCH',{})).status,404)
   assert.equal((await request('/formations/national/1','joris','PATCH',{})).status,404)

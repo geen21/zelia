@@ -9,6 +9,7 @@ export function usePageTracking() {
   const location = useLocation()
 
   useEffect(() => {
+    if (/^\/admin(?:\/|$)/.test(location.pathname) || /^\/espace-ecoles\/admin(?:\/|$)/.test(location.pathname)) return
     // Build the full URL
     const pageUrl = window.location.origin + location.pathname + location.search + location.hash
     const pagePath = location.pathname + location.search + location.hash

@@ -26,6 +26,11 @@ import waitlistRoutes from './routes/waitlist.js'
 import ecolesRoutes from './routes/ecoles.js'
 import schoolPortalRoutes from './routes/schoolPortal.js'
 import sitemapRoutes from './routes/sitemap.js'
+import { createAdminRouter } from './routes/admin.js'
+import { authenticateToken } from './middleware/auth.js'
+import { requirePlatformAdmin } from './middleware/admin.js'
+import { isProtectedAdmin } from './config/backoffice.js'
+import { supabaseAdmin } from './config/supabase.js'
 
 // Load environment variables
 dotenv.config()
@@ -109,6 +114,10 @@ if (process.env.ADDITIONAL_CLIENT_ORIGINS) {
   )
 }
 
+if (process.env.NODE_ENV !== 'production') {
+  baseAllowedOrigins.push('http://127.0.0.1:5187', 'http://localhost:5187')
+}
+
 const allowedOrigins = Array.from(new Set(baseAllowedOrigins))
 
 const corsOptions = {
@@ -132,9 +141,11 @@ console.log('CORS allowed origins:', allowedOrigins)
 app.use(compression())
 
 // Logging middleware
+morgan.token('url', (req) => req.originalUrl.startsWith('/api/admin') ? req.originalUrl.split('?')[0] : req.originalUrl)
 app.use(morgan('combined'))
 
 // Body parsing middleware
+app.use('/api/admin', express.json({ limit: '64kb' }))
 app.use(express.json({ limit: '25mb' }))
 app.use(express.urlencoded({ extended: true, limit: '25mb' }))
 
@@ -168,6 +179,7 @@ app.use('/api/support', supportRoutes)
 app.use('/api/waitlist', waitlistRoutes)
 app.use('/api/ecoles', ecolesRoutes)
 app.use('/api/school-portal', schoolPortalRoutes)
+app.use('/api/admin', createAdminRouter({ db: supabaseAdmin, authenticateToken, requirePlatformAdmin, isProtectedAdmin }))
 app.use('/api', sitemapRoutes)
 
 // Root endpoint

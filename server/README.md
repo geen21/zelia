@@ -82,6 +82,31 @@ npm run dev
 ### Partage des résultats (`/api/share`)
 - `POST /results` - Envoie le PDF des résultats d’un élève aux adresses e-mail fournies (authentifié)
 
+## Back-office (`/api/admin`)
+
+L'interface `/admin` conserve Supabase comme stockage/Auth. Elle permet la consultation des utilisateurs, ecoles, formations, partenaires, resultats et du journal, ainsi que des modifications bornees et reversibles. Les resultats et le catalogue national sont en lecture seule. Aucun compte utilisateur/ecole n'est cree ou supprime depuis cette interface.
+
+Seuls les comptes existants et controles de `joris.geerdes@21datas.ch` et `nicolas.weigele@zelia.io` sont autorises. Configurer **cote serveur uniquement** :
+
+```env
+BACKOFFICE_JORIS_USER_ID=<uuid-du-compte-joris-controle>
+BACKOFFICE_NICOLAS_USER_ID=<uuid-du-compte-nicolas-controle>
+```
+
+Chaque requete verifie le JWT, le statut du compte, puis le couple UUID/email. Une adresse seule, `user_metadata` et l'ancienne cle partagee ne donnent aucun droit. Configuration incomplete ou controle indisponible = refus ferme. Ne jamais mettre une cle `service_role` dans une variable `VITE_*`.
+
+**Prerequis avant demarrage de ce backend** : appliquer manuellement [migration_backoffice.sql](database/migration_backoffice.sql) sur un schema contenant deja les migrations partenaires et portail ecoles v1/v2. La migration ajoute suspension privee, audit atomique, RPC serveur et permissions RLS. Sans sa table de suspension, les routes authentifiees existantes refusent aussi les requetes avec `503`. Voir [la procedure de deploiement](../DEPLOYMENT.md#back-office-mise-en-service).
+
+- Suspension : blocage applicatif/RLS immediat, puis ban Auth. En cas d'echec Auth, l'interface indique une synchronisation en attente ; reprendre la meme action apres correction. Une reactivation ne leve pas le blocage avant la reussite Auth.
+- Ecole : validation/retrait via `approved_at`, independamment de l'activation editoriale des formations partenaires.
+- Partenaire : archivage reversible d'une formation ou d'un campus ; anciennes candidatures conservees. Formations privees : `is_published`, sans nouvelle publication publique.
+- Journal append-only : acteur issu du JWT, motif et champs modifies, sans copie integrale des resultats ni de secrets.
+- Anciennes routes `/api/school-portal/admin/*` retirees. `/espace-ecoles/admin` redirige vers `/admin/ecoles`. Supprimer `SCHOOL_PORTAL_ADMIN_KEY` de la configuration.
+
+Verification locale sans donnees de production : `npm run verify:admin` (identite, HTTP, SQL/RLS, pagination au-dela de 1000 lignes, audit et synchronisation Auth simulee). Ces tests ne remplacent pas la recette sur le schema reel de staging.
+
+Apres migration et verification de la maitrise des deux comptes, `node scripts/configure_backoffice.mjs` configure automatiquement leurs UUID depuis Supabase Auth en conservant le reste du fichier d'environnement. Le script refuse une migration manquante ou une configuration contradictoire, sauvegarde l'environnement original avec permissions privees et n'affiche pas les secrets. Utiliser `--check` pour verifier sans ecriture. Voir [la commande VPS](../DEPLOYMENT.md#configuration-automatique-des-uuid).
+
 ## Database Schema
 
 The server expects the following Supabase tables:

@@ -151,6 +151,7 @@ router.get('/partenaires', authenticateToken, async (req, res) => {
     const { data, error } = await supabaseAdmin
       .from('ecoles_partenaires')
       .select('*')
+      .eq('is_active', true)
       .order('school_name')
       .order('city')
 
@@ -227,6 +228,7 @@ router.get('/matched', authenticateToken, async (req, res) => {
     const { data: formations, error: formError } = await supabaseAdmin
       .from('ecoles_partenaires')
       .select('*')
+      .eq('is_active', true)
 
     if (formError) throw formError
     if (!formations || formations.length === 0) {
@@ -588,14 +590,12 @@ router.post('/submit', authenticateToken, async (req, res) => {
       return res.status(409).json({ error: 'Already submitted' })
     }
 
-    const { error } = await supabaseAdmin
-      .from('contact_submitted')
-      .insert({
-        user_id: userId,
-        formation_id,
-        submitted_at: new Date().toISOString()
-      })
+    const { error } = await supabaseAdmin.rpc('backoffice_submit_partner', {
+      p_user_id: userId,
+      p_formation_id: formation_id
+    })
 
+    if (error?.code === 'P0002') return res.status(404).json({ error: 'Cette formation n\'est plus disponible.' })
     if (error) throw error
     res.json({ success: true })
   } catch (e) {

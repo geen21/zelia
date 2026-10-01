@@ -1,4 +1,5 @@
 import { supabase, supabaseAdmin } from '../config/supabase.js'
+import { assertAccountActive } from '../utils/accountStatus.js'
 
 export const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization']
@@ -17,9 +18,11 @@ export const authenticateToken = async (req, res, next) => {
       return res.status(403).json({ error: 'Invalid or expired token' })
     }
 
+    await assertAccountActive(supabaseAdmin, user.id)
     req.user = user
     next()
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message })
     console.error('Token verification error:', error)
     return res.status(403).json({ error: 'Invalid token' })
   }
@@ -34,9 +37,11 @@ export const optionalAuth = async (req, res, next) => {
   const authClient = supabaseAdmin || supabase
   const { data: { user }, error } = await authClient.auth.getUser(token)
       if (!error && user) {
+        await assertAccountActive(supabaseAdmin, user.id)
         req.user = user
       }
     } catch (error) {
+      if (error.status) return res.status(error.status).json({ error: error.message })
       // Ignore authentication errors for optional auth
     }
   }

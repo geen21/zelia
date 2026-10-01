@@ -1,5 +1,6 @@
 import express from 'express'
 import { supabase, supabaseAdmin } from '../config/supabase.js'
+import { assertAccountActive } from '../utils/accountStatus.js'
 
 const router = express.Router()
 
@@ -156,12 +157,14 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: error.message })
     }
 
+    await assertAccountActive(supabaseAdmin, data.user.id)
     res.json({
       message: 'Login successful',
       user: data.user,
       session: data.session
     })
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message })
     console.error('Login error:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
@@ -200,11 +203,13 @@ router.post('/refresh', async (req, res) => {
       return res.status(400).json({ error: error.message })
     }
 
+    await assertAccountActive(supabaseAdmin, data.user.id)
     res.json({
       message: 'Token refreshed successfully',
       session: data.session
     })
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message })
     console.error('Token refresh error:', error)
     res.status(500).json({ error: 'Internal server error' })
   }

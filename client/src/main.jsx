@@ -34,7 +34,11 @@ const tagManagerArgs = {
     gtmId: 'GTM-TTNGZ2H8'
 }
 
-TagManager.initialize(tagManagerArgs)
+const isAdminEntry = /^\/admin(?:\/|$)/.test(window.location.pathname) || /^\/espace-ecoles\/admin(?:\/|$)/.test(window.location.pathname)
+if (!isAdminEntry) {
+  window.__zeliaPublicTrackingLoaded = true
+  TagManager.initialize(tagManagerArgs)
+}
 
 const ConversationalHome = lazy(() => import('./pages/ConversationalHome.jsx'))
 const DiscuterZelia = lazy(() => import('./pages/DiscuterZelia.jsx'))
@@ -46,7 +50,16 @@ const SchoolPortalLeads = lazy(() => import('./pages/school-portal/SchoolPortalL
 const SchoolPortalStats = lazy(() => import('./pages/school-portal/SchoolPortalStats.jsx'))
 const SchoolPortalFormationsManager = lazy(() => import('./pages/school-portal/SchoolPortalFormations.jsx'))
 const SchoolPortalTeam = lazy(() => import('./pages/school-portal/SchoolPortalTeam.jsx'))
-const SchoolPortalAdmin = lazy(() => import('./pages/school-portal/SchoolPortalAdmin.jsx'))
+const AdminLayout = lazy(() => import('./pages/admin/AdminLayout.jsx'))
+const AdminLogin = lazy(() => import('./pages/admin/AdminLogin.jsx'))
+const adminPage = (name) => lazy(() => import('./pages/admin/AdminPages.jsx').then((module) => ({ default: module[name] })))
+const AdminDashboard = adminPage('AdminDashboard')
+const AdminUsers = adminPage('AdminUsers')
+const AdminSchools = adminPage('AdminSchools')
+const AdminFormations = adminPage('AdminFormations')
+const AdminPartners = adminPage('AdminPartners')
+const AdminResults = adminPage('AdminResults')
+const AdminAudit = adminPage('AdminAudit')
 
 // Boîte à outils : les anciens composants restent internes, exposés via des URLs fonctionnelles.
 const toolModules = import.meta.glob([
@@ -166,7 +179,7 @@ function App() {
       <Route index element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalHome /></Suspense>} />
       <Route path="inscription" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalRegister /></Suspense>} />
       <Route path="connexion" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalLogin /></Suspense>} />
-      <Route path="admin" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalAdmin /></Suspense>} />
+      <Route path="admin" element={<Navigate to="/admin/ecoles" replace />} />
       <Route element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalLayout /></Suspense>}>
         <Route path="leads" element={<SchoolPortalLeads />} />
         <Route path="statistiques" element={<SchoolPortalStats />} />
@@ -174,6 +187,16 @@ function App() {
         <Route path="equipe" element={<SchoolPortalTeam />} />
       </Route>
     </Route>
+        <Route path="/admin/connexion" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminLogin /></Suspense>} />
+        <Route path="/admin" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminLayout /></Suspense>}>
+          <Route index element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminDashboard /></Suspense>} />
+          <Route path="utilisateurs" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminUsers /></Suspense>} />
+          <Route path="ecoles" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminSchools /></Suspense>} />
+          <Route path="formations" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminFormations /></Suspense>} />
+          <Route path="partenaires" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminPartners /></Suspense>} />
+          <Route path="resultats" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminResults /></Suspense>} />
+          <Route path="journal" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminAudit /></Suspense>} />
+        </Route>
         <Route path="/app" element={<RequireAuth><Layout /></RequireAuth>}>
           <Route index element={<Suspense fallback={<div className="p-6 text-center">Chargement de Zélia…</div>}><ConversationalHome /></Suspense>} />
           <Route path="discuter" element={<Suspense fallback={<div className="p-6 text-center">Chargement de la discussion…</div>}><DiscuterZelia /></Suspense>} />

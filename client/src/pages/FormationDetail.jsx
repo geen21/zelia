@@ -77,7 +77,7 @@ export default function FormationDetail() {
   }, [id])
 
   const handleSubmit = async () => {
-    if (submitted || submitting) return
+    if (submitted || submitting || formation?.is_active === false) return
     setSubmitting(true)
     try {
       await ecolesAPI.submit(id)
@@ -184,11 +184,11 @@ export default function FormationDetail() {
           </div>
           <h2 className="text-sm font-semibold text-gray-900 mb-1">Demande d'informations</h2>
           <p className="text-xs text-gray-500 mb-4">
-            {formation.school_name} te recontactera après ta demande.
+            {formation.is_active === false ? 'Cette formation n’est plus disponible pour de nouvelles demandes.' : `${formation.school_name} te recontactera après ta demande.`}
           </p>
           <button
             onClick={handleSubmit}
-            disabled={submitted || submitting}
+            disabled={submitted || submitting || formation.is_active === false}
             className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors disabled:opacity-70 ${
               submitted
                 ? 'bg-green-50 text-green-700 border border-green-200'
@@ -197,6 +197,8 @@ export default function FormationDetail() {
           >
             {submitted ? (
               <><FaCheck className="w-3.5 h-3.5" /> Demande envoyée</>
+            ) : formation.is_active === false ? (
+              'Formation indisponible'
             ) : submitting ? (
               'Envoi...'
             ) : (

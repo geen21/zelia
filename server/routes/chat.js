@@ -227,6 +227,7 @@ async function searchPartnerFormationRowsForChat(db, formationContext = {}) {
     .from('ecoles_partenaires')
     .select('*')
     .eq('id', exactId)
+    .eq('is_active', true)
     .limit(1)
 
   if (error) {

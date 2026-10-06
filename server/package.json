@@ -9,7 +9,9 @@
     "dev": "nodemon server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "verify:admin": "node scripts/verify_admin_access.mjs && node scripts/verify_backoffice_database.mjs && node scripts/verify_backoffice_api.mjs",
-    "verify:orientation": "node scripts/verify_orientation_recommendation_guard.mjs"
+    "verify:orientation": "node scripts/verify_orientation_recommendation_guard.mjs",
+    "verify:school-registration": "node scripts/verify_school_registration.mjs",
+    "verify:sitemap": "node --test scripts/verify_sitemap.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.1",

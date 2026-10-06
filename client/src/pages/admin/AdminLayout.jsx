@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react'
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
-import { PiSquaresFour, PiUsers, PiBuildings, PiGraduationCap, PiHandshake, PiChartBar, PiClockCounterClockwise, PiSignOut, PiList, PiX } from 'react-icons/pi'
+import { PiSquaresFour, PiUsers, PiBuildings, PiGraduationCap, PiHandshake, PiEnvelope, PiChartBar, PiClockCounterClockwise, PiSignOut, PiList, PiX } from 'react-icons/pi'
 import { adminSupabase } from '../../lib/adminSupabase'
 import { adminApi, adminError } from '../../lib/adminApi'
 import './Admin.css'
 
 const sections = [
   ['', 'Vue d’ensemble', PiSquaresFour], ['utilisateurs', 'Utilisateurs', PiUsers],
-  ['ecoles', 'Écoles', PiBuildings], ['formations', 'Formations', PiGraduationCap],
+  ['ecoles', 'Écoles', PiBuildings], ['inscriptions-ecoles', 'Inscriptions écoles', PiEnvelope],
+  ['formations', 'Formations', PiGraduationCap],
   ['partenaires', 'Partenaires', PiHandshake], ['resultats', 'Résultats', PiChartBar],
   ['journal', 'Journal', PiClockCounterClockwise]
 ]

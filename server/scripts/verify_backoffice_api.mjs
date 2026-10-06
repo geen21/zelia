@@ -51,7 +51,7 @@ async function request(path,token = 'joris',method = 'GET',body) {
 }
 
 try {
-  for (const [path,method] of [['/me','GET'],['/overview','GET'],['/student-growth','GET'],['/selections','GET'],['/users','GET'],['/schools','GET'],['/formations','GET'],['/partners','GET'],['/results','GET'],['/audit','GET'],[`/users/${student.id}`,'PATCH'],['/schools/1/approve','POST'],['/partners','POST'],['/formations/custom','POST']]) {
+  for (const [path,method] of [['/me','GET'],['/overview','GET'],['/student-growth','GET'],['/selections','GET'],['/users','GET'],['/schools','GET'],['/school-registrations','GET'],['/formations','GET'],['/partners','GET'],['/results','GET'],['/audit','GET'],[`/users/${student.id}`,'PATCH'],['/schools/1/approve','POST'],['/partners','POST'],['/formations/custom','POST']]) {
     assert.equal((await request(path,null,method,method === 'GET' ? undefined : {})).status,401)
     assert.equal((await request(path,'student',method,method === 'GET' ? undefined : {})).status,403)
   }

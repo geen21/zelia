@@ -85,7 +85,7 @@ export default function Home() {
     { q: 'Est-ce que Zélia est vraiment gratuit ?', a: "Oui. Le quiz d'orientation, la découverte de ton profil et les pistes de formation sont 100% gratuits pour les élèves." },
     { q: 'Comment fonctionne le matching avec les écoles ?', a: "À partir de tes réponses et de ta ville, Zélia te propose des formations chez nos écoles partenaires qui correspondent réellement à ton profil." },
     { q: "Qu'est-ce qui se passe quand je clique sur \"Demande d'infos\" ?", a: "L'école reçoit ton profil et te recontacte directement. Rien n'est transmis sans ton accord." },
-    { q: 'Je suis un établissement, comment devenir partenaire ?', a: "Rendez-vous sur notre espace écoles pour créer un compte et recevoir les demandes des élèves intéressés." }
+    { q: 'Je suis un établissement, comment devenir partenaire ?', a: "Remplissez le formulaire d'inscription sur notre espace écoles. Notre équipe vous recontactera dans les 2 jours ouvrés." }
   ]
 
   return (

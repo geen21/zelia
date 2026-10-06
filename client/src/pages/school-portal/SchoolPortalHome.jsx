@@ -53,7 +53,7 @@ export default function SchoolPortalHome() {
           </Link>
           <div className="sp-topbar-actions">
             <Link to="/espace-ecoles/connexion" className="sp-btn sp-btn-sm">Connexion</Link>
-            <Link to="/espace-ecoles/inscription" className="sp-btn sp-btn-primary sp-btn-sm">Créer mon compte école</Link>
+            <Link to="/espace-ecoles/inscription" className="sp-btn sp-btn-primary sp-btn-sm">Demander mon inscription</Link>
           </div>
         </div>
       </header>
@@ -64,12 +64,13 @@ export default function SchoolPortalHome() {
           Retrouvez les élèves intéressés par votre établissement
         </h1>
         <p className="sp-subtitle" style={{ fontSize: 16, marginBottom: 28 }}>
-          Zélia accompagne des milliers de lycéens et étudiants dans leur orientation. Créez votre compte pour
+          Zélia accompagne des milliers de lycéens et étudiants dans leur orientation. Demandez votre inscription pour
           accéder aux profils des élèves qui ont sélectionné votre école, suivre vos leads et mettre en avant vos formations.
+          Notre équipe vous recontactera dans les 2 jours ouvrés.
         </p>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 48 }}>
           <Link to="/espace-ecoles/inscription" className="sp-btn sp-btn-primary" style={{ height: 48, padding: '0 26px' }}>
-            Créer mon compte école
+            Demander mon inscription
           </Link>
           <Link to="/espace-ecoles/connexion" className="sp-btn" style={{ height: 48, padding: '0 26px' }}>
             J'ai déjà un compte

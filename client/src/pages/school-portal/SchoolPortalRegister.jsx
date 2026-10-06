@@ -1,12 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { schoolPortalSupabase } from '../../lib/schoolPortalSupabase'
+import React, { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { schoolPortalAPI } from '../../lib/schoolPortalApi'
 import './SchoolPortal.css'
 
 export default function SchoolPortalRegister() {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [contactFirstName, setContactFirstName] = useState('')
   const [contactLastName, setContactLastName] = useState('')
   const [schoolName, setSchoolName] = useState('')
@@ -14,27 +12,29 @@ export default function SchoolPortalRegister() {
   const [suggestions, setSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [error, setError] = useState('')
+  const [searchError, setSearchError] = useState('')
   const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
-  const debounceRef = useRef(null)
+  const [submitted, setSubmitted] = useState(false)
 
   const isSchoolConfirmed = Boolean(selectedSchool) && selectedSchool.school_name === schoolName
 
   useEffect(() => {
+    let active = true
+    setSearchError('')
     if (!schoolName.trim()) {
       setSuggestions([])
       return
     }
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(async () => {
+    setSuggestions([])
+    const timeout = setTimeout(async () => {
       try {
         const { data } = await schoolPortalAPI.searchSchools(schoolName.trim())
-        setSuggestions(Array.isArray(data?.schools) ? data.schools : [])
-      } catch {
-        setSuggestions([])
+        if (active) setSuggestions(Array.isArray(data?.schools) ? data.schools : [])
+      } catch (searchFailure) {
+        if (active) setSearchError(searchFailure?.response?.data?.error || 'Impossible de rechercher les établissements. Merci de réessayer.')
       }
     }, 300)
-    return () => clearTimeout(debounceRef.current)
+    return () => { active = false; clearTimeout(timeout) }
   }, [schoolName])
 
   function handleSchoolNameChange(value) {
@@ -56,7 +56,7 @@ export default function SchoolPortalRegister() {
     if (loading) return
     setError('')
 
-    if (!email || !password || !contactFirstName || !contactLastName || !schoolName.trim()) {
+    if (!email.trim() || !contactFirstName.trim() || !contactLastName.trim() || !schoolName.trim()) {
       setError('Tous les champs sont requis.')
       return
     }
@@ -64,25 +64,16 @@ export default function SchoolPortalRegister() {
       setError("Merci de sélectionner l'établissement dans la liste proposée (la saisie libre n'est pas acceptée).")
       return
     }
-    if (password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères.')
-      return
-    }
 
     setLoading(true)
     try {
       await schoolPortalAPI.register({
-        email,
-        password,
+        email: email.trim(),
         schoolName: schoolName.trim(),
-        contactFirstName,
-        contactLastName
+        contactFirstName: contactFirstName.trim(),
+        contactLastName: contactLastName.trim()
       })
-
-      const { error: signInError } = await schoolPortalSupabase.auth.signInWithPassword({ email, password })
-      if (signInError) throw signInError
-
-      navigate('/espace-ecoles/leads', { replace: true })
+      setSubmitted(true)
     } catch (registerError) {
       const message = registerError?.response?.data?.error || registerError?.message || "Échec de l'inscription"
       setError(message)
@@ -99,11 +90,18 @@ export default function SchoolPortalRegister() {
         </Link>
 
         <div className="sp-card accent-pink">
-          <p className="sp-kicker">Espace écoles</p>
-          <h1 className="sp-title" style={{ fontSize: 24, marginBottom: 6 }}>Créer votre compte école</h1>
-          <p className="sp-subtitle" style={{ marginBottom: 18 }}>Renseignez l'établissement que vous représentez pour accéder à ses leads.</p>
+          <p className="sp-kicker">Partenaire / école</p>
+          {submitted ? (
+            <div role="status" aria-live="polite">
+              <h1 className="sp-title" style={{ fontSize: 24, marginBottom: 12 }}>Votre demande a bien été reçue</h1>
+              <p className="sp-subtitle">Merci pour votre intérêt ! Nous vous recontacterons dans les 2 jours ouvrés pour échanger sur votre inscription.</p>
+              <Link to="/espace-ecoles" className="sp-btn sp-btn-primary" style={{ marginTop: 18 }}>Retour à l'espace écoles</Link>
+            </div>
+          ) : <>
+          <h1 className="sp-title" style={{ fontSize: 24, marginBottom: 6 }}>Inscription partenaire / école</h1>
+          <p className="sp-subtitle" style={{ marginBottom: 18 }}>Renseignez vos coordonnées. Nous vous recontacterons dans les 2 jours ouvrés pour échanger sur votre inscription.</p>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} aria-busy={loading}>
             <div className="sp-field" style={{ marginBottom: 12, position: 'relative' }}>
               <label htmlFor="reg-school">Établissement représenté</label>
               <input
@@ -119,6 +117,8 @@ export default function SchoolPortalRegister() {
                 role="combobox"
                 aria-expanded={showSuggestions}
                 aria-autocomplete="list"
+                required
+                maxLength={500}
               />
               {showSuggestions && suggestions.length > 0 && (
                 <ul style={{
@@ -143,42 +143,40 @@ export default function SchoolPortalRegister() {
                   ? 'Établissement sélectionné dans la base.'
                   : 'Sélectionnez un établissement dans la liste proposée (la saisie libre n\'est pas acceptée).'}
               </span>
+              {searchError && <p role="alert" style={{ color: '#b91c1c', fontSize: 12 }}>{searchError}</p>}
             </div>
 
             <div className="sp-form-grid" style={{ marginBottom: 12 }}>
               <div className="sp-field">
                 <label htmlFor="reg-first-name">Prénom</label>
-                <input id="reg-first-name" type="text" value={contactFirstName} onChange={(event) => setContactFirstName(event.target.value)} autoComplete="given-name" />
+                <input id="reg-first-name" type="text" value={contactFirstName} onChange={(event) => setContactFirstName(event.target.value)} autoComplete="given-name" required maxLength={500} />
               </div>
               <div className="sp-field">
                 <label htmlFor="reg-last-name">Nom</label>
-                <input id="reg-last-name" type="text" value={contactLastName} onChange={(event) => setContactLastName(event.target.value)} autoComplete="family-name" />
+                <input id="reg-last-name" type="text" value={contactLastName} onChange={(event) => setContactLastName(event.target.value)} autoComplete="family-name" required maxLength={500} />
               </div>
             </div>
 
             <div className="sp-field" style={{ marginBottom: 12 }}>
               <label htmlFor="reg-email">Email professionnel</label>
-              <input id="reg-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="contact@ecole.fr" autoComplete="email" />
-            </div>
-            <div className="sp-field" style={{ marginBottom: 14 }}>
-              <label htmlFor="reg-password">Mot de passe</label>
-              <input id="reg-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="6 caractères minimum" autoComplete="new-password" />
+              <input id="reg-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="contact@ecole.fr" autoComplete="email" required maxLength={500} />
             </div>
 
             {error && (
-              <div className="sp-card" style={{ borderColor: '#fecaca', background: '#fef2f2', color: '#b91c1c', padding: '10px 14px', marginBottom: 14 }}>
+              <div role="alert" className="sp-card" style={{ borderColor: '#fecaca', background: '#fef2f2', color: '#b91c1c', padding: '10px 14px', marginBottom: 14 }}>
                 {error}
               </div>
             )}
 
             <p className="sp-subtitle" style={{ marginBottom: 14 }}>
-              Après création, votre compte est soumis à validation par notre équipe avant l'accès aux leads.
+              L'envoi de ce formulaire ne crée pas de compte et ne donne pas encore accès à l'espace écoles.
             </p>
 
             <button type="submit" disabled={loading || !isSchoolConfirmed} className="sp-btn sp-btn-primary" style={{ width: '100%', height: 48 }}>
-              {loading ? 'Création...' : 'Créer mon compte'}
+              {loading ? 'Envoi...' : 'Envoyer ma demande d\'inscription'}
             </button>
           </form>
+          </>}
         </div>
 
         <p className="sp-subtitle" style={{ textAlign: 'center', marginTop: 16 }}>

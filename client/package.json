@@ -8,6 +8,8 @@
     "build": "vite build && node scripts/prerender-seo.js",
     "preview": "vite preview",
     "verify:admin-ui": "node scripts/verify-backoffice.mjs",
+    "verify:parents-ui": "node scripts/verify-parents.mjs",
+    "verify:school-registration": "node scripts/verify-school-registration.mjs",
     "verify:personas": "node scripts/verify-persona-distribution.mjs"
   },
   "dependencies": {

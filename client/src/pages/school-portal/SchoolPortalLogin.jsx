@@ -75,7 +75,7 @@ export default function SchoolPortalLogin() {
         </div>
 
         <p className="sp-subtitle" style={{ textAlign: 'center', marginTop: 16 }}>
-          Pas encore de compte ? <Link to="/espace-ecoles/inscription" style={{ color: '#000', fontWeight: 700 }}>Créer un compte école</Link>
+          Pas encore de compte ? <Link to="/espace-ecoles/inscription" style={{ color: '#000', fontWeight: 700 }}>Demander votre inscription</Link>
         </p>
       </div>
     </main>

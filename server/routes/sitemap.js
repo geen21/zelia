@@ -1,5 +1,4 @@
 import express from 'express'
-import { supabase } from '../config/supabase.js'
 import { buildFormationSlug } from '../utils/slug.js'
 
 // Public sitemap generation for the ~130k formation_france rows.
@@ -7,17 +6,13 @@ import { buildFormationSlug } from '../utils/slug.js'
 // root via nginx rewrites, because a sitemap file may only list URLs at or
 // below its own path — and the formation pages live at `/formations/...`.
 
-const router = express.Router()
-
 const ORIGIN = 'https://zelia.io'
 const CHUNK_SIZE = 5000 // URLs per public sitemap file, well under the 50k limit
 // Supabase/PostgREST caps rows per request at 1000 (db-max-rows) regardless of
-// the requested .range(), so each chunk is assembled from several DB pages.
+// the requested limit, so each chunk is assembled from several DB pages.
 const DB_PAGE_SIZE = 1000
 const CACHE_TTL_MS = 60 * 60 * 1000 // 1 hour
-
-let countCache = { value: null, at: 0 }
-const chunkCache = new Map()
+const FORMATION_COLUMNS = 'id, nm, nmc, fl, etab_nom, commune'
 
 function isStatementTimeout(error) {
   const message = error?.message || ''
@@ -35,19 +30,6 @@ async function queryWithTimeoutRetry(queryFn) {
   return first
 }
 
-async function getFormationCount() {
-  if (countCache.value != null && Date.now() - countCache.at < CACHE_TTL_MS) {
-    return countCache.value
-  }
-  const { count, error } = await queryWithTimeoutRetry(() => supabase
-    .from('formation_france')
-    .select('id', { count: 'exact', head: true })
-  )
-  if (error) throw error
-  countCache = { value: count || 0, at: Date.now() }
-  return countCache.value
-}
-
 function escapeXml(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -55,86 +37,128 @@ function escapeXml(value) {
     .replace(/>/g, '&gt;')
 }
 
-async function fetchFormationRowsInRange(from, to) {
-  const { data, error } = await queryWithTimeoutRetry(() => supabase
-    .from('formation_france')
-    .select('id, nm, nmc, fl, etab_nom, commune')
-    .order('id', { ascending: true })
-    .range(from, to)
-  )
-  if (error) throw error
-  return data || []
-}
+export function createSitemapRouter({ db, now = Date.now }) {
+  const router = express.Router()
+  let countCache = { value: null, at: 0 }
+  let countRequest = null
+  const chunkCache = new Map()
+  const chunkRequests = new Map()
 
-// Fetches up to CHUNK_SIZE rows starting at `chunkStart`, paging through the
-// DB in DB_PAGE_SIZE-row batches since a single request is capped at 1000.
-async function fetchFormationChunk(chunkStart) {
-  const rows = []
-  for (let pageOffset = 0; pageOffset < CHUNK_SIZE; pageOffset += DB_PAGE_SIZE) {
-    const from = chunkStart + pageOffset
-    const to = Math.min(from + DB_PAGE_SIZE, chunkStart + CHUNK_SIZE) - 1
-    const page = await fetchFormationRowsInRange(from, to)
-    rows.push(...page)
-    if (page.length < (to - from + 1)) break // reached the end of the table
+  async function getFormationCount() {
+    if (countCache.value != null && now() - countCache.at < CACHE_TTL_MS) {
+      return countCache.value
+    }
+    if (!countRequest) {
+      countRequest = (async () => {
+        const { count, error } = await queryWithTimeoutRetry(() => db
+          .from('formation_france')
+          .select('id', { count: 'exact', head: true })
+        )
+        if (error) throw error
+        if (!Number.isSafeInteger(count) || count < 0) throw new Error('Invalid formation count')
+        countCache = { value: count, at: now() }
+        return count
+      })().finally(() => { countRequest = null })
+    }
+    return countRequest
   }
-  return rows
-}
 
-router.get('/sitemap-index.xml', async (req, res) => {
-  try {
-    const total = await getFormationCount()
-    const chunks = Math.max(Math.ceil(total / CHUNK_SIZE), 1)
-    const today = new Date().toISOString().slice(0, 10)
-    const entries = Array.from({ length: chunks }, (_, i) =>
-      `  <sitemap>\n    <loc>${ORIGIN}/sitemap-formations-${i + 1}.xml</loc>\n    <lastmod>${today}</lastmod>\n  </sitemap>`
-    ).join('\n')
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</sitemapindex>`
-
-    res.set('Content-Type', 'application/xml; charset=UTF-8')
-    res.set('Cache-Control', 'public, max-age=3600')
-    res.send(xml)
-  } catch (err) {
-    console.error('Sitemap index error:', err)
-    res.status(500).type('text/plain').send('Sitemap generation error')
-  }
-})
-
-router.get('/sitemap-formations-:chunk.xml', async (req, res) => {
-  try {
-    const chunk = parseInt(req.params.chunk, 10)
-    if (!Number.isFinite(chunk) || chunk < 1) {
-      return res.status(404).type('text/plain').send('Not found')
+  async function fetchFormationChunk(chunkStart) {
+    let cursor = null
+    if (chunkStart > 0) {
+      // Keep numbered chunks without skipping wide rows: only the indexed id
+      // lookup uses OFFSET; subsequent pages seek past the previous id.
+      const { data, error } = await queryWithTimeoutRetry(() => db
+        .from('formation_france')
+        .select('id')
+        .order('id', { ascending: true })
+        .range(chunkStart - 1, chunkStart - 1)
+      )
+      if (error) throw error
+      if (!data?.length) return []
+      cursor = data[0].id
     }
 
+    const rows = []
+    for (let pageOffset = 0; pageOffset < CHUNK_SIZE; pageOffset += DB_PAGE_SIZE) {
+      const pageSize = Math.min(DB_PAGE_SIZE, CHUNK_SIZE - pageOffset)
+      const { data, error } = await queryWithTimeoutRetry(() => {
+        let query = db
+          .from('formation_france')
+          .select(FORMATION_COLUMNS)
+          .order('id', { ascending: true })
+          .limit(pageSize)
+        if (cursor != null) query = query.gt('id', cursor)
+        return query
+      })
+      if (error) throw error
+      const page = data || []
+      rows.push(...page)
+      if (page.length < pageSize) break
+      cursor = page[page.length - 1].id
+    }
+    return rows
+  }
+
+  async function getFormationChunkXml(chunk) {
     const cached = chunkCache.get(chunk)
-    if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
+    if (cached && now() - cached.at < CACHE_TTL_MS) return cached.xml
+    if (!chunkRequests.has(chunk)) {
+      const request = (async () => {
+        const data = await fetchFormationChunk((chunk - 1) * CHUNK_SIZE)
+        if (!data.length) return null
+
+        const urls = data.map((row) => {
+          const slug = buildFormationSlug(row)
+          return `  <url>\n    <loc>${ORIGIN}/formations/${escapeXml(slug)}</loc>\n    <changefreq>monthly</changefreq>\n    <priority>0.6</priority>\n  </url>`
+        }).join('\n')
+
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`
+        chunkCache.set(chunk, { xml, at: now() })
+        return xml
+      })().finally(() => { chunkRequests.delete(chunk) })
+      chunkRequests.set(chunk, request)
+    }
+    return chunkRequests.get(chunk)
+  }
+
+  router.get('/sitemap-index.xml', async (req, res) => {
+    try {
+      const total = await getFormationCount()
+      const chunks = Math.max(Math.ceil(total / CHUNK_SIZE), 1)
+      const today = new Date(now()).toISOString().slice(0, 10)
+      const entries = Array.from({ length: chunks }, (_, i) =>
+        `  <sitemap>\n    <loc>${ORIGIN}/sitemap-formations-${i + 1}.xml</loc>\n    <lastmod>${today}</lastmod>\n  </sitemap>`
+      ).join('\n')
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</sitemapindex>`
+
       res.set('Content-Type', 'application/xml; charset=UTF-8')
       res.set('Cache-Control', 'public, max-age=3600')
-      return res.send(cached.xml)
+      res.send(xml)
+    } catch (err) {
+      console.error('Sitemap index error:', err)
+      res.status(500).type('text/plain').send('Sitemap generation error')
     }
+  })
 
-    const chunkStart = (chunk - 1) * CHUNK_SIZE
-    const data = await fetchFormationChunk(chunkStart)
+  router.get('/sitemap-formations-:chunk.xml', async (req, res) => {
+    try {
+      const chunk = parseInt(req.params.chunk, 10)
+      if (!Number.isFinite(chunk) || chunk < 1) {
+        return res.status(404).type('text/plain').send('Not found')
+      }
 
-    if (!data.length) {
-      return res.status(404).type('text/plain').send('Not found')
+      const xml = await getFormationChunkXml(chunk)
+      if (!xml) return res.status(404).type('text/plain').send('Not found')
+
+      res.set('Content-Type', 'application/xml; charset=UTF-8')
+      res.set('Cache-Control', 'public, max-age=3600')
+      res.send(xml)
+    } catch (err) {
+      console.error('Sitemap chunk error:', err)
+      res.status(500).type('text/plain').send('Sitemap generation error')
     }
+  })
 
-    const urls = data.map((row) => {
-      const slug = buildFormationSlug(row)
-      return `  <url>\n    <loc>${ORIGIN}/formations/${escapeXml(slug)}</loc>\n    <changefreq>monthly</changefreq>\n    <priority>0.6</priority>\n  </url>`
-    }).join('\n')
-
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`
-    chunkCache.set(chunk, { xml, at: Date.now() })
-
-    res.set('Content-Type', 'application/xml; charset=UTF-8')
-    res.set('Cache-Control', 'public, max-age=3600')
-    res.send(xml)
-  } catch (err) {
-    console.error('Sitemap chunk error:', err)
-    res.status(500).type('text/plain').send('Sitemap generation error')
-  }
-})
-
-export default router
+  return router
+}

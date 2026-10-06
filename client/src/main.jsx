@@ -56,6 +56,7 @@ const adminPage = (name) => lazy(() => import('./pages/admin/AdminPages.jsx').th
 const AdminDashboard = adminPage('AdminDashboard')
 const AdminUsers = adminPage('AdminUsers')
 const AdminSchools = adminPage('AdminSchools')
+const AdminSchoolRegistrations = adminPage('AdminSchoolRegistrations')
 const AdminFormations = adminPage('AdminFormations')
 const AdminPartners = adminPage('AdminPartners')
 const AdminResults = adminPage('AdminResults')
@@ -192,6 +193,7 @@ function App() {
           <Route index element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminDashboard /></Suspense>} />
           <Route path="utilisateurs" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminUsers /></Suspense>} />
           <Route path="ecoles" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminSchools /></Suspense>} />
+          <Route path="inscriptions-ecoles" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminSchoolRegistrations /></Suspense>} />
           <Route path="formations" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminFormations /></Suspense>} />
           <Route path="partenaires" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminPartners /></Suspense>} />
           <Route path="resultats" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminResults /></Suspense>} />

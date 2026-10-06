@@ -110,6 +110,14 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
   }))
 
   router.get('/school-options', run(async (req, res) => res.json({ items: await rpc('search_partner_schools', { p_query: searchText(req.query.q),p_limit: 20 }) })))
+  router.get('/school-registrations', run(async (req, res) => {
+    let builder = db.from('school_registration_requests')
+      .select('id,school_name,email,contact_first_name,contact_last_name,created_at', { count: 'exact' })
+      .order('created_at', { ascending: false }).order('id')
+    const search = searchText(req.query.q)
+    if (search) builder = builder.or(`school_name.ilike.%${search}%,email.ilike.%${search}%,contact_first_name.ilike.%${search}%,contact_last_name.ilike.%${search}%`)
+    await list(builder, req, res)
+  }))
   router.get('/schools', run(async (req, res) => {
     let builder = db.from('companies').select('id,name,email,owner_id,contact_first_name,contact_last_name,approved_at,created_at', { count: 'exact' }).order('created_at', { ascending: false }).order('id')
     const search = searchText(req.query.q)

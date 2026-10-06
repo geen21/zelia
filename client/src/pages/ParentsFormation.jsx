@@ -62,23 +62,39 @@ const MODULES = [
   }
 ]
 
-const ACTION_PLAN = [
+const SITUATIONS = [
   {
-    icon: 'ph-calendar-check',
-    title: 'Planifiez le rituel « orientation »',
-    text: "Convenez ensemble d'un créneau fixe de 15 minutes par semaine (par exemple le dimanche avant le dîner) pour en parler de façon exclusive et calme."
+    title: 'Le mur du silence',
+    text: 'Dès que vous abordez le sujet « Que veux-tu faire plus tard ? », la discussion se bloque ou finit en dispute.'
   },
   {
-    icon: 'ph-puzzle-piece',
-    title: 'Faites des tests ensemble',
-    text: "Utilisez des outils d'IA (comme Zélia ou GPT) pour faire un premier bilan de personnalité de votre enfant, en renseignant ses envies, ses hobbies, ses passions."
+    title: 'Le sentiment de désarroi',
+    text: "Avec 1 conseiller d'orientation pour 1 500 élèves, vous sentez bien que l'école n'a pas le temps d'offrir un accompagnement sur-mesure.",
+    accent: 'accent-pink'
   },
   {
-    icon: 'ph-binoculars',
-    title: 'Laissez votre enfant faire son exploration',
-    text: 'Votre enfant grandit et devient plus mature. Laissez-le explorer et se confier à vous sur ses trouvailles, sans le stresser davantage.'
+    title: 'La jungle administrative',
+    text: 'Entre les vœux, les sous-vœux et la lettre de motivation, le système Parcoursup vous paraît obscur et anxiogène.'
   }
 ]
+
+function TrainingCallToAction({ formattedPrice, onClick, showContact = false, children }) {
+  return (
+    <div className="parents-cta-block">
+      <button type="button" className="primary-action" onClick={onClick}>
+        Obtenir mon accès immédiat à la formation{formattedPrice ? ` — ${formattedPrice}` : ''}
+      </button>
+      <p className="parents-cta-note">{children}</p>
+      {showContact && (
+        <p className="parents-cta-note">
+          Pour toute question sur la formation :{' '}
+          <a href="mailto:nicolas.wiegele@zelia.io">nicolas.wiegele@zelia.io</a>
+        </p>
+      )}
+      <p className="parents-booking-note">Le choix du créneau d'une heure se fait juste après le règlement.</p>
+    </div>
+  )
+}
 
 export default function ParentsFormation() {
   const [searchParams] = useSearchParams()
@@ -199,8 +215,8 @@ export default function ParentsFormation() {
   return (
     <main className="orientation-flow parents-landing">
       <SEO
-        title="Devenez le meilleur allié orientation de votre enfant | Formation Zélia"
-        description="Une formation pas-à-pas pour accompagner votre enfant au lycée dans son orientation : décoder ses angoisses, instaurer un dialogue sain et maîtriser Parcoursup et l'IA, sans stress ni conflit."
+        title="Retrouvez le dialogue avec votre enfant | Formation parents Zélia"
+        description="Une formation d'une heure pour les parents de lycéens : devenez un allié orientation, retrouvez le dialogue et accompagnez votre ado sans conflit. Satisfait ou remboursé sous 14 jours."
         url="https://zelia.io/parents"
         type="website"
       />
@@ -216,11 +232,8 @@ export default function ParentsFormation() {
 
       <section className="parents-hero">
         <span className="orientation-pill">Formation pour les parents</span>
-        <h1>Devenez un véritable conseiller d'orientation pour votre enfant</h1>
-        <p>La méthode pas-à-pas pour l'accompagner au lycée avec sérénité.</p>
-        <button type="button" className="primary-action" onClick={scrollToInscription}>
-          Je m'inscris à la formation
-        </button>
+        <h1>La méthode pas-à-pas pour les parents de lycéens (Seconde, Première, Terminale)</h1>
+        <p>Devenez un allié orientation pour votre enfant et retrouvez le dialogue avec lui.</p>
       </section>
 
       <section className="parents-section">
@@ -236,24 +249,50 @@ export default function ParentsFormation() {
         <p className="parents-stat-note">Sauf qu'à l'âge de faire ces choix, on ne se connaît pas encore vraiment…</p>
       </section>
 
-      <section className="parents-section parents-challenge-section">
-        <div className="orientation-card parents-challenge-card">
-          <span className="parents-challenge-figure">1</span>
-          <span className="parents-challenge-label">conseiller d'orientation pour</span>
-          <strong className="parents-challenge-figure-big">1 500 élèves</strong>
+      <section className="parents-section parents-introduction">
+        <p className="parents-section-copy">
+          Nous avons sondé et échangé avec de jeunes élèves des générations Z et Alpha.
+          Aujourd'hui, nous vous partageons la méthode simple et les outils pour guider votre ado
+          avec assurance, sans conflit et sans devenir un expert du système scolaire.
+        </p>
+        <div className="parents-video">
+          <iframe
+            width="560"
+            height="315"
+            src="https://www.youtube.com/embed/__cJzw_RYnM?si=pdYeNzrpT6uN0tOO"
+            title="Présentation de la formation Zélia pour les parents"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+            loading="lazy"
+          />
         </div>
-        <div className="parents-challenge-text">
-          <h2>Votre rôle est crucial !</h2>
-          <p>
-            Les établissements scolaires manquent structurellement de ressources pour guider chaque
-            adolescent de façon personnalisée.
-          </p>
-          <p>
-            En tant que parent, vous n'êtes pas un professionnel du conseil d'orientation… et c'est
-            parfaitement normal ! Mais vous êtes le premier observateur de son potentiel. Nous vous
-            formons aux bases pour faire équipe avec lui.
-          </p>
+        <TrainingCallToAction formattedPrice={formattedPrice} onClick={scrollToInscription}>
+          Un bilan d'orientation privé classique coûte entre 300 et 800 €. Nous vous proposons
+          une formation d'une heure, selon vos disponibilités, pour avoir les bonnes clefs de lecture
+          et pouvoir l'accompagner au mieux. 100% satisfait ou remboursé sous 14 jours.
+        </TrainingCallToAction>
+      </section>
+
+      <section className="parents-section">
+        <h2 className="parents-section-title">Reconnaissez-vous votre quotidien de parent dans l'une de ces situations ?</h2>
+        <div className="parents-situations-grid">
+          {SITUATIONS.map((situation) => (
+            <div key={situation.title} className={`orientation-card parents-module-card ${situation.accent || ''}`}>
+              <h3>{situation.title}</h3>
+              <p>{situation.text}</p>
+            </div>
+          ))}
         </div>
+        <p className="parents-section-copy parents-reassurance">
+          Ce n'est pas de votre faute. Vous n'êtes pas formé à l'orientation. Mais bonne nouvelle :
+          vous êtes la personne la mieux placée pour révéler le potentiel de votre enfant.
+          Il lui faut juste la bonne méthode.
+        </p>
+        <TrainingCallToAction formattedPrice={formattedPrice} onClick={scrollToInscription} showContact>
+          Une formation d'une heure selon vos disponibilités pour avoir les clefs afin de
+          l'accompagner au mieux, 100% satisfait ou remboursé sous 14 jours.
+        </TrainingCallToAction>
       </section>
 
       <section className="parents-section">
@@ -278,25 +317,15 @@ export default function ParentsFormation() {
 
       <section className="parents-section">
         <h2 className="parents-section-title">Votre plan d'action</h2>
-        <div className="parents-plan-list">
-          {ACTION_PLAN.map((step, index) => (
-            <div key={step.title} className="parents-plan-row">
-              <span className="parents-plan-icon"><i className={`ph ${step.icon}`} aria-hidden="true" /></span>
-              <div>
-                <h3>{index + 1}. {step.title}</h3>
-                <p>{step.text}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="parents-quote-section">
-        <p className="parents-quote">
-          N'oubliez pas que l'orientation est un marathon, pas un sprint de dernière minute.
-          <br />
-          Écouter d'abord, outiller ensuite, accompagner toujours.
+        <p className="parents-section-copy">
+          Vous obtenez un plan d'action clair, une analyse et des méthodes. Vous rejoignez un groupe
+          WhatsApp avec d'autres parents, pour échanger sur vos craintes et obtenir des conseils
+          pratiques entre pairs.
         </p>
+        <TrainingCallToAction formattedPrice={formattedPrice} onClick={scrollToInscription} showContact>
+          Vous repartez motivés en sachant quelles actions concrètes mettre en place et où trouver
+          les bonnes informations. 100% satisfait ou remboursé sous 14 jours.
+        </TrainingCallToAction>
       </section>
 
       <section className="parents-section" id="inscription">
@@ -316,11 +345,11 @@ export default function ParentsFormation() {
           <div className="orientation-card parents-confirmation">
             <span className="orientation-pill">Inscription confirmée</span>
             <h3>Merci, votre accès à la formation est validé !</h3>
-            <p>Choisissez votre créneau pour la session en direct :</p>
+            <p>Choisissez votre créneau d'une heure pour la session en direct :</p>
             <div
               className="calendly-inline-widget"
               data-url={CALENDLY_URL}
-              style={{ minWidth: 320, height: 700, width: '100%' }}
+              style={{ minWidth: 0, height: 700, width: '100%' }}
             />
           </div>
         ) : (
@@ -328,6 +357,7 @@ export default function ParentsFormation() {
             <span className="orientation-pill">Formation Zélia — Parents</span>
             {formattedPrice && <span className="parents-price-value">{formattedPrice}</span>}
             <p className="parents-price-note">Paiement sécurisé par carte bancaire via Stripe. Accès immédiat après paiement.</p>
+            <p className="parents-price-note">Le choix du créneau d'une heure se fait juste après le règlement.</p>
             <div className="identity-form-grid">
               <label>
                 <span>Prénom</span>

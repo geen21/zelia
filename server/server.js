@@ -25,12 +25,12 @@ import supportRoutes from './routes/support.js'
 import waitlistRoutes from './routes/waitlist.js'
 import ecolesRoutes from './routes/ecoles.js'
 import schoolPortalRoutes from './routes/schoolPortal.js'
-import sitemapRoutes from './routes/sitemap.js'
+import { createSitemapRouter } from './routes/sitemap.js'
 import { createAdminRouter } from './routes/admin.js'
 import { authenticateToken } from './middleware/auth.js'
 import { requirePlatformAdmin } from './middleware/admin.js'
 import { isProtectedAdmin } from './config/backoffice.js'
-import { supabaseAdmin } from './config/supabase.js'
+import { supabase, supabaseAdmin } from './config/supabase.js'
 
 // Load environment variables
 dotenv.config()
@@ -180,7 +180,7 @@ app.use('/api/waitlist', waitlistRoutes)
 app.use('/api/ecoles', ecolesRoutes)
 app.use('/api/school-portal', schoolPortalRoutes)
 app.use('/api/admin', createAdminRouter({ db: supabaseAdmin, authenticateToken, requirePlatformAdmin, isProtectedAdmin }))
-app.use('/api', sitemapRoutes)
+app.use('/api', createSitemapRouter({ db: supabase }))
 
 // Root endpoint
 app.get('/', (req, res) => {

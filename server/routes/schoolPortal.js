@@ -2,6 +2,8 @@ import express from 'express'
 import { supabaseAdmin } from '../config/supabase.js'
 import { authenticateToken } from '../middleware/auth.js'
 import { withFormationDisplayFields } from '../utils/slug.js'
+import { findKnownSchoolName } from '../utils/schoolNames.js'
+import { createSchoolRegistrationHandler } from './schoolRegistration.js'
 
 const router = express.Router()
 
@@ -81,29 +83,6 @@ async function revealLeadKey(db, companyId, leadKey) {
   if (error) throw error
 }
 
-function normalizeSchoolName(value) {
-  return String(value || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-}
-
-// Verifies the school name matches an establishment actually present in the
-// database (formation_france / ecoles_partenaires), so a school account can
-// only be registered against a real, matchable establishment name.
-async function findKnownSchoolName(db, schoolName) {
-  const { data, error } = await db.rpc('search_partner_schools', {
-    p_query: schoolName,
-    p_limit: 20
-  })
-  if (error) throw error
-
-  const target = normalizeSchoolName(schoolName)
-  const match = (data || []).find((row) => normalizeSchoolName(row.school_name) === target)
-  return match ? match.school_name : null
-}
-
 // GET /api/school-portal/schools/search?q=... - autocomplete for the registration form
 router.get('/schools/search', async (req, res) => {
   try {
@@ -124,87 +103,8 @@ router.get('/schools/search', async (req, res) => {
   }
 })
 
-// POST /api/school-portal/register - create a school account (auth user + companies row)
-router.post('/register', async (req, res) => {
-  const db = requireAdminClient(res)
-  if (!db) return
-
-  const email = String(req.body?.email || '').trim().toLowerCase()
-  const password = String(req.body?.password || '')
-  const schoolName = String(req.body?.schoolName || '').trim()
-  const contactFirstName = String(req.body?.contactFirstName || '').trim()
-  const contactLastName = String(req.body?.contactLastName || '').trim()
-
-  if (!email || !password || !schoolName || !contactFirstName || !contactLastName) {
-    return res.status(400).json({ error: 'Email, mot de passe, nom de l\'école, prénom et nom sont requis' })
-  }
-  if (password.length < 6) {
-    return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' })
-  }
-
-  let createdUserId = null
-
-  try {
-    const knownSchoolName = await findKnownSchoolName(db, schoolName)
-    if (!knownSchoolName) {
-      return res.status(400).json({
-        error: "Établissement introuvable dans notre base. Merci de sélectionner un établissement dans la liste proposée."
-      })
-    }
-
-    const { data: userResult, error: createUserError } = await db.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        profile_type: 'school',
-        first_name: contactFirstName,
-        last_name: contactLastName
-      }
-    })
-
-    if (createUserError) {
-      return res.status(400).json({ error: createUserError.message })
-    }
-
-    createdUserId = userResult?.user?.id
-    if (!createdUserId) {
-      return res.status(500).json({ error: 'Impossible de créer le compte' })
-    }
-
-    const { data: company, error: companyError } = await db
-      .from('companies')
-      .insert({
-        name: knownSchoolName,
-        email,
-        owner_id: createdUserId,
-        contact_first_name: contactFirstName,
-        contact_last_name: contactLastName,
-        available_licenses: 0
-      })
-      .select()
-      .single()
-
-    if (companyError) {
-      await db.auth.admin.deleteUser(createdUserId)
-      const message = companyError.code === '23505'
-        ? 'Un compte existe déjà avec cet email'
-        : companyError.message
-      return res.status(400).json({ error: message })
-    }
-
-    res.status(201).json({
-      message: 'Compte école créé avec succès',
-      company: sanitizeCompany(company)
-    })
-  } catch (error) {
-    console.error('POST /school-portal/register error:', error)
-    if (createdUserId) {
-      await db.auth.admin.deleteUser(createdUserId).catch(() => {})
-    }
-    res.status(500).json({ error: 'Internal server error' })
-  }
-})
+// Registration requests do not create an Auth user or an active school account.
+router.post('/register', createSchoolRegistrationHandler({ db: supabaseAdmin }))
 
 // GET /api/school-portal/me - fetch the company owned by (or the caller is a member of)
 router.get('/me', authenticateToken, async (req, res) => {

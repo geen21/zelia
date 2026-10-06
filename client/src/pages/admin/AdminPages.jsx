@@ -106,6 +106,16 @@ export function AdminUsers() {
     </>}</RecordPanel>}
   </>
 }
+export function AdminSchoolRegistrations() {
+  return <><p className="bo-muted">Demandes d’inscription partenaires / écoles à recontacter dans les 2 jours ouvrés. Aucun compte n’est créé à ce stade.</p>
+    <DataTable title="Inscriptions écoles" resource="/school-registrations" columns={[
+      { key:'school_name',label:'Établissement' },
+      { key:'contact',label:'Contact',render:(row) => `${row.contact_first_name} ${row.contact_last_name}` },
+      { key:'email',label:'Email professionnel',render:(row) => <a href={`mailto:${row.email}`}>{row.email}</a> },
+      { key:'created_at',label:'Demande reçue le',render:(row) => dateLabel(row.created_at) }
+    ]} />
+  </>
+}
 export function AdminSchools() {
   const [status,setStatus] = useState('all')
   const [selected,setSelected] = useState(null)

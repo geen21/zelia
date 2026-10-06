@@ -1,5 +1,34 @@
 # Zelia V2 Development Guide
 
+## Sitemaps formations
+
+Les fichiers `/sitemap-formations-N.xml` conservent des blocs de 5000 formations tries par `id`, lus par pages de 1000 lignes maximum. Pour acceder directement a un bloc, seule une recherche de son curseur sur la colonne `id` utilise un offset ; les lectures des donnees completes utilisent ensuite `id > curseur`. Cela evite de parcourir les lignes completes de tous les blocs precedents a chaque page. La cle primaire sur `formation_france.id` du schema existant est requise ; aucun nouvel index ni changement de timeout n'est ajoute.
+
+Le compteur et les XML restent en cache pendant une heure. Les requetes simultanees pour le meme compteur ou fichier partagent le travail en cours. Un timeout est retente une seule fois ; un echec persistant reste journalise et renvoie HTTP 500, sans mettre en cache un sitemap incomplet.
+
+Verification locale sans acces a Supabase :
+
+```powershell
+npm --prefix server run verify:sitemap
+```
+
+Les tests couvrent les blocs profonds, les identifiants non consecutifs et de grande taille, la limite PostgREST de 1000 lignes, le contenu XML, le cache, les acces simultanes et les erreurs. Ils ne mesurent pas les temps d'execution de la base distante.
+
+## Inscriptions partenaires / ecoles
+
+Le formulaire `/espace-ecoles/inscription` enregistre une demande sans mot de passe, sans creation de compte Auth et sans connexion automatique. Il conserve la selection d'un etablissement connu et demande le prenom, le nom et l'email professionnel. La page et la confirmation annoncent un recontact dans les **2 jours ouvres**.
+
+Appliquer [migration_school_registration_requests.sql](server/database/migration_school_registration_requests.sql) avant de deployer. Les demandes sont visibles dans `/admin/inscriptions-ecoles` (menu **Inscriptions ecoles**), avec recherche par etablissement/contact/email et pagination. Seul le backend peut lire ou inserer ces donnees ; le back-office reste reserve aux administrateurs existants. Le suivi de contact se fait manuellement, sans creation automatique d'un acces. Les comptes ecoles existants restent inchanges.
+
+Controles locaux, avec base en memoire et API navigateur simulees (aucune donnee distante) :
+
+```powershell
+npm --prefix server run verify:school-registration
+npm --prefix client run verify:school-registration
+```
+
+Le controle navigateur utilise le serveur Vite local decrit ci-dessous (`BACKOFFICE_TEST_URL` pour changer son adresse).
+
 ## Back-office local
 
 La nouvelle interface est disponible sur `/admin/connexion`. Elle utilise une session Supabase distincte dans `sessionStorage`, sans deconnecter les sessions eleve ou ecole. Les deux administrateurs se connectent avec leurs comptes existants ; aucune inscription admin n'est proposee.

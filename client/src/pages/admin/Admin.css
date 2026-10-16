@@ -62,6 +62,9 @@
 .bo-selections .bo-page-heading h2 { margin: 0; }
 .bo-selections .bo-page-heading p { margin: 6px 0 0; font-size: 12px; }
 .bo-cell-detail { display: block; margin-top: 4px; color: var(--bo-muted); font-size: 12px; }
+.bo-app .bo-formation-link { color: #315421; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.bo-formation-link svg { display: inline-block; width: 15px; height: 15px; margin-left: 5px; vertical-align: middle; }
+.bo-app .bo-formation-link:hover { color: #171c1a; }
 .bo-table.bo-selection-table { min-width: 940px; }
 .bo-selection-table th:nth-child(1), .bo-selection-table th:nth-child(2) { min-width: 180px; }
 .bo-selection-table th:nth-child(3) { min-width: 90px; }

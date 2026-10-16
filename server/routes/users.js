@@ -7,7 +7,6 @@ const router = express.Router()
 
 const FINAL_SELECTION_QUESTION_ID = 'orientation_final_selection'
 const EXTRA_INFO_LIMIT = 250
-const FINAL_SELECTION_LIMIT = 16
 const MAX_ANSWER_TEXT_LENGTH = 12000
 
 function normalizeSchoolNameForMatch(value) {
@@ -136,7 +135,7 @@ function compactFinalSelectionAnswer(answerText) {
         : []
 
     if (candidates.length > 0) {
-      return JSON.stringify(candidates.slice(0, FINAL_SELECTION_LIMIT).map(compactFinalSelectionCandidate))
+      return JSON.stringify(candidates.map(compactFinalSelectionCandidate))
     }
   } catch {
     // Keep legacy plain-text answers, but never let a huge blob leave this API.

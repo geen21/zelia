@@ -85,13 +85,15 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
     const id = identifier(req.params.id, true)
     const users = await rpc('backoffice_users', { p_user_id: id })
     if (!users.items.length) return res.status(404).json({ message: 'Compte introuvable.' })
-    const [profile, extraInfo, schools, memberships] = await Promise.all([
+    const [profile, extraInfo, schools, memberships, orientationResponses, orientationAnalysis] = await Promise.all([
       query(db.from('profiles').select('id,first_name,last_name,age,gender,department,school,phone_number,contact_preference,created_at').eq('id', id).maybeSingle()),
       query(db.from('informations_complementaires').select('question_id,answer_text').eq('user_id', id).like('question_id', 'orientation_%')),
       query(db.from('companies').select('id,name,approved_at').eq('owner_id', id)),
-      query(db.from('school_portal_members').select('id,company_id,role').eq('user_id', id))
+      query(db.from('school_portal_members').select('id,company_id,role').eq('user_id', id)),
+      query(db.from('user_responses').select('id,question_id,response,created_at,questions(content)').eq('user_id', id).eq('questionnaire_type', 'inscription').order('question_id').order('id')),
+      query(db.from('user_results').select('id,job_recommendations,updated_at').eq('user_id', id).eq('questionnaire_type', 'inscription').order('updated_at', { ascending: false }).order('id', { ascending: false }).limit(1).maybeSingle())
     ])
-    res.json({ user: users.items[0], profile: profile.data, extraInfo: extraInfo.data || [], schools: schools.data || [], memberships: memberships.data || [], protectedAdmin: isProtectedAdmin(id) })
+    res.json({ user: users.items[0], profile: profile.data, extraInfo: extraInfo.data || [], schools: schools.data || [], memberships: memberships.data || [], orientationResponses: orientationResponses.data || [], orientationAnalysis: orientationAnalysis.data, protectedAdmin: isProtectedAdmin(id) })
   }))
   router.patch('/users/:id', run(async (req, res) => {
     const id = identifier(req.params.id, true)
@@ -205,7 +207,7 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
       const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
       selections = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.candidates) ? parsed.candidates : []
     } catch { selections = [] }
-    selections = selections.filter((candidate) => typeof candidate === 'string' || (candidate && typeof candidate === 'object' && !Array.isArray(candidate))).slice(0,16)
+    selections = selections.filter((candidate) => typeof candidate === 'string' || (candidate && typeof candidate === 'object' && !Array.isArray(candidate)))
     res.json({ item: result, user: users.items[0], selections, selectionRecorded: Boolean(selection.data?.length) })
   }))
   router.get('/audit', run(async (req, res) => {

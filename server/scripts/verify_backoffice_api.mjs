@@ -15,13 +15,26 @@ let statusError = null
 let authError = null
 let rpcError = null
 let rpcCalled = false
+let userDetailExists = false
+let orientationReadError = null
+let orientationResponses = [{ id: 1,question_id: 200,response: 'Construire un objet',created_at: '2026-10-01T10:00:00Z',questions: { content: 'Tu préfères quelle activité ?' } }]
+let orientationAnalysis = { id: 10,job_recommendations: [{ title: 'Menuisier' },{ title: 'Mécanicien' }],updated_at: '2026-10-01T11:00:00Z' }
+let recordedSelections = []
+const reads = []
 const db = {
   from(table) {
+    const read = { table,filters: [],orders: [] }
+    reads.push(read)
     const builder = {
-      select() { return this },eq() { return this },order() { return this },or() { return this },not() { return this },
+      select(fields) { read.fields = fields; return this },
+      eq(field,value) { read.filters.push([field,value]); return this },
+      order(field,options) { read.orders.push([field,options]); return this },
+      limit(value) { read.limit = value; return this },
+      or() { return this },not() { return this },
       is() { return this },like() { return this },range() { return this },gte() { return this },lte() { return this },
-      maybeSingle: async () => ({ data: table === 'backoffice_account_suspensions' ? suspension : null,error: statusError }),
-      then(resolve) { return Promise.resolve({ data: [],count: 0,error: null }).then(resolve) }
+      maybeSingle: async () => ({ data: table === 'backoffice_account_suspensions' ? suspension : table === 'user_results' ? orientationAnalysis : null,error: table === 'backoffice_account_suspensions' ? statusError : null }),
+      single: async () => ({ data: { id: 1,user_id: student.id },error: null }),
+      then(resolve) { return Promise.resolve({ data: table === 'user_responses' ? orientationResponses : table === 'informations_complementaires' ? recordedSelections : [],count: 0,error: table === 'user_responses' ? orientationReadError : null }).then(resolve) }
     }
     return builder
   },
@@ -29,6 +42,7 @@ const db = {
     rpcCalled = true; calls.push({ name,args })
     if (rpcError) return { data: null,error: rpcError }
     if (name === 'backoffice_account_change') return { data: { revision: '44444444-4444-4444-8444-444444444444' },error: null }
+    if (name === 'backoffice_users' && args.p_user_id) return { data: { items: userDetailExists ? [student] : [],total: Number(userDetailExists) },error: null }
     return { data: ['backoffice_users','backoffice_results','backoffice_selections'].includes(name) ? { items: [],total: 0 } : { id: '1' },error: null }
   },
   auth: { admin: { async updateUserById(id,patch) { calls.push({ name: 'Auth',id,patch }); return { error: authError } } } }
@@ -51,7 +65,7 @@ async function request(path,token = 'joris',method = 'GET',body) {
 }
 
 try {
-  for (const [path,method] of [['/me','GET'],['/overview','GET'],['/student-growth','GET'],['/selections','GET'],['/users','GET'],['/schools','GET'],['/school-registrations','GET'],['/formations','GET'],['/partners','GET'],['/results','GET'],['/audit','GET'],[`/users/${student.id}`,'PATCH'],['/schools/1/approve','POST'],['/partners','POST'],['/formations/custom','POST']]) {
+  for (const [path,method] of [['/me','GET'],['/overview','GET'],['/student-growth','GET'],['/selections','GET'],['/users','GET'],[`/users/${student.id}`,'GET'],['/schools','GET'],['/school-registrations','GET'],['/formations','GET'],['/partners','GET'],['/results','GET'],['/audit','GET'],[`/users/${student.id}`,'PATCH'],['/schools/1/approve','POST'],['/partners','POST'],['/formations/custom','POST']]) {
     assert.equal((await request(path,null,method,method === 'GET' ? undefined : {})).status,401)
     assert.equal((await request(path,'student',method,method === 'GET' ? undefined : {})).status,403)
   }
@@ -73,6 +87,41 @@ try {
   assert.equal((await request('/users?status=unknown')).status,400)
   assert.equal((await request('/formations?source=arbitrary_table')).status,400)
   assert.equal((await request('/users/not-a-uuid')).status,400)
+  assert.equal((await request(`/users/${student.id}`)).status,404)
+  assert.equal(reads.some((read) => read.table === 'user_responses'),false)
+  userDetailExists = true
+  const userDetail = await request(`/users/${student.id}`)
+  assert.equal(userDetail.status,200)
+  assert.equal(userDetail.headers.get('cache-control'),'no-store')
+  const details = await userDetail.json()
+  assert.deepEqual(details.orientationResponses,orientationResponses)
+  assert.deepEqual(details.orientationAnalysis,orientationAnalysis)
+  for (const table of ['user_responses','user_results']) {
+    const read = reads.find((entry) => entry.table === table)
+    assert.deepEqual(read.filters,[['user_id',student.id],['questionnaire_type','inscription']])
+    assert.notEqual(read.fields,'*')
+  }
+  const responsesRead = reads.find((read) => read.table === 'user_responses')
+  assert.equal(responsesRead.fields,'id,question_id,response,created_at,questions(content)')
+  assert.deepEqual(responsesRead.orders,[['question_id',undefined],['id',undefined]])
+  const analysisRead = reads.find((read) => read.table === 'user_results')
+  assert.equal(analysisRead.fields,'id,job_recommendations,updated_at')
+  assert.deepEqual(analysisRead.orders,[['updated_at',{ ascending: false }],['id',{ ascending: false }]])
+  assert.equal(analysisRead.limit,1)
+  orientationResponses = []
+  orientationAnalysis = null
+  const emptyDetails = await (await request(`/users/${student.id}`)).json()
+  assert.deepEqual(emptyDetails.orientationResponses,[])
+  assert.equal(emptyDetails.orientationAnalysis,null)
+  orientationReadError = { code:'XX000',message:'Fixture read failure' }
+  assert.equal((await request(`/users/${student.id}`)).status,500)
+  orientationReadError = null
+  const fullSelection = Array.from({ length:17 },(_,index) => ({ id:`selection-${index}`,type:index < 11 ? 'formation' : 'metier',title:`Choix ${index}`,requestMoreInformation:index < 11 }))
+  recordedSelections = [{ answer_text:JSON.stringify(fullSelection),created_at:'2026-10-01T11:00:00Z' }]
+  const selectedResult = await request('/results/1')
+  assert.equal(selectedResult.status,200)
+  assert.deepEqual((await selectedResult.json()).selections,fullSelection)
+  recordedSelections = []
   assert.equal((await request('/audit?from=invalid-date')).status,400)
   assert.equal((await request(`/users/${student.id}`,'joris','PATCH',{ contact_preference: true })).status,400)
   assert.equal((await request(`/users/${student.id}`,'joris','PATCH',{ email: 'change@example.com' })).status,400)

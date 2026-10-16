@@ -88,6 +88,10 @@ try {
   const createdPartner = await change('partner',null,{ school_name:'School',formation_name:'New Bachelor',city:'Paris',show_in_results:false,highlight_in_results:true,results_priority:25 })
   assert.equal(createdPartner.results_priority,25)
   assert.equal(createdPartner.show_in_results,false)
+  const visiblePartner = await change('partner',null,{ school_name:'School',formation_name:'Visible Bachelor',city:'Paris',show_in_results:true,highlight_in_results:true,results_priority:0 })
+  assert.equal(visiblePartner.is_active,true)
+  assert.equal(visiblePartner.show_in_results,true)
+  assert.equal((await db.query('SELECT id FROM ecoles_partenaires WHERE id=$1 AND is_active AND show_in_results',[visiblePartner.id])).rows.length,1)
   await db.exec('SET ROLE authenticated')
   try { await assert.rejects(db.query('UPDATE ecoles_partenaires SET results_priority=100'), /permission denied/) }
   finally { await db.exec('RESET ROLE') }

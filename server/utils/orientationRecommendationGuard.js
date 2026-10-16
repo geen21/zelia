@@ -1,3 +1,9 @@
+export const JOB_TITLE_GUIDELINES = `Utilise uniquement des métiers bien établis et reconnus en France, avec leur intitulé usuel en français, compréhensible par un collégien.
+Privilégie des noms courts et simples, sans jargon, anglicisme évitable, acronyme non expliqué ni accumulation de spécialités.
+N'invente jamais de métier, de titre valorisant ou de rôle hybride pour coller au profil. Ne combine pas plusieurs métiers dans un même intitulé.
+Si une spécialisation est trop complexe ou si tu n'es pas certain qu'un intitulé existe, choisis le métier courant correspondant. Garde les précisions techniques dans les compétences, pas dans le titre.
+Avant de répondre, vérifie que chaque intitulé désigne un métier réel et identifiable, et pas une compétence, une mission ou un domaine d'études.`
+
 const CAREER_ASPIRATION_ANCHORS = [
   {
     matches: [/\bgruti(?:er|ere)\b/i, /\bgrue\b/i, /conducteur(?:rice)? de grue/i],

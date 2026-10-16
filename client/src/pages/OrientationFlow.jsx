@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { PiArrowRight } from 'react-icons/pi'
 import { orientationAPI, usersAPI, ecolesAPI } from '../lib/api.js'
 import { AI_JOB_DECK_SIZE } from '../lib/orientationJobs.js'
 import PersonaRevealCard from '../components/PersonaRevealCard.jsx'
 import OrientationFormationResults from '../components/OrientationFormationResults.jsx'
+import { mixFormationResults } from '../lib/orientationFormationResults.js'
 import { buildLoreleiUrl, buildPersonaAvatarConfig, computePersonaFromAnswers, getPersonaBySlug } from '../lib/personas.js'
 import { generatePersonaShareCard } from '../lib/shareImage.js'
 import { trackOrientationEvent } from '../lib/analytics.js'
@@ -1552,8 +1554,8 @@ export default function OrientationFlow() {
   const [busyMessage, setBusyMessage] = useState('')
   const [partnerFormations, setPartnerFormations] = useState([])
   const [partnerFormationsLoading, setPartnerFormationsLoading] = useState(false)
-  const [submittedFormationIds, setSubmittedFormationIds] = useState(() => new Set())
-  const [submittingFormationId, setSubmittingFormationId] = useState(null)
+  const [partnerFormationsError, setPartnerFormationsError] = useState('')
+  const [partnerRetryCount, setPartnerRetryCount] = useState(0)
   const [dbFormations, setDbFormations] = useState([])
   const [dbFormationsLoading, setDbFormationsLoading] = useState(false)
   const [requestInfoSelections, setRequestInfoSelections] = useState(() => new Set())
@@ -1572,52 +1574,34 @@ export default function OrientationFlow() {
 
   const jobRecommendations = useMemo(() => getAnalysisJobCandidates(analysisData, 6), [analysisData])
   const formationRecommendations = useMemo(() => getAnalysisFormationCandidates(analysisData, 6), [analysisData])
+  const visiblePartnerCandidates = useMemo(() => mixFormationResults([], partnerFormations)
+    .map(({ formation }, index) => normalizePartnerFormation(formation, index)), [partnerFormations])
 
   useEffect(() => {
     if (phase !== 'formationReveal') return
     let mounted = true
     setPartnerFormationsLoading(true)
+    setPartnerFormationsError('')
     ;(async () => {
       try {
-        const [matchedRes, submissionsRes] = await Promise.all([
-          ecolesAPI.matched().catch(() => ({ data: { matched: [] } })),
-          ecolesAPI.mySubmissions().catch(() => ({ data: { submissions: [] } }))
-        ])
-        if (!mounted) return
-        let matched = Array.isArray(matchedRes?.data?.matched) ? matchedRes.data.matched : []
-        if (matched.length === 0) {
-          const partnersRes = await ecolesAPI.partenaires().catch(() => ({ data: { formations: [] } }))
-          matched = Array.isArray(partnersRes?.data?.formations) ? partnersRes.data.formations : []
+        const matchedRes = await ecolesAPI.matched()
+        if (!Array.isArray(matchedRes?.data?.matched)) {
+          throw new Error('Invalid partner matching response')
         }
-        setPartnerFormations(matched)
-        const submittedIds = (submissionsRes?.data?.submissions || []).map((entry) => entry.formation_id)
-        setSubmittedFormationIds(new Set(submittedIds))
+        if (!mounted) return
+        setPartnerFormations(matchedRes.data.matched)
       } catch (fetchError) {
-        console.warn('Partner formations fetch failed', fetchError)
-        if (mounted) setPartnerFormations([])
+        console.error('Partner formations fetch failed', fetchError)
+        if (mounted) {
+          setPartnerFormations([])
+          setPartnerFormationsError('Impossible de charger les formations partenaires pour le moment.')
+        }
       } finally {
         if (mounted) setPartnerFormationsLoading(false)
       }
     })()
     return () => { mounted = false }
-  }, [phase])
-
-  const handleRequestInfo = async (formationId) => {
-    if (!formationId || submittedFormationIds.has(formationId) || submittingFormationId === formationId) return
-    setSubmittingFormationId(formationId)
-    try {
-      await ecolesAPI.submit(formationId)
-      setSubmittedFormationIds((prev) => new Set([...prev, formationId]))
-    } catch (submitError) {
-      if (submitError?.response?.status === 409) {
-        setSubmittedFormationIds((prev) => new Set([...prev, formationId]))
-      } else {
-        console.warn('Formation info request failed', submitError)
-      }
-    } finally {
-      setSubmittingFormationId(null)
-    }
-  }
+  }, [phase, partnerRetryCount])
 
   const hydrateProfileIdentity = useCallback((profile) => {
     const incomingIdentity = normalizeProfileIdentity(profile)
@@ -2235,7 +2219,7 @@ export default function OrientationFlow() {
         if (!mounted) return
         const concrete = candidates.filter(isDatabaseCandidate).slice(0, 8)
         setDbFormations(concrete)
-        setRequestInfoSelections(new Set(concrete.map((candidate) => candidate.id)))
+        setRequestInfoSelections((previous) => new Set([...previous, ...concrete.map((candidate) => candidate.id)]))
       } catch (matchError) {
         console.warn('Formation matching failed', matchError)
         if (mounted) setDbFormations([])
@@ -2269,7 +2253,10 @@ export default function OrientationFlow() {
     })
   }
 
-  const getSelectedFormations = () => dbFormations.map((candidate) => (
+  const getSelectedFormations = () => [
+    ...dbFormations,
+    ...visiblePartnerCandidates.filter((candidate) => requestInfoSelections.has(candidate.id))
+  ].map((candidate) => (
     serializeFinalCandidate(candidate, requestInfoSelections.has(candidate.id))
   ))
 
@@ -2288,7 +2275,7 @@ export default function OrientationFlow() {
   const continueFromFormationReveal = () => {
     trackOrientationEvent('orientation_step_completed', {
       orientation_step: 'formations',
-      orientation_item_count: dbFormations.length || formationRecommendations.length,
+      orientation_item_count: dbFormations.length + visiblePartnerCandidates.length || formationRecommendations.length,
       orientation_action: 'discover_jobs'
     })
     persistFormationSelection()
@@ -2460,7 +2447,7 @@ export default function OrientationFlow() {
               })
               setPhase('formationReveal')
             }}
-            continueLabel="Découvre tes études"
+            continueLabel="Découvre tes formations"
           />
           {visiblePersonality.length > 0 && (
             <details className="personality-details">
@@ -2556,7 +2543,7 @@ export default function OrientationFlow() {
   }
 
   const renderFormationReveal = () => (
-    <div className="orientation-stage compact personality-stage">
+    <div className="orientation-stage compact personality-stage formation-reveal-stage">
       <div className="persona-reveal-wrap">
         <div className="persona-card">
           <div className="persona-card-head">
@@ -2570,7 +2557,7 @@ export default function OrientationFlow() {
             {dbFormationsLoading
               ? 'On cherche parmi 127 498 formations celles qui collent vraiment à ton profil...'
               : dbFormations.length
-                ? "Sélectionnées à partir de tes réponses, ton niveau visé et ta localisation. Coche celles pour lesquelles tu veux plus d'infos."
+                ? "Sélectionnées à partir de tes réponses, ton niveau visé et ta localisation."
                 : "On n'a pas trouvé de correspondance exacte tout de suite, mais voilà des pistes cohérentes avec ton profil."}
           </p>
 
@@ -2578,15 +2565,21 @@ export default function OrientationFlow() {
             <div className="busy-dots" aria-hidden="true"><span /><span /><span /></div>
           )}
 
+          {partnerFormationsError && (
+            <div className="formation-lead-empty" role="alert">
+              <p>{partnerFormationsError}</p>
+              <button type="button" className="secondary-action" onClick={() => setPartnerRetryCount((count) => count + 1)}>
+                Réessayer les formations partenaires
+              </button>
+            </div>
+          )}
+
           {(dbFormations.length > 0 || partnerFormations.length > 0) && (
             <OrientationFormationResults
               formations={dbFormationsLoading ? [] : dbFormations}
               partners={partnerFormations}
               selectedIds={requestInfoSelections}
-              submittedIds={submittedFormationIds}
-              submittingId={submittingFormationId}
               onToggleInfo={toggleRequestInfoSelection}
-              onRequestInfo={handleRequestInfo}
               getTitle={(formation) => cleanDetailText(getCandidateFormationTitle(formation), 220)}
             />
           )}
@@ -2622,9 +2615,12 @@ export default function OrientationFlow() {
           )}
         </div>
 
-        <div className="persona-actions persona-actions-standalone">
-          <button type="button" className="persona-continue" onClick={continueFromFormationReveal}>Découvre tes métiers</button>
-        </div>
+      </div>
+      <div className="persona-actions formation-reveal-actions">
+        <button type="button" className="persona-continue" onClick={continueFromFormationReveal}>
+          Découvre tes métiers
+          <PiArrowRight size={20} aria-hidden="true" focusable="false" />
+        </button>
       </div>
     </div>
   )
@@ -2749,4 +2745,3 @@ export default function OrientationFlow() {
     </main>
   )
 }
-

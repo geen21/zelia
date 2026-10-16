@@ -3,7 +3,7 @@ import dotenv from 'dotenv'
 import { supabase, supabaseAdmin } from '../config/supabase.js'
 import { cloudinary, isCloudinaryConfigured } from '../config/cloudinary.js'
 import { authenticateToken } from '../middleware/auth.js'
-import { enforceOrientationRecommendationQuality } from '../utils/orientationRecommendationGuard.js'
+import { enforceOrientationRecommendationQuality, JOB_TITLE_GUIDELINES } from '../utils/orientationRecommendationGuard.js'
 
 // Ensure environment variables are loaded (redundant-safe)
 dotenv.config()
@@ -200,6 +200,7 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
       + `[Forces principales en points clés, maximum 120 mots. Présentez sous forme de liste courte.]\n\n`
       + `###Recommandations d'emploi###\n`
       + `OBLIGATOIRE : Fournis EXACTEMENT 6 métiers réels, distincts et réalistes. Cette section ne doit JAMAIS être vide. Pour chaque recommandation, suis le format suivant :\n`
+      + `${JOB_TITLE_GUIDELINES}\n`
       + `Les six métiers doivent couvrir des environnements compatibles mais variés. N'utilise jamais développement logiciel, data, informatique, web ou produit numérique par défaut : propose-les seulement si les réponses ou la préférence métier les rendent clairement pertinents. Évite les variantes d'un même métier. Sans demande explicite de travail de bureau, limite les métiers strictement sédentaires à deux maximum. Si les axes indiquent mains ou terrain, propose au moins trois pistes concrètes de terrain, techniques, manuelles, opérationnelles ou mobiles.\n`
       + `1. [Titre du poste]\n`
       + `   - Compétences requises: [3-4 compétences principales sous forme liste, par mots clés]\n\n`
@@ -499,6 +500,7 @@ router.post('/generate-analysis-by-type', authenticateToken, async (req, res) =>
         `[Rédige un texte inspirant d'environ 100 mots qui met en valeur les qualités humaines et professionnelles de ce profil. Adopte un ton valorisant et bienveillant.]\n\n` +
         `###Recommandations d'emploi###\n` +
         `OBLIGATOIRE : Fournis EXACTEMENT 6 recommandations d'emploi cohérentes avec l'archétype et tournées vers l'avenir. Cette section ne doit JAMAIS être vide. Pour chaque recommandation, suis le format suivant :\n` +
+        `${JOB_TITLE_GUIDELINES}\n` +
         `1. [Titre du poste]\n` +
         `   - Compétences requises: [3-4 compétences principales sous forme liste, par mots clés]\n\n` +
         `1. Utilisez EXACTEMENT les titres de section indiqués ci-dessus avec trois dièses (###).\n` +
@@ -520,6 +522,7 @@ router.post('/generate-analysis-by-type', authenticateToken, async (req, res) =>
         `[Évaluation concise des compétences en points clés, maximum 300 mots. Présentez sous forme de liste.]\n\n` +
         `###Recommandations d'emploi###\n` +
         `OBLIGATOIRE : Fournis EXACTEMENT 6 recommandations d'emploi. Cette section ne doit JAMAIS être vide. Pour chaque recommandation, suis le format suivant :\n` +
+        `${JOB_TITLE_GUIDELINES}\n` +
         `1. [Titre du poste]\n` +
         `   - Compétences requises: [3-4 compétences principales sous forme liste, par mots clés]\n\n` +
         `###Recommandations d'études###\n` +

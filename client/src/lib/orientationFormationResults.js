@@ -10,7 +10,6 @@ export function mixFormationResults(formations = [], partners = []) {
       seen.add(String(partner.id))
       return true
     })
-    .slice(0, 3)
   const results = []
   let partnerIndex = 0
   for (const [index, formation] of formations.entries()) {
@@ -25,4 +24,20 @@ export function mixFormationResults(formations = [], partners = []) {
     results.push({ key: `partner-${partner.id}`, source: 'partner', formation: partner })
   }
   return results
+}
+
+export function getBestFormationResultKey(results) {
+  let bestKey = null
+  let bestScore = -Infinity
+  for (const { key, source, formation } of results) {
+    const value = source === 'partner' ? formation.match_score : formation.matchScore
+    if (typeof value !== 'number' && (typeof value !== 'string' || !value.trim())) continue
+    const score = Number(value)
+    if (!Number.isFinite(score) || score < 0 || score > 100) continue
+    if (score > bestScore) {
+      bestKey = key
+      bestScore = score
+    }
+  }
+  return bestKey
 }

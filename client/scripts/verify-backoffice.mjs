@@ -3,8 +3,8 @@ import { mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chromium, expect } from '@playwright/test'
-import { mixFormationResults } from '../src/lib/orientationFormationResults.js'
-import { selectedFormations } from '../src/lib/adminSelections.js'
+import { getBestFormationResultKey, mixFormationResults } from '../src/lib/orientationFormationResults.js'
+import { formationHref, selectedFormations } from '../src/lib/adminSelections.js'
 
 const nationalFixtures = Array.from({ length: 7 }, (_, index) => ({ id: index + 1 }))
 const partnerFixtures = [
@@ -22,10 +22,26 @@ assert.equal(mixed[7].key, 'partner-1')
 assert.equal(new Set(mixed.map((entry) => entry.key)).size, mixed.length)
 assert.equal(mixFormationResults([], partnerFixtures).length, 2)
 assert.equal(mixFormationResults(nationalFixtures, []).length, 7)
-assert.equal(mixFormationResults([], Array.from({ length: 6 }, (_, index) => ({ id: index + 1 }))).length, 3)
+assert.equal(mixFormationResults([], Array.from({ length: 24 }, (_, index) => ({ id: index + 1 }))).length, 24)
 assert.equal(partnerFixtures[0].id, 1)
+assert.equal(getBestFormationResultKey(mixed),'partner-1')
+assert.equal(getBestFormationResultKey(mixFormationResults([{ id:1,matchScore:99 },{ id:2,matchScore:80 }],partnerFixtures)),'formation-1')
+assert.equal(getBestFormationResultKey(mixFormationResults([{ id:1,matchScore:60 },{ id:2,matchScore:98 }],[])),'formation-2')
+assert.equal(getBestFormationResultKey(mixFormationResults([{ id:1,matchScore:95 }],partnerFixtures)),'formation-1')
+assert.equal(getBestFormationResultKey(mixFormationResults([],[{ id:1,match_score:90 },{ id:2,match_score:90 }])),'partner-1')
+assert.equal(getBestFormationResultKey(mixFormationResults([],[{ id:1,match_score:'92' }])),'partner-1')
+assert.equal(getBestFormationResultKey(mixFormationResults([],[{ id:1,match_score:100,show_in_results:false },{ id:2,match_score:100,is_active:false }])) ,null)
+assert.equal(getBestFormationResultKey(mixFormationResults([],[{ id:1,match_score:70,results_priority:30 },{ id:2,match_score:99,results_priority:0 }])),'partner-2')
+assert.equal(getBestFormationResultKey(mixFormationResults([],[
+  { id:1,match_score:70,results_priority:30 },{ id:2,match_score:80,results_priority:20 },
+  { id:3,match_score:90,results_priority:10 },{ id:4,match_score:100,results_priority:0 }
+])),'partner-4')
+assert.equal(getBestFormationResultKey([]),null)
+for (const matchScore of [undefined,null,'',false,'invalid',NaN,Infinity,-1,101]) {
+  assert.equal(getBestFormationResultKey(mixFormationResults([{ id:1,matchScore }],[])),null)
+}
 const selectionFixtures = [
-  { id:'formation-1',type:'formation',title:'BTS Informatique',requestMoreInformation:true },
+  { id:'formation-1',type:'formation',title:'BTS Informatique',requestMoreInformation:true,raw:{ etab_url:'https://example.com/formation' } },
   { id:'formation-2',type:'formation',title:'Licence Histoire',requestMoreInformation:false },
   { id:'job-1',type:'metier',title:'Developpeur',requestMoreInformation:true },
   { id:'unknown',type:'formation',requestMoreInformation:'true' },null,'Formation proposee'
@@ -34,8 +50,18 @@ assert.deepEqual(selectedFormations(selectionFixtures),[selectionFixtures[0]])
 assert.deepEqual(selectedFormations(JSON.stringify({ candidates:selectionFixtures })),[selectionFixtures[0]])
 assert.deepEqual(selectedFormations('invalid json'),[])
 assert.deepEqual(selectedFormations(null),[])
+assert.equal(formationHref({ detail:{ link:' https://example.com/formation ' } }),'https://example.com/formation')
+assert.equal(formationHref({ raw:{ fiche:'https://example.com/fiche',etab_url:'https://example.com/ecole' } }),'https://example.com/fiche')
+assert.equal(formationHref({ link:'https://example.com/partenaire' }),'https://example.com/partenaire')
+assert.equal(formationHref({ fiche:'http://example.com/catalogue' }),'http://example.com/catalogue')
+assert.equal(formationHref({ raw:{ link:'www.example.com/formation' } }),'https://www.example.com/formation')
+assert.equal(formationHref({ detail:{ link:'javascript:alert(1)' },etab_url:'https://example.com/ecole' }),'https://example.com/ecole')
+for (const link of ['', 'javascript:alert(1)', 'data:text/html,test', 'mailto:school@example.com', 'https://', 'https://not a host', '//example.com', '/admin']) {
+  assert.equal(formationHref({ detail:{ link } }),'')
+}
+assert.equal(formationHref(null),'')
 if (process.argv.includes('--results-only')) {
-  console.log('Selected formation flags and mixed formation results/priority/visibility/stable ordering verified.')
+  console.log('Unique best-match badge, selected formation flags, safe links and mixed results/priority/visibility/stable ordering verified.')
   process.exit(0)
 }
 
@@ -44,12 +70,14 @@ const output = join(tmpdir(),'zelia-backoffice-tests')
 await mkdir(output,{ recursive: true })
 const admin = { id:'11111111-1111-4111-8111-111111111111',email:'joris.geerdes@21datas.ch' }
 const user = { id:'33333333-3333-4333-8333-333333333333',email:'student@example.com',first_name:'Camille',last_name:'Martin',created_at:'2026-09-20T12:00:00Z',account_type:'student',is_suspended:false }
-const partner = { id:'44444444-4444-4444-8444-444444444444',school_name:'École Numérique',formation_name:'Bachelor Développement Web',city:'Paris',diploma_level:'Bac+3',is_active:true,show_in_results:true,highlight_in_results:true,results_priority:0 }
+const partner = { id:'44444444-4444-4444-8444-444444444444',school_name:'École Numérique',formation_name:'Bachelor Développement Web',city:'Paris',diploma_level:'Bac+3',link:'https://example.com/partenaire',is_active:true,show_in_results:true,highlight_in_results:true,results_priority:0 }
 const school = { id:1,name:'École Numérique',email:'school@example.com',owner_id:user.id,approved_at:null,contact_first_name:'Camille',contact_last_name:'Martin',created_at:'2026-09-20T12:00:00Z' }
 const analysis = { id:1,user_id:user.id,email:user.email,first_name:user.first_name,last_name:user.last_name,questionnaire_type:'inscription',updated_at:'2026-09-20T12:00:00Z' }
+const orientationResponses = Array.from({ length:20 },(_,index) => ({ id:index+1,question_id:200+index,response:index % 2 ? 'Avec une équipe' : 'Construire un objet',questions:index === 19 ? null : { content:`Quel environnement préfères-tu pour l’activité ${index+1} ?` } }))
+const userDetails = { user,profile:{ ...user,age:17,phone_number:'',department:'75',school:'Lycée',contact_preference:false },extraInfo:[{ question_id:'orientation_school_level',answer_text:'Terminale' },{ question_id:'orientation_final_selection',answer_text:JSON.stringify(selectionFixtures) }],schools:[school],memberships:[],protectedAdmin:false,orientationResponses,orientationAnalysis:{ id:1,job_recommendations:[{ title:'Menuisier' },{ title:'Mécanicien' },'Électricien'],updated_at:analysis.updated_at } }
 const savedChoices = [
   { ...user,id:'orientation-1',user_id:user.id,source:'orientation',formation_name:'BTS Informatique',school_name:'Université Exemple',city:'Paris',detail:{ link:'https://example.com/formation' } },
-  { ...user,id:'partner-1',user_id:user.id,source:'partner',formation_name:partner.formation_name,school_name:partner.school_name,city:partner.city },
+  { ...user,id:'partner-1',user_id:user.id,source:'partner',formation_name:partner.formation_name,school_name:partner.school_name,city:partner.city,detail:{ link:partner.link } },
   ...Array.from({ length:50 },(_,index) => ({ ...user,id:`choice-${index}`,user_id:`55555555-5555-4555-8555-${String(index).padStart(12,'0')}`,email:`choice-${index}@example.com`,source:'orientation',formation_name:`Formation fixture ${index}`,school_name:'Université Exemple',city:'Lyon' }))
 ]
 const session = { access_token:'fixture-access-token',refresh_token:'fixture-refresh-token',expires_at:Math.floor(Date.now()/1000)+3600,expires_in:3600,token_type:'bearer',user:admin }
@@ -73,6 +101,7 @@ async function prepare(viewport,authenticated = true,denied = false) {
     const url = route.request().url()
     await route.fulfill({ status:200,contentType:'application/json',body:JSON.stringify(url.includes('/token') ? session : {}) })
   })
+  await context.route('https://example.com/**',async (route) => route.fulfill({ contentType:'text/html',body:'<title>Formation de test</title>' }))
   await context.route('**/api/admin/**',async (route) => {
     const request = route.request()
     const url = new URL(request.url())
@@ -98,14 +127,14 @@ async function prepare(viewport,authenticated = true,denied = false) {
       const offset = Number(url.searchParams.get('offset')) || 0
       const rows = [user,...Array.from({ length:50 },(_,index) => ({ ...user,id:`fixture-${index}`,email:`student-${index}@example.com` }))]
       data = { items:rows.slice(offset,offset+50),total:51 }
-    } else if (path.startsWith('/users/')) data = { user,profile:{ ...user,age:17,phone_number:'',department:'75',school:'Lycée',contact_preference:false },extraInfo:[{ question_id:'orientation_school_level',answer_text:'Terminale' }],schools:[school],memberships:[],protectedAdmin:false }
+    } else if (path.startsWith('/users/')) data = userDetails
     else if (path === '/school-options') data = { items:[{ school_name: school.name,source:'formation_france' }] }
     else if (path === '/schools') data = { items:[school],total:1 }
     else if (path.startsWith('/schools/')) data = { item:school,accounts:[user],members:[] }
     else if (path === '/partners/group-count') data = { total:4 }
     else if (path === '/partners') data = { items:[partner],total:1 }
     else if (path.startsWith('/partners/')) data = { item:partner }
-    else if (path === '/formations') data = { items:url.searchParams.get('source') === 'custom' ? [{ id:1,company_id:1,title:'Formation privée',city:'Paris',is_published:true }] : [{ id:1,title:'Licence Informatique',etab_nom:'Université Exemple',commune:'Paris',region:'Île-de-France',fiche:'https://example.com/formation' }],total:1 }
+    else if (path === '/formations') data = { items:url.searchParams.get('source') === 'custom' ? [{ id:1,company_id:1,title:'Formation privée',city:'Paris',link:'https://example.com/privee',is_published:true }] : [{ id:1,title:'Licence Informatique',etab_nom:'Université Exemple',commune:'Paris',region:'Île-de-France',fiche:'https://example.com/formation' }],total:1 }
     else if (path === '/selections') {
       const search = (url.searchParams.get('q') || '').toLowerCase()
       const source = url.searchParams.get('source') || 'all'
@@ -129,6 +158,15 @@ const noOverflow = async (page) => {
       right: element.getBoundingClientRect().right,width: element.getBoundingClientRect().width })).filter((element) => element.right > window.innerWidth + 1).slice(0,12) }))
   assert.equal(layout.scroll <= layout.width + 1,true,JSON.stringify(layout))
 }
+const expectFormationLink = async (link,href) => {
+  await expect(link).toHaveAttribute('href',href)
+  await expect(link).toHaveAttribute('target','_blank')
+  await expect(link).toHaveAttribute('rel','noopener noreferrer')
+  await expect(link).toHaveAttribute('title','Ouvrir la formation dans un nouvel onglet')
+  await expect(link).toHaveCSS('text-decoration-line','underline')
+  await expect(link.locator('svg[aria-hidden="true"]')).toHaveCount(1)
+  await expect(link.locator('svg[aria-hidden="true"]')).toHaveCSS('display','inline-block')
+}
 
 try {
   const desktop = await prepare({ width:1440,height:900 })
@@ -136,6 +174,18 @@ try {
   await page.goto(`${base}/admin`)
   await expect(page.getByRole('heading',{ name:'Vue d’ensemble',exact:true })).toBeVisible()
   await expect(page.locator('.bo-selections').getByRole('cell',{ name:/^BTS Informatique/ })).toBeVisible()
+  for (const [name,href] of [['BTS Informatique','https://example.com/formation'],[partner.formation_name,partner.link]]) {
+    const link = page.locator('.bo-selections').getByRole('link',{ name,exact:true })
+    await expectFormationLink(link,href)
+    const popupPromise = page.waitForEvent('popup')
+    await link.click()
+    const popup = await popupPromise
+    await expect(popup).toHaveURL(href)
+    assert.equal(await popup.evaluate(() => window.opener === null),true)
+    await popup.close()
+    await expect(page.getByRole('heading',{ name:'Vue d’ensemble',exact:true })).toBeVisible()
+  }
+  await expect(page.locator('.bo-selections').getByText('Lien indisponible',{ exact:true })).toHaveCount(3)
   await page.locator('.bo-selections').getByRole('link',{ name:'Camille Martin',exact:true }).first().click()
   await expect(page.getByRole('heading',{ name:'Formations sélectionnées',exact:true })).toBeVisible()
   await expect(page.getByText('2 résultats')).toBeVisible()
@@ -162,6 +212,19 @@ try {
   await page.getByRole('button',{ name:`Ouvrir la fiche ${user.email}`,exact:true }).click()
   const profile = page.getByRole('dialog',{ name:'Camille Martin',exact:true })
   await expect(profile.getByRole('heading',{ name:'Profil',exact:true })).toBeVisible()
+  await expectFormationLink(profile.getByRole('link',{ name:'BTS Informatique',exact:true }),'https://example.com/formation')
+  const review = profile.getByRole('region',{ name:'Réponses et métiers',exact:true })
+  await expect(review.getByRole('heading',{ name:'Métiers recommandés',exact:true })).toBeVisible()
+  await expect(review.getByText('Menuisier',{ exact:true })).toBeVisible()
+  await expect(review.getByText('Mécanicien',{ exact:true })).toBeVisible()
+  await expect(review.getByText('Électricien',{ exact:true })).toBeVisible()
+  await expect(review.getByRole('listitem')).toHaveCount(23)
+  await expect(review.getByText('1. Quel environnement préfères-tu pour l’activité 1 ?',{ exact:true })).toBeVisible()
+  await expect(review.getByText('20. Question 219 (intitulé indisponible)',{ exact:true })).toBeVisible()
+  await expect(review.getByText('Réponse : Construire un objet',{ exact:true }).first()).toBeVisible()
+  await expect(review.getByText('Réponse : Avec une équipe',{ exact:true }).first()).toBeVisible()
+  await expect(review.getByRole('button')).toHaveCount(0)
+  await expect(review.locator('input,textarea,select')).toHaveCount(0)
   await profile.getByLabel('Prénom',{ exact:true }).fill('Camille corrigée')
   await profile.getByRole('button',{ name:'Enregistrer',exact:true }).click()
   await expect(profile.getByRole('status')).toHaveText('Modifications enregistrées.')
@@ -182,7 +245,9 @@ try {
   await page.getByRole('button',{ name:'Fermer la fiche',exact:true }).click()
   await page.getByRole('link',{ name:'Formations',exact:true }).click()
   await expect(page.getByRole('heading',{ name:'Catalogue national',exact:true })).toBeVisible()
+  await expectFormationLink(page.getByRole('link',{ name:'Licence Informatique',exact:true }),'https://example.com/formation')
   await page.getByRole('tab',{ name:'Formations privées',exact:true }).click()
+  await expectFormationLink(page.getByRole('link',{ name:'Formation privée',exact:true }),'https://example.com/privee')
   await page.getByRole('button',{ name:'Ajouter',exact:true }).click()
   const formation = page.getByRole('dialog',{ name:'Ajouter une formation privée',exact:true })
   await formation.getByRole('combobox',{ name:'École de la formation',exact:true }).selectOption('1')
@@ -190,6 +255,7 @@ try {
   await formation.getByRole('button',{ name:'Enregistrer',exact:true }).click()
   await expect(formation).not.toBeVisible()
   await page.getByRole('link',{ name:'Partenaires',exact:true }).first().click()
+  await expectFormationLink(page.getByRole('link',{ name:partner.formation_name,exact:true }),partner.link)
   await page.getByRole('button',{ name:`Ouvrir la fiche ${partner.formation_name}`,exact:true }).click()
   const partnerPanel = page.getByRole('dialog',{ name:partner.school_name,exact:true })
   await partnerPanel.getByLabel('Afficher dans les recommandations',{ exact:true }).uncheck()
@@ -219,22 +285,26 @@ try {
   await page.getByRole('combobox',{ name:'Origine des sélections',exact:true }).selectOption('partner')
   await expect(page.getByText('1 résultat',{ exact:false })).toBeVisible()
   await expect(page.getByText('Demande envoyée',{ exact:true })).toBeVisible()
+  await expectFormationLink(page.getByRole('link',{ name:partner.formation_name,exact:true }),partner.link)
   await page.getByRole('combobox',{ name:'Origine des sélections',exact:true }).selectOption('all')
   const searchedChoices = page.waitForResponse((response) => { const url = new URL(response.url()); return url.pathname.endsWith('/admin/selections') && url.searchParams.get('q') === 'BTS' && url.searchParams.get('source') === 'all' })
   await page.getByRole('searchbox',{ name:'Rechercher dans formations sélectionnées',exact:true }).fill('BTS')
   await searchedChoices
   await expect(page.locator('.bo-table tbody tr')).toHaveCount(1)
   await expect(page.getByRole('cell',{ name:'BTS Informatique',exact:true })).toBeVisible()
+  await expectFormationLink(page.getByRole('link',{ name:'BTS Informatique',exact:true }),'https://example.com/formation')
   await expect(page.getByRole('searchbox',{ name:'Rechercher dans formations sélectionnées',exact:true })).toHaveCSS('padding-left','38px')
   await page.screenshot({ path:join(output,'selections-desktop.png'),fullPage:true })
   await page.getByRole('button',{ name:`Ouvrir la fiche ${user.email}`,exact:true }).click()
   await expect(page.getByRole('dialog',{ name:'BTS Informatique',exact:true })).toBeVisible()
+  await expect(page.getByRole('dialog').getByRole('link',{ name:'Fiche de la formation',exact:true })).toHaveAttribute('href','https://example.com/formation')
   assert.equal(await page.getByRole('dialog').getByRole('button',{ name:/Enregistrer|Générer/ }).count(),0)
   await page.getByRole('link',{ name:'Analyses de cet utilisateur',exact:true }).click()
   await expect(page.getByRole('heading',{ name:'Analyses',exact:true })).toBeVisible()
   await page.getByRole('button',{ name:`Ouvrir la fiche ${user.email}`,exact:true }).click()
   await expect(page.getByText('Demande d’informations',{ exact:true })).toBeVisible()
   await expect(page.getByRole('dialog').getByText('BTS Informatique',{ exact:true })).toBeVisible()
+  await expectFormationLink(page.getByRole('dialog').getByRole('link',{ name:'BTS Informatique',exact:true }),'https://example.com/formation')
   assert.equal(await page.getByRole('dialog').getByText('Licence Histoire',{ exact:true }).count(),0)
   await page.getByText('Analyse et recommandations proposées',{ exact:true }).click()
   await expect(page.getByText('Développeur web',{ exact:true })).toBeVisible()
@@ -255,6 +325,8 @@ try {
   const mobile = await prepare({ width:390,height:844 })
   await mobile.page.goto(`${base}/admin`)
   await expect(mobile.page.getByRole('heading',{ name:'Vue d’ensemble',exact:true })).toBeVisible()
+  await expectFormationLink(mobile.page.locator('.bo-selections').getByRole('link',{ name:'BTS Informatique',exact:true }),'https://example.com/formation')
+  await expectFormationLink(mobile.page.locator('.bo-selections').getByRole('link',{ name:partner.formation_name,exact:true }),partner.link)
   await expect(mobile.page.locator('.bo-growth .apexcharts-svg')).toBeVisible()
   await mobile.page.getByRole('combobox',{ name:'Période du graphique',exact:true }).selectOption('365')
   await expect(mobile.page.locator('.bo-growth .apexcharts-svg')).toBeVisible()
@@ -270,6 +342,7 @@ try {
   await mobileSearch
   await expect(mobile.page.locator('.bo-table tbody tr')).toHaveCount(1)
   await expect(mobile.page.getByRole('cell',{ name:'BTS Informatique',exact:true })).toBeVisible()
+  await expectFormationLink(mobile.page.getByRole('link',{ name:'BTS Informatique',exact:true }),'https://example.com/formation')
   await expect(mobile.page.getByRole('searchbox',{ name:'Rechercher dans formations sélectionnées',exact:true })).toHaveCSS('padding-left','38px')
   await expect(mobile.page.locator('.bo-selection-table')).toHaveCSS('min-width','940px')
   await noOverflow(mobile.page)
@@ -277,6 +350,14 @@ try {
   await mobile.page.getByRole('button',{ name:`Ouvrir la fiche ${user.email}`,exact:true }).click()
   await expect(mobile.page.getByRole('dialog',{ name:'BTS Informatique',exact:true })).toBeVisible()
   await noOverflow(mobile.page)
+  await mobile.page.getByRole('button',{ name:'Fermer la fiche',exact:true }).click()
+  await mobile.page.goto(`${base}/admin/utilisateurs`)
+  await mobile.page.getByRole('button',{ name:`Ouvrir la fiche ${user.email}`,exact:true }).click()
+  const mobileReview = mobile.page.getByRole('region',{ name:'Réponses et métiers',exact:true })
+  await expect(mobileReview.getByRole('listitem')).toHaveCount(23)
+  await expect(mobileReview.getByText('Menuisier',{ exact:true })).toBeVisible()
+  await noOverflow(mobile.page)
+  await mobile.page.screenshot({ path:join(output,'orientation-review-mobile.png'),fullPage:true })
   await mobile.page.getByRole('button',{ name:'Fermer la fiche',exact:true }).click()
   await mobile.page.getByRole('button',{ name:'Ouvrir la navigation',exact:true }).click()
   await mobile.page.getByRole('link',{ name:'Partenaires',exact:true }).click()
@@ -323,8 +404,39 @@ try {
   await expect(choicesUnavailable.page.getByRole('alert')).toHaveText('Migration des selections requise.')
   await expect(choicesUnavailable.page.getByRole('cell',{ name:'Données indisponibles',exact:true })).toBeVisible()
   await choicesUnavailable.context.close()
+  const noLinks = await prepare({ width:390,height:844 })
+  await noLinks.context.route('**/api/admin/selections**',async (route) => route.fulfill({ json:{ items:[
+    { ...savedChoices[0],formation_name:'Formation sans lien',detail:null },
+    { ...savedChoices[1],formation_name:'Formation avec lien invalide',detail:{ link:'javascript:alert(1)' } }
+  ],total:2,totalUsers:1 } }))
+  await noLinks.page.goto(`${base}/admin`)
+  await expect(noLinks.page.locator('.bo-selections').getByText('Lien indisponible',{ exact:true })).toHaveCount(2)
+  await expect(noLinks.page.getByRole('link',{ name:/Formation sans lien|Formation avec lien invalide/ })).toHaveCount(0)
+  await noOverflow(noLinks.page)
+  assert.deepEqual(noLinks.scriptErrors,[])
+  await noLinks.context.close()
+  for (const [name,orientationAnalysis,error] of [
+    ['empty',null,false],
+    ['legacy',{ job_recommendations:JSON.stringify([{ title:'Menuisier' },'Mécanicien']),updated_at:analysis.updated_at },false],
+    ['invalid',{ job_recommendations:'invalid json',updated_at:analysis.updated_at },true]
+  ]) {
+    const fixture = await prepare({ width:390,height:844 })
+    await fixture.context.route(`**/api/admin/users/${user.id}`,async (route) => route.fulfill({ json:{ ...userDetails,orientationResponses:[],orientationAnalysis } }))
+    await fixture.page.goto(`${base}/admin/utilisateurs`)
+    await fixture.page.getByRole('button',{ name:`Ouvrir la fiche ${user.email}`,exact:true }).click()
+    const review = fixture.page.getByRole('region',{ name:'Réponses et métiers',exact:true })
+    await expect(review.getByText('Aucune réponse d’orientation enregistrée.',{ exact:true })).toBeVisible()
+    if (error) await expect(review.getByRole('alert')).toHaveText('Recommandations enregistrées dans un format illisible.')
+    else if (name === 'legacy') {
+      await expect(review.getByText('Menuisier',{ exact:true })).toBeVisible()
+      await expect(review.getByText('Mécanicien',{ exact:true })).toBeVisible()
+    } else await expect(review.getByText('Non enregistré',{ exact:true })).toBeVisible()
+    await noOverflow(fixture.page)
+    assert.deepEqual(fixture.scriptErrors,[])
+    await fixture.context.close()
+  }
   assert.ok(mutations.some((entry) => entry.path === `/users/${user.id}` && entry.body.first_name === 'Camille corrigée'))
   assert.ok(mutations.some((entry) => entry.path.endsWith('/suspend') && entry.body.reason === 'Compte de test'))
   assert.ok(mutations.some((entry) => entry.path === '/partners/group-status' && entry.body.is_active === false))
-  console.log(`Selected formations/search/filters/pagination/read-only details and student growth verified desktop/mobile; privacy and isolated logout verified. Screenshots: ${output}`)
+  console.log(`Direct formation links/new tabs/unavailable links, user answers/jobs, selections and student growth verified desktop/mobile; privacy and isolated logout verified. Screenshots: ${output}`)
 } finally { await browser.close() }

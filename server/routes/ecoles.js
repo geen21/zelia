@@ -224,15 +224,22 @@ router.get('/matched', authenticateToken, async (req, res) => {
       ? (storedCity || getPartnerCityForDepartment(departmentCode, departmentName))
       : ''
 
-    // Fetch all formations
-    const { data: formations, error: formError } = await supabaseAdmin
-      .from('ecoles_partenaires')
-      .select('*')
-      .eq('is_active', true)
-      .eq('show_in_results', true)
+    const formations = []
+    const pageSize = 1000
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await supabaseAdmin
+        .from('ecoles_partenaires')
+        .select('*')
+        .eq('is_active', true)
+        .eq('show_in_results', true)
+        .order('id')
+        .range(offset, offset + pageSize - 1)
+      if (error) throw error
+      formations.push(...(data || []))
+      if (!data || data.length < pageSize) break
+    }
 
-    if (formError) throw formError
-    if (!formations || formations.length === 0) {
+    if (formations.length === 0) {
       return res.json({ matched: [] })
     }
 
@@ -564,8 +571,9 @@ function scoreFormations(formations, entryMap, pickFirstValue, jobRecommendation
   })
 
   return scored
-    .sort((a, b) => (b._raw - a._raw) || (b.match_score - a.match_score))
-    .slice(0, 12)
+    .sort((a, b) => (Number(b.results_priority) || 0) - (Number(a.results_priority) || 0)
+      || b.match_score - a.match_score
+      || String(a.id).localeCompare(String(b.id)))
     .map(({ _hits, _raw, ...rest }) => rest)
 }
 

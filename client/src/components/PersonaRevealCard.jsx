@@ -1,4 +1,5 @@
 import React from 'react'
+import { PiArrowRight } from 'react-icons/pi'
 import './PersonaRevealCard.css'
 
 // Shared persona reveal card, used by OrientationFlow (reveal phase) and
@@ -71,6 +72,7 @@ export default function PersonaRevealCard({
           {onContinue && (
             <button type="button" className="persona-continue" onClick={onContinue}>
               {sharing ? 'Préparation...' : continueLabel}
+              <PiArrowRight size={20} aria-hidden="true" focusable="false" />
             </button>
           )}
         </div>
@@ -78,5 +80,3 @@ export default function PersonaRevealCard({
     </div>
   )
 }
-
-

@@ -370,6 +370,16 @@
   border-radius: 999px;
   border: 1px solid rgba(0,0,0,.08);
 }
+.formation-lead-best-match {
+  align-self: flex-start;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--of-pink);
+  color: var(--of-ink);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+}
 .formation-lead-subtitle { margin: 0; color: #6b7280; font-size: 13px; }
 .formation-lead-meta { display: flex; flex-wrap: wrap; gap: 6px; }
 .formation-lead-chip {
@@ -465,6 +475,24 @@
 .persona-name-secondary { font-size: 24px; }
 .persona-reveal-wrap > .persona-actions-standalone { justify-content: center; }
 .persona-actions-standalone .persona-continue { flex: 0 1 320px; }
+.orientation-stage.formation-reveal-stage { padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px)); }
+.formation-reveal-actions {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 10;
+  justify-content: center;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid rgba(0,0,0,.08);
+  background: var(--of-cream);
+  box-shadow: 0 -8px 24px rgba(0,0,0,.06);
+}
+.formation-reveal-actions .persona-continue {
+  flex: 0 1 360px;
+  min-height: 52px;
+  padding: 12px 20px;
+  background: var(--of-lime);
+}
+.formation-reveal-actions .persona-continue:hover { background: #000; }
 .formation-lead-secondary { display: flex; flex-direction: column; gap: 10px; }
 .formation-lead-secondary-title { margin: 0; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; color: #9ca3af; }
 

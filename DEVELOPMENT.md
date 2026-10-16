@@ -33,9 +33,15 @@ Le controle navigateur utilise le serveur Vite local decrit ci-dessous (`BACKOFF
 
 La nouvelle interface est disponible sur `/admin/connexion`. Elle utilise une session Supabase distincte dans `sessionStorage`, sans deconnecter les sessions eleve ou ecole. Les deux administrateurs se connectent avec leurs comptes existants ; aucune inscription admin n'est proposee.
 
+Dans Utilisateurs, la fiche affiche les noms des metiers de la derniere analyse d'orientation et les questions avec les reponses enregistrees de l'eleve, pour une verification manuelle en lecture seule. Seul le questionnaire `inscription` est concerne ; aucune IA n'est appelee et aucun resultat n'est modifie. L'absence de reponses ou d'analyse est indiquee explicitement. Aucune migration supplementaire n'est necessaire.
+
 Les formations selectionnees sont prioritaires : dernieres selections sur l'accueil, liste par defaut dans `/admin/resultats` et rappel dans les fiches utilisateurs/analyses. Appliquer [migration_backoffice_selections.sql](server/database/migration_backoffice_selections.sql) pour activer cette vue. La recherche porte sur formation, etablissement, ville et utilisateur ; les demandes partenaires ont un filtre et un statut distincts. Les analyses restent disponibles dans leur onglet, en lecture seule.
 
+Les noms des formations sont cliquables depuis le tableau de bord, les selections, les fiches utilisateurs/analyses et les listes du catalogue et des partenaires. Le lien web enregistre (fiche de formation ou site de l'etablissement) s'ouvre dans un nouvel onglet, sans quitter le back-office. Si aucun lien HTTP(S) valide n'est disponible, le nom reste affiche avec la mention « Lien indisponible ». Aucun lien n'est invente et aucune nouvelle migration n'est requise.
+
 Pour le pilotage de la grille commune de recommandations, appliquer aussi [migration_backoffice_partner_results.sql](server/database/migration_backoffice_partner_results.sql). Les trois reglages sont dans chaque fiche `/admin/partenaires` : affichage dans les recommandations, accent visuel et priorite (0 a 100). Le controle pur du melange peut etre execute sans navigateur : `node client/scripts/verify-backoffice.mjs --results-only`.
+
+La case d'affichage rend une formation active eligible aux recommandations, sans forcer une correspondance avec tous les profils. Toutes les formations partenaires compatibles sont proposees : pas de limite de 3 dans le parcours ni de 12 dans l'API. La priorite du back-office determine l'ordre, puis le score de correspondance. Le filtre « pres de chez moi » reste applique ; les formations archivees ou masquees sont exclues. Le catalogue general reste distinct des recommandations personnalisees.
 
 La vue d'ensemble affiche le cumul des inscriptions eleves sur 30 jours, 90 jours ou 365 jours, avec les nouvelles inscriptions de la periode. Appliquer [migration_backoffice_student_growth.sql](server/database/migration_backoffice_student_growth.sql) pour activer cette statistique. Les comptes proprietaires/membres d'ecoles et les deux administrateurs sont exclus ; les comptes suspendus restent des inscriptions. La serie est calculee en SQL par jour UTC, sans limite de pagination. Elle est reconstruite a partir des comptes Auth encore presents et de leurs roles actuels : les suppressions et anciens changements de role ne constituent pas un historique conserve.
 
@@ -65,6 +71,20 @@ npm --prefix client run verify:admin-ui
 Ouvrir `http://127.0.0.1:5187/admin/connexion`. Le port 5187 est autorise par CORS uniquement en developpement ; `VITE_API_URL` doit cibler l'API locale. Pour un autre serveur client, definir `BACKOFFICE_TEST_URL` et configurer son origine cote backend. Les captures des tests sont dans le dossier temporaire `zelia-backoffice-tests`. Les tests navigateur/SQL n'utilisent pas les vrais comptes ni les donnees distantes.
 
 Les controles automatises couvrent les refus d'acces, les formulaires et confirmations, les sessions isolees, la pagination, les permissions RLS, ainsi que l'absence de suivi sur une entree directe `/admin`. Le graphique est verifie en SQL (cumul initial, jours vides, exclusions, calendrier UTC) et en navigateur (trace, periodes, etats vide/erreur, desktop/mobile). Les selections sont testees en SQL (dernier recapitulatif, indicateurs booleens, dedoublonnage, JSON invalide, partenaires archives, plus de 1000 lignes) et en navigateur (recherche, origine, utilisateur, pagination, details en lecture seule, etats vide/erreur, desktop/mobile). La migration distante et les connexions des deux comptes reels restent a valider manuellement en staging.
+
+## Parcours orientation
+
+Les CTA « Decouvre tes formations » et « Decouvre tes metiers » affichent une fleche vers la droite. Le second reste fixe en bas de l'ecran pendant le chargement et la consultation des formations ; un espace reserve permet de consulter le dernier resultat sans le masquer.
+
+Dans les resultats du parcours, les partenaires utilisent la meme case « Je veux plus d'infos » que les formations nationales, sans bouton d'envoi. Les cases partenaires sont decochees par defaut et les partenaires coches sont enregistres avec les autres choix a l'etape suivante. Cocher une case n'appelle pas `/ecoles/submit` et ne cree pas de demande dans `contact_submitted` ; les demandes explicites depuis le catalogue partenaire restent inchangees. La sauvegarde et la lecture dans le back-office conservent tous les choix, meme au-dela de 20 elements.
+
+La mention « La ou tu peux exceller » distingue une seule formation affichee : celle au meilleur score de correspondance, partenaires compris. En cas d'egalite, la premiere dans l'ordre d'affichage est retenue, sans modifier le classement ni les cases cochees. Les partenaires masques ou inactifs sont exclus. Aucun badge n'est affiche si aucun score de 0 a 100 n'est disponible.
+
+Le parcours ne remplace plus des recommandations vides par le catalogue non personnalise. Une erreur de chargement des partenaires est affichee avec un bouton de nouvel essai, sans proposer de formations dont la compatibilite n'a pas ete calculee. Le test d'integration local `node server/scripts/verify_partner_results.mjs` couvre la creation via le back-office, les filtres et priorites, plus de 12 correspondances, la pagination du catalogue et la sauvegarde de plus de 20 choix, sans donnees distantes.
+
+Les consignes de generation des metiers sont partagees dans `server/utils/orientationRecommendationGuard.js` : noms usuels en francais, simples et reconnus en France, sans titres inventes ni assemblages de specialites. Cela reduit le risque d'intitules complexes ou fictifs, sans constituer une verification dans un referentiel externe. Les analyses deja enregistrees ne sont pas regenerees.
+
+Avec Vite sur le port 5187 (ou `ORIENTATION_TEST_URL` pour une autre origine), lancer `npm --prefix client run verify:orientation-ui`. Les API sont simulees : fleches, chargement differe, barre fixe, dernier resultat accessible, selections et navigation sont controles sur desktop, mobile et petit ecran, avec un cas sans resultat. Les captures sont dans le dossier temporaire `zelia-orientation-tests`. Le garde-fou des recommandations reste verifiable avec `npm --prefix server run verify:orientation`.
 
 ## Backend Setup Complete ✅
 

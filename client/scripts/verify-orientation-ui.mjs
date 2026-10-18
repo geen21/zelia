@@ -25,7 +25,7 @@ const partners = [
   partner,
   { ...partner, id: 'partner-second', formation_name: 'BTS Tourisme', results_priority: 20, match_score: 80 },
   { ...partner, id: 'partner-third', formation_name: 'BTS Commerce', results_priority: 10, match_score: 70 },
-  { ...partner, id: 'partner-fourth', formation_name: 'BTS Gestion', results_priority: 5, match_score: 55 },
+  { ...partner, id: 'partner-fourth', formation_name: 'BTS Gestion', results_priority: 5, match_score: 100 },
   { ...partner, id: 'partner-hidden', show_in_results: false, results_priority: 100, match_score: 100 },
   { ...partner, id: 'partner-inactive', is_active: false, results_priority: 100, match_score: 100 },
   partner
@@ -51,7 +51,7 @@ try {
       ...partner, id: `partner-extra-${String(index).padStart(2, '0')}`,
       formation_name: `BTS Partenaire ${index + 1}`, results_priority: 0, match_score: 40
     })) : []
-    const partnerCount = hasPartners ? 4 + extraPartners.length : 0
+    const partnerCount = hasPartners ? 3 : 0
     const selectPartners = hasPartners && scenario.selectPartners !== false
     const context = await browser.newContext({ viewport: scenario.viewport })
     const page = await context.newPage()
@@ -180,7 +180,7 @@ try {
         await nationalCards.locator('.formation-lead-check').first().click()
         await expect(firstSelection).not.toBeChecked()
       }
-      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+      await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }))
       await expect(jobsCta).toBeInViewport({ ratio: 1 })
       const lastContent = await page.locator('.formation-lead-empty').boundingBox()
       const bar = await page.locator('.formation-reveal-actions').boundingBox()
@@ -207,7 +207,7 @@ try {
         assert.equal(savedSelections[0].length, formationCount)
         const partnerSaved = savedSelections[0].filter((entry) => entry.sourceTable === 'ecoles_partenaires')
         assert.equal(partnerSaved.length, selectPartners ? partnerCount : 0)
-        assert.deepEqual(partnerSaved.map((entry) => entry.rawId), selectPartners ? [...partners.slice(0, 4), ...extraPartners].map((entry) => entry.id) : [])
+        assert.deepEqual(partnerSaved.map((entry) => entry.rawId), selectPartners ? partners.slice(0, 3).map((entry) => entry.id) : [])
         assert.ok(partnerSaved.every((entry) => entry.requestMoreInformation && entry.partner && entry.detail.title === entry.raw.formation_name))
       }
       await page.getByRole('button', { name: 'Revenir en arrière' }).click()

@@ -22,7 +22,20 @@ assert.equal(mixed[7].key, 'partner-1')
 assert.equal(new Set(mixed.map((entry) => entry.key)).size, mixed.length)
 assert.equal(mixFormationResults([], partnerFixtures).length, 2)
 assert.equal(mixFormationResults(nationalFixtures, []).length, 7)
-assert.equal(mixFormationResults([], Array.from({ length: 24 }, (_, index) => ({ id: index + 1 }))).length, 24)
+const manyPartners = [
+  ...Array.from({ length: 24 }, (_, index) => ({ id: index + 1, match_score: index })),
+  { id: 24, match_score: 23 },
+  { id: 25, results_priority: 100, match_score: 0 },
+  { id: 26, results_priority: 100, is_active: false },
+  { id: 27, results_priority: 100, show_in_results: false }
+]
+const manyPartnersBefore = structuredClone(manyPartners)
+for (const formations of [[], nationalFixtures, Array.from({ length: 12 }, (_, index) => ({ id: index + 1 }))]) {
+  const limitedResults = mixFormationResults(formations, manyPartners)
+  assert.deepEqual(limitedResults.filter((entry) => entry.source === 'partner').map((entry) => entry.formation.id), [25, 24, 23])
+  assert.deepEqual(limitedResults.filter((entry) => entry.source === 'national').map((entry) => entry.formation), formations)
+}
+assert.deepEqual(manyPartners, manyPartnersBefore)
 assert.equal(partnerFixtures[0].id, 1)
 assert.equal(getBestFormationResultKey(mixed),'partner-1')
 assert.equal(getBestFormationResultKey(mixFormationResults([{ id:1,matchScore:99 },{ id:2,matchScore:80 }],partnerFixtures)),'formation-1')
@@ -35,7 +48,7 @@ assert.equal(getBestFormationResultKey(mixFormationResults([],[{ id:1,match_scor
 assert.equal(getBestFormationResultKey(mixFormationResults([],[
   { id:1,match_score:70,results_priority:30 },{ id:2,match_score:80,results_priority:20 },
   { id:3,match_score:90,results_priority:10 },{ id:4,match_score:100,results_priority:0 }
-])),'partner-4')
+])),'partner-3')
 assert.equal(getBestFormationResultKey([]),null)
 for (const matchScore of [undefined,null,'',false,'invalid',NaN,Infinity,-1,101]) {
   assert.equal(getBestFormationResultKey(mixFormationResults([{ id:1,matchScore }],[])),null)

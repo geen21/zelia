@@ -203,7 +203,7 @@ try {
   const adminResult = await request('/admin/results/1', 'GET', undefined, 'admin')
   assert.equal(adminResult.status, 200)
   assert.equal((await adminResult.json()).selections.length, 38)
-  console.log('Partner creation -> personalized results, no 3/12 cutoff, priority, visibility/city filters, pagination >1000 and 38 saved/read choices verified with local fixtures.')
+  console.log('Partner creation -> personalized API candidates without premature cutoff, priority, visibility/city filters, pagination >1000 and 38 saved/read choices verified with local fixtures.')
 } finally {
   server.close()
   await once(server, 'close')

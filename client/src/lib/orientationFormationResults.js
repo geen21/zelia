@@ -10,6 +10,7 @@ export function mixFormationResults(formations = [], partners = []) {
       seen.add(String(partner.id))
       return true
     })
+    .slice(0, 3)
   const results = []
   let partnerIndex = 0
   for (const [index, formation] of formations.entries()) {

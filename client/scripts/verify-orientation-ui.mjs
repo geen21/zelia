@@ -13,17 +13,23 @@ const questions = Array.from({ length: 20 }, (_, index) => ({
 }))
 const user = { id: 'orientation-fixture', first_name: 'Camille', department: '75' }
 const jobs = ['Infirmier', 'Électricien', 'Cuisinier', 'Mécanicien', 'Journaliste', 'Comptable']
-const formations = Array.from({ length: 12 }, (_, index) => ({
-  id: index + 1, nm: [`BTS Maintenance ${index + 1}`], nmc: `BTS-Maintenance-${index + 1}`,
-  etab_nom: `Lycée Exemple ${index + 1}`, commune: 'Paris', departement: '75', score: 0.9
-}))
+const formations = [
+  ...Array.from({ length: 12 }, (_, index) => ({
+    id: index + 1, nm: [`BTS Maintenance ${index + 1}`], nmc: `BTS-Maintenance-${index + 1}`,
+    etab_nom: `Lycée Exemple ${index + 1}`, commune: 'Paris', departement: '75', score: 0.9
+  })),
+  // Off-topic rows a broad catalog query can return: they must never be shown.
+  { id: 101, nm: ['Bachelor in Management (BSc)'], etab_nom: 'ESCP', commune: 'Paris', departement: '75', score: 24 },
+  { id: 102, nm: ['Bachelor of Arts in Fashion Design'], etab_nom: 'IFM', commune: 'Paris', departement: '75', score: 24 }
+]
+const offTopicTitles = ['Bachelor in Management', 'Fashion Design']
 const partner = {
   id: 'partner-fixture', school_name: 'École Exemple', formation_name: 'BTS Électrotechnique',
   city: 'Paris', diploma_level: 'Bac+2', is_active: true, results_priority: 30, match_score: 60
 }
 const partners = [
   partner,
-  { ...partner, id: 'partner-second', formation_name: 'BTS Tourisme', results_priority: 20, match_score: 80 },
+  { ...partner, id: 'partner-second', formation_name: 'BTS Tourisme', results_priority: 20, match_score: 96 },
   { ...partner, id: 'partner-third', formation_name: 'BTS Commerce', results_priority: 10, match_score: 70 },
   { ...partner, id: 'partner-fourth', formation_name: 'BTS Gestion', results_priority: 5, match_score: 100 },
   { ...partner, id: 'partner-hidden', show_in_results: false, results_priority: 100, match_score: 100 },
@@ -41,9 +47,11 @@ try {
     { name: 'equal-best', viewport: { width: 390, height: 844 }, populated: true, partnerMatchScore: 99 },
     { name: 'many-partners', viewport: { width: 390, height: 844 }, populated: true, manyPartners: true },
     { name: 'partner-retry', viewport: { width: 390, height: 844 }, populated: true, partnerFailure: true },
+    { name: 'recommendations-retry', viewport: { width: 390, height: 844 }, populated: true, snapshotFailure: true },
     { name: 'no-partner-match', viewport: { width: 390, height: 844 }, populated: true, noPartners: true },
     { name: 'unselected-partners', viewport: { width: 390, height: 844 }, populated: true, selectPartners: false },
     { name: 'partners-only', viewport: { width: 390, height: 844 }, populated: false, partnersOnly: true },
+    { name: 'partners-only-unselected', viewport: { width: 390, height: 844 }, populated: false, partnersOnly: true, selectPartners: false },
     { name: 'empty', viewport: { width: 390, height: 844 }, populated: false }
   ]) {
     const hasPartners = !scenario.noPartners && (scenario.populated || scenario.partnersOnly)
@@ -58,6 +66,8 @@ try {
     page.setDefaultTimeout(15000)
     const errors = []
     const savedSelections = []
+    const savedRecommendations = []
+    let recommendationRequests = 0
     let partnerRequests = 0
     let releaseCatalog
     const catalogReady = new Promise((resolve) => { releaseCatalog = resolve })
@@ -90,8 +100,15 @@ try {
       else if (path === '/users/me') data = { user }
       else if (path === '/users/profile') data = { profile: user }
       else if (path === '/users/profile/extra-info') {
-        const selection = request.postDataJSON()?.entries?.find((entry) => entry.question_id === 'orientation_final_selection')
+        const entries = request.postDataJSON()?.entries || []
+        const selection = entries.find((entry) => entry.question_id === 'orientation_final_selection')
         if (selection) savedSelections.push(JSON.parse(selection.answer_text))
+        const recommendations = entries.find((entry) => entry.question_id === 'orientation_recommendations')
+        if (recommendations) {
+          recommendationRequests += 1
+          if (scenario.snapshotFailure && recommendationRequests === 1) return route.fulfill({ status:503,json:{ error:'Snapshot save unavailable' } })
+          savedRecommendations.push(JSON.parse(recommendations.answer_text))
+        }
       } else if (path === '/analysis/my-results') data = {
         results: {
           personalityAnalysis: 'Tu apprécies les activités concrètes.',
@@ -125,6 +142,7 @@ try {
       const jobsCta = page.getByRole('button', { name: 'Découvre tes métiers', exact: true })
       await expect(page.getByText('On cherche parmi 127 498 formations celles qui collent vraiment à ton profil...')).toBeVisible()
       await expect(jobsCta).toBeInViewport({ ratio: 1 })
+      await expect(jobsCta).toBeDisabled()
       await expect(jobsCta.locator('svg[aria-hidden="true"]')).toBeVisible()
       await expect(page.locator('.formation-reveal-actions')).toHaveCSS('position', 'fixed')
       const partnerCards = page.locator('.formation-lead-card[data-source="partner"]')
@@ -135,26 +153,41 @@ try {
         await expect(page.getByRole('alert')).toHaveCount(0)
       }
       await expect(partnerCards).toHaveCount(partnerCount)
-      await expect(page.getByText('Là où tu peux exceller', { exact: true })).toHaveCount(hasPartners ? 1 : 0)
+      // The badge needs a strong match: weak partner scores alone don't earn it.
+      const partnerBadge = hasPartners && (scenario.partnerMatchScore ?? 96) >= 80
+      await expect(page.getByText('Là où tu peux exceller', { exact: true })).toHaveCount(partnerBadge ? 1 : 0)
       await expect(page.getByRole('button', { name: /Demande d'infos|Demande envoyée/ })).toHaveCount(0)
       if (hasPartners) {
         for (const card of await partnerCards.all()) {
           const checkbox = card.getByRole('checkbox', { name: "Je veux plus d'infos" })
-          await expect(checkbox).not.toBeChecked()
-          await card.locator('.formation-lead-check').click()
           await expect(checkbox).toBeChecked()
-          await card.locator('.formation-lead-check').click()
-          await expect(checkbox).not.toBeChecked()
-          if (selectPartners) await card.locator('.formation-lead-check').click()
+          if (!selectPartners) {
+            await card.locator('.formation-lead-check').click()
+            await expect(checkbox).not.toBeChecked()
+          }
         }
       }
       assert.equal(savedSelections.length, 0, 'Toggling a partner must not submit or save a request.')
+      if (scenario.snapshotFailure) {
+        await expect(page.getByRole('alert')).toContainText('Impossible d’enregistrer les recommandations')
+        await page.getByRole('button',{ name:'Réessayer l’enregistrement des recommandations',exact:true }).click()
+        await expect(page.getByRole('alert')).toHaveCount(0)
+      }
+      if (hasPartners) {
+        await expect.poll(() => savedRecommendations.some((items) => items.filter((item) => item.sourceTable === 'ecoles_partenaires').length === partnerCount)).toBe(true)
+      }
       releaseCatalog()
 
       await expect(page.getByRole('button', { name: "Voir d'autres formations" })).toHaveCount(1)
+      await expect(jobsCta).toBeEnabled()
       await expect(page.locator('.formation-lead-card[data-source="national"]')).toHaveCount(scenario.populated ? 8 : 0)
+      for (const title of offTopicTitles) await expect(page.locator('.formation-lead-card', { hasText: title })).toHaveCount(0)
       await expect(partnerCards).toHaveCount(partnerCount)
       await expect(page.getByRole('checkbox')).toHaveCount((scenario.populated ? 8 : 0) + partnerCount)
+      const recommendationCount = (scenario.populated ? 8 : 0) + partnerCount
+      await expect.poll(() => savedRecommendations.at(-1)?.length).toBe(recommendationCount)
+      assert.ok(savedRecommendations.at(-1).every((item) => !Object.hasOwn(item,'requestMoreInformation')),'A displayed recommendation does not represent a choice or a request for information.')
+      assert.equal(savedSelections.length,0,'Displayed recommendations must be recorded before continuation, separately from choices.')
       const bestBadge = page.getByText('Là où tu peux exceller', { exact: true })
       await expect(bestBadge).toHaveCount(scenario.populated || hasPartners ? 1 : 0)
       if (scenario.populated || hasPartners) {
@@ -195,7 +228,7 @@ try {
       await expect(page.getByRole('heading', { name: 'Des métiers qui pourraient te plaire' })).toBeVisible()
       await expect(page.locator('.formation-reveal-actions')).toHaveCount(0)
       assert.deepEqual(await page.locator('.persona-portrait-tile strong').allTextContents(), jobs)
-      const formationCount = (scenario.populated ? 8 : 0) + (selectPartners ? partnerCount : 0)
+      const formationCount = (scenario.populated ? 8 : 0) + partnerCount
       await expect.poll(() => savedSelections.length).toBe(formationCount ? 1 : 0)
       if (scenario.populated) {
         const nationalSaved = savedSelections[0].filter((entry) => entry.sourceTable === 'formation_france')
@@ -206,12 +239,16 @@ try {
       if (formationCount) {
         assert.equal(savedSelections[0].length, formationCount)
         const partnerSaved = savedSelections[0].filter((entry) => entry.sourceTable === 'ecoles_partenaires')
-        assert.equal(partnerSaved.length, selectPartners ? partnerCount : 0)
-        assert.deepEqual(partnerSaved.map((entry) => entry.rawId), selectPartners ? partners.slice(0, 3).map((entry) => entry.id) : [])
-        assert.ok(partnerSaved.every((entry) => entry.requestMoreInformation && entry.partner && entry.detail.title === entry.raw.formation_name))
+        assert.equal(partnerSaved.length, partnerCount)
+        assert.deepEqual(partnerSaved.map((entry) => entry.rawId), hasPartners ? partners.slice(0, 3).map((entry) => entry.id) : [])
+        assert.ok(partnerSaved.every((entry) => entry.requestMoreInformation === selectPartners && entry.partner && entry.detail.title === entry.raw.formation_name))
       }
       await page.getByRole('button', { name: 'Revenir en arrière' }).click()
       await expect(jobsCta).toBeInViewport({ ratio: 1 })
+      await expect(jobsCta).toBeEnabled()
+      if (scenario.populated) {
+        await expect(page.locator('.formation-lead-card[data-source="national"]').getByRole('checkbox').first()).not.toBeChecked()
+      }
       if (hasPartners) {
         for (const checkbox of await partnerCards.getByRole('checkbox').all()) {
           if (selectPartners) await expect(checkbox).toBeChecked()
@@ -219,12 +256,18 @@ try {
         }
       }
       await jobsCta.click()
-      if (formationCount) await expect.poll(() => savedSelections.length).toBe(2)
+      if (formationCount) {
+        await expect.poll(() => savedSelections.length).toBe(2)
+        assert.deepEqual(savedSelections[1], savedSelections[0], 'Returning to recommendations must preserve deselections.')
+      }
       await page.getByRole('button', { name: 'On continue !', exact: true }).click()
       await expect.poll(() => savedSelections.length).toBe(formationCount ? 3 : 1)
       const finalSelection = savedSelections.at(-1)
       assert.equal(finalSelection.length, formationCount + jobs.length)
       assert.equal(finalSelection.filter((entry) => entry.type === 'metier').length, jobs.length)
+      if (formationCount) {
+        assert.deepEqual(finalSelection.filter((entry) => entry.type === 'formation'), savedSelections[0])
+      }
       assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('orientation_final_selection'))), finalSelection)
       assert.deepEqual(errors, [])
       console.log(`${scenario.name}: shared checkboxes, partner choices during loading, saved selections without submissions, CTA visibility and navigation verified.`)

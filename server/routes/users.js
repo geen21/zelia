@@ -6,6 +6,7 @@ import { sendMailSafe } from '../utils/mailer.js'
 const router = express.Router()
 
 const FINAL_SELECTION_QUESTION_ID = 'orientation_final_selection'
+const RECOMMENDATIONS_QUESTION_ID = 'orientation_recommendations'
 const EXTRA_INFO_LIMIT = 250
 const MAX_ANSWER_TEXT_LENGTH = 12000
 
@@ -18,10 +19,10 @@ function normalizeSchoolNameForMatch(value) {
 }
 
 function extractSchoolNameFromCandidate(candidate) {
-  if (!candidate || candidate.type !== 'formation') return ''
+  if (!candidate || candidate.type !== 'formation' || candidate.requestMoreInformation !== true) return ''
   const raw = candidate.raw || {}
   const subtitle = typeof candidate.subtitle === 'string' ? candidate.subtitle : ''
-  return String(raw.etab_nom || raw.school_name || subtitle.split(' - ')[0] || '').trim()
+  return String(candidate.schoolName || raw.etab_nom || raw.school_name || subtitle.split(' - ')[0] || '').trim()
 }
 
 // Best-effort email notification: when a student saves a final-selection
@@ -96,6 +97,7 @@ function compactFinalSelectionCandidate(candidate) {
   const detail = candidate && typeof candidate.detail === 'object' ? candidate.detail : {}
   const compact = {
     id: firstTextValue(candidate?.id, raw.id, raw.nm, raw.nmc),
+    rawId: firstTextValue(candidate?.rawId, raw.id),
     type: firstTextValue(candidate?.type, raw.type),
     title: firstTextValue(
       detail.title,
@@ -118,7 +120,7 @@ function compactFinalSelectionCandidate(candidate) {
   }
 
   const cleaned = Object.fromEntries(Object.entries(compact).filter(([, value]) => value !== ''))
-  if (candidate?.requestMoreInformation === true) cleaned.requestMoreInformation = true
+  if (typeof candidate?.requestMoreInformation === 'boolean') cleaned.requestMoreInformation = candidate.requestMoreInformation
   return cleaned
 }
 
@@ -148,7 +150,7 @@ function compactFinalSelectionAnswer(answerText) {
 
 function sanitizeExtraInfoEntry(entry) {
   const questionId = String(entry?.question_id || '')
-  const answerText = questionId === FINAL_SELECTION_QUESTION_ID
+  const answerText = [FINAL_SELECTION_QUESTION_ID, RECOMMENDATIONS_QUESTION_ID].includes(questionId)
     ? compactFinalSelectionAnswer(entry?.answer_text)
     : entry?.answer_text != null && String(entry.answer_text).length > MAX_ANSWER_TEXT_LENGTH
       ? `${String(entry.answer_text).slice(0, MAX_ANSWER_TEXT_LENGTH)}...`
@@ -169,6 +171,7 @@ async function fetchExtraInfoEntries(db, userId) {
     .select(selectColumns)
     .eq('user_id', userId)
     .neq('question_id', FINAL_SELECTION_QUESTION_ID)
+    .neq('question_id', RECOMMENDATIONS_QUESTION_ID)
     .order('created_at', { ascending: false })
     .limit(EXTRA_INFO_LIMIT)
 
@@ -184,7 +187,18 @@ async function fetchExtraInfoEntries(db, userId) {
 
   if (finalSelectionError) throw finalSelectionError
 
-  return [...(finalSelectionEntries || []), ...(regularEntries || [])]
+  const { data: recommendationEntries, error: recommendationError } = await db
+    .from('informations_complementaires')
+    .select(selectColumns)
+    .eq('user_id', userId)
+    .eq('question_id', RECOMMENDATIONS_QUESTION_ID)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(1)
+
+  if (recommendationError) throw recommendationError
+
+  return [...(finalSelectionEntries || []), ...(recommendationEntries || []), ...(regularEntries || [])]
     .map(sanitizeExtraInfoEntry)
     .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
 }

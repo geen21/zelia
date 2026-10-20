@@ -39,6 +39,7 @@ let entries = [{ user_id: student.id, question_id: 'orientation_career_domains',
 let profile = { id: student.id, department: '75' }
 let analysis = { id: '1', user_id: student.id, questionnaire_type: 'inscription', job_recommendations: [{ title: 'Developpeur Web' }] }
 let partnerErrorOffset = null
+let companyLookups = 0
 const partnerRanges = []
 
 function rowsFor(table) {
@@ -47,8 +48,8 @@ function rowsFor(table) {
     case 'informations_complementaires': return entries
     case 'profiles': return profile ? [profile] : []
     case 'user_results': return analysis ? [analysis] : []
-    case 'backoffice_account_suspensions':
-    case 'companies': return []
+    case 'backoffice_account_suspensions': return []
+    case 'companies': companyLookups += 1; return []
     default: throw new Error(`Unexpected table: ${table}`)
   }
 }
@@ -105,6 +106,13 @@ const db = {
   },
   async rpc(name, args) {
     if (name === 'backoffice_users') return { data: { items: [student], total: 1 }, error: null }
+    if (name === 'backoffice_create_partner_campuses') {
+      const items = args.p_cities.map((city,index) => ({
+        ...args.p_patch,city,id:`ecv-campus-${index}`,is_active:true
+      }))
+      partners.push(...items)
+      return { data:{ items,total:items.length },error:null }
+    }
     assert.equal(name, 'backoffice_change')
     assert.equal(args.p_kind, 'partner')
     let item
@@ -169,6 +177,22 @@ try {
   )
   assert.deepEqual((await matched()).matched.map((formation) => formation.id), [newPartnerId])
 
+  const ecvCreated = await request('/admin/partners/campuses','POST',{
+    school_name:'ECV',formation_name:'Bachelor Design graphique',domain:'Design graphique',
+    cities:['Paris','Bordeaux','Nantes'],show_in_results:true
+  },'admin')
+  assert.equal(ecvCreated.status,201)
+  const ecvItems = (await ecvCreated.json()).items
+  entries = [
+    { user_id:student.id,question_id:'orientation_career_domains',answer_text:'["creation_communication"]' },
+    { user_id:student.id,question_id:'orientation_study_location',answer_text:'near_home' },
+    { user_id:student.id,question_id:'orientation_city',answer_text:'Bordeaux' }
+  ]
+  analysis = { ...analysis,job_recommendations:[{ title:'Designer graphique' }] }
+  assert.deepEqual((await matched()).matched.map((item) => item.id),[ecvItems.find((item) => item.city === 'Bordeaux').id])
+  entries.find((entry) => entry.question_id === 'orientation_city').answer_text = 'Nantes'
+  assert.deepEqual((await matched()).matched.map((item) => item.id),[ecvItems.find((item) => item.city === 'Nantes').id])
+
   entries = []
   profile = { id: student.id }
   analysis = { ...analysis, job_recommendations: [] }
@@ -181,6 +205,61 @@ try {
   partnerErrorOffset = 1000
   assert.equal((await request('/ecoles/matched')).status, 500, 'A failed page must not return partial recommendations')
   partnerErrorOffset = null
+
+  const recommendedPartners = Array.from({ length: 3 }, (_, index) => ({
+    id: `partner-recommended-${index}`, type: 'formation', sourceTable: 'ecoles_partenaires',
+    title: `Formation partenaire ${index}`, requestMoreInformation: true,
+    raw: { school_name: `Ecole Partenaire ${index}`, city: 'Paris' },
+    detail: { title: `Formation partenaire ${index}`, subtitle: `Ecole Partenaire ${index} - Paris`, link: `https://example.com/partner-${index}` }
+  }))
+  const dismissedPartners = recommendedPartners.map((candidate) => ({ ...candidate, requestMoreInformation: false }))
+  const lookupsBeforeDismissal = companyLookups
+  const dismissedSave = await request('/users/profile/extra-info', 'POST', { entries: [{
+    question_id: 'orientation_final_selection', question_text: 'Selection finale orientation',
+    answer_text: JSON.stringify(dismissedPartners)
+  }] })
+  assert.equal(dismissedSave.status, 200)
+  assert.equal(companyLookups, lookupsBeforeDismissal, 'Deselected partners must not trigger school notifications')
+  const dismissedStored = JSON.parse(entries.find((entry) => entry.question_id === 'orientation_final_selection').answer_text)
+  assert.ok(dismissedStored.every((candidate) => candidate.requestMoreInformation === false))
+
+  const beforeSnapshotLookups = companyLookups
+  const snapshotSave = await request('/users/profile/extra-info','POST',{ entries:[{
+    question_id:'orientation_recommendations',question_text:'Formations affichees',answer_text:JSON.stringify(recommendedPartners)
+  }] })
+  assert.equal(snapshotSave.status,200)
+  assert.equal(companyLookups,beforeSnapshotLookups,'Recommendation snapshots must never notify schools, even with checked candidates')
+  const storedSnapshot = JSON.parse(entries.find((entry) => entry.question_id === 'orientation_recommendations').answer_text)
+  assert.equal(storedSnapshot.length,3)
+  assert.deepEqual(storedSnapshot.map((candidate) => candidate.schoolName),['Ecole Partenaire 0','Ecole Partenaire 1','Ecole Partenaire 2'])
+  const snapshotAdmin = await request('/admin/results/1','GET',undefined,'admin')
+  assert.equal(snapshotAdmin.status,200)
+  assert.deepEqual((await snapshotAdmin.json()).recommendations,storedSnapshot)
+
+  const recommendations = [
+    ...Array.from({ length: 8 }, (_, index) => ({
+      id: `formation-recommended-${index}`, type: 'formation', sourceTable: 'formation_france',
+      title: `Formation nationale ${index}`, requestMoreInformation: true
+    })),
+    ...recommendedPartners
+  ]
+  recommendations.at(-1).requestMoreInformation = false
+  const recommendationsSave = await request('/users/profile/extra-info', 'POST', { entries: [{
+    question_id: 'orientation_final_selection', question_text: 'Selection finale orientation',
+    answer_text: JSON.stringify(recommendations)
+  }] })
+  assert.equal(recommendationsSave.status, 200)
+  const recommendationRead = await request('/users/profile/extra-info')
+  assert.equal(recommendationRead.status, 200)
+  const savedRecommendations = JSON.parse((await recommendationRead.json()).entries.find((entry) => entry.question_id === 'orientation_final_selection').answer_text)
+  assert.equal(savedRecommendations.length, 11, 'Store all 8 national and 3 displayed partner recommendations')
+  const savedPartners = savedRecommendations.filter((candidate) => candidate.sourceTable === 'ecoles_partenaires')
+  assert.deepEqual(savedPartners.map((candidate) => candidate.schoolName), ['Ecole Partenaire 0', 'Ecole Partenaire 1', 'Ecole Partenaire 2'])
+  assert.deepEqual(savedPartners.map((candidate) => candidate.requestMoreInformation), [true, true, false])
+  assert.deepEqual(savedPartners.map((candidate) => candidate.link), recommendedPartners.map((candidate) => candidate.detail.link))
+  const recommendationsAdmin = await request('/admin/results/1', 'GET', undefined, 'admin')
+  assert.equal(recommendationsAdmin.status, 200)
+  assert.deepEqual((await recommendationsAdmin.json()).selections, savedRecommendations)
 
   const choices = Array.from({ length: 38 }, (_, index) => ({
     id: `choice-${index}`, type: index < 32 ? 'formation' : 'metier',

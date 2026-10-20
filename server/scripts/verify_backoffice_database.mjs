@@ -92,8 +92,46 @@ try {
   assert.equal(visiblePartner.is_active,true)
   assert.equal(visiblePartner.show_in_results,true)
   assert.equal((await db.query('SELECT id FROM ecoles_partenaires WHERE id=$1 AND is_active AND show_in_results',[visiblePartner.id])).rows.length,1)
+  const campusesMigration = await readFile(new URL('../database/migration_backoffice_partner_campuses.sql',import.meta.url),'utf8')
+  await db.exec(campusesMigration)
+  await db.exec(campusesMigration)
+  const createCampuses = (patch,cities,actor = joris) => rpc('SELECT public.backoffice_create_partner_campuses($1,$2,$3,$4) AS result',[actor,JSON.stringify(patch),cities,'Ajout campus'])
+  const ecv = { school_name:'ECV',formation_name:'Bachelor Design graphique',domain:'Design',diploma_level:'Bac+3',show_in_results:true,highlight_in_results:false,results_priority:15 }
+  const ecvCampuses = await createCampuses(ecv,[' Paris ','Bordeaux','Nantes'])
+  assert.equal(ecvCampuses.total,3)
+  assert.deepEqual(ecvCampuses.items.map((item) => item.city),['Paris','Bordeaux','Nantes'])
+  assert.ok(ecvCampuses.items.every((item) => item.school_name === 'ECV' && item.show_in_results && !item.highlight_in_results && item.results_priority === 15))
+  assert.equal((await db.query("SELECT count(*)::int AS count FROM backoffice_audit WHERE resource_id = ANY($1::text[])",[ecvCampuses.items.map((item) => item.id)])).rows[0].count,3)
+  await assert.rejects(createCampuses(ecv,['Paris','Lille']),/PARTNER_CAMPUS_EXISTS/)
+  assert.equal((await db.query("SELECT id FROM ecoles_partenaires WHERE school_name='ECV' AND city='Lille'")).rows.length,0)
+  await assert.rejects(createCampuses(ecv,['Lille',' lille ']),/DUPLICATE_CAMPUS/)
+  await assert.rejects(createCampuses(ecv,[]),/INVALID_CAMPUSES/)
+  await assert.rejects(createCampuses(ecv,['']),/INVALID_CAMPUSES/)
+  await assert.rejects(createCampuses(ecv,[null]),/INVALID_CAMPUSES/)
+  await assert.rejects(createCampuses(ecv,Array(21).fill('Lille')),/INVALID_CAMPUSES/)
+  await assert.rejects(createCampuses(ecv,['Lille'],student),/ADMIN_ACCESS_DENIED/)
+  await assert.rejects(createCampuses({ ...ecv,city:'Paris' },['Lille']),/INVALID_PATCH/)
+  await assert.rejects(createCampuses({ ...ecv,formation_name:'' },['Lille']),/INVALID_PATCH/)
+  const beforeCampusFailure = (await db.query('SELECT count(*)::int AS count FROM backoffice_audit')).rows[0].count
+  await db.exec(`CREATE FUNCTION public.reject_fixture_campus() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN IF NEW.city = 'Fixture failure' THEN RAISE EXCEPTION 'FIXTURE_CAMPUS_FAILURE'; END IF; RETURN NEW; END; $$;
+    CREATE TRIGGER reject_fixture_campus BEFORE INSERT ON ecoles_partenaires FOR EACH ROW EXECUTE FUNCTION public.reject_fixture_campus();`)
+  await assert.rejects(createCampuses(ecv,['Lille','Fixture failure']),/FIXTURE_CAMPUS_FAILURE/)
+  await db.exec('DROP TRIGGER reject_fixture_campus ON ecoles_partenaires; DROP FUNCTION public.reject_fixture_campus();')
+  assert.equal((await db.query("SELECT id FROM ecoles_partenaires WHERE school_name='ECV' AND city='Lille'")).rows.length,0)
+  assert.equal((await db.query('SELECT count(*)::int AS count FROM backoffice_audit')).rows[0].count,beforeCampusFailure,'Failed batches roll back both campuses and their audit entries')
+  const addedCampus = await createCampuses(ecv,['Lille'])
+  assert.equal(addedCampus.items[0].city,'Lille')
+  assert.equal((await db.query("SELECT count(*)::int AS count FROM ecoles_partenaires WHERE school_name='ECV'")).rows[0].count,4)
+  await change('partner',addedCampus.items[0].id,{ link:'https://example.com/ecv-lille' })
+  const otherCampusLinks = (await db.query('SELECT link FROM ecoles_partenaires WHERE id = ANY($1::uuid[])',[ecvCampuses.items.map((item) => item.id)])).rows
+  assert.ok(otherCampusLinks.every((item) => !item.link),'Other campus links stay unchanged')
+  assert.equal((await createCampuses({ ...ecv,formation_name:'Autre formation' },['Paris'])).total,1,'Different formations can share a campus')
   await db.exec('SET ROLE authenticated')
-  try { await assert.rejects(db.query('UPDATE ecoles_partenaires SET results_priority=100'), /permission denied/) }
+  try {
+    await assert.rejects(db.query('UPDATE ecoles_partenaires SET results_priority=100'), /permission denied/)
+    await assert.rejects(createCampuses(ecv,['Lyon']),/permission denied/)
+  }
   finally { await db.exec('RESET ROLE') }
   await change('profile',student,{ first_name: 'Corrected' })
   assert.equal((await db.query('SELECT first_name FROM profiles WHERE id=$1',[student])).rows[0].first_name,'Corrected')
@@ -184,10 +222,65 @@ try {
   assert.equal((await rpc("SELECT public.backoffice_selections('Chosen current') AS result")).total,1)
   assert.equal((await rpc("SELECT public.backoffice_selections('Old choice') AS result")).total,0)
   assert.equal((await rpc("SELECT public.backoffice_selections('','partner') AS result")).total,1)
+  const recommended = [
+    ...Array.from({ length:8 },(_,index) => ({
+      id:`formation-${index}`,type:'formation',sourceTable:'formation_france',title:`Formation nationale ${index}`,
+      schoolName:`Universite ${index}`,subtitle:`Universite ${index}`,requestMoreInformation:true
+    })),
+    ...Array.from({ length:3 },(_,index) => ({
+      id:`partner-${index}`,type:'formation',sourceTable:'ecoles_partenaires',title:`Formation partenaire ${index}`,
+      schoolName:`Ecole partenaire ${index}`,subtitle:`Ecole partenaire ${index} - Paris`,city:'Paris',requestMoreInformation:true
+    }))
+  ]
+  const savedRecommendation = await db.query(`INSERT INTO informations_complementaires(user_id,question_id,answer_text)
+    VALUES($1,'orientation_final_selection',$2) RETURNING id`,[student,JSON.stringify(recommended)])
+  const dashboardRecommendations = await rpc("SELECT public.backoffice_selections('','orientation',50,0,$1) AS result",[student])
+  assert.equal(dashboardRecommendations.total,11,'Dashboard includes all eight national and three preselected partner recommendations')
+  for (let index=0;index<3;index+=1) {
+    const row = dashboardRecommendations.items.find((item) => item.formation_name === `Formation partenaire ${index}`)
+    assert.ok(row)
+    assert.ok(row.school_name.includes(`Ecole partenaire ${index}`))
+    assert.equal(row.city,'Paris')
+  }
+  recommended[0].requestMoreInformation = false
+  recommended.at(-1).requestMoreInformation = false
+  await db.query('UPDATE informations_complementaires SET answer_text=$1 WHERE id=$2',[JSON.stringify(recommended),savedRecommendation.rows[0].id])
+  const dashboardRetained = await rpc("SELECT public.backoffice_selections('','orientation',50,0,$1) AS result",[student])
+  assert.equal(dashboardRetained.total,9,'Dashboard excludes deselected recommendations for both sources')
+  assert.ok(!dashboardRetained.items.some((item) => ['Formation nationale 0','Formation partenaire 2'].includes(item.formation_name)))
   await db.query("INSERT INTO informations_complementaires(user_id,question_id,answer_text,created_at) VALUES($1,'orientation_final_selection','broken JSON',now()+interval '1 second')",[student])
   assert.equal((await rpc("SELECT public.backoffice_selections('','orientation',50,0,$1) AS result",[student])).total,0)
   await assert.rejects(asStudent('SELECT public.backoffice_selections()'),/permission denied/)
   await assert.rejects(asStudent("SELECT public.backoffice_selected_candidates('[]')"),/permission denied/)
+  const recommendationsMigration = await readFile(new URL('../database/migration_backoffice_recommendations.sql',import.meta.url),'utf8')
+  await db.exec(recommendationsMigration)
+  await db.exec(recommendationsMigration)
+  const displayed = [
+    ...Array.from({ length:8 },(_,index) => ({ id:`national-${index}`,type:'formation',sourceTable:'formation_france',title:`Formation nationale ${index}`,schoolName:'Universite Exemple' })),
+    ...['Paris','Bordeaux','Nantes'].map((city,index) => ({
+      id:`partner-ecv-${index}`,rawId:`ecv-${index}`,type:'formation',sourceTable:'ecoles_partenaires',title:'Bachelor Design graphique',
+      schoolName:'ECV',city,requestMoreInformation:false,link:`https://example.com/ecv-${index}`
+    }))
+  ]
+  await db.query(`INSERT INTO informations_complementaires(user_id,question_id,answer_text,created_at)
+    VALUES($1,'orientation_recommendations',$2,now()+interval '2 seconds')`,[student,JSON.stringify(displayed)])
+  const recommendationList = await rpc("SELECT public.backoffice_recommendations('','all',50,0,$1) AS result",[student])
+  assert.equal(recommendationList.total,11)
+  assert.deepEqual(recommendationList.items.slice(0,3).map((item) => item.source),['partner','partner','partner'])
+  const partnerRecommendations = await rpc("SELECT public.backoffice_recommendations('','partner',50,0,$1) AS result",[student])
+  assert.equal(partnerRecommendations.total,3,'All displayed partners remain visible even with requestMoreInformation=false')
+  assert.ok(partnerRecommendations.items.every((item) => item.school_name === 'ECV' && item.detail.link.startsWith('https://example.com/ecv-')))
+  assert.equal((await rpc("SELECT public.backoffice_recommendations('Bordeaux','partner') AS result")).total,1)
+  assert.equal((await rpc("SELECT public.backoffice_recommendations('','national',50,0,$1) AS result",[student])).total,8)
+  assert.equal((await rpc("SELECT public.backoffice_recommendations('','national',50,1000) AS result")).items.length,9)
+  assert.equal((await rpc("SELECT public.backoffice_selections('','orientation',50,0,$1) AS result",[student])).total,0,'Recording recommendations never implies a retained choice')
+  assert.equal((await rpc("SELECT public.backoffice_recommendations('Formation fixture') AS result")).total,0)
+  await db.query(`INSERT INTO informations_complementaires(user_id,question_id,answer_text,created_at)
+    VALUES($1,'orientation_recommendations','[]',now()+interval '3 seconds')`,[student])
+  assert.equal((await rpc("SELECT public.backoffice_recommendations('','partner',50,0,$1) AS result",[student])).total,0,'Empty new snapshots must not revive old partners')
+  assert.equal((await rpc("SELECT public.backoffice_recommendations('','national') AS result")).total,1001,'Legacy final selections remain a read-only fallback')
+  await assert.rejects(asStudent('SELECT public.backoffice_recommendations()'),/permission denied/)
+  await assert.rejects(asStudent("SELECT public.backoffice_recommended_candidates('[]')"),/permission denied/)
   console.log('Back-office PostgreSQL functions, student growth/UTC/exclusions, pagination >1000, atomic audit, suspension and RLS verified.')
 } finally {
   await db.close()

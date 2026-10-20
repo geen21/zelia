@@ -492,7 +492,8 @@
   padding: 12px 20px;
   background: var(--of-lime);
 }
-.formation-reveal-actions .persona-continue:hover { background: #000; }
+.formation-reveal-actions .persona-continue:hover:not(:disabled) { background: #000; }
+.formation-reveal-actions .persona-continue:disabled { cursor: wait; opacity: .7; }
 .formation-lead-secondary { display: flex; flex-direction: column; gap: 10px; }
 .formation-lead-secondary-title { margin: 0; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; color: #9ca3af; }
 

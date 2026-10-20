@@ -19,14 +19,18 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
   const run = (handler) => async (req, res) => {
     try { await handler(req, res) } catch (error) {
       const code = error.code || ''
+      const missingCampusMigration = code === 'BACKOFFICE_PARTNER_CAMPUSES_MIGRATION_REQUIRED'
       const missingPartnerMigration = code === 'BACKOFFICE_PARTNER_RESULTS_MIGRATION_REQUIRED'
-      const missingMigration = missingPartnerMigration || ['42P01','42703','42883','PGRST202','PGRST205'].includes(code)
+      const missingMigration = missingCampusMigration || missingPartnerMigration || ['42P01','42703','42883','PGRST202','PGRST205'].includes(code)
       const status = error.status || (missingMigration ? 503 : ['P0002','PGRST116'].includes(code) ? 404
         : code === '42501' ? 403 : ['23505','40001'].includes(code) ? 409
           : ['22023','22P02','23503','23502','23514'].includes(code) ? 400 : 500)
-      const message = error.status === 400 ? error.message : missingPartnerMigration
+      const message = error.status === 400 ? error.message : missingCampusMigration
+        ? 'La creation multi-campus necessite la migration migration_backoffice_partner_campuses.sql dans Supabase.' : missingPartnerMigration
         ? 'Les reglages partenaires necessitent la migration migration_backoffice_partner_results.sql dans Supabase.' : missingMigration
         ? 'La migration SQL du back-office doit etre appliquee.' : status === 404 ? 'Element introuvable.'
+          : code === '23505' && error.message === 'PARTNER_CAMPUS_EXISTS'
+            ? 'Cette formation existe deja pour un des campus saisis. Aucun campus n\'a ete ajoute.'
           : status === 409 ? 'Modification concurrente ou doublon. Actualisez puis reessayez.'
             : status === 403 ? 'Cette action est interdite.' : 'Impossible de terminer cette operation.'
       if (status >= 500) console.error('Back-office request failed:', code || error.message)
@@ -85,15 +89,16 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
     const id = identifier(req.params.id, true)
     const users = await rpc('backoffice_users', { p_user_id: id })
     if (!users.items.length) return res.status(404).json({ message: 'Compte introuvable.' })
-    const [profile, extraInfo, schools, memberships, orientationResponses, orientationAnalysis] = await Promise.all([
+    const [profile, extraInfo, schools, memberships, orientationResponses, orientationAnalysis, recommendations] = await Promise.all([
       query(db.from('profiles').select('id,first_name,last_name,age,gender,department,school,phone_number,contact_preference,created_at').eq('id', id).maybeSingle()),
-      query(db.from('informations_complementaires').select('question_id,answer_text').eq('user_id', id).like('question_id', 'orientation_%')),
+      query(db.from('informations_complementaires').select('question_id,answer_text').eq('user_id', id).like('question_id', 'orientation_%').neq('question_id','orientation_recommendations').order('created_at',{ ascending:false }).order('id',{ ascending:false })),
       query(db.from('companies').select('id,name,approved_at').eq('owner_id', id)),
       query(db.from('school_portal_members').select('id,company_id,role').eq('user_id', id)),
       query(db.from('user_responses').select('id,question_id,response,created_at,questions(content)').eq('user_id', id).eq('questionnaire_type', 'inscription').order('question_id').order('id')),
-      query(db.from('user_results').select('id,job_recommendations,updated_at').eq('user_id', id).eq('questionnaire_type', 'inscription').order('updated_at', { ascending: false }).order('id', { ascending: false }).limit(1).maybeSingle())
+      query(db.from('user_results').select('id,job_recommendations,updated_at').eq('user_id', id).eq('questionnaire_type', 'inscription').order('updated_at', { ascending: false }).order('id', { ascending: false }).limit(1).maybeSingle()),
+      query(db.from('informations_complementaires').select('question_id,answer_text').eq('user_id',id).eq('question_id','orientation_recommendations').order('created_at',{ ascending:false }).order('id',{ ascending:false }).limit(1))
     ])
-    res.json({ user: users.items[0], profile: profile.data, extraInfo: extraInfo.data || [], schools: schools.data || [], memberships: memberships.data || [], orientationResponses: orientationResponses.data || [], orientationAnalysis: orientationAnalysis.data, protectedAdmin: isProtectedAdmin(id) })
+    res.json({ user: users.items[0], profile: profile.data, extraInfo: [...(recommendations.data || []),...(extraInfo.data || [])], schools: schools.data || [], memberships: memberships.data || [], orientationResponses: orientationResponses.data || [], orientationAnalysis: orientationAnalysis.data, protectedAdmin: isProtectedAdmin(id) })
   }))
   router.patch('/users/:id', run(async (req, res) => {
     const id = identifier(req.params.id, true)
@@ -183,6 +188,25 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
   }))
   router.get('/partners/:id', run(async (req, res) => res.json({ item: (await query(db.from('ecoles_partenaires').select('*').eq('id',identifier(req.params.id,true)).single())).data })))
   router.post('/partners', run(async (req, res) => res.status(201).json({ item: await change(req,'partner',null,validatePatch(req.body,partnerFields,['school_name','formation_name','city'])) })))
+  router.post('/partners/campuses', run(async (req, res) => {
+    const { cities, ...body } = req.body || {}
+    if (!Array.isArray(cities) || cities.length < 1 || cities.length > 20) throw invalid('Saisissez de 1 a 20 villes de campus.')
+    const normalizedCities = cities.map((city) => validatePatch({ city },['city'],['city']).city.replace(/\s+/g,' '))
+    if (new Set(normalizedCities.map((city) => city.toLowerCase())).size !== normalizedCities.length) {
+      throw invalid('Chaque ville de campus doit etre saisie une seule fois.')
+    }
+    const patch = validatePatch(body,partnerFields.filter((field) => field !== 'city'),['school_name','formation_name'])
+    try {
+      res.status(201).json(await rpc('backoffice_create_partner_campuses',{
+        p_actor:req.user.id,p_patch:patch,p_cities:normalizedCities,p_reason:mutationReason(req.body)
+      }))
+    } catch (error) {
+      if (['42883','PGRST202'].includes(error.code)) {
+        throw Object.assign(new Error('BACKOFFICE_PARTNER_CAMPUSES_MIGRATION_REQUIRED'),{ code:'BACKOFFICE_PARTNER_CAMPUSES_MIGRATION_REQUIRED' })
+      }
+      throw error
+    }
+  }))
   router.patch('/partners/:id', run(async (req, res) => res.json({ item: await change(req,'partner',identifier(req.params.id,true),validatePatch(req.body,partnerFields)) })))
 
   router.get('/selections', run(async (req, res) => {
@@ -191,15 +215,22 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
     if (!['all','orientation','partner'].includes(source)) throw invalid('Origine invalide.')
     res.json({ ...await rpc('backoffice_selections',{ p_query:searchText(req.query.q),p_source:source,p_user_id:req.query.user_id ? identifier(req.query.user_id,true) : null,p_limit:limit,p_offset:offset }),limit,offset })
   }))
+  router.get('/recommendations', run(async (req, res) => {
+    const { limit,offset } = pagination(req.query)
+    const source = req.query.source || 'all'
+    if (!['all','national','partner'].includes(source)) throw invalid('Origine invalide.')
+    res.json({ ...await rpc('backoffice_recommendations',{ p_query:searchText(req.query.q),p_source:source,p_user_id:req.query.user_id ? identifier(req.query.user_id,true) : null,p_limit:limit,p_offset:offset }),limit,offset })
+  }))
   router.get('/results', run(async (req, res) => {
     const { limit, offset } = pagination(req.query)
     res.json({ ...await rpc('backoffice_results', { p_query: searchText(req.query.q), p_type: searchText(req.query.type), p_user_id: req.query.user_id ? identifier(req.query.user_id,true) : null, p_limit: limit, p_offset: offset }), limit, offset })
   }))
   router.get('/results/:id', run(async (req, res) => {
     const result = (await query(db.from('user_results').select('*').eq('id',identifier(req.params.id)).single())).data
-    const [users, selection] = await Promise.all([
+    const [users, selection, recommendation] = await Promise.all([
       rpc('backoffice_users',{ p_user_id: result.user_id }),
-      query(db.from('informations_complementaires').select('answer_text,created_at').eq('user_id',result.user_id).eq('question_id','orientation_final_selection').order('created_at',{ ascending: false }).limit(1))
+      query(db.from('informations_complementaires').select('answer_text,created_at').eq('user_id',result.user_id).eq('question_id','orientation_final_selection').order('created_at',{ ascending: false }).order('id',{ ascending:false }).limit(1)),
+      query(db.from('informations_complementaires').select('answer_text,created_at').eq('user_id',result.user_id).eq('question_id','orientation_recommendations').order('created_at',{ ascending: false }).order('id',{ ascending:false }).limit(1))
     ])
     let selections = []
     try {
@@ -208,7 +239,17 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
       selections = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.candidates) ? parsed.candidates : []
     } catch { selections = [] }
     selections = selections.filter((candidate) => typeof candidate === 'string' || (candidate && typeof candidate === 'object' && !Array.isArray(candidate)))
-    res.json({ item: result, user: users.items[0], selections, selectionRecorded: Boolean(selection.data?.length) })
+    let recommendations = selections
+    if (recommendation.data?.length) {
+      try {
+        const raw = recommendation.data[0].answer_text
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+        recommendations = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.candidates) ? parsed.candidates : []
+      } catch {
+        throw Object.assign(new Error('Invalid saved recommendations'),{ code:'INVALID_RECOMMENDATIONS' })
+      }
+    }
+    res.json({ item: result, user: users.items[0], selections, selectionRecorded: Boolean(selection.data?.length),recommendations,recommendationsRecorded:Boolean(recommendation.data?.length || selection.data?.length) })
   }))
   router.get('/audit', run(async (req, res) => {
     let builder = db.from('backoffice_audit').select('*', { count: 'exact' }).order('created_at', { ascending: false }).order('id', { ascending: false })

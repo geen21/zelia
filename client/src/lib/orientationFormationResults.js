@@ -1,3 +1,5 @@
+import { BEST_MATCH_MIN_SCORE } from './formationRelevance.js'
+
 export function mixFormationResults(formations = [], partners = []) {
   const seen = new Set()
   const selected = partners
@@ -27,14 +29,14 @@ export function mixFormationResults(formations = [], partners = []) {
   return results
 }
 
-export function getBestFormationResultKey(results) {
+export function getBestFormationResultKey(results, minScore = BEST_MATCH_MIN_SCORE) {
   let bestKey = null
   let bestScore = -Infinity
   for (const { key, source, formation } of results) {
     const value = source === 'partner' ? formation.match_score : formation.matchScore
     if (typeof value !== 'number' && (typeof value !== 'string' || !value.trim())) continue
     const score = Number(value)
-    if (!Number.isFinite(score) || score < 0 || score > 100) continue
+    if (!Number.isFinite(score) || score < minScore || score > 100) continue
     if (score > bestScore) {
       bestKey = key
       bestScore = score

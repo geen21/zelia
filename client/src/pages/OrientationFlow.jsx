@@ -6,6 +6,7 @@ import { AI_JOB_DECK_SIZE } from '../lib/orientationJobs.js'
 import PersonaRevealCard from '../components/PersonaRevealCard.jsx'
 import OrientationFormationResults from '../components/OrientationFormationResults.jsx'
 import { mixFormationResults } from '../lib/orientationFormationResults.js'
+import { buildFormationRelevanceProfile, buildRelevanceSearchQueries, scoreFormationRelevance } from '../lib/formationRelevance.js'
 import { buildLoreleiUrl, buildPersonaAvatarConfig, computePersonaFromAnswers, getPersonaBySlug } from '../lib/personas.js'
 import { generatePersonaShareCard } from '../lib/shareImage.js'
 import { trackOrientationEvent } from '../lib/analytics.js'
@@ -1554,12 +1555,26 @@ export default function OrientationFlow() {
   const [busyMessage, setBusyMessage] = useState('')
   const [partnerFormations, setPartnerFormations] = useState([])
   const [partnerFormationsLoading, setPartnerFormationsLoading] = useState(false)
+  const [partnerFormationsResolved, setPartnerFormationsResolved] = useState(false)
   const [partnerFormationsError, setPartnerFormationsError] = useState('')
   const [partnerRetryCount, setPartnerRetryCount] = useState(0)
   const [dbFormations, setDbFormations] = useState([])
   const [dbFormationsLoading, setDbFormationsLoading] = useState(false)
+  const [dbFormationsResolved, setDbFormationsResolved] = useState(false)
+  const [recommendationsSaveError, setRecommendationsSaveError] = useState('')
+  const [recommendationsRetryCount, setRecommendationsRetryCount] = useState(0)
+  const savedRecommendationsPayload = useRef(null)
+  const recommendationsSaveQueue = useRef(Promise.resolve())
   const [requestInfoSelections, setRequestInfoSelections] = useState(() => new Set())
+  const initializedFormationIds = useRef(new Set())
   const [profileIdentity, setProfileIdentity] = useState(initialProfileIdentity)
+
+  const preselectNewFormationIds = useCallback((ids) => {
+    const newIds = ids.filter((id) => !initializedFormationIds.current.has(id))
+    if (!newIds.length) return
+    newIds.forEach((id) => initializedFormationIds.current.add(id))
+    setRequestInfoSelections((previous) => new Set([...previous, ...newIds]))
+  }, [])
 
   const currentQuestion = questions[questionIndex]
   const analysisBlock = useMemo(() => getAnalysisBlock(analysisData), [analysisData])
@@ -1581,6 +1596,7 @@ export default function OrientationFlow() {
     if (phase !== 'formationReveal') return
     let mounted = true
     setPartnerFormationsLoading(true)
+    setPartnerFormationsResolved(false)
     setPartnerFormationsError('')
     ;(async () => {
       try {
@@ -1590,6 +1606,7 @@ export default function OrientationFlow() {
         }
         if (!mounted) return
         setPartnerFormations(matchedRes.data.matched)
+        preselectNewFormationIds(mixFormationResults([], matchedRes.data.matched).map(({ key }) => key))
       } catch (fetchError) {
         console.error('Partner formations fetch failed', fetchError)
         if (mounted) {
@@ -1597,11 +1614,14 @@ export default function OrientationFlow() {
           setPartnerFormationsError('Impossible de charger les formations partenaires pour le moment.')
         }
       } finally {
-        if (mounted) setPartnerFormationsLoading(false)
+        if (mounted) {
+          setPartnerFormationsLoading(false)
+          setPartnerFormationsResolved(true)
+        }
       }
     })()
     return () => { mounted = false }
-  }, [phase, partnerRetryCount])
+  }, [phase, partnerRetryCount, preselectNewFormationIds])
 
   const hydrateProfileIdentity = useCallback((profile) => {
     const incomingIdentity = normalizeProfileIdentity(profile)
@@ -2123,26 +2143,62 @@ export default function OrientationFlow() {
   }
 
   const getInitialFormationDeckCandidates = async (profile, department, count = AI_FORMATION_DECK_SIZE) => {
-    const analysisCandidates = filterCandidatesByTargetStudyLevel(getAnalysisFormationCandidates(analysisData, count), profile)
-    const analysisPlans = buildAnalysisRecommendationPlans('formations', analysisData, flattenTextParts(profile).join(' ')).slice(0, count)
-    const formationPreferencePlans = buildFormationPreferencePlans(profile)
-    const strongSubjectPlans = buildStrongSubjectPlans(profile)
-    const careerDomainPlans = buildCareerDomainPlans(profile)
+    const relevanceProfile = buildFormationRelevanceProfile({ analysis: analysisData, profile })
+    const hasRelevanceSignals = relevanceProfile.groups.length > 0
+    const preferredLevels = new Set(getSelectedFormationPreferenceOptions(profile)
+      .map((option) => FORMATION_PREFERENCE_LEVELS[option.value])
+      .filter(Boolean))
+    const targetLevel = getTargetStudyLevel(profile)
+    if (targetLevel) preferredLevels.add(targetLevel)
+
+    // Search topics come from the recommended studies/jobs and chosen domains.
+    // Format preferences (bachelor, BTS...) only qualify those topics: a bare
+    // "bachelor" query returns any bachelor in France, whatever its field.
+    const topicPlans = buildRelevanceSearchQueries(relevanceProfile, count).map((topic) => ({
+      kind: 'formation',
+      query: topic.query,
+      title: topic.label,
+      reason: topic.kind === 'study' ? 'Étude recommandée par ton bilan' : topic.kind === 'job' ? `Lié au métier ${topic.label}` : `Univers choisi : ${topic.label}`
+    }))
+    const qualifiedPreferencePlans = getSelectedFormationPreferenceOptions(profile).flatMap((option) => {
+      const qualifier = FORMATION_PREFERENCE_SEARCH_QUERIES[option.value] || option.label
+      return topicPlans
+        .filter((plan) => !normalizeDiversityText(plan.query).includes(normalizeDiversityText(qualifier)))
+        .slice(0, 2)
+        .map((plan) => ({ ...plan, query: `${qualifier} ${plan.query}`, reason: `${option.label} · ${plan.reason}` }))
+    })
+    const fallbackTopicPlans = hasRelevanceSignals
+      ? []
+      : uniquePlans([
+        ...buildCareerDomainPlans(profile),
+        ...buildStrongSubjectPlans(profile),
+        ...buildAnalysisRecommendationPlans('formations', analysisData, flattenTextParts(profile).join(' '))
+      ])
     const primaryPlans = uniquePlans([
-      ...formationPreferencePlans,
-      ...strongSubjectPlans,
-      ...careerDomainPlans,
-      ...analysisPlans
+      ...qualifiedPreferencePlans,
+      ...topicPlans,
+      ...fallbackTopicPlans
     ]).slice(0, count)
     const genericPlans = uniquePlans([
-      ...formationPreferencePlans,
-      ...buildGenericFormationPlans(getTargetStudyLevel(profile))
+      ...buildFormationPreferencePlans(profile),
+      ...buildGenericFormationPlans(targetLevel)
     ])
 
-    // Progressive broadening: with 127k+ rows in formation_france, the deck
-    // must never come back empty. Each wave relaxes one constraint (department
-    // scoping, AI keywords, target-level filtering); we stop as soon as enough
-    // real database rows are collected.
+    const scoreCandidates = (candidates) => {
+      if (!hasRelevanceSignals) return candidates
+      return candidates
+        .map((candidate) => {
+          const levelMatches = preferredLevels.has(inferFormationStudyLevel(candidate))
+          const relevance = scoreFormationRelevance(candidate, relevanceProfile, { levelMatches })
+          return relevance.relevant ? { ...candidate, matchScore: relevance.score, relevance } : null
+        })
+        .filter(Boolean)
+    }
+
+    // Progressive broadening: each wave relaxes one constraint (department
+    // scoping, then format qualifiers, then generic diploma queries). Every
+    // wave goes through the thematic filter, so off-topic rows never surface:
+    // fewer results beat unrelated ones.
     const searchWaves = [
       primaryPlans.length ? {
         plans: primaryPlans,
@@ -2161,6 +2217,10 @@ export default function OrientationFlow() {
           maxFormationPlans: Math.min(primaryPlans.length, count),
           maxFormationQueryVariants: MAX_FORMATION_QUERY_VARIANTS
         }
+      } : null,
+      topicPlans.length ? {
+        plans: topicPlans,
+        context: { profile: {}, maxFormationPlans: Math.min(topicPlans.length, count), maxFormationQueryVariants: 1 }
       } : null,
       {
         plans: genericPlans,
@@ -2186,14 +2246,18 @@ export default function OrientationFlow() {
           console.warn('Formation catalog search wave failed', catalogError)
           return []
         })
-      catalogCandidates = mergeUniqueCandidates(catalogCandidates, waveCandidates)
+      catalogCandidates = mergeUniqueCandidates(catalogCandidates, scoreCandidates(waveCandidates))
+    }
+
+    if (hasRelevanceSignals) {
+      catalogCandidates = [...catalogCandidates].sort((left, right) => (right.matchScore || 0) - (left.matchScore || 0))
     }
 
     // Real formation_france rows first: the reveal screen only keeps concrete
     // candidates, and merging analysis tiles first would let them consume the
     // one-per-formation-title diversity slots of the very DB rows they describe.
     return diversifyCandidates(
-      mergeUniqueCandidates(catalogCandidates, analysisCandidates),
+      mergeUniqueCandidates(catalogCandidates, filterCandidatesByTargetStudyLevel(getAnalysisFormationCandidates(analysisData, count), profile)),
       { maxPerFormation: 1, maxPerSchool: 2 }
     ).slice(0, count)
   }
@@ -2212,6 +2276,7 @@ export default function OrientationFlow() {
     if (phase !== 'formationReveal' || !analysisData) return
     let mounted = true
     setDbFormationsLoading(true)
+    setDbFormationsResolved(false)
     ;(async () => {
       try {
         const department = await resolveUserDepartment().catch(() => userDepartment)
@@ -2219,17 +2284,48 @@ export default function OrientationFlow() {
         if (!mounted) return
         const concrete = candidates.filter(isDatabaseCandidate).slice(0, 8)
         setDbFormations(concrete)
-        setRequestInfoSelections((previous) => new Set([...previous, ...concrete.map((candidate) => candidate.id)]))
+        preselectNewFormationIds(concrete.map((candidate) => candidate.id))
       } catch (matchError) {
         console.warn('Formation matching failed', matchError)
         if (mounted) setDbFormations([])
       } finally {
-        if (mounted) setDbFormationsLoading(false)
+        if (mounted) {
+          setDbFormationsLoading(false)
+          setDbFormationsResolved(true)
+        }
       }
     })()
     return () => { mounted = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, analysisData])
+
+  useEffect(() => {
+    if (phase !== 'formationReveal' || (!dbFormationsResolved && !partnerFormationsResolved)) return
+    const answerText = JSON.stringify([...(dbFormationsLoading ? [] : dbFormations), ...visiblePartnerCandidates]
+      .map((candidate) => {
+        const recommendation = serializeFinalCandidate(candidate, false)
+        delete recommendation.requestMoreInformation
+        return recommendation
+      }))
+    if (savedRecommendationsPayload.current === answerText) return
+    let mounted = true
+    setRecommendationsSaveError('')
+    const save = () => usersAPI.saveExtraInfo([{
+      question_id: 'orientation_recommendations',
+      question_text: 'Formations recommandées affichées',
+      answer_text: answerText
+    }])
+    // Keep snapshots in order if a retry changes the results during a pending save.
+    const request = recommendationsSaveQueue.current.then(save, save)
+    recommendationsSaveQueue.current = request
+    request.then(() => {
+      savedRecommendationsPayload.current = answerText
+    }, (saveError) => {
+      console.error('Displayed recommendations save failed', saveError)
+      if (mounted) setRecommendationsSaveError('Impossible d’enregistrer les recommandations pour le moment.')
+    })
+    return () => { mounted = false }
+  }, [phase, dbFormationsLoading, dbFormationsResolved, partnerFormationsResolved, dbFormations, visiblePartnerCandidates, recommendationsRetryCount])
 
   const toggleRequestInfoSelection = (candidateId) => {
     setRequestInfoSelections((prev) => {
@@ -2255,7 +2351,7 @@ export default function OrientationFlow() {
 
   const getSelectedFormations = () => [
     ...dbFormations,
-    ...visiblePartnerCandidates.filter((candidate) => requestInfoSelections.has(candidate.id))
+    ...visiblePartnerCandidates
   ].map((candidate) => (
     serializeFinalCandidate(candidate, requestInfoSelections.has(candidate.id))
   ))
@@ -2574,6 +2670,15 @@ export default function OrientationFlow() {
             </div>
           )}
 
+          {recommendationsSaveError && (
+            <div className="formation-lead-empty" role="alert">
+              <p>{recommendationsSaveError}</p>
+              <button type="button" className="secondary-action" onClick={() => setRecommendationsRetryCount((count) => count + 1)}>
+                Réessayer l’enregistrement des recommandations
+              </button>
+            </div>
+          )}
+
           {(dbFormations.length > 0 || partnerFormations.length > 0) && (
             <OrientationFormationResults
               formations={dbFormationsLoading ? [] : dbFormations}
@@ -2617,7 +2722,7 @@ export default function OrientationFlow() {
 
       </div>
       <div className="persona-actions formation-reveal-actions">
-        <button type="button" className="persona-continue" onClick={continueFromFormationReveal}>
+        <button type="button" className="persona-continue" disabled={dbFormationsLoading || partnerFormationsLoading} onClick={continueFromFormationReveal}>
           Découvre tes métiers
           <PiArrowRight size={20} aria-hidden="true" focusable="false" />
         </button>

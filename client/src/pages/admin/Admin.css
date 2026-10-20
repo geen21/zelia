@@ -57,10 +57,10 @@
 .bo-metric strong { font-size: 30px; line-height: 1.1; font-weight: 600; }
 .bo-metric:first-child { border-top: 3px solid var(--bo-lime); }
 .bo-metric:nth-child(3) { border-top: 3px solid var(--bo-pink); }
-.bo-selections { margin-bottom: 28px; }
-.bo-selections .bo-page-heading { margin-bottom: 14px; }
-.bo-selections .bo-page-heading h2 { margin: 0; }
-.bo-selections .bo-page-heading p { margin: 6px 0 0; font-size: 12px; }
+.bo-selections, .bo-recommendations { margin-bottom: 28px; }
+.bo-selections .bo-page-heading, .bo-recommendations .bo-page-heading { margin-bottom: 14px; }
+.bo-selections .bo-page-heading h2, .bo-recommendations .bo-page-heading h2 { margin: 0; }
+.bo-selections .bo-page-heading p, .bo-recommendations .bo-page-heading p { margin: 6px 0 0; font-size: 12px; }
 .bo-cell-detail { display: block; margin-top: 4px; color: var(--bo-muted); font-size: 12px; }
 .bo-app .bo-formation-link { color: #315421; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
 .bo-formation-link svg { display: inline-block; width: 15px; height: 15px; margin-left: 5px; vertical-align: middle; }

@@ -11,7 +11,7 @@
     "verify:parents-ui": "node scripts/verify-parents.mjs",
     "verify:school-registration": "node scripts/verify-school-registration.mjs",
     "verify:personas": "node scripts/verify-persona-distribution.mjs",
-    "verify:orientation-ui": "node scripts/verify-orientation-ui.mjs"
+    "verify:orientation-ui": "node scripts/verify-formation-relevance.mjs && node scripts/verify-orientation-ui.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

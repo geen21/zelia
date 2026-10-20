@@ -66,8 +66,11 @@ async function main() {
   const resultCheck = await client.rpc('backoffice_results', { p_user_id: identities[0].id, p_limit: 1 })
   const growthCheck = await client.rpc('backoffice_student_growth', { p_days: 30 })
   const selectionsCheck = await client.rpc('backoffice_selections', { p_limit: 1 })
+  const recommendationsCheck = await client.rpc('backoffice_recommendations', { p_source:'partner',p_limit:1 })
+  const campusesCheck = await client.rpc('backoffice_create_partner_campuses', { p_actor:identities[0].id,p_patch:{},p_cities:[] })
   const registrationsCheck = await client.from('school_registration_requests').select('id,school_name,email,contact_first_name,contact_last_name,created_at').limit(1)
-  if (partnerCheck.error || resultCheck.error || growthCheck.error || selectionsCheck.error || registrationsCheck.error) throw new Error('Migration back-office incomplete. Aucun deploiement autorise.')
+  if (partnerCheck.error || resultCheck.error || growthCheck.error || selectionsCheck.error || registrationsCheck.error || recommendationsCheck.error) throw new Error('Migration back-office incomplete. Aucun deploiement autorise.')
+  if (campusesCheck.error?.code !== '22023') throw new Error('Migration migration_backoffice_partner_campuses.sql requise. Aucun deploiement autorise.')
   const updated = configureBackofficeEnvironment(source, identities)
   if (process.argv.includes('--check')) {
     console.log('Migration et identites Auth verifiees ; environnement non modifie.')

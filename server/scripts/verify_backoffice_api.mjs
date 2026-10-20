@@ -20,21 +20,23 @@ let orientationReadError = null
 let orientationResponses = [{ id: 1,question_id: 200,response: 'Construire un objet',created_at: '2026-10-01T10:00:00Z',questions: { content: 'Tu préfères quelle activité ?' } }]
 let orientationAnalysis = { id: 10,job_recommendations: [{ title: 'Menuisier' },{ title: 'Mécanicien' }],updated_at: '2026-10-01T11:00:00Z' }
 let recordedSelections = []
+let recordedRecommendations = []
 const reads = []
 const db = {
   from(table) {
-    const read = { table,filters: [],orders: [] }
+    const read = { table,filters: [],orders: [],exclusions:[] }
     reads.push(read)
     const builder = {
       select(fields) { read.fields = fields; return this },
       eq(field,value) { read.filters.push([field,value]); return this },
+      neq(field,value) { read.exclusions.push([field,value]); return this },
       order(field,options) { read.orders.push([field,options]); return this },
       limit(value) { read.limit = value; return this },
       or() { return this },not() { return this },
       is() { return this },like() { return this },range() { return this },gte() { return this },lte() { return this },
       maybeSingle: async () => ({ data: table === 'backoffice_account_suspensions' ? suspension : table === 'user_results' ? orientationAnalysis : null,error: table === 'backoffice_account_suspensions' ? statusError : null }),
       single: async () => ({ data: { id: 1,user_id: student.id },error: null }),
-      then(resolve) { return Promise.resolve({ data: table === 'user_responses' ? orientationResponses : table === 'informations_complementaires' ? recordedSelections : [],count: 0,error: table === 'user_responses' ? orientationReadError : null }).then(resolve) }
+      then(resolve) { return Promise.resolve({ data: table === 'user_responses' ? orientationResponses : table === 'informations_complementaires' ? read.filters.some(([field,value]) => field === 'question_id' && value === 'orientation_recommendations') ? recordedRecommendations : recordedSelections : [],count: 0,error: table === 'user_responses' ? orientationReadError : null }).then(resolve) }
     }
     return builder
   },
@@ -42,8 +44,11 @@ const db = {
     rpcCalled = true; calls.push({ name,args })
     if (rpcError) return { data: null,error: rpcError }
     if (name === 'backoffice_account_change') return { data: { revision: '44444444-4444-4444-8444-444444444444' },error: null }
+    if (name === 'backoffice_create_partner_campuses') return {
+      data:{ items:args.p_cities.map((city,index) => ({ id:`campus-${index}`,...args.p_patch,city })),total:args.p_cities.length },error:null
+    }
     if (name === 'backoffice_users' && args.p_user_id) return { data: { items: userDetailExists ? [student] : [],total: Number(userDetailExists) },error: null }
-    return { data: ['backoffice_users','backoffice_results','backoffice_selections'].includes(name) ? { items: [],total: 0 } : { id: '1' },error: null }
+    return { data: ['backoffice_users','backoffice_results','backoffice_selections','backoffice_recommendations'].includes(name) ? { items: [],total: 0 } : { id: '1' },error: null }
   },
   auth: { admin: { async updateUserById(id,patch) { calls.push({ name: 'Auth',id,patch }); return { error: authError } } } }
 }
@@ -65,7 +70,7 @@ async function request(path,token = 'joris',method = 'GET',body) {
 }
 
 try {
-  for (const [path,method] of [['/me','GET'],['/overview','GET'],['/student-growth','GET'],['/selections','GET'],['/users','GET'],[`/users/${student.id}`,'GET'],['/schools','GET'],['/school-registrations','GET'],['/formations','GET'],['/partners','GET'],['/results','GET'],['/audit','GET'],[`/users/${student.id}`,'PATCH'],['/schools/1/approve','POST'],['/partners','POST'],['/formations/custom','POST']]) {
+  for (const [path,method] of [['/me','GET'],['/overview','GET'],['/student-growth','GET'],['/selections','GET'],['/recommendations','GET'],['/users','GET'],[`/users/${student.id}`,'GET'],['/schools','GET'],['/school-registrations','GET'],['/formations','GET'],['/partners','GET'],['/results','GET'],['/audit','GET'],[`/users/${student.id}`,'PATCH'],['/schools/1/approve','POST'],['/partners','POST'],['/partners/campuses','POST'],['/formations/custom','POST']]) {
     assert.equal((await request(path,null,method,method === 'GET' ? undefined : {})).status,401)
     assert.equal((await request(path,'student',method,method === 'GET' ? undefined : {})).status,403)
   }
@@ -83,6 +88,9 @@ try {
   assert.equal((await request(`/selections?source=partner&user_id=${student.id}&q=Bachelor&limit=5&offset=10`)).status,200)
   assert.deepEqual(calls.find((call) => call.name === 'backoffice_selections').args,{ p_query:'Bachelor',p_source:'partner',p_user_id:student.id,p_limit:5,p_offset:10 })
   for (const query of ['source=unknown','user_id=invalid','limit=101','offset=-1']) assert.equal((await request(`/selections?${query}`)).status,400)
+  assert.equal((await request(`/recommendations?source=partner&user_id=${student.id}&q=ECV&limit=5&offset=10`)).status,200)
+  assert.deepEqual(calls.find((call) => call.name === 'backoffice_recommendations').args,{ p_query:'ECV',p_source:'partner',p_user_id:student.id,p_limit:5,p_offset:10 })
+  for (const query of ['source=orientation','user_id=invalid','limit=101','offset=-1']) assert.equal((await request(`/recommendations?${query}`)).status,400)
   assert.equal((await request('/selections','joris','POST',{})).status,404)
   assert.equal((await request('/users?status=unknown')).status,400)
   assert.equal((await request('/formations?source=arbitrary_table')).status,400)
@@ -96,6 +104,10 @@ try {
   const details = await userDetail.json()
   assert.deepEqual(details.orientationResponses,orientationResponses)
   assert.deepEqual(details.orientationAnalysis,orientationAnalysis)
+  const recommendationRead = reads.find((read) => read.table === 'informations_complementaires' && read.filters.some(([field,value]) => field === 'question_id' && value === 'orientation_recommendations'))
+  assert.equal(recommendationRead.limit,1)
+  assert.deepEqual(recommendationRead.orders,[['created_at',{ ascending:false }],['id',{ ascending:false }]])
+  assert.ok(reads.some((read) => read.exclusions.some(([field,value]) => field === 'question_id' && value === 'orientation_recommendations')))
   for (const table of ['user_responses','user_results']) {
     const read = reads.find((entry) => entry.table === table)
     assert.deepEqual(read.filters,[['user_id',student.id],['questionnaire_type','inscription']])
@@ -121,6 +133,12 @@ try {
   const selectedResult = await request('/results/1')
   assert.equal(selectedResult.status,200)
   assert.deepEqual((await selectedResult.json()).selections,fullSelection)
+  const displayedPartners = [{ id:'partner-ecv',type:'formation',sourceTable:'ecoles_partenaires',title:'Design graphique',schoolName:'ECV',requestMoreInformation:false }]
+  recordedRecommendations = [{ answer_text:JSON.stringify(displayedPartners),created_at:'2026-10-01T12:00:00Z' }]
+  assert.deepEqual((await (await request('/results/1')).json()).recommendations,displayedPartners)
+  recordedRecommendations = [{ answer_text:'not valid JSON' }]
+  assert.equal((await request('/results/1')).status,500)
+  recordedRecommendations = []
   recordedSelections = []
   assert.equal((await request('/audit?from=invalid-date')).status,400)
   assert.equal((await request(`/users/${student.id}`,'joris','PATCH',{ contact_preference: true })).status,400)
@@ -147,6 +165,28 @@ try {
   assert.equal(displayCall.args.p_patch.results_priority,40)
   for (const results_priority of [-1,101,1.5,'20',null]) assert.equal((await request('/partners','joris','POST',{ school_name:'School',formation_name:'Bachelor',city:'Paris',results_priority })).status,400)
   assert.equal((await request('/partners','joris','POST',{ school_name:'School',formation_name:'Bachelor',city:'Paris',show_in_results:'false' })).status,400)
+  const ecv = { school_name:'ECV',formation_name:'Bachelor Design graphique',domain:'Design',diploma_level:'Bac+3',show_in_results:true,highlight_in_results:false,results_priority:20 }
+  const ecvResponse = await request('/partners/campuses','joris','POST',{ ...ecv,cities:[' Paris ','Bordeaux','Nantes'],reason:'Ajout ECV' })
+  assert.equal(ecvResponse.status,201)
+  assert.deepEqual((await ecvResponse.json()).items.map((item) => item.city),['Paris','Bordeaux','Nantes'])
+  assert.deepEqual(calls.filter((call) => call.name === 'backoffice_create_partner_campuses').at(-1).args,{
+    p_actor:joris.id,p_patch:ecv,p_cities:['Paris','Bordeaux','Nantes'],p_reason:'Ajout ECV'
+  })
+  for (const cities of [undefined,null,[],[''],['Paris',null],['Paris',12],['Paris',' paris '],Array(21).fill('Paris'),['x'.repeat(501)],'Paris,Bordeaux']) {
+    assert.equal((await request('/partners/campuses','joris','POST',{ ...ecv,cities })).status,400)
+  }
+  for (const patch of [{ school_name:'' },{ formation_name:'' },{ city:'Paris' },{ results_priority:101 },{ link:'javascript:alert(1)' }]) {
+    assert.equal((await request('/partners/campuses','joris','POST',{ ...ecv,cities:['Paris'],...patch })).status,400)
+  }
+  assert.equal((await request('/partners/campuses','joris','POST',{ ...ecv,cities:Array.from({ length:20 },(_,index) => `Ville ${index}`) })).status,201)
+  rpcError = { code:'23505',message:'PARTNER_CAMPUS_EXISTS' }
+  const duplicateCampus = await request('/partners/campuses','joris','POST',{ ...ecv,cities:['Paris','Lille'] })
+  assert.equal(duplicateCampus.status,409)
+  assert.match((await duplicateCampus.json()).message,/Aucun campus/)
+  rpcError = { code:'PGRST202',message:'Function missing' }
+  const missingCampuses = await request('/partners/campuses','joris','POST',{ ...ecv,cities:['Paris'] })
+  assert.equal(missingCampuses.status,503)
+  assert.match((await missingCampuses.json()).message,/migration_backoffice_partner_campuses\.sql/)
   rpcError = { code:'22023',message:'INVALID_FIELD' }
   const missingPartnerMigration = await request('/partners/44444444-4444-4444-8444-444444444444','joris','PATCH',{ show_in_results:false })
   assert.equal(missingPartnerMigration.status,503)
@@ -167,6 +207,7 @@ try {
   assert.equal((await request('/overview')).status,503)
   assert.equal((await request('/student-growth')).status,503)
   assert.equal((await request('/selections')).status,503)
+  assert.equal((await request('/recommendations')).status,503)
   rpcError = null
   suspension = { is_suspended:true }; rpcCalled = false
   assert.equal((await request('/overview')).status,403)

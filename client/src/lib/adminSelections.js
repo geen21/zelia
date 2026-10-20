@@ -1,11 +1,19 @@
-export function selectedFormations(value) {
+export function recommendedFormations(value) {
   let parsed = value
   if (typeof parsed === 'string') {
     try { parsed = JSON.parse(parsed) } catch { return [] }
   }
 
   const candidates = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.candidates) ? parsed.candidates : []
-  return candidates.filter((candidate) => candidate?.type === 'formation' && candidate.requestMoreInformation === true)
+  return candidates.filter((candidate) => candidate?.type === 'formation')
+}
+
+export function selectedFormations(value) {
+  return recommendedFormations(value).filter((candidate) => candidate.requestMoreInformation === true)
+}
+
+export function isPartnerFormation(candidate) {
+  return candidate?.sourceTable === 'ecoles_partenaires' || candidate?.partner === true || String(candidate?.id || '').startsWith('partner-')
 }
 
 export function formationHref(formation) {

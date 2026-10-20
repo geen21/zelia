@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chromium, expect } from '@playwright/test'
 import { getBestFormationResultKey, mixFormationResults } from '../src/lib/orientationFormationResults.js'
-import { formationHref, selectedFormations } from '../src/lib/adminSelections.js'
+import { formationHref, isPartnerFormation, recommendedFormations, selectedFormations } from '../src/lib/adminSelections.js'
 
 const nationalFixtures = Array.from({ length: 7 }, (_, index) => ({ id: index + 1 }))
 const partnerFixtures = [
@@ -57,12 +57,22 @@ const selectionFixtures = [
   { id:'formation-1',type:'formation',title:'BTS Informatique',requestMoreInformation:true,raw:{ etab_url:'https://example.com/formation' } },
   { id:'formation-2',type:'formation',title:'Licence Histoire',requestMoreInformation:false },
   { id:'job-1',type:'metier',title:'Developpeur',requestMoreInformation:true },
-  { id:'unknown',type:'formation',requestMoreInformation:'true' },null,'Formation proposee'
+  { id:'unknown',type:'formation',requestMoreInformation:'true' },null,'Formation proposee',
+  { id:'partner-recommended',type:'formation',sourceTable:'ecoles_partenaires',title:'Licence professionnelle CPMM',subtitle:'Lycée Jean Guéhenno',requestMoreInformation:true,link:'https://example.com/cpmm' },
+  { id:'partner-dismissed',type:'formation',sourceTable:'ecoles_partenaires',title:'Partenaire décoché',schoolName:'ECV',city:'Bordeaux',link:'https://example.com/ecv',requestMoreInformation:false }
 ]
-assert.deepEqual(selectedFormations(selectionFixtures),[selectionFixtures[0]])
-assert.deepEqual(selectedFormations(JSON.stringify({ candidates:selectionFixtures })),[selectionFixtures[0]])
+assert.deepEqual(selectedFormations(selectionFixtures),[selectionFixtures[0],selectionFixtures[6]])
+assert.deepEqual(selectedFormations(JSON.stringify({ candidates:selectionFixtures })),[selectionFixtures[0],selectionFixtures[6]])
 assert.deepEqual(selectedFormations('invalid json'),[])
 assert.deepEqual(selectedFormations(null),[])
+assert.deepEqual(recommendedFormations(selectionFixtures).filter(isPartnerFormation),[selectionFixtures[6],selectionFixtures[7]])
+assert.equal(isPartnerFormation({ id:'partner-legacy' }),true)
+assert.equal(isPartnerFormation({ id:'formation-1' }),false)
+const recommendationFixtures = [
+  ...Array.from({ length:8 },(_,index) => ({ id:`national-reco-${index}`,type:'formation',sourceTable:'formation_france',title:`Formation proposée ${index}`,schoolName:'Université Exemple',city:'Paris' })),
+  selectionFixtures[6],selectionFixtures[7],
+  { id:'partner-paris',type:'formation',sourceTable:'ecoles_partenaires',title:'Design graphique Paris',schoolName:'ECV',city:'Paris',link:'https://example.com/ecv-paris',requestMoreInformation:false }
+]
 assert.equal(formationHref({ detail:{ link:' https://example.com/formation ' } }),'https://example.com/formation')
 assert.equal(formationHref({ raw:{ fiche:'https://example.com/fiche',etab_url:'https://example.com/ecole' } }),'https://example.com/fiche')
 assert.equal(formationHref({ link:'https://example.com/partenaire' }),'https://example.com/partenaire')
@@ -87,10 +97,12 @@ const partner = { id:'44444444-4444-4444-8444-444444444444',school_name:'École 
 const school = { id:1,name:'École Numérique',email:'school@example.com',owner_id:user.id,approved_at:null,contact_first_name:'Camille',contact_last_name:'Martin',created_at:'2026-09-20T12:00:00Z' }
 const analysis = { id:1,user_id:user.id,email:user.email,first_name:user.first_name,last_name:user.last_name,questionnaire_type:'inscription',updated_at:'2026-09-20T12:00:00Z' }
 const orientationResponses = Array.from({ length:20 },(_,index) => ({ id:index+1,question_id:200+index,response:index % 2 ? 'Avec une équipe' : 'Construire un objet',questions:index === 19 ? null : { content:`Quel environnement préfères-tu pour l’activité ${index+1} ?` } }))
-const userDetails = { user,profile:{ ...user,age:17,phone_number:'',department:'75',school:'Lycée',contact_preference:false },extraInfo:[{ question_id:'orientation_school_level',answer_text:'Terminale' },{ question_id:'orientation_final_selection',answer_text:JSON.stringify(selectionFixtures) }],schools:[school],memberships:[],protectedAdmin:false,orientationResponses,orientationAnalysis:{ id:1,job_recommendations:[{ title:'Menuisier' },{ title:'Mécanicien' },'Électricien'],updated_at:analysis.updated_at } }
+const userDetails = { user,profile:{ ...user,age:17,phone_number:'',department:'75',school:'Lycée',contact_preference:false },extraInfo:[{ question_id:'orientation_recommendations',answer_text:JSON.stringify(recommendationFixtures) },{ question_id:'orientation_school_level',answer_text:'Terminale' },{ question_id:'orientation_final_selection',answer_text:JSON.stringify(selectionFixtures) }],schools:[school],memberships:[],protectedAdmin:false,orientationResponses,orientationAnalysis:{ id:1,job_recommendations:[{ title:'Menuisier' },{ title:'Mécanicien' },'Électricien'],updated_at:analysis.updated_at } }
+const recommendationRows = recommendationFixtures.map((item) => ({ ...user,id:item.id,user_id:user.id,source:isPartnerFormation(item) ? 'partner' : 'national',formation_name:item.title,school_name:item.schoolName || item.subtitle,city:item.city,detail:{ link:formationHref(item) } }))
 const savedChoices = [
   { ...user,id:'orientation-1',user_id:user.id,source:'orientation',formation_name:'BTS Informatique',school_name:'Université Exemple',city:'Paris',detail:{ link:'https://example.com/formation' } },
   { ...user,id:'partner-1',user_id:user.id,source:'partner',formation_name:partner.formation_name,school_name:partner.school_name,city:partner.city,detail:{ link:partner.link } },
+  { ...user,id:'orientation-partner-1',user_id:user.id,source:'orientation',formation_name:'Licence professionnelle CPMM',school_name:'Lycée Jean Guéhenno',city:'Flers',detail:{ link:'https://example.com/cpmm' } },
   ...Array.from({ length:50 },(_,index) => ({ ...user,id:`choice-${index}`,user_id:`55555555-5555-4555-8555-${String(index).padStart(12,'0')}`,email:`choice-${index}@example.com`,source:'orientation',formation_name:`Formation fixture ${index}`,school_name:'Université Exemple',city:'Lyon' }))
 ]
 const session = { access_token:'fixture-access-token',refresh_token:'fixture-refresh-token',expires_at:Math.floor(Date.now()/1000)+3600,expires_in:3600,token_type:'bearer',user:admin }
@@ -103,6 +115,7 @@ async function prepare(viewport,authenticated = true,denied = false) {
   page.setDefaultTimeout(15000)
   const scriptErrors = []
   const tracking = []
+  const campusPartners = []
   page.on('pageerror',(error) => scriptErrors.push(error.message))
   page.on('request',(request) => { if (/googletagmanager|hotjar/i.test(request.url())) tracking.push(request.url()) })
   await context.addInitScript(({ session,authenticated }) => {
@@ -123,6 +136,15 @@ async function prepare(viewport,authenticated = true,denied = false) {
     if (denied) return route.fulfill({ status:403,contentType:'application/json',body:JSON.stringify({ error:'ADMIN_ACCESS_DENIED',message:'Accès réservé aux administrateurs Zélia.' }) })
     if (request.method() !== 'GET') {
       mutations.push({ path,method:request.method(),body:request.postDataJSON() })
+      if (path === '/partners/campuses') {
+        const { cities,...common } = request.postDataJSON()
+        if (cities.some((city) => [partner,...campusPartners].some((row) => row.school_name === common.school_name && row.formation_name === common.formation_name && row.city.toLowerCase() === city.toLowerCase()))) {
+          return route.fulfill({ status:409,json:{ message:'Cette formation existe déjà pour un des campus saisis. Aucun campus n’a été ajouté.' } })
+        }
+        const created = cities.map((city,index) => ({ ...common,city,id:`campus-${campusPartners.length+index}`,is_active:true }))
+        campusPartners.push(...created)
+        return route.fulfill({ status:201,json:{ items:created,total:created.length } })
+      }
       if (path === `/partners/${partner.id}`) Object.assign(partner,request.postDataJSON())
       if (path.endsWith('/suspend')) user.is_suspended = true
       if (path.endsWith('/reactivate')) user.is_suspended = false
@@ -145,9 +167,18 @@ async function prepare(viewport,authenticated = true,denied = false) {
     else if (path === '/schools') data = { items:[school],total:1 }
     else if (path.startsWith('/schools/')) data = { item:school,accounts:[user],members:[] }
     else if (path === '/partners/group-count') data = { total:4 }
-    else if (path === '/partners') data = { items:[partner],total:1 }
-    else if (path.startsWith('/partners/')) data = { item:partner }
+    else if (path === '/partners') data = { items:[partner,...campusPartners],total:1+campusPartners.length }
+    else if (path.startsWith('/partners/')) data = { item:campusPartners.find((row) => path.endsWith(`/${row.id}`)) || partner }
     else if (path === '/formations') data = { items:url.searchParams.get('source') === 'custom' ? [{ id:1,company_id:1,title:'Formation privée',city:'Paris',link:'https://example.com/privee',is_published:true }] : [{ id:1,title:'Licence Informatique',etab_nom:'Université Exemple',commune:'Paris',region:'Île-de-France',fiche:'https://example.com/formation' }],total:1 }
+    else if (path === '/recommendations') {
+      const source = url.searchParams.get('source') || 'all'
+      const userId = url.searchParams.get('user_id')
+      const search = (url.searchParams.get('q') || '').toLowerCase()
+      const offset = Number(url.searchParams.get('offset')) || 0
+      const limit = Number(url.searchParams.get('limit')) || 50
+      const rows = recommendationRows.filter((row) => (source === 'all' || row.source === source) && (!userId || row.user_id === userId) && [row.formation_name,row.school_name,row.city,row.email].join(' ').toLowerCase().includes(search))
+      data = { items:rows.slice(offset,offset+limit),total:rows.length,totalUsers:rows.length ? 1 : 0 }
+    }
     else if (path === '/selections') {
       const search = (url.searchParams.get('q') || '').toLowerCase()
       const source = url.searchParams.get('source') || 'all'
@@ -158,7 +189,7 @@ async function prepare(viewport,authenticated = true,denied = false) {
       data = { items:rows.slice(offset,offset+limit),total:rows.length,totalUsers:new Set(rows.map((row) => row.user_id)).size }
     }
     else if (path === '/results') data = { items:[analysis],total:1 }
-    else if (path.startsWith('/results/')) data = { item:{ ...analysis,personality_analysis:'Profil créatif et structuré.',skills_assessment:'Analyse et travail en équipe.',job_recommendations:[{ title:'Développeur web' }],study_recommendations:[{ degree:'Licence Informatique' }] },user,selections:selectionFixtures,selectionRecorded:true }
+    else if (path.startsWith('/results/')) data = { item:{ ...analysis,personality_analysis:'Profil créatif et structuré.',skills_assessment:'Analyse et travail en équipe.',job_recommendations:[{ title:'Développeur web' }],study_recommendations:[{ degree:'Licence Informatique' }] },user,selections:selectionFixtures,selectionRecorded:true,recommendations:recommendationFixtures,recommendationsRecorded:true }
     else if (path === '/audit') data = { items:[{ id:1,actor_id:admin.id,action:'update:profile',resource_type:'profile',resource_id:user.id,reason:'Correction',created_at:'2026-10-01T12:00:00Z' }],total:1 }
     else throw new Error(`Unexpected fixture endpoint ${path}`)
     await route.fulfill({ status:200,contentType:'application/json',body:JSON.stringify(data) })
@@ -187,6 +218,10 @@ try {
   await page.goto(`${base}/admin`)
   await expect(page.getByRole('heading',{ name:'Vue d’ensemble',exact:true })).toBeVisible()
   await expect(page.locator('.bo-selections').getByRole('cell',{ name:/^BTS Informatique/ })).toBeVisible()
+  const recommendedPartnerRow = page.locator('.bo-selections tbody tr').filter({ hasText:'Licence professionnelle CPMM' })
+  await expect(recommendedPartnerRow).toContainText('Lycée Jean Guéhenno')
+  await expect(recommendedPartnerRow).toContainText('Retenue pour informations')
+  await expectFormationLink(recommendedPartnerRow.getByRole('link',{ name:'Licence professionnelle CPMM',exact:true }),'https://example.com/cpmm')
   for (const [name,href] of [['BTS Informatique','https://example.com/formation'],[partner.formation_name,partner.link]]) {
     const link = page.locator('.bo-selections').getByRole('link',{ name,exact:true })
     await expectFormationLink(link,href)
@@ -198,12 +233,12 @@ try {
     await popup.close()
     await expect(page.getByRole('heading',{ name:'Vue d’ensemble',exact:true })).toBeVisible()
   }
-  await expect(page.locator('.bo-selections').getByText('Lien indisponible',{ exact:true })).toHaveCount(3)
+  await expect(page.locator('.bo-selections').getByText('Lien indisponible',{ exact:true })).toHaveCount(2)
   await page.locator('.bo-selections').getByRole('link',{ name:'Camille Martin',exact:true }).first().click()
   await expect(page.getByRole('heading',{ name:'Formations sélectionnées',exact:true })).toBeVisible()
-  await expect(page.getByText('2 résultats')).toBeVisible()
+  await expect(page.getByText('3 résultats')).toBeVisible()
   await page.getByRole('button',{ name:'Tous les utilisateurs',exact:true }).click()
-  await expect(page.getByText('52 résultats')).toBeVisible()
+  await expect(page.getByText('53 résultats')).toBeVisible()
   await page.getByRole('link',{ name:'Vue d’ensemble',exact:true }).click()
   await expect(page.getByRole('heading',{ name:'Évolution des élèves',exact:true })).toBeVisible()
   await expect(page.locator('.bo-growth .apexcharts-svg')).toBeVisible()
@@ -226,6 +261,9 @@ try {
   const profile = page.getByRole('dialog',{ name:'Camille Martin',exact:true })
   await expect(profile.getByRole('heading',{ name:'Profil',exact:true })).toBeVisible()
   await expectFormationLink(profile.getByRole('link',{ name:'BTS Informatique',exact:true }),'https://example.com/formation')
+  await expectFormationLink(profile.getByRole('region',{ name:'Formations sélectionnées',exact:true }).getByRole('link',{ name:'Licence professionnelle CPMM',exact:true }),'https://example.com/cpmm')
+  await expect(profile.getByRole('region',{ name:'Formations sélectionnées',exact:true }).getByText('Partenaire décoché',{ exact:true })).toHaveCount(0)
+  await expectFormationLink(profile.getByRole('region',{ name:'Partenaires recommandés',exact:true }).getByRole('link',{ name:'Partenaire décoché',exact:true }),'https://example.com/ecv')
   const review = profile.getByRole('region',{ name:'Réponses et métiers',exact:true })
   await expect(review.getByRole('heading',{ name:'Métiers recommandés',exact:true })).toBeVisible()
   await expect(review.getByText('Menuisier',{ exact:true })).toBeVisible()
@@ -293,7 +331,7 @@ try {
   const mutationCount = mutations.length
   await expect(page.getByRole('heading',{ name:'Formations sélectionnées',exact:true })).toBeVisible()
   await page.getByRole('button',{ name:'Page suivante',exact:true }).click()
-  await expect(page.getByText('51–52')).toBeVisible()
+  await expect(page.getByText('51–53')).toBeVisible()
   await page.getByRole('button',{ name:'Page précédente',exact:true }).click()
   await page.getByRole('combobox',{ name:'Origine des sélections',exact:true }).selectOption('partner')
   await expect(page.getByText('1 résultat',{ exact:false })).toBeVisible()
@@ -315,7 +353,7 @@ try {
   await page.getByRole('link',{ name:'Analyses de cet utilisateur',exact:true }).click()
   await expect(page.getByRole('heading',{ name:'Analyses',exact:true })).toBeVisible()
   await page.getByRole('button',{ name:`Ouvrir la fiche ${user.email}`,exact:true }).click()
-  await expect(page.getByText('Demande d’informations',{ exact:true })).toBeVisible()
+  await expect(page.getByRole('dialog').getByText('Demande d’informations',{ exact:true })).toHaveCount(2)
   await expect(page.getByRole('dialog').getByText('BTS Informatique',{ exact:true })).toBeVisible()
   await expectFormationLink(page.getByRole('dialog').getByRole('link',{ name:'BTS Informatique',exact:true }),'https://example.com/formation')
   assert.equal(await page.getByRole('dialog').getByText('Licence Histoire',{ exact:true }).count(),0)
@@ -447,6 +485,92 @@ try {
     await noOverflow(fixture.page)
     assert.deepEqual(fixture.scriptErrors,[])
     await fixture.context.close()
+  }
+  for (const [name,viewport] of [['desktop',{ width:1440,height:900 }],['mobile',{ width:390,height:844 }]]) {
+    const fixture = await prepare(viewport)
+    const page = fixture.page
+    const before = mutations.length
+    try {
+      await page.goto(`${base}/admin`)
+      const overview = page.locator('.bo-recommendations')
+      await expect(overview).toHaveCSS('margin-bottom','28px')
+      await expect(overview.locator('tbody tr')).toHaveCount(3)
+      await expectFormationLink(overview.getByRole('link',{ name:'Partenaire décoché',exact:true }),'https://example.com/ecv')
+      await expect(overview.getByRole('cell',{ name:'ECV',exact:true })).toHaveCount(2)
+      await page.screenshot({ path:join(output,`recommendations-${name}.png`),fullPage:true })
+      await overview.getByRole('link',{ name:'Toutes les recommandations',exact:true }).click()
+      await expect(page.getByRole('heading',{ name:'Formations recommandées',exact:true })).toBeVisible()
+      const source = page.getByRole('combobox',{ name:'Origine des recommandations',exact:true })
+      await expect(source).toHaveValue('partner')
+      await expect(page.locator('.bo-table tbody tr')).toHaveCount(3)
+      await source.selectOption('all')
+      await expect(page.locator('.bo-table tbody tr')).toHaveCount(11)
+      await source.selectOption('national')
+      await expect(page.locator('.bo-table tbody tr')).toHaveCount(8)
+      await source.selectOption('partner')
+      await page.getByRole('searchbox',{ name:'Rechercher dans formations recommandées',exact:true }).fill('Bordeaux')
+      await expect(page.locator('.bo-table tbody tr')).toHaveCount(1)
+      await expect(page.getByRole('cell',{ name:'ECV',exact:true })).toBeVisible()
+      await noOverflow(page)
+      await page.getByRole('button',{ name:`Ouvrir la fiche ${user.email}`,exact:true }).click()
+      const detail = page.getByRole('dialog',{ name:'Partenaire décoché',exact:true })
+      await expect(detail.getByText('Présentée à l’élève, sans présumer d’une demande d’informations.',{ exact:true })).toBeVisible()
+      await detail.getByRole('link',{ name:'Choix de cet élève',exact:true }).click()
+      await expect(page.getByRole('heading',{ name:'Formations sélectionnées',exact:true })).toBeVisible()
+      await expect(page.getByText('3 résultats')).toBeVisible()
+      await expect(page.getByRole('cell',{ name:'Partenaire décoché',exact:true })).toHaveCount(0)
+      assert.equal(mutations.length,before,'Reading recommendations must not create leads or selections.')
+      assert.deepEqual(fixture.scriptErrors,[])
+    } finally { await fixture.context.close() }
+  }
+  for (const [name,viewport] of [['desktop',{ width:1440,height:900 }],['mobile',{ width:390,height:844 }]]) {
+    const fixture = await prepare(viewport)
+    const page = fixture.page
+    try {
+      await page.goto(`${base}/admin/partenaires`)
+      await page.getByRole('button',{ name:'Ajouter',exact:true }).click()
+      const createPanel = page.getByRole('dialog',{ name:'Ajouter une formation partenaire',exact:true })
+      const campusCities = createPanel.getByRole('textbox',{ name:'Villes des campus (une ville par ligne)',exact:true })
+      await createPanel.getByLabel('École',{ exact:true }).fill('ECV')
+      await createPanel.getByLabel('Intitulé',{ exact:true }).fill('Bachelor Design graphique')
+      await createPanel.getByLabel('Domaine',{ exact:true }).fill('Design graphique')
+      await createPanel.getByLabel('Lien',{ exact:true }).fill('https://example.com/ecv-design')
+      await campusCities.fill('Paris\nBordeaux\nNantes')
+      const creationResponse = page.waitForResponse((response) => response.url().endsWith('/partners/campuses') && response.request().method() === 'POST')
+      await createPanel.getByRole('button',{ name:'Enregistrer',exact:true }).click()
+      const created = await creationResponse
+      assert.equal(created.status(),201)
+      assert.deepEqual(created.request().postDataJSON().cities,['Paris','Bordeaux','Nantes'])
+      await expect(createPanel).not.toBeVisible()
+      const ecvRows = page.locator('.bo-table tbody tr').filter({ has:page.getByRole('cell',{ name:'ECV',exact:true }) })
+      await expect(ecvRows).toHaveCount(3)
+      for (const city of ['Paris','Bordeaux','Nantes']) {
+        await expect(ecvRows.getByRole('cell',{ name:city,exact:true })).toHaveCount(1)
+      }
+      await ecvRows.filter({ has:page.getByRole('cell',{ name:'Bordeaux',exact:true }) }).getByRole('button',{ name:'Ouvrir la fiche Bachelor Design graphique',exact:true }).click()
+      const ecvPanel = page.getByRole('dialog',{ name:'ECV',exact:true })
+      await expect(ecvPanel.getByLabel('Ville',{ exact:true })).toHaveValue('Bordeaux')
+      await ecvPanel.getByRole('button',{ name:'Ajouter des campus à cette formation',exact:true }).click()
+      await expect(createPanel.getByLabel('École',{ exact:true })).toHaveValue('ECV')
+      await expect(createPanel.getByLabel('Intitulé',{ exact:true })).toHaveValue('Bachelor Design graphique')
+      await expect(createPanel.getByLabel('Domaine',{ exact:true })).toHaveValue('Design graphique')
+      await expect(createPanel.getByLabel('Lien',{ exact:true })).toHaveValue('https://example.com/ecv-design')
+      await expect(createPanel.getByText('Campus existant : Bordeaux. Saisis uniquement les nouvelles villes.',{ exact:true })).toBeVisible()
+      await expect(campusCities).toHaveValue('')
+      await campusCities.fill('Paris\nLille')
+      await createPanel.getByRole('button',{ name:'Enregistrer',exact:true }).click()
+      await expect(createPanel.getByRole('alert')).toContainText('Aucun campus')
+      await expect(campusCities).toHaveValue('Paris\nLille')
+      await expect(ecvRows).toHaveCount(3)
+      await campusCities.fill('Lille')
+      await createPanel.getByRole('button',{ name:'Enregistrer',exact:true }).click()
+      await expect(createPanel).not.toBeVisible()
+      await expect(ecvRows).toHaveCount(4)
+      await expect(ecvRows.getByRole('cell',{ name:'Lille',exact:true })).toHaveCount(1)
+      await noOverflow(page)
+      await page.screenshot({ path:join(output,`ecv-campus-${name}.png`),fullPage:true })
+      assert.deepEqual(fixture.scriptErrors,[])
+    } finally { await fixture.context.close() }
   }
   assert.ok(mutations.some((entry) => entry.path === `/users/${user.id}` && entry.body.first_name === 'Camille corrigée'))
   assert.ok(mutations.some((entry) => entry.path.endsWith('/suspend') && entry.body.reason === 'Compte de test'))

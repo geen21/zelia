@@ -117,6 +117,26 @@ Si la sauvegarde de ces reglages est refusee, verifier que la migration partenai
 
 L'ecran d'orientation utilise une grille commune : une insertion partenaire apres trois formations nationales, avec au plus trois partenaires. La priorite departage les partenaires uniquement, sans modifier les scores ni l'ordre du catalogue national. Les selections nationales et les demandes directes aux partenaires gardent leurs actions distinctes.
 
+### Ajouter une formation sur plusieurs campus
+
+Appliquer [migration_backoffice_partner_campuses.sql](database/migration_backoffice_partner_campuses.sql) apres les migrations back-office principale et reglages partenaires. La nouvelle RPC `backoffice_create_partner_campuses` est reservee au serveur. Le script de configuration verifie sa presence par une requete volontairement invalide, sans aucune ecriture.
+
+Dans `/admin/partenaires` > **Ajouter**, saisir l'ecole et les informations communes d'une formation une seule fois, puis les villes dans **Villes des campus (une ville par ligne)**, de 1 a 20 villes. Une fiche distincte par formation et par ville est creee, avec son propre identifiant, ce qui conserve le fonctionnement des recommandations et du suivi. Chaque fiche reste editable individuellement : lien, contact, visibilite, etc. Pour ajouter des villes a une formation existante, ouvrir sa fiche et utiliser **Ajouter des campus a cette formation** : les informations communes sont pre-remplies, et seules les nouvelles villes doivent etre saisies.
+
+Exemple illustratif ECV : pour une formation effectivement proposee a Paris, Bordeaux et Nantes, saisir `ECV` une seule fois et ces trois villes sur trois lignes. Le formulaire cree trois fiches du meme programme. Ne pas supposer que chaque programme existe sur tous les campus ; saisir separement les formations dont les campus ou contenus different. Aucune ecole ECV n'est ajoutee automatiquement aux donnees de production.
+
+`POST /api/admin/partners/campuses` accepte les champs communs de creation d'un partenaire (sans `city`) et `cities`, un tableau de villes. Les doublons de villes et les fiches deja existantes pour une meme ecole/formation/ville sont refuses. Le lot et ses entrees d'audit sont atomiques : si un campus echoue, aucun n'est cree. Une formation deja archivee n'est pas dupliquee : la reactiver ou modifier sa fiche. Cette evolution ne change pas les regles geographiques ni ne deduit un departement a partir d'une ville.
+
+### Recommandations affichees et suivi des partenaires
+
+Appliquer [migration_backoffice_recommendations.sql](database/migration_backoffice_recommendations.sql) apres les migrations back-office. L'ecran d'orientation enregistre automatiquement les formations effectivement affichees dans `informations_complementaires`, sous `orientation_recommendations`, sans attendre le clic de continuation. Les partenaires deja visibles sont enregistres meme pendant le chargement du catalogue national. Un echec de sauvegarde affiche une erreur et un bouton de nouvelle tentative. Cet enregistrement ne cree aucune candidature, demande d'informations ou notification ecole.
+
+Le dashboard `/admin` presente une rubrique **Partenaires recommandes** distincte des formations selectionnees : formation, etablissement, campus/ville, eleve, lien et date. L'onglet **Recommandations** de `/admin/resultats` permet de consulter toutes les formations affichees, filtrer partenaires/catalogue national et rechercher un eleve, une ecole ou une ville. Les partenaires recommandes sont aussi rappeles dans les fiches utilisateurs et analyses, y compris lorsqu'ils ne sont pas retenus. Les demandes et choix conserves restent dans la vue des selections, sans assimilation automatique d'une recommandation a un consentement.
+
+`GET /api/admin/recommendations` accepte `q`, `source` (`all`, `national`, `partner`), `user_id`, `limit` et `offset`. La RPC service-only `backoffice_recommendations` lit le dernier recapitulatif disponible (`orientation_recommendations` ou ancien `orientation_final_selection`) pour chaque utilisateur, sans filtrer les cases cochees. Les metiers sont exclus ; les campus restent distincts ; les doublons sont elimines. Le nom et le lien de l'etablissement sont lus depuis les donnees compactes enregistrees. Une liste vide plus recente remplace l'ancienne liste.
+
+Pour les anciens parcours, seules les formations deja sauvegardees sont recuperables. Les partenaires absents des anciens enregistrements ne sont pas reconstitues a partir du catalogue actuel. Le script de configuration verifie la nouvelle RPC avant deploiement.
+
 ### Formations selectionnees
 
 Appliquer [migration_backoffice_selections.sql](database/migration_backoffice_selections.sql) apres la migration principale. La vue d'ensemble montre les dernieres selections, et `/admin/resultats` ouvre la liste des formations retenues ; les analyses restent dans un onglet distinct. Le script de configuration verifie la nouvelle RPC avant deploiement.
@@ -125,7 +145,9 @@ Appliquer [migration_backoffice_selections.sql](database/migration_backoffice_se
 
 L'orientation utilise uniquement le dernier `orientation_final_selection` de chaque utilisateur : `type="formation"` et `requestMoreInformation=true` (booleen JSON). Les metiers, propositions non cochees et anciens formats sans indicateur ne sont pas assimiles a des choix. Les doublons sont elimines ; un JSON invalide est ignore. Les demandes `contact_submitted` sont listees separement, y compris pour les partenaires archives. Ces donnees existent independamment d'une analyse enregistree.
 
-La date d'orientation est celle du dernier recapitulatif sauvegarde, pas celle d'un clic individuel. Les cases sont initialement preselectionnees dans le parcours ; la vue restitue le choix conserve lors de sa sauvegarde. Aucun historique de deselections ni des anciens recapitulatifs remplaces n'est reconstitue. La consultation reste en lecture seule et reservee aux deux administrateurs.
+La date d'orientation est celle du dernier recapitulatif sauvegarde, pas celle d'un clic individuel. Toutes les formations affichees, nationales et partenaires, sont initialement preselectionnees et peuvent etre decochees. Le choix est conserve lors d'un retour en arriere. La suite du parcours attend la fin des chargements pour enregistrer un recapitulatif complet.
+
+Le dernier `orientation_final_selection` enregistre aussi les partenaires decoches avec `requestMoreInformation=false`, comme les formations nationales. Seules les cases restees cochees remontent dans les listes de selections ; la rubrique des recommandations reste independante de ces choix. Enregistrer un partenaire recommande ne cree pas de `contact_submitted`. Les notifications aux etablissements concernent uniquement les formations conservees. Les anciennes recommandations partenaires non enregistrees ne peuvent pas etre reconstituees retroactivement. Aucun historique des anciens recapitulatifs remplaces n'est reconstitue. La consultation reste en lecture seule et reservee aux deux administrateurs.
 
 ### Evolution des eleves
 

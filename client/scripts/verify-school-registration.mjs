@@ -38,7 +38,7 @@ async function prepare(viewport, authenticated = false) {
     if (url.pathname.endsWith('/api/school-portal/schools/search')) {
       return route.fulfill({
         status:state.failSearch ? 503 : 200,contentType:'application/json',
-        body:JSON.stringify(state.failSearch ? { error:'Recherche indisponible.' } : { schools:[{ school_name:schoolName,source:'formation_france' }] })
+        body:JSON.stringify(state.failSearch ? { error:'Recherche indisponible.' } : { schools:[{ school_name:schoolName,source:'formation_france' },{ school_name:'Institut Exemple',source:'formation_france' }] })
       })
     }
     if (url.pathname.endsWith('/api/school-portal/register')) {
@@ -69,7 +69,7 @@ async function prepare(viewport, authenticated = false) {
 
 async function selectSchool(page) {
   await page.getByLabel('\u00c9tablissement repr\u00e9sent\u00e9',{ exact:true }).fill('Num')
-  await page.getByRole('button',{ name:schoolName,exact:true }).click()
+  await page.getByRole('option',{ name:schoolName,exact:true }).click()
 }
 
 async function checkSessions(page) {
@@ -94,6 +94,17 @@ try {
     await expect(page.getByRole('alert')).toHaveText('Recherche indisponible.')
     state.failSearch = false
     await selectSchool(page)
+    const schoolInput = page.getByLabel('\u00c9tablissement repr\u00e9sent\u00e9',{ exact:true })
+    await schoolInput.fill('Num')
+    await expect(submit).toBeDisabled()
+    await expect(page.getByRole('option',{ name:schoolName,exact:true })).toBeVisible()
+    await schoolInput.press('ArrowUp')
+    await expect(page.getByRole('option',{ name:'Institut Exemple',exact:true })).toHaveAttribute('aria-selected','true')
+    await schoolInput.press('ArrowDown')
+    await expect(page.getByRole('option',{ name:schoolName,exact:true })).toHaveAttribute('aria-selected','true')
+    await schoolInput.press('Enter')
+    await expect(schoolInput).toHaveValue(schoolName)
+    await expect(page.getByRole('listbox')).toHaveCount(0)
     await page.getByLabel('Pr\u00e9nom',{ exact:true }).fill(' Camille ')
     await page.getByLabel('Nom',{ exact:true }).fill(' Martin ')
     await page.getByLabel('Email professionnel',{ exact:true }).fill('school@example.com')

@@ -2,20 +2,10 @@ import React, { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import Chart from 'react-apexcharts'
 import { schoolPortalAPI } from '../../lib/schoolPortalApi'
-import SchoolPortalFilters, { ORIGIN_LABELS } from './SchoolPortalFilters'
-
-const STATUS_LABELS = {
-  nouveau: 'Nouveau',
-  a_contacter: 'À contacter',
-  contacte: 'Contacté',
-  converti: 'Converti',
-  archive: 'Archivé'
-}
-
-const SOURCE_LABELS = { questionnaire: 'Questionnaire', direct_request: 'Demande directe' }
+import SchoolPortalFilters, { ORIGIN_LABELS, STATUS_LABELS } from './SchoolPortalFilters'
 
 export default function SchoolPortalStats() {
-  const { company, api = schoolPortalAPI } = useOutletContext()
+  const { api = schoolPortalAPI } = useOutletContext()
   const [filters, setFilters] = useState({})
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -41,47 +31,46 @@ export default function SchoolPortalStats() {
   return (
     <>
       <div className="sp-page-head">
-        <p className="sp-kicker">Espace écoles</p>
-        <h1 className="sp-title">Statistiques{company?.name ? ` — ${company.name}` : ''}</h1>
-        <p className="sp-subtitle">Évolution de vos leads, formations les plus demandées et suivi de votre pipeline.</p>
+        <div><p className="sp-kicker">Pilotage</p>
+        <h1 className="sp-title">Statistiques</h1>
+        <p className="sp-subtitle">Comprenez les demandes et suivez votre activité.</p></div>
       </div>
 
       <SchoolPortalFilters value={filters} onChange={setFilters} campuses={stats?.campuses || []} />
-      <p>Les segments d’origine sont exclusifs et leur somme correspond au total. Un même élève peut utiliser plusieurs canaux.</p>
       {error && (
-        <div className="sp-card" style={{ borderColor: '#fecaca', background: '#fef2f2', color: '#b91c1c', marginBottom: 16 }}>
+        <div className="sp-alert" role="alert">
           {error}
         </div>
       )}
 
       {loading ? (
-        <p className="sp-empty">Chargement...</p>
-      ) : !stats || stats.total === 0 ? (
+        <p className="sp-empty" role="status">Chargement des statistiques…</p>
+      ) : error ? null : !stats || stats.total === 0 ? (
         <p className="sp-empty">Pas encore assez de données pour afficher des statistiques.</p>
       ) : (
         <>
           <div className="sp-kpi-grid">
             <div className="sp-card sp-kpi-card">
-              <p className="sp-kpi-value">{stats.total}</p>
               <p className="sp-kpi-label">Leads au total</p>
+              <p className="sp-kpi-value">{stats.total}</p>
             </div>
             {Object.entries(stats.byOrigin || {}).map(([source, count]) => (
               <div key={source} className="sp-card sp-kpi-card accent-pink">
-                <p className="sp-kpi-value">{count}</p>
                 <p className="sp-kpi-label">{ORIGIN_LABELS[source] || source}</p>
+                <p className="sp-kpi-value">{count}</p>
               </div>
             ))}
           </div>
 
           <div className="sp-section">
-            <div className="sp-section-head"><p className="sp-section-title">Évolution des leads (12 dernières semaines)</p></div>
-            <div className="sp-card">
+            <div className="sp-card sp-chart">
+              <h2 className="sp-section-title">Évolution des leads <span className="sp-muted sp-small">· 12 dernières semaines</span></h2>
               <Chart
                 type="line"
                 height={260}
                 series={[{ name: 'Leads', data: stats.leadsPerWeek.map((point) => point.count) }]}
                 options={{
-                  chart: { toolbar: { show: false }, fontFamily: 'Bricolage Grotesque, sans-serif' },
+                  chart: { toolbar: { show: false }, animations: { enabled: false }, fontFamily: 'Bricolage Grotesque, sans-serif' },
                   colors: ['#111827'],
                   stroke: { curve: 'smooth', width: 3 },
                   grid: { borderColor: '#e5e7eb' },
@@ -95,10 +84,9 @@ export default function SchoolPortalStats() {
             </div>
           </div>
 
-          <div className="sp-section" style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
-            <div>
-              <div className="sp-section-head"><p className="sp-section-title">Formations les plus demandées</p></div>
-              <div className="sp-card accent-ink">
+          <div className="sp-section sp-chart-grid">
+            <div className="sp-card sp-chart">
+              <h2 className="sp-section-title">Formations les plus demandées</h2>
                 {stats.topFormations.length === 0 ? (
                   <p className="sp-empty" style={{ padding: '16px 0' }}>Aucune formation identifiée pour le moment.</p>
                 ) : (
@@ -107,7 +95,7 @@ export default function SchoolPortalStats() {
                     height={Math.max(220, stats.topFormations.length * 34)}
                     series={[{ name: 'Demandes', data: stats.topFormations.map((item) => item.count) }]}
                     options={{
-                      chart: { toolbar: { show: false }, fontFamily: 'Bricolage Grotesque, sans-serif' },
+                      chart: { toolbar: { show: false }, animations: { enabled: false }, fontFamily: 'Bricolage Grotesque, sans-serif' },
                       colors: ['#c1ff72'],
                       plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '55%' } },
                       xaxis: { categories: stats.topFormations.map((item) => item.name) },
@@ -116,27 +104,25 @@ export default function SchoolPortalStats() {
                     }}
                   />
                 )}
-              </div>
             </div>
 
-            <div>
-              <div className="sp-section-head"><p className="sp-section-title">Répartition par statut</p></div>
-              <div className="sp-card">
+            <div className="sp-card sp-chart">
+              <h2 className="sp-section-title">Répartition par statut</h2>
                 <Chart
                   type="donut"
                   height={280}
                   series={Object.values(stats.byStatus)}
                   options={{
-                    chart: { fontFamily: 'Bricolage Grotesque, sans-serif' },
+                    chart: { animations: { enabled: false }, fontFamily: 'Bricolage Grotesque, sans-serif' },
                     labels: Object.keys(stats.byStatus).map((key) => STATUS_LABELS[key] || key),
                     colors: ['#f3f4f6', '#fde68a', '#93c5fd', '#86efac', '#d1d5db'],
                     legend: { position: 'bottom', fontSize: '12px' },
                     dataLabels: { enabled: false }
                   }}
                 />
-              </div>
             </div>
           </div>
+          <p className="sp-notice">Chaque élève est compté une fois. Les origines sont exclusives et leur somme correspond au total ; un même élève peut utiliser plusieurs canaux.</p>
         </>
       )}
     </>

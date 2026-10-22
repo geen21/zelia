@@ -2,17 +2,20 @@ import React, { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { schoolPortalAPI } from '../../lib/schoolPortalApi'
 import SchoolPortalCatalog from './SchoolPortalCatalog'
+import SchoolPortalDialog from './SchoolPortalDialog'
+import { PiPlus, PiGraduationCap } from 'react-icons/pi'
 
 const EMPTY_FORM = { title: '', description: '', diplomaLevel: '', city: '', domain: '', link: '', contactEmail: '' }
 
 export default function SchoolPortalFormations() {
-  const { company, api = schoolPortalAPI, readOnly = false } = useOutletContext()
+  const { api = schoolPortalAPI, readOnly = false } = useOutletContext()
   const [customFormations, setCustomFormations] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
   const [editingId, setEditingId] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [formOpen, setFormOpen] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -34,6 +37,7 @@ export default function SchoolPortalFormations() {
   }
 
   function startEdit(formation) {
+    setFormOpen(true)
     setEditingId(formation.id)
     setForm({
       title: formation.title || '',
@@ -49,6 +53,7 @@ export default function SchoolPortalFormations() {
   function cancelEdit() {
     setEditingId(null)
     setForm(EMPTY_FORM)
+    setFormOpen(false)
   }
 
   async function handleSubmit(event) {
@@ -72,24 +77,27 @@ export default function SchoolPortalFormations() {
   }
 
   async function handleDelete(id) {
+    setSaving(true)
+    setError('')
     try {
       await api.deleteSchoolFormation(id)
       await load()
-    } catch {
-      setError('Échec de la suppression')
-    }
+    } catch (failure) {
+      setError(failure.response?.data?.error || 'Échec de la suppression')
+    } finally { setSaving(false) }
   }
 
   return (
     <>
       <div className="sp-page-head">
-        <p className="sp-kicker">Espace écoles</p>
-        <h1 className="sp-title">Mes formations{company?.name ? ` — ${company.name}` : ''}</h1>
-        <p className="sp-subtitle">Formations référencées automatiquement sur Zélia, et formations que vous ajoutez vous-même.</p>
+        <div><p className="sp-kicker">Offre de formation</p>
+        <h1 className="sp-title">Mes formations</h1>
+        <p className="sp-subtitle">Votre présence sur Zelia et les formations de votre établissement.</p></div>
+        {!readOnly && <button className="sp-btn sp-btn-primary" onClick={() => setFormOpen(true)}><PiPlus aria-hidden="true" />Ajouter une formation</button>}
       </div>
 
-      {error && (
-        <div className="sp-card" style={{ borderColor: '#fecaca', background: '#fef2f2', color: '#b91c1c', marginBottom: 16 }}>
+      {error && !formOpen && (
+        <div className="sp-alert" role="alert">
           {error}
         </div>
       )}
@@ -97,21 +105,21 @@ export default function SchoolPortalFormations() {
       <SchoolPortalCatalog />
 
       <div className="sp-section">
-        <div className="sp-section-head"><p className="sp-section-title">Mes formations personnalisées</p></div>
-        <div className="sp-card no-accent" style={{ padding: 0, marginBottom: 16 }}>
-          {loading ? null : customFormations.length === 0 ? (
-            <p className="sp-empty">Vous n'avez pas encore ajouté de formation personnalisée.</p>
+        <div className="sp-section-head"><h2 className="sp-section-title">Formations personnalisées</h2><span className="sp-muted sp-small">{customFormations.length} formation(s)</span></div>
+        <div className="sp-card sp-card-flush">
+          {loading ? <p className="sp-empty" role="status">Chargement des formations…</p> : error ? null : customFormations.length === 0 ? (
+            <div className="sp-empty"><PiGraduationCap aria-hidden="true" /><strong>Complétez votre offre</strong><p>Vous n'avez pas encore ajouté de formation personnalisée.</p></div>
           ) : (
-            <div className="sp-row-list" style={{ padding: '4px 20px' }}>
+            <div className="sp-row-list">
               {customFormations.map((formation) => (
                 <div key={formation.id} className="sp-row-item">
                   <div>
                     <p className="sp-row-title">{formation.title}</p>
                     <p className="sp-row-meta">{[formation.city, formation.diploma_level].filter(Boolean).join(' • ')}</p>
                   </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {!readOnly && <><button type="button" className="sp-btn sp-btn-sm" onClick={() => startEdit(formation)}>Modifier</button>
-                    <button type="button" className="sp-btn sp-btn-sm sp-btn-danger" onClick={() => handleDelete(formation.id)}>Supprimer</button></>}
+                  <div className="sp-actions">
+                    {!readOnly && <><button type="button" className="sp-btn sp-btn-sm" disabled={saving} onClick={() => startEdit(formation)}>Modifier</button>
+                    <button type="button" className="sp-btn sp-btn-sm sp-btn-danger" disabled={saving} onClick={() => handleDelete(formation.id)}>Supprimer</button></>}
                   </div>
                 </div>
               ))}
@@ -119,8 +127,8 @@ export default function SchoolPortalFormations() {
           )}
         </div>
 
-        {!readOnly && <div className="sp-card accent-pink">
-          <p className="sp-section-title" style={{ marginBottom: 14 }}>{editingId ? 'Modifier la formation' : 'Ajouter une formation'}</p>
+        {!readOnly && formOpen && <SchoolPortalDialog title={editingId ? 'Modifier la formation' : 'Ajouter une formation'} busy={saving} onClose={cancelEdit}>
+          {error && <p className="sp-alert" role="alert">{error}</p>}
           <form onSubmit={handleSubmit}>
             <div className="sp-form-grid">
               <div className="sp-field">
@@ -148,18 +156,18 @@ export default function SchoolPortalFormations() {
                 <input id="sf-email" type="email" value={form.contactEmail} onChange={(event) => updateField('contactEmail', event.target.value)} />
               </div>
             </div>
-            <div className="sp-field" style={{ marginTop: 12 }}>
+            <div className="sp-field" style={{ marginTop: 18 }}>
               <label htmlFor="sf-description">Description</label>
               <textarea id="sf-description" value={form.description} onChange={(event) => updateField('description', event.target.value)} />
             </div>
-            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+            <div className="sp-form-footer">
               <button type="submit" className="sp-btn sp-btn-primary" disabled={saving}>
                 {saving ? 'Enregistrement...' : editingId ? 'Enregistrer les modifications' : 'Ajouter la formation'}
               </button>
-              {editingId && <button type="button" className="sp-btn" onClick={cancelEdit}>Annuler</button>}
+              <button type="button" className="sp-btn" disabled={saving} onClick={cancelEdit}>Annuler</button>
             </div>
           </form>
-        </div>}
+        </SchoolPortalDialog>}
       </div>
     </>
   )

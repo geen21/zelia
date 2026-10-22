@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { PiArrowRight } from 'react-icons/pi'
 import { schoolPortalSupabase } from '../../lib/schoolPortalSupabase'
-import './SchoolPortal.css'
+import { SchoolPortalAuthFrame } from './SchoolPortalFrame'
 
 export default function SchoolPortalLogin() {
   const [email, setEmail] = useState('')
@@ -13,78 +14,27 @@ export default function SchoolPortalLogin() {
   async function handleSubmit(event) {
     event.preventDefault()
     if (loading) return
-    setError('')
-    setLoading(true)
-
+    setError(''); setLoading(true)
     try {
       const { error: signInError } = await schoolPortalSupabase.auth.signInWithPassword({ email, password })
       if (signInError) throw signInError
       const { data: assurance, error: mfaError } = await schoolPortalSupabase.auth.mfa.getAuthenticatorAssuranceLevel()
       if (mfaError) throw mfaError
-      if (assurance.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2') {
-        navigate('/espace-ecoles/securite?challenge=1', { replace: true })
-        return
-      }
-      navigate('/espace-ecoles/leads', { replace: true })
-    } catch (loginError) {
-      setError(loginError?.message || 'Échec de connexion')
-    } finally {
-      setLoading(false)
-    }
+      navigate(assurance.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2' ? '/espace-ecoles/securite?challenge=1' : '/espace-ecoles/leads', { replace: true })
+    } catch (failure) { setError(failure.message || 'Échec de connexion.') }
+    finally { setLoading(false) }
   }
 
-  return (
-    <main className="sp-shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 16px' }}>
-      <div style={{ width: '100%', maxWidth: 420 }}>
-        <Link to="/espace-ecoles" className="sp-logo" style={{ marginBottom: 28 }} aria-label="Espace écoles Zelia">
-          <img src="/static/images/logo-dark.png" alt="Zelia" />
-        </Link>
-
-        <div className="sp-card">
-          <p className="sp-kicker">Espace écoles</p>
-          <h1 className="sp-title" style={{ fontSize: 24, marginBottom: 6 }}>Connexion école</h1>
-          <p className="sp-subtitle" style={{ marginBottom: 18 }}>Accédez aux leads de votre établissement.</p>
-
-          <form onSubmit={handleSubmit}>
-            <div className="sp-field" style={{ marginBottom: 12 }}>
-              <label htmlFor="login-email">Email</label>
-              <input
-                id="login-email"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="contact@ecole.fr"
-                autoComplete="email"
-              />
-            </div>
-            <div className="sp-field" style={{ marginBottom: 14 }}>
-              <label htmlFor="login-password">Mot de passe</label>
-              <input
-                id="login-password"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                autoComplete="current-password"
-              />
-            </div>
-
-            {error && (
-              <div className="sp-card" style={{ borderColor: '#fecaca', background: '#fef2f2', color: '#b91c1c', padding: '10px 14px', marginBottom: 14 }}>
-                {error}
-              </div>
-            )}
-
-            <button type="submit" disabled={loading} className="sp-btn sp-btn-primary" style={{ width: '100%', height: 48 }}>
-              {loading ? 'Connexion...' : 'Se connecter'}
-            </button>
-          </form>
-          <p><Link to="/espace-ecoles/mot-de-passe-oublie">Mot de passe oublié ?</Link></p>
-        </div>
-
-        <p className="sp-subtitle" style={{ textAlign: 'center', marginTop: 16 }}>
-          Pas encore de compte ? <Link to="/espace-ecoles/inscription" style={{ color: '#000', fontWeight: 700 }}>Demander votre inscription</Link>
-        </p>
-      </div>
-    </main>
-  )
+  return <SchoolPortalAuthFrame footer={<>Pas encore de compte ? <Link className="sp-link" to="/espace-ecoles/inscription">Demander votre inscription</Link></>}>
+    <div className="sp-page-head"><div><p className="sp-kicker">Bienvenue dans votre espace</p><h1 className="sp-title">Connexion école</h1><p className="sp-subtitle">Retrouvez vos contacts et les projets qui avancent.</p></div></div>
+    <div className="sp-card">
+      {error && <p className="sp-alert" role="alert">{error}</p>}
+      <form className="sp-stack" onSubmit={handleSubmit} aria-busy={loading}>
+        <label className="sp-field" htmlFor="login-email">Email professionnel<input id="login-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="contact@ecole.fr" autoComplete="email" required /></label>
+        <label className="sp-field" htmlFor="login-password">Mot de passe<input id="login-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>
+        <Link className="sp-link sp-small" to="/espace-ecoles/mot-de-passe-oublie">Mot de passe oublié ?</Link>
+        <button type="submit" disabled={loading} className="sp-btn sp-btn-primary">{loading ? 'Connexion…' : 'Se connecter'}<PiArrowRight aria-hidden="true" /></button>
+      </form>
+    </div>
+  </SchoolPortalAuthFrame>
 }

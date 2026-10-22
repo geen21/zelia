@@ -19,6 +19,14 @@ L'historique conserve les demandes explicites et les contacts effectivement reve
 
 Les listes, statistiques et exports partagent la meme requete SQL et les memes filtres. Le CSV utilise un instantane SQL unique, sans coupure a 1000 ou 5000 lignes et avec protection des cellules interpretables comme formules. Les notifications n'embarquent aucune reponse au questionnaire ; leurs erreurs et relances sont accessibles dans la fiche ecole. Un verrou SQL evite les envois concurrents repetes pour un meme lead ; une interruption SMTP peut toutefois necessiter une verification de delivrabilite avant relance.
 
+### Interface de l'espace ecoles
+
+L'arrivee apres connexion reste `/espace-ecoles/leads`. La navigation laterale regroupe **Leads**, **Statistiques**, **Mes formations**, **Equipe** et **Securite** ; sur mobile, elle s'ouvre avec le bouton de navigation. Les filtres secondaires sont repliables sur mobile. Les dossiers s'ouvrent dans un panneau lateral, plein ecran sur telephone, sans perdre la recherche ni la page courante. Le panneau regroupe les informations autorisees, le statut et la note interne ; Echap le ferme et rend le focus a son bouton d'ouverture.
+
+Les reglages `/espace-ecoles/securite` utilisent le cadre du portail. L'activation, la recuperation et le defi `/espace-ecoles/securite?challenge=1` restent autonomes : le defi MFA n'appelle pas `/school-portal/me` avant la verification AAL2. Les formulaires d'acces partagent la meme presentation. L'edition des formations personnalisees s'ouvre sur demande dans un panneau. Les ecrans partages avec l'apercu administrateur restent en lecture seule, sans seconde sidebar.
+
+Les styles `sp-` sont limites a l'espace ecoles. Les surcharges `!important` des bordures et espacements de champs neutralisent uniquement les regles globales historiques equivalentes ; ne pas les remplacer par une modification globale du theme. Les icones sont des SVG locaux de `react-icons`, et leurs dimensions ne s'appliquent pas aux graphiques ApexCharts.
+
 Verifications locales sans acces aux donnees distantes :
 
 ```powershell
@@ -27,6 +35,8 @@ npm --prefix client run verify:school-portal
 ```
 
 La verification navigateur utilise Vite sur le port 5187 (voir ci-dessous), ou `BACKOFFICE_TEST_URL`. Auth, SMTP et les API sont simules. Les tests SQL couvrent RLS, consentement, homonymes, origine mixte, references bigint et plus de 5000 leads. La recette d'envoi reel et les reglages Supabase/Resend restent a effectuer en staging.
+
+Le controle UI couvre les filtres combines, l'export CSV filtre, la pagination, les notes/statuts, les erreurs, les panneaux au clavier, les formations et membres, les defis MFA avant acces au portail et les etats de compte. Les largeurs verifiees sont 1920, 1440, 1024, 390 et 360 px, avec controle du debordement horizontal, des dimensions des graphiques et des champs tactiles. Definir `SCHOOL_PORTAL_SCREENSHOTS` avec un chemin de dossier local pour conserver les captures de recette ; aucune donnee distante n'est utilisee.
 
 ## Sitemaps formations
 

@@ -185,13 +185,13 @@ function App() {
       <Route path="connexion" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalLogin /></Suspense>} />
       <Route path="activation" element={<Suspense fallback={<div>Chargement…</div>}><SchoolPortalSecurity mode="activation" /></Suspense>} />
       <Route path="mot-de-passe-oublie" element={<Suspense fallback={<div>Chargement…</div>}><SchoolPortalSecurity mode="forgot" /></Suspense>} />
-      <Route path="securite" element={<Suspense fallback={<div>Chargement…</div>}><SchoolPortalSecurity /></Suspense>} />
       <Route path="admin" element={<Navigate to="/admin/ecoles" replace />} />
       <Route element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalLayout /></Suspense>}>
         <Route path="leads" element={<SchoolPortalLeads />} />
         <Route path="statistiques" element={<SchoolPortalStats />} />
         <Route path="formations" element={<SchoolPortalFormationsManager />} />
         <Route path="equipe" element={<SchoolPortalTeam />} />
+        <Route path="securite" element={<Suspense fallback={<div role="status">Chargement…</div>}><SchoolPortalSecurity /></Suspense>} />
       </Route>
     </Route>
         <Route path="/admin/connexion" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminLogin /></Suspense>} />

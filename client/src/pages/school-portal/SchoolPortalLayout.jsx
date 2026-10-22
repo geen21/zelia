@@ -1,64 +1,48 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { PiHourglass } from 'react-icons/pi'
 import { schoolPortalSupabase } from '../../lib/schoolPortalSupabase'
 import { schoolPortalAPI } from '../../lib/schoolPortalApi'
-import './SchoolPortal.css'
-
-const NAV_ITEMS = [
-  { to: '/espace-ecoles/leads', label: 'Leads', icon: 'ph-users-three' },
-  { to: '/espace-ecoles/statistiques', label: 'Statistiques', icon: 'ph-chart-bar' },
-  { to: '/espace-ecoles/formations', label: 'Mes formations', icon: 'ph-graduation-cap' },
-  { to: '/espace-ecoles/equipe', label: 'Équipe', icon: 'ph-users' },
-  { to: '/espace-ecoles/securite', label: 'Sécurité', icon: 'ph-lock' }
-]
+import SchoolPortalFrame from './SchoolPortalFrame'
 
 export default function SchoolPortalLayout() {
   const [company, setCompany] = useState(null)
-  const [pendingApproval, setPendingApproval] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const navigate = useNavigate()
   const location = useLocation()
+  const challenge = location.pathname === '/espace-ecoles/securite' && new URLSearchParams(location.search).get('challenge') === '1'
 
   const refreshCompany = useCallback(async () => {
-    try {
-      const { data } = await schoolPortalAPI.getMe()
-      const currentCompany = data?.company || null
-      setCompany(currentCompany)
-      setPendingApproval(Boolean(currentCompany && !currentCompany.approved))
-      return currentCompany
-    } catch (loadError) {
-      const status = loadError?.response?.status
-      if (status === 401 || status === 404) {
-        navigate('/espace-ecoles/connexion', { replace: true })
-        return null
-      }
-      if (loadError?.response?.data?.message === 'MFA_REQUIRED') {
-        navigate('/espace-ecoles/securite?challenge=1', { replace: true })
-        return null
-      }
-      setError(loadError?.response?.data?.message || loadError?.response?.data?.error || 'Impossible de charger votre espace')
-      return null
-    }
-  }, [navigate])
+    const { data } = await schoolPortalAPI.getMe()
+    setCompany(data.company)
+    return data.company
+  }, [])
 
-  useEffect(() => {
-    let active = true
-    ;(async () => {
-      setLoading(true)
-      setError('')
-      const { data } = await schoolPortalSupabase.auth.getSession()
-      if (!active) return
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const { data, error: sessionError } = await schoolPortalSupabase.auth.getSession()
+      if (sessionError) throw sessionError
       if (!data?.session?.access_token) {
         navigate('/espace-ecoles/connexion', { replace: true })
         return
       }
-      await refreshCompany()
-      if (active) setLoading(false)
-    })()
-    return () => { active = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+      // The AAL2 challenge must be reachable before calling protected school APIs.
+      if (!challenge) await refreshCompany()
+    } catch (failure) {
+      if (failure.response?.data?.message === 'MFA_REQUIRED') {
+        navigate('/espace-ecoles/securite?challenge=1', { replace: true })
+      } else if ([401, 404].includes(failure.response?.status)) {
+        navigate('/espace-ecoles/connexion', { replace: true })
+      } else {
+        setError(failure.response?.data?.message || failure.message || 'Impossible de charger votre espace.')
+      }
+    } finally { setLoading(false) }
+  }, [challenge, navigate, refreshCompany])
+
+  useEffect(() => { load() }, [load])
 
   async function handleLogout() {
     const { error: logoutError } = await schoolPortalSupabase.auth.signOut({ scope: 'local' })
@@ -66,60 +50,15 @@ export default function SchoolPortalLayout() {
     navigate('/espace-ecoles/connexion', { replace: true })
   }
 
-  return (
-    <div className="sp-shell">
-      <header className="sp-topbar">
-        <div className="sp-topbar-inner">
-          <Link to="/" className="sp-logo" aria-label="Accueil Zelia">
-            <img src="/static/images/logo-dark.png" alt="Zelia" />
-          </Link>
-
-          {!loading && !pendingApproval && company && (
-            <nav className="sp-nav" aria-label="Navigation espace écoles">
-              {NAV_ITEMS.map((item) => {
-                const isActive = location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)
-                return (
-                  <Link key={item.to} to={item.to} className={`sp-nav-link ${isActive ? 'is-active' : ''}`}>
-                    <i className={`ph ${item.icon}`} aria-hidden="true" />
-                    <span>{item.label}</span>
-                  </Link>
-                )
-              })}
-            </nav>
-          )}
-
-          <div className="sp-topbar-actions">
-            {company?.name && <span className="sp-company-chip">{company.name}</span>}
-            <button type="button" onClick={handleLogout} className="sp-logout-btn" aria-label="Se déconnecter" title="Se déconnecter">
-              <i className="ph ph-sign-out" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="sp-main">
-        {loading && <p className="sp-empty">Chargement...</p>}
-
-        {!loading && pendingApproval && (
-          <div className="sp-card sp-pending">
-            <p className="sp-title" style={{ fontSize: 20, marginBottom: 8 }}>Compte en cours de validation</p>
-            <p className="sp-subtitle">
-              Votre compte pour <strong>{company?.name}</strong> est en attente de validation par notre équipe.
-              Vous serez notifié(e) par email dès que l'accès sera activé.
-            </p>
-          </div>
-        )}
-
-        {!loading && !pendingApproval && error && (
-          <div className="sp-card" style={{ borderColor: '#fecaca', background: '#fef2f2', color: '#b91c1c', marginBottom: 16 }}>
-            {error}
-          </div>
-        )}
-
-        {!loading && !pendingApproval && company && (
-          <Outlet context={{ company, setCompany, refreshCompany, api: schoolPortalAPI, readOnly: false }} />
-        )}
-      </main>
-    </div>
-  )
+  if (challenge && !loading) return <Outlet />
+  return <SchoolPortalFrame company={company} onLogout={handleLogout}>
+    {loading ? <p className="sp-empty" role="status">Chargement de votre espace…</p> : <>
+      {error && <div className="sp-alert" role="alert">{error}<div className="sp-form-footer"><button className="sp-btn" onClick={load}>Réessayer</button></div></div>}
+      {company && !company.approved && <section className="sp-card sp-empty">
+        <PiHourglass aria-hidden="true" /><h1 className="sp-title">Compte en cours de validation</h1>
+        <p>Votre compte pour <strong>{company.name}</strong> est en attente de validation par notre équipe. Vous serez notifié(e) par email dès que l'accès sera activé.</p>
+      </section>}
+      {company?.approved && <Outlet context={{ company, setCompany, refreshCompany, api: schoolPortalAPI, readOnly: false }} />}
+    </>}
+  </SchoolPortalFrame>
 }

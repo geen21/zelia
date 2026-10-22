@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { schoolPortalSupabase } from '../../lib/schoolPortalSupabase'
 import schoolPortalApiClient from '../../lib/schoolPortalApi'
-import './SchoolPortal.css'
+import { PiLockKey, PiShieldCheck } from 'react-icons/pi'
+import { SchoolPortalAuthFrame } from './SchoolPortalFrame'
 
 const auth = schoolPortalSupabase.auth
 const check = (result) => { if (result.error) throw result.error; return result.data }
@@ -21,6 +22,7 @@ export default function SchoolPortalSecurity({ mode = 'settings' }) {
   const [challenge, setChallenge] = useState(null)
   const [enrollment, setEnrollment] = useState(null)
   const [code, setCode] = useState('')
+  const challengeRequested = params.get('challenge') === '1'
 
   async function refreshSecurity() {
     const assurance = check(await auth.mfa.getAuthenticatorAssuranceLevel())
@@ -29,6 +31,7 @@ export default function SchoolPortalSecurity({ mode = 'settings' }) {
     setFactors(verified)
     if (assurance.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2') setChallenge(verified[0]?.id || null)
     else setChallenge(null)
+    return assurance
   }
 
   useEffect(() => {
@@ -51,12 +54,16 @@ export default function SchoolPortalSecurity({ mode = 'settings' }) {
         const session = check(await auth.getSession())
         if (!session.session) { navigate('/espace-ecoles/connexion', { replace: true }); return }
         check(await auth.getUser())
-        await refreshSecurity()
+        const assurance = await refreshSecurity()
+        if (mode === 'settings' && challengeRequested && assurance.currentLevel === assurance.nextLevel) {
+          navigate('/espace-ecoles/leads', { replace: true })
+          return
+        }
         if (active) setReady(true)
       } catch (failure) { if (active) setError(failure.message || 'Impossible de préparer la sécurité du compte.') }
     })()
     return () => { active = false }
-  }, [mode, navigate])
+  }, [mode, navigate, challengeRequested])
 
   async function perform(action) {
     setBusy(true); setError(''); setMessage('')
@@ -85,33 +92,46 @@ export default function SchoolPortalSecurity({ mode = 'settings' }) {
       else setMessage('Double authentification vérifiée.')
     })
   }
-  return <main className="sp-shell"><div className="sp-main"><div className="sp-card" style={{ maxWidth: 640, margin: '0 auto' }}>
-    <h1 className="sp-title">{mode === 'forgot' ? 'Mot de passe oublié' : mode === 'activation' ? 'Activer mon accès école' : 'Sécurité de mon compte'}</h1>
-    {error && <p role="alert">{error}</p>}{message && <p role="status">{message}</p>}
-    {!ready && !error && <p>Vérification de votre session…</p>}
-    {ready && mode === 'forgot' && <form onSubmit={(event) => { event.preventDefault(); perform(async () => {
+  const factorForm = <form className="sp-stack" onSubmit={verify}>
+    {enrollment && <div><img className="sp-qr" width={220} height={220} alt="QR code pour votre application d’authentification" src={enrollment.totp.qr_code} /><p className="sp-muted sp-small">Clé manuelle</p><code className="sp-secret">{enrollment.totp.secret}</code></div>}
+    <label className="sp-field">Code de l’application<input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} placeholder="000000" required value={code} onChange={(event) => setCode(event.target.value)} /></label>
+    <button className="sp-btn sp-btn-primary" disabled={busy}>{busy ? 'Vérification…' : 'Vérifier le code'}</button>
+    {enrollment && <button type="button" className="sp-btn" disabled={busy} onClick={() => perform(async () => { check(await auth.mfa.unenroll({ factorId: enrollment.id })); setEnrollment(null) })}>Annuler l’activation MFA</button>}
+    <p className="sp-notice">Facteur perdu ? Contactez l’équipe Zelia pour une vérification d’identité. Un email de récupération ne désactive pas la double authentification.</p>
+  </form>
+
+  const content = <>
+    <div className="sp-page-head"><div><p className="sp-kicker">Accès protégé</p>
+      <h1 className="sp-title">{mode === 'forgot' ? 'Mot de passe oublié' : mode === 'activation' ? 'Activer mon accès école' : challengeRequested ? 'Vérifiez votre identité' : 'Sécurité de mon compte'}</h1>
+      <p className="sp-subtitle">{mode === 'forgot' ? 'Recevez un lien pour choisir un nouveau mot de passe.' : mode === 'activation' ? 'Choisissez votre mot de passe pour rejoindre votre espace.' : challengeRequested ? 'Saisissez le code de votre application pour continuer.' : 'Protégez votre accès et les projets qui vous sont confiés.'}</p>
+    </div></div>
+    {error && <p className="sp-alert" role="alert">{error}</p>}{message && <p className="sp-alert sp-alert-success" role="status">{message}</p>}
+    {!ready && !error && <p className="sp-empty" role="status">Vérification de votre session…</p>}
+    {ready && mode === 'forgot' && <div className="sp-card"><form className="sp-stack" onSubmit={(event) => { event.preventDefault(); perform(async () => {
       check(await auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/espace-ecoles/activation` }))
       setMessage('Si un compte correspond à cette adresse, vous recevrez un lien de récupération.')
-    }) }}><label className="sp-field">Email professionnel<input type="email" required autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><button className="sp-btn" disabled={busy}>Envoyer le lien</button></form>}
+    }) }}><label className="sp-field">Email professionnel<input type="email" required autoComplete="email" placeholder="contact@ecole.fr" value={email} onChange={(event) => setEmail(event.target.value)} /></label><button className="sp-btn sp-btn-primary" disabled={busy}>{busy ? 'Envoi…' : 'Envoyer le lien'}</button></form></div>}
     {ready && mode !== 'forgot' && <>
-      {challenge || enrollment ? <form onSubmit={verify}>
-        <h2>Double authentification</h2>
-        {enrollment && <><img width={220} height={220} alt="QR code pour votre application d’authentification" src={enrollment.totp.qr_code} /><p>Clé manuelle : <code>{enrollment.totp.secret}</code></p></>}
-        <label className="sp-field">Code de l’application<input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={(event) => setCode(event.target.value)} /></label>
-        <button className="sp-btn" disabled={busy}>Vérifier le code</button>
-        {enrollment && <button type="button" className="sp-btn" disabled={busy} onClick={() => perform(async () => { check(await auth.mfa.unenroll({ factorId: enrollment.id })); setEnrollment(null) })}>Annuler l’activation MFA</button>}
-        <p>Facteur perdu ? Contactez l’équipe Zélia pour une vérification d’identité. Un email de récupération ne désactive pas la double authentification.</p>
-      </form> : <>
-        <form onSubmit={savePassword}><label className="sp-field">Nouveau mot de passe<input type="password" autoComplete="new-password" minLength={12} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-          <label className="sp-field">Confirmer le mot de passe<input type="password" autoComplete="new-password" minLength={12} required value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></label>
-          <button className="sp-btn" disabled={busy}>Enregistrer mon mot de passe</button>
-        </form>
-        {mode === 'settings' && <section><h2>Double authentification facultative</h2>
-          {factors.map((factor) => <p key={factor.id}>Application activée <button className="sp-btn sp-btn-sm" disabled={busy} onClick={() => perform(async () => { check(await auth.mfa.unenroll({ factorId: factor.id })); await refreshSecurity(); setMessage('Facteur retiré.') })}>Désactiver ce facteur</button></p>)}
-          {!factors.length && <button className="sp-btn" disabled={busy} onClick={() => perform(async () => setEnrollment(check(await auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Espace écoles Zélia' }))))}>Activer une application d’authentification</button>}
-        </section>}
-      </>}
+      {challenge ? <section className="sp-card"><h2 className="sp-section-title" style={{ marginBottom: 20 }}>Double authentification</h2>{factorForm}</section> :
+        <div className={mode === 'settings' ? 'sp-security-grid' : 'sp-stack'}>
+          <section className="sp-card"><span className="sp-section-icon"><PiLockKey aria-hidden="true" /></span><h2 className="sp-section-title">Mot de passe</h2><p className="sp-subtitle">Au moins 12 caractères. Les autres sessions ne pourront plus être renouvelées après la modification.</p>
+            <form className="sp-stack" style={{ marginTop: 24 }} onSubmit={savePassword}>
+              <label className="sp-field">Nouveau mot de passe<input type="password" autoComplete="new-password" minLength={12} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+              <label className="sp-field">Confirmer le mot de passe<input type="password" autoComplete="new-password" minLength={12} required value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></label>
+              <button className="sp-btn sp-btn-primary" disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer mon mot de passe'}</button>
+            </form>
+          </section>
+          {mode === 'settings' && <section className="sp-card"><span className="sp-section-icon sp-section-icon-pink"><PiShieldCheck aria-hidden="true" /></span><h2 className="sp-section-title">Double authentification</h2><p className="sp-subtitle">Une protection supplémentaire, facultative, avec votre application d’authentification.</p>
+            <div className="sp-stack" style={{ marginTop: 24 }}>
+              {enrollment ? factorForm : <>
+                {factors.map((factor) => <div key={factor.id} className="sp-stack"><span className="sp-badge sp-badge-status-converti">Application activée</span><button className="sp-btn sp-btn-danger" disabled={busy} onClick={() => perform(async () => { check(await auth.mfa.unenroll({ factorId: factor.id })); await refreshSecurity(); setMessage('Facteur retiré.') })}>Désactiver ce facteur</button></div>)}
+                {!factors.length && <><p className="sp-muted sp-small">Aucune application activée pour le moment.</p><button className="sp-btn" disabled={busy} onClick={() => perform(async () => setEnrollment(check(await auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Espace écoles Zélia' }))))}>Activer une application d’authentification</button></>}
+              </>}
+            </div>
+          </section>}
+        </div>}
     </>}
-    <p><Link to="/espace-ecoles/connexion">Connexion école</Link> · <Link to="/espace-ecoles/mot-de-passe-oublie">Recevoir un nouveau lien</Link> · <Link to="/espace-ecoles/leads">Retour au dashboard</Link></p>
-  </div></div></main>
+  </>
+  const links = <div className="sp-auth-links"><Link to="/espace-ecoles/connexion">Connexion école</Link><Link to="/espace-ecoles/mot-de-passe-oublie">Recevoir un nouveau lien</Link><Link to="/espace-ecoles/leads">Retour aux leads</Link></div>
+  return mode !== 'settings' || challengeRequested ? <SchoolPortalAuthFrame footer={links}>{content}</SchoolPortalAuthFrame> : <>{content}</>
 }

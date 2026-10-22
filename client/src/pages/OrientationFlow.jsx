@@ -5,6 +5,7 @@ import { orientationAPI, usersAPI, ecolesAPI } from '../lib/api.js'
 import { AI_JOB_DECK_SIZE } from '../lib/orientationJobs.js'
 import PersonaRevealCard from '../components/PersonaRevealCard.jsx'
 import OrientationFormationResults from '../components/OrientationFormationResults.jsx'
+import { SCHOOL_SHARING_VERSION } from '../lib/schoolSharing'
 import { mixFormationResults } from '../lib/orientationFormationResults.js'
 import { buildFormationRelevanceProfile, buildRelevanceSearchQueries, scoreFormationRelevance } from '../lib/formationRelevance.js'
 import { buildLoreleiUrl, buildPersonaAvatarConfig, computePersonaFromAnswers, getPersonaBySlug } from '../lib/personas.js'
@@ -1194,6 +1195,7 @@ function serializeFinalCandidate(candidate, requestMoreInformation = candidate?.
     sourceTable: candidate.sourceTable,
     partner: Boolean(candidate.partner),
     requestMoreInformation: candidate.type === 'formation' && requestMoreInformation,
+    sharingVersion: candidate.type === 'formation' && requestMoreInformation ? SCHOOL_SHARING_VERSION : null,
     matchScore: candidate.matchScore || null,
     detail: {
       typeLabel: details.typeLabel,

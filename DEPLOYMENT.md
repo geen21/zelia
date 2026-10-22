@@ -1,5 +1,21 @@
 # Zelia Deployment Guide
 
+## Correctif des liens des formations selectionnees
+
+Si les selections affichent **Lien indisponible** alors que leur URL est enregistree, appliquer [migration_backoffice_selection_links.sql](server/database/migration_backoffice_selection_links.sql) apres `migration_backoffice_selections.sql`, puis actualiser le back-office. Ce correctif remplace uniquement la fonction de lecture : il restitue les liens compacts et historiques sans modifier les selections, leur date, leurs filtres ou leurs permissions. Aucun nouveau build client n'est requis pour afficher ces URL deja enregistrees. Deployer aussi le backend pour conserver les liens lors de futures sauvegardes aux anciens formats (`raw.link`, `fiche`, `etab_url`). Une URL absente ou non HTTP(S) reste indiquee comme indisponible.
+
+## Dashboards partenaires : mise en service
+
+1. Sauvegarder la base puis appliquer [migration_partner_dashboards.sql](server/database/migration_partner_dashboards.sql), apres `migration_school_portal.sql`, `migration_school_portal_v2.sql`, les migrations back-office/reglages partenaires et `migration_school_registration_requests.sql`, puis [migration_partner_dashboards_auto_spaces.sql](server/database/migration_partner_dashboards_auto_spaces.sql). La seconde migration cree les espaces de tous les partenaires existants et automatise ceux des futurs partenaires, sans compte Auth ni email fictif. Les formations et campus d'une ecole partagent le meme espace. En cas de conflit entre espaces homonymes, verifier les rattachements existants avant de relancer. Ne pas utiliser `setup.sql` pour mettre a jour une base existante.
+2. Deployer le backend et le client ensemble apres la migration. Les nouveaux endpoints signalent explicitement une migration absente. Les anciens endpoints de revelation/demandes directes sont remplaces par `/api/school-portal/lead/:key/reveal` et la liste unifiee `/leads`.
+3. Dans Resend, verifier le domaine d'envoi et configurer SPF/DKIM. Renseigner cote serveur `SMTP_HOST=smtp.resend.com`, `SMTP_PORT=465`, `SMTP_SECURE=true`, `SMTP_USER=resend`, `SMTP_PASSWORD=<cle Resend>` et `EMAIL_FROM` sur ce domaine. Aucune cle Resend ou de service Supabase ne doit etre exposee au client.
+4. Dans Supabase Auth, configurer egalement le SMTP personnalise Resend pour les emails natifs (notamment la recuperation). Autoriser exactement les URLs d'activation des environnements utilises, par exemple `https://zelia.io/espace-ecoles/activation`, et activer TOTP. Verifier les quotas Auth/Resend et les templates. Conserver les destinations des emails eleves existants : ne pas remplacer tous les redirects par le callback ecoles.
+5. Depuis `/admin/partenaires` ou `/admin/ecoles`, utiliser directement **Voir le dashboard** ou **Gerer les acces**. Tous les partenaires ont deja leur espace apres migration. Renseigner l'email du responsable et inviter le proprietaire, puis valider son acces et inviter les membres. Les formations partenaires sont rattachees automatiquement ; verifier manuellement les correspondances du catalogue national. Le retrait d'un membre ne supprime pas son identite Auth ; une suspension globale reste une operation distincte.
+6. Avec des comptes de staging uniquement, verifier : deux ecoles isolees, plusieurs campus, reception/renvoi/expiration d'invitation, activation et recuperation, facteur TOTP et refus AAL1, maintien des sessions eleve/admin, dossier historique restreint, confirmation de partage detaille, retrait d'une ecole, CSV et totaux naturel/sponsorise/mixte.
+7. En cas de perte du facteur, passer par le support Zelia avec verification d'identite avant toute intervention manuelle Supabase. Un email de recuperation ne doit pas desactiver la MFA. Les fichiers deja exportes doivent faire l'objet d'une demande de retrait aupres de l'ecole si necessaire.
+
+Les suites locales n'envoient aucun email reel et ne verifient ni DNS ni configuration distante. Ne pas annoncer la mise en service sans recette Supabase/Resend. Voir le [guide de developpement](DEVELOPMENT.md#dashboards-et-comptes-partenaires).
+
 This document describes how to deploy the Zelia client and server on a Linux host. The instructions assume you have SSH access to the target machine and sudo privileges.
 
 > **Assumptions**

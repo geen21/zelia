@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { orientationAPI, usersAPI } from './api'
+import { SCHOOL_SHARING_VERSION } from './schoolSharing'
 
 const AUTH_AFTER_KEY = 'zelia_auth_after'
 const REGISTRATION_CONSENT_KEY = 'registration_consent'
@@ -167,6 +168,9 @@ export async function persistAuthSessionAndOnboarding({ after = '', profileData 
     })
   }
 
+  if (cache.registrationConsent?.accept_data_transfer === true && cache.registrationConsent.sharing_version === SCHOOL_SHARING_VERSION) {
+    await usersAPI.setSchoolSharing({ granted: true, version: SCHOOL_SHARING_VERSION })
+  }
   const microEntries = buildMicroProfileEntries({
     ...cache.microProfile,
     department: cache.registrationDepartment?.code || cache.microProfile?.department || '',

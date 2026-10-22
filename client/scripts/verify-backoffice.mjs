@@ -93,16 +93,16 @@ const output = join(tmpdir(),'zelia-backoffice-tests')
 await mkdir(output,{ recursive: true })
 const admin = { id:'11111111-1111-4111-8111-111111111111',email:'joris.geerdes@21datas.ch' }
 const user = { id:'33333333-3333-4333-8333-333333333333',email:'student@example.com',first_name:'Camille',last_name:'Martin',created_at:'2026-09-20T12:00:00Z',account_type:'student',is_suspended:false }
-const partner = { id:'44444444-4444-4444-8444-444444444444',school_name:'École Numérique',formation_name:'Bachelor Développement Web',city:'Paris',diploma_level:'Bac+3',link:'https://example.com/partenaire',is_active:true,show_in_results:true,highlight_in_results:true,results_priority:0 }
+const partner = { id:'44444444-4444-4444-8444-444444444444',school_name:'École Numérique',formation_name:'Bachelor Développement Web',city:'Paris',diploma_level:'Bac+3',link:'https://example.com/partenaire',is_active:true,show_in_results:true,highlight_in_results:true,results_priority:0,portal_company_id:1 }
 const school = { id:1,name:'École Numérique',email:'school@example.com',owner_id:user.id,approved_at:null,contact_first_name:'Camille',contact_last_name:'Martin',created_at:'2026-09-20T12:00:00Z' }
 const analysis = { id:1,user_id:user.id,email:user.email,first_name:user.first_name,last_name:user.last_name,questionnaire_type:'inscription',updated_at:'2026-09-20T12:00:00Z' }
 const orientationResponses = Array.from({ length:20 },(_,index) => ({ id:index+1,question_id:200+index,response:index % 2 ? 'Avec une équipe' : 'Construire un objet',questions:index === 19 ? null : { content:`Quel environnement préfères-tu pour l’activité ${index+1} ?` } }))
 const userDetails = { user,profile:{ ...user,age:17,phone_number:'',department:'75',school:'Lycée',contact_preference:false },extraInfo:[{ question_id:'orientation_recommendations',answer_text:JSON.stringify(recommendationFixtures) },{ question_id:'orientation_school_level',answer_text:'Terminale' },{ question_id:'orientation_final_selection',answer_text:JSON.stringify(selectionFixtures) }],schools:[school],memberships:[],protectedAdmin:false,orientationResponses,orientationAnalysis:{ id:1,job_recommendations:[{ title:'Menuisier' },{ title:'Mécanicien' },'Électricien'],updated_at:analysis.updated_at } }
 const recommendationRows = recommendationFixtures.map((item) => ({ ...user,id:item.id,user_id:user.id,source:isPartnerFormation(item) ? 'partner' : 'national',formation_name:item.title,school_name:item.schoolName || item.subtitle,city:item.city,detail:{ link:formationHref(item) } }))
 const savedChoices = [
-  { ...user,id:'orientation-1',user_id:user.id,source:'orientation',formation_name:'BTS Informatique',school_name:'Université Exemple',city:'Paris',detail:{ link:'https://example.com/formation' } },
+  { ...user,id:'orientation-1',user_id:user.id,source:'orientation',formation_name:'BTS Informatique',school_name:'Université Exemple',city:'Paris',link:'https://example.com/formation' },
   { ...user,id:'partner-1',user_id:user.id,source:'partner',formation_name:partner.formation_name,school_name:partner.school_name,city:partner.city,detail:{ link:partner.link } },
-  { ...user,id:'orientation-partner-1',user_id:user.id,source:'orientation',formation_name:'Licence professionnelle CPMM',school_name:'Lycée Jean Guéhenno',city:'Flers',detail:{ link:'https://example.com/cpmm' } },
+  { ...user,id:'orientation-partner-1',user_id:user.id,source:'orientation',formation_name:'Licence professionnelle CPMM',school_name:'Lycée Jean Guéhenno',city:'Flers',link:'https://example.com/cpmm' },
   ...Array.from({ length:50 },(_,index) => ({ ...user,id:`choice-${index}`,user_id:`55555555-5555-4555-8555-${String(index).padStart(12,'0')}`,email:`choice-${index}@example.com`,source:'orientation',formation_name:`Formation fixture ${index}`,school_name:'Université Exemple',city:'Lyon' }))
 ]
 const session = { access_token:'fixture-access-token',refresh_token:'fixture-refresh-token',expires_at:Math.floor(Date.now()/1000)+3600,expires_in:3600,token_type:'bearer',user:admin }
@@ -141,7 +141,7 @@ async function prepare(viewport,authenticated = true,denied = false) {
         if (cities.some((city) => [partner,...campusPartners].some((row) => row.school_name === common.school_name && row.formation_name === common.formation_name && row.city.toLowerCase() === city.toLowerCase()))) {
           return route.fulfill({ status:409,json:{ message:'Cette formation existe déjà pour un des campus saisis. Aucun campus n’a été ajouté.' } })
         }
-        const created = cities.map((city,index) => ({ ...common,city,id:`campus-${campusPartners.length+index}`,is_active:true }))
+        const created = cities.map((city,index) => ({ ...common,city,id:`campus-${campusPartners.length+index}`,is_active:true,portal_company_id:1 }))
         campusPartners.push(...created)
         return route.fulfill({ status:201,json:{ items:created,total:created.length } })
       }
@@ -165,6 +165,9 @@ async function prepare(viewport,authenticated = true,denied = false) {
     } else if (path.startsWith('/users/')) data = userDetails
     else if (path === '/school-options') data = { items:[{ school_name: school.name,source:'formation_france' }] }
     else if (path === '/schools') data = { items:[school],total:1 }
+    else if (path.endsWith('/dashboard/catalog')) data = { items:[],total:0,natural:0,sponsored:0 }
+    else if (/^\/portal\/schools\/[^/]+\/invitations$/.test(path)) data = { items:[],notificationFailures:0,recentAudit:[] }
+    else if (/^\/portal\/partners\/[^/]+\/company$/.test(path)) data = { companyId:null }
     else if (path.startsWith('/schools/')) data = { item:school,accounts:[user],members:[] }
     else if (path === '/partners/group-count') data = { total:4 }
     else if (path === '/partners') data = { items:[partner,...campusPartners],total:1+campusPartners.length }
@@ -457,12 +460,14 @@ try {
   await choicesUnavailable.context.close()
   const noLinks = await prepare({ width:390,height:844 })
   await noLinks.context.route('**/api/admin/selections**',async (route) => route.fulfill({ json:{ items:[
-    { ...savedChoices[0],formation_name:'Formation sans lien',detail:null },
-    { ...savedChoices[1],formation_name:'Formation avec lien invalide',detail:{ link:'javascript:alert(1)' } }
-  ],total:2,totalUsers:1 } }))
+    { ...savedChoices[0],formation_name:'Formation sans lien',detail:null,link:null,raw:null,fiche:null,etab_url:null },
+    { ...savedChoices[1],formation_name:'Formation avec lien invalide',detail:{ link:'javascript:alert(1)' },link:null,raw:null,fiche:null,etab_url:null },
+    { ...savedChoices[0],id:'fallback-link-fixture',formation_name:'Formation avec lien de secours',detail:{ link:'javascript:alert(1)' } }
+  ],total:3,totalUsers:1 } }))
   await noLinks.page.goto(`${base}/admin`)
   await expect(noLinks.page.locator('.bo-selections').getByText('Lien indisponible',{ exact:true })).toHaveCount(2)
   await expect(noLinks.page.getByRole('link',{ name:/Formation sans lien|Formation avec lien invalide/ })).toHaveCount(0)
+  await expectFormationLink(noLinks.page.getByRole('link',{ name:'Formation avec lien de secours',exact:true }),'https://example.com/formation')
   await noOverflow(noLinks.page)
   assert.deepEqual(noLinks.scriptErrors,[])
   await noLinks.context.close()

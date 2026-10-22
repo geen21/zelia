@@ -11,12 +11,23 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('[schoolPortalSupabase] Missing env. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.')
 }
 
-export const schoolPortalSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    storageKey: 'sb-espace-ecoles-auth-token',
-    persistSession: true,
-    autoRefreshToken: true
+let client
+
+// Admin previews must not initialize or refresh the separate school session.
+export const schoolPortalSupabase = {
+  get auth() {
+    if (!client) {
+      client = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          storageKey: 'sb-espace-ecoles-auth-token',
+          persistSession: true,
+          detectSessionInUrl: false,
+          autoRefreshToken: true
+        }
+      })
+    }
+    return client.auth
   }
-})
+}
 
 export default schoolPortalSupabase

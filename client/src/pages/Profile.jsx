@@ -3,6 +3,7 @@ import { analysisAPI, usersAPI } from '../lib/api'
 import { resolveAvatarUrl } from '../lib/avatar'
 import { generateZeliaShareImage } from '../lib/shareImage'
 import ZeliaDiploma from '../components/ZeliaDiploma'
+import SchoolSharingSettings from '../components/SchoolSharingSettings'
 
 const stripLegacyMbtiTokens = (text) => {
   if (!text || typeof text !== 'string') return text || ''
@@ -526,6 +527,7 @@ export default function Profile() {
   <p className="text-text-secondary">Informations personnelles et visuel à partager</p>
       </div>
 
+      <SchoolSharingSettings />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-card flex flex-col items-center text-center">
           {avatarUrl ? (

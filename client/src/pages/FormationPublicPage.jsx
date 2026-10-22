@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import SEO from '../components/SEO'
 import BlogHeaderNav from './blog/BlogHeaderNav'
 import { formationsAPI } from '../lib/api'
+import { SCHOOL_SHARING_VERSION } from '../lib/schoolSharing'
 import { supabase } from '../lib/supabase'
 import './FormationPublic.css'
 import {
@@ -72,7 +73,7 @@ function RequestInfoCard({ formationId }) {
     setStatus('loading')
     setError('')
     try {
-      await formationsAPI.requestInfo(formationId, payload)
+      await formationsAPI.requestInfo(formationId, { ...payload, sharingVersion: SCHOOL_SHARING_VERSION })
       setStatus('done')
     } catch (requestError) {
       setError(requestError?.response?.data?.error || 'Échec de la demande, réessaie plus tard.')
@@ -108,7 +109,7 @@ function RequestInfoCard({ formationId }) {
   return (
     <div className="fp-card">
       <h2><i className="ph ph-paper-plane-tilt" aria-hidden="true"></i>Demander plus d&apos;informations</h2>
-      <p>Envoie ta demande, l&apos;établissement pourra te recontacter directement.</p>
+      <p>En envoyant ta demande, tu autorises cet établissement à recevoir tes coordonnées et, si tu es connecté, ton profil scolaire, tes réponses au questionnaire et ton bilan d’orientation pour te recontacter. Tu peux retirer ce partage depuis ton profil.</p>
 
       {isAuthenticated && !showForm && (
         <button

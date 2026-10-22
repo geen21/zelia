@@ -8,7 +8,8 @@ const NAV_ITEMS = [
   { to: '/espace-ecoles/leads', label: 'Leads', icon: 'ph-users-three' },
   { to: '/espace-ecoles/statistiques', label: 'Statistiques', icon: 'ph-chart-bar' },
   { to: '/espace-ecoles/formations', label: 'Mes formations', icon: 'ph-graduation-cap' },
-  { to: '/espace-ecoles/equipe', label: 'Équipe', icon: 'ph-users' }
+  { to: '/espace-ecoles/equipe', label: 'Équipe', icon: 'ph-users' },
+  { to: '/espace-ecoles/securite', label: 'Sécurité', icon: 'ph-lock' }
 ]
 
 export default function SchoolPortalLayout() {
@@ -32,7 +33,11 @@ export default function SchoolPortalLayout() {
         navigate('/espace-ecoles/connexion', { replace: true })
         return null
       }
-      setError(loadError?.response?.data?.error || 'Impossible de charger votre espace')
+      if (loadError?.response?.data?.message === 'MFA_REQUIRED') {
+        navigate('/espace-ecoles/securite?challenge=1', { replace: true })
+        return null
+      }
+      setError(loadError?.response?.data?.message || loadError?.response?.data?.error || 'Impossible de charger votre espace')
       return null
     }
   }, [navigate])
@@ -56,7 +61,8 @@ export default function SchoolPortalLayout() {
   }, [])
 
   async function handleLogout() {
-    await schoolPortalSupabase.auth.signOut().catch(() => {})
+    const { error: logoutError } = await schoolPortalSupabase.auth.signOut({ scope: 'local' })
+    if (logoutError) { setError('Déconnexion impossible. Réessayez.'); return }
     navigate('/espace-ecoles/connexion', { replace: true })
   }
 
@@ -111,7 +117,7 @@ export default function SchoolPortalLayout() {
         )}
 
         {!loading && !pendingApproval && company && (
-          <Outlet context={{ company, setCompany, refreshCompany }} />
+          <Outlet context={{ company, setCompany, refreshCompany, api: schoolPortalAPI, readOnly: false }} />
         )}
       </main>
     </div>

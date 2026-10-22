@@ -36,7 +36,7 @@ const db = {
         return { error:null }
       },
       select(fields, options) {
-        assert.equal(fields, 'id,school_name,email,contact_first_name,contact_last_name,created_at')
+        assert.equal(fields, 'id,school_name,email,contact_first_name,contact_last_name,created_at,company_id')
         assert.equal(options.count, 'exact')
         return this
       },

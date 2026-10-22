@@ -3,13 +3,12 @@ import { useOutletContext } from 'react-router-dom'
 import { schoolPortalAPI } from '../../lib/schoolPortalApi'
 
 export default function SchoolPortalTeam() {
-  const { company } = useOutletContext()
+  const { company, api = schoolPortalAPI, readOnly = false } = useOutletContext()
   const [owner, setOwner] = useState(null)
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [inviting, setInviting] = useState(false)
   const [removingId, setRemovingId] = useState(null)
 
@@ -17,30 +16,29 @@ export default function SchoolPortalTeam() {
     setLoading(true)
     setError('')
     try {
-      const { data } = await schoolPortalAPI.getMembers()
+      const { data } = await api.getMembers()
       setOwner(data?.owner || null)
       setMembers(Array.isArray(data?.members) ? data.members : [])
     } catch (loadError) {
-      setError(loadError?.response?.data?.error || "Impossible de charger l'équipe")
+      setError(loadError?.response?.data?.message || loadError?.response?.data?.error || "Impossible de charger l'équipe")
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [api])
 
   async function handleInvite(event) {
     event.preventDefault()
-    if (!email.trim() || !password.trim() || inviting) return
+    if (!email.trim() || inviting) return
     setInviting(true)
     setError('')
     try {
-      await schoolPortalAPI.inviteMember({ email: email.trim().toLowerCase(), password })
+      await api.inviteMember({ email: email.trim().toLowerCase() })
       setEmail('')
-      setPassword('')
       await load()
     } catch (inviteError) {
-      setError(inviteError?.response?.data?.error || "Échec de l'invitation")
+      setError(inviteError?.response?.data?.message || inviteError?.response?.data?.error || "Échec de l'invitation")
     } finally {
       setInviting(false)
     }
@@ -49,7 +47,7 @@ export default function SchoolPortalTeam() {
   async function handleRemove(id) {
     setRemovingId(id)
     try {
-      await schoolPortalAPI.removeMember(id)
+      await api.removeMember(id)
       await load()
     } catch {
       setError('Échec de la suppression du membre')
@@ -93,7 +91,7 @@ export default function SchoolPortalTeam() {
                     <p className="sp-row-title">{member.email} <span className="sp-badge sp-badge-status-nouveau">Membre</span></p>
                     <p className="sp-row-meta">Ajouté le {new Date(member.createdAt).toLocaleDateString('fr-FR')}</p>
                   </div>
-                  {company?.isOwner && (
+                  {!readOnly && company?.isOwner && (
                     <button
                       type="button"
                       className="sp-btn sp-btn-sm sp-btn-danger"
@@ -113,11 +111,11 @@ export default function SchoolPortalTeam() {
         </div>
       </div>
 
-      {company?.isOwner && (
+      {!readOnly && company?.isOwner && (
         <div className="sp-card accent-pink">
           <p className="sp-section-title" style={{ marginBottom: 14 }}>Inviter un membre</p>
           <p className="sp-subtitle" style={{ marginBottom: 14 }}>
-            Créez un accès pour un collègue : renseignez son email et un mot de passe temporaire qu'il pourra changer plus tard.
+            Invitez un collègue par email. Il choisira lui-même son mot de passe via un lien personnel et temporaire.
           </p>
           <form onSubmit={handleInvite}>
             <div className="sp-form-grid">
@@ -125,13 +123,9 @@ export default function SchoolPortalTeam() {
                 <label htmlFor="member-email">Email</label>
                 <input id="member-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
               </div>
-              <div className="sp-field">
-                <label htmlFor="member-password">Mot de passe temporaire</label>
-                <input id="member-password" type="text" value={password} onChange={(event) => setPassword(event.target.value)} minLength={6} required />
-              </div>
             </div>
             <button type="submit" className="sp-btn sp-btn-primary" disabled={inviting} style={{ marginTop: 14 }}>
-              {inviting ? 'Création...' : 'Créer le compte'}
+              {inviting ? 'Envoi...' : 'Envoyer l’invitation'}
             </button>
           </form>
         </div>

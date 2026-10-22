@@ -2,6 +2,7 @@ import express from 'express'
 import { supabaseAdmin } from '../config/supabase.js'
 import { authenticateToken } from '../middleware/auth.js'
 import { scoreFormations } from '../utils/partnerMatching.js'
+import { notifyPortalLeads, SHARING_VERSION } from '../utils/schoolDashboard.js'
 
 const router = express.Router()
 
@@ -226,13 +227,15 @@ router.post('/submit', authenticateToken, async (req, res) => {
       return res.status(409).json({ error: 'Already submitted' })
     }
 
-    const { error } = await supabaseAdmin.rpc('backoffice_submit_partner', {
-      p_user_id: userId,
-      p_formation_id: formation_id
+    const { error } = await supabaseAdmin.rpc('school_submit_partner', {
+      p_user: userId,
+      p_formation: formation_id,
+      p_version: req.body.sharingVersion === SHARING_VERSION ? SHARING_VERSION : null
     })
 
     if (error?.code === 'P0002') return res.status(404).json({ error: 'Cette formation n\'est plus disponible.' })
     if (error) throw error
+    notifyPortalLeads(supabaseAdmin, { userId }).catch((failure) => console.error('School lead notification failed:', failure.code || failure.message))
     res.json({ success: true })
   } catch (e) {
     console.error('POST /ecoles/submit error:', e)

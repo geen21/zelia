@@ -2,7 +2,7 @@ import express from 'express'
 import { supabase, supabaseAdmin } from '../config/supabase.js'
 import { authenticateToken, optionalAuth } from '../middleware/auth.js'
 import { withFormationDisplayFields } from '../utils/slug.js'
-import { sendMailSafe } from '../utils/mailer.js'
+import { notifyPortalLeads, SHARING_VERSION } from '../utils/schoolDashboard.js'
 
 const router = express.Router()
 
@@ -184,45 +184,6 @@ router.get('/:id', optionalAuth, async (req, res) => {
 // name/email reused) and anonymous visitors (email required in the body).
 // Creates/updates a lead the matching school can see in the school portal.
 
-// Notifies approved companies whose name matches this formation's school with
-// a new direct-request lead. Deduped per company+lead via school_lead_status's
-// notified_at column so resubmitting the same request doesn't spam emails.
-async function notifySchoolsOfNewLead(db, schoolName, requestId, formationTitle, leadName) {
-  const { data: companies, error } = await db
-    .from('companies')
-    .select('id, email, contact_first_name')
-    .eq('name', schoolName)
-    .not('approved_at', 'is', null)
-
-  if (error || !companies?.length) return
-
-  const leadKey = `request:${requestId}`
-  for (const company of companies) {
-    const { data: existingStatus } = await db
-      .from('school_lead_status')
-      .select('notified_at')
-      .eq('company_id', company.id)
-      .eq('lead_key', leadKey)
-      .maybeSingle()
-    if (existingStatus?.notified_at) continue
-
-    const sent = await sendMailSafe({
-      to: company.email,
-      subject: `Nouveau lead Zélia – demande d'infos sur ${formationTitle}`,
-      html: `<p>Bonjour${company.contact_first_name ? ` ${company.contact_first_name}` : ''},</p>
-        <p><strong>${leadName}</strong> vient de demander plus d'informations sur <strong>${formationTitle}</strong> via Zélia.</p>
-        <p><a href="https://zelia.io/espace-ecoles/leads">Consulter mes leads</a></p>`
-    })
-
-    if (sent) {
-      await db.from('school_lead_status').upsert(
-        { company_id: company.id, lead_key: leadKey, notified_at: new Date().toISOString() },
-        { onConflict: 'company_id,lead_key' }
-      )
-    }
-  }
-}
-
 router.post('/:id/request-info', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params
@@ -268,7 +229,8 @@ router.post('/:id/request-info', optionalAuth, async (req, res) => {
         formation_title: withDisplay.title,
         email,
         first_name: firstName,
-        last_name: lastName
+        last_name: lastName,
+        sharing_version: req.body?.sharingVersion === SHARING_VERSION ? SHARING_VERSION : null
       }, { onConflict: 'formation_ref,email', ignoreDuplicates: true })
       .select()
       .maybeSingle()
@@ -278,8 +240,7 @@ router.post('/:id/request-info', optionalAuth, async (req, res) => {
     // Best-effort email notification to the matching school's approved
     // contact(s) - never blocks the response if it fails.
     if (formation.etab_nom && insertedRow?.id) {
-      const leadName = `${firstName} ${lastName}`.trim() || email
-      notifySchoolsOfNewLead(db, formation.etab_nom, insertedRow.id, withDisplay.title, leadName).catch(() => {})
+      notifyPortalLeads(db, { userId, requestId: insertedRow.id }).catch((error) => console.error('School lead notification failed:', error.code || error.message))
     }
 
     res.status(201).json({ message: 'Demande envoyée' })

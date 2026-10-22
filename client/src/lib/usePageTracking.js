@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
+import { hasAuthParameters, isPrivatePortalPath } from './analytics'
 
 /**
  * Custom hook that sends a Pageview event to the dataLayer on every route change.
@@ -9,7 +10,7 @@ export function usePageTracking() {
   const location = useLocation()
 
   useEffect(() => {
-    if (/^\/admin(?:\/|$)/.test(location.pathname) || /^\/espace-ecoles\/admin(?:\/|$)/.test(location.pathname)) return
+    if (isPrivatePortalPath(location.pathname) || hasAuthParameters(location)) return
     // Build the full URL
     const pageUrl = window.location.origin + location.pathname + location.search + location.hash
     const pagePath = location.pathname + location.search + location.hash

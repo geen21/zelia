@@ -50,6 +50,8 @@ function rowsFor(table) {
     case 'user_results': return analysis ? [analysis] : []
     case 'backoffice_account_suspensions': return []
     case 'companies': companyLookups += 1; return []
+    case 'school_portal_events': return []
+    case 'school_catalog_links': return []
     default: throw new Error(`Unexpected table: ${table}`)
   }
 }
@@ -105,6 +107,11 @@ const db = {
     }
   },
   async rpc(name, args) {
+    if (name === 'school_save_selection') {
+      entries = entries.filter((row) => row.user_id !== args.p_user || row.question_id !== 'orientation_final_selection')
+      entries.push({ user_id:args.p_user,question_id:'orientation_final_selection',question_text:args.p_question,answer_text:args.p_text })
+      return { data:null,error:null }
+    }
     if (name === 'backoffice_users') return { data: { items: [student], total: 1 }, error: null }
     if (name === 'backoffice_create_partner_campuses') {
       const items = args.p_cities.map((city,index) => ({
@@ -282,6 +289,17 @@ try {
   const adminResult = await request('/admin/results/1', 'GET', undefined, 'admin')
   assert.equal(adminResult.status, 200)
   assert.equal((await adminResult.json()).selections.length, 38)
+  const legacyLinks = [
+    { id:'raw-link',type:'formation',requestMoreInformation:true,raw:{ link:'https://example.com/raw-link' } },
+    { id:'catalogue-fiche',type:'formation',requestMoreInformation:true,fiche:'https://example.com/fiche' },
+    { id:'school-link',type:'formation',requestMoreInformation:true,etab_url:'https://example.com/ecole' }
+  ]
+  const linksSave = await request('/users/profile/extra-info','POST',{ entries:[{
+    question_id:'orientation_final_selection',question_text:'Selection finale orientation',answer_text:JSON.stringify(legacyLinks)
+  }] })
+  assert.equal(linksSave.status,200)
+  const storedLinks = JSON.parse(entries.find((entry) => entry.question_id==='orientation_final_selection').answer_text)
+  assert.deepEqual(storedLinks.map((entry) => entry.link),['https://example.com/raw-link','https://example.com/fiche','https://example.com/ecole'])
   console.log('Partner creation -> personalized API candidates without premature cutoff, priority, visibility/city filters, pagination >1000 and 38 saved/read choices verified with local fixtures.')
 } finally {
   server.close()

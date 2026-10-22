@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import Chart from 'react-apexcharts'
 import { schoolPortalAPI } from '../../lib/schoolPortalApi'
+import SchoolPortalFilters, { ORIGIN_LABELS } from './SchoolPortalFilters'
 
 const STATUS_LABELS = {
   nouveau: 'Nouveau',
@@ -14,7 +15,8 @@ const STATUS_LABELS = {
 const SOURCE_LABELS = { questionnaire: 'Questionnaire', direct_request: 'Demande directe' }
 
 export default function SchoolPortalStats() {
-  const { company } = useOutletContext()
+  const { company, api = schoolPortalAPI } = useOutletContext()
+  const [filters, setFilters] = useState({})
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -25,16 +27,16 @@ export default function SchoolPortalStats() {
       setLoading(true)
       setError('')
       try {
-        const { data } = await schoolPortalAPI.getStats()
+        const { data } = await api.getStats(filters)
         if (active) setStats(data)
       } catch (loadError) {
-        if (active) setError(loadError?.response?.data?.error || 'Impossible de charger les statistiques')
+        if (active) { setStats(null); setError(loadError?.response?.data?.message || 'Impossible de charger les statistiques') }
       } finally {
         if (active) setLoading(false)
       }
     })()
     return () => { active = false }
-  }, [])
+  }, [api, filters])
 
   return (
     <>
@@ -44,6 +46,8 @@ export default function SchoolPortalStats() {
         <p className="sp-subtitle">Évolution de vos leads, formations les plus demandées et suivi de votre pipeline.</p>
       </div>
 
+      <SchoolPortalFilters value={filters} onChange={setFilters} campuses={stats?.campuses || []} />
+      <p>Les segments d’origine sont exclusifs et leur somme correspond au total. Un même élève peut utiliser plusieurs canaux.</p>
       {error && (
         <div className="sp-card" style={{ borderColor: '#fecaca', background: '#fef2f2', color: '#b91c1c', marginBottom: 16 }}>
           {error}
@@ -61,10 +65,10 @@ export default function SchoolPortalStats() {
               <p className="sp-kpi-value">{stats.total}</p>
               <p className="sp-kpi-label">Leads au total</p>
             </div>
-            {Object.entries(stats.bySource).map(([source, count]) => (
+            {Object.entries(stats.byOrigin || {}).map(([source, count]) => (
               <div key={source} className="sp-card sp-kpi-card accent-pink">
                 <p className="sp-kpi-value">{count}</p>
-                <p className="sp-kpi-label">{SOURCE_LABELS[source] || source}</p>
+                <p className="sp-kpi-label">{ORIGIN_LABELS[source] || source}</p>
               </div>
             ))}
           </div>

@@ -1,6 +1,8 @@
 import express from 'express'
 import { identifier, pagination, searchText, validatePatch, mutationReason, invalid } from '../utils/adminInput.js'
 import { withFormationDisplayFields } from '../utils/slug.js'
+import { createPartnerDashboardRouter, createPartnerManagementRouter } from './partnerDashboard.js'
+import { partnerPortalMessages } from '../utils/schoolDashboard.js'
 
 const profileFields = ['first_name','last_name','age','gender','department','school','phone_number']
 const schoolFields = ['name','email','contact_first_name','contact_last_name']
@@ -15,24 +17,28 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
     if (!db) return res.status(503).json({ error: 'ADMIN_SERVICE_UNAVAILABLE', message: 'Service administrateur indisponible.' })
     next()
   })
+  router.use('/schools/:companyId/dashboard', createPartnerDashboardRouter({ db, authenticateToken, admin: true }))
+  router.use('/portal', createPartnerManagementRouter({ db, clientUrl: process.env.CLIENT_URL }))
 
   const run = (handler) => async (req, res) => {
     try { await handler(req, res) } catch (error) {
       const code = error.code || ''
       const missingCampusMigration = code === 'BACKOFFICE_PARTNER_CAMPUSES_MIGRATION_REQUIRED'
       const missingPartnerMigration = code === 'BACKOFFICE_PARTNER_RESULTS_MIGRATION_REQUIRED'
-      const missingMigration = missingCampusMigration || missingPartnerMigration || ['42P01','42703','42883','PGRST202','PGRST205'].includes(code)
+      const missingAutoSpaces = ['42703','PGRST204'].includes(code) && String(error.message).includes('portal_company_id')
+      const missingMigration = missingCampusMigration || missingPartnerMigration || missingAutoSpaces || ['42P01','42703','42883','PGRST202','PGRST205'].includes(code)
       const status = error.status || (missingMigration ? 503 : ['P0002','PGRST116'].includes(code) ? 404
         : code === '42501' ? 403 : ['23505','40001'].includes(code) ? 409
           : ['22023','22P02','23503','23502','23514'].includes(code) ? 400 : 500)
-      const message = error.status === 400 ? error.message : missingCampusMigration
+      const message = partnerPortalMessages[error.message] || (error.status === 400 ? error.message : missingAutoSpaces
+        ? 'Les dashboards automatiques nécessitent la migration migration_partner_dashboards_auto_spaces.sql dans Supabase.' : missingCampusMigration
         ? 'La creation multi-campus necessite la migration migration_backoffice_partner_campuses.sql dans Supabase.' : missingPartnerMigration
         ? 'Les reglages partenaires necessitent la migration migration_backoffice_partner_results.sql dans Supabase.' : missingMigration
         ? 'La migration SQL du back-office doit etre appliquee.' : status === 404 ? 'Element introuvable.'
           : code === '23505' && error.message === 'PARTNER_CAMPUS_EXISTS'
             ? 'Cette formation existe deja pour un des campus saisis. Aucun campus n\'a ete ajoute.'
           : status === 409 ? 'Modification concurrente ou doublon. Actualisez puis reessayez.'
-            : status === 403 ? 'Cette action est interdite.' : 'Impossible de terminer cette operation.'
+            : status === 403 ? 'Cette action est interdite.' : 'Impossible de terminer cette operation.')
       if (status >= 500) console.error('Back-office request failed:', code || error.message)
       res.status(status).json({ error: missingMigration ? 'BACKOFFICE_MIGRATION_REQUIRED' : 'ADMIN_REQUEST_FAILED', message })
     }
@@ -119,7 +125,7 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
   router.get('/school-options', run(async (req, res) => res.json({ items: await rpc('search_partner_schools', { p_query: searchText(req.query.q),p_limit: 20 }) })))
   router.get('/school-registrations', run(async (req, res) => {
     let builder = db.from('school_registration_requests')
-      .select('id,school_name,email,contact_first_name,contact_last_name,created_at', { count: 'exact' })
+      .select('id,school_name,email,contact_first_name,contact_last_name,created_at,company_id', { count: 'exact' })
       .order('created_at', { ascending: false }).order('id')
     const search = searchText(req.query.q)
     if (search) builder = builder.or(`school_name.ilike.%${search}%,email.ilike.%${search}%,contact_first_name.ilike.%${search}%,contact_last_name.ilike.%${search}%`)
@@ -179,7 +185,7 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
     res.json({ item: await change(req,'partner_group',null,patch) })
   }))
   router.get('/partners', run(async (req, res) => {
-    let builder = db.from('ecoles_partenaires').select('*', { count: 'exact' }).order('school_name').order('city').order('id')
+    let builder = db.from('ecoles_partenaires').select('*,portal_company_id', { count: 'exact' }).order('school_name').order('city').order('id')
     const search = searchText(req.query.q)
     if (search) builder = builder.or(`school_name.ilike.%${search}%,formation_name.ilike.%${search}%,city.ilike.%${search}%`)
     if (['active','inactive'].includes(req.query.status)) builder = builder.eq('is_active',req.query.status === 'active')

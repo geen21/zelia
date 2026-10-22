@@ -79,6 +79,7 @@ export default function EcolesPartenaires({ embedded = false } = {}) {
       setSubmitted((prev) => new Set([...prev, formationId]))
     } catch (e) {
       console.error('Submit error', e)
+      setError(e.response?.data?.message || 'Impossible d’envoyer la demande. Réessaie plus tard.')
     } finally {
       setSubmitting(null)
     }
@@ -126,6 +127,7 @@ export default function EcolesPartenaires({ embedded = false } = {}) {
         </div>
       )}
 
+      <p className="text-sm text-gray-600">En demandant des informations, tu autorises cette école à recevoir tes coordonnées, ton profil scolaire, tes réponses au questionnaire et ton bilan d’orientation pour te recontacter. Tu peux retirer ce partage depuis ton profil.</p>
       {/* Tabs — pill style like the rest of the app */}
       <div className="flex flex-wrap gap-2 mb-5">
         <button

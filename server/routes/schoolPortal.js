@@ -4,8 +4,17 @@ import { authenticateToken } from '../middleware/auth.js'
 import { withFormationDisplayFields } from '../utils/slug.js'
 import { findKnownSchoolName } from '../utils/schoolNames.js'
 import { createSchoolRegistrationHandler } from './schoolRegistration.js'
+import { accessibleCompany, portalHandler, requireVerifiedMfa } from '../utils/schoolDashboard.js'
 
 const router = express.Router()
+router.use((req, res, next) => {
+  if ((req.method === 'GET' && req.path === '/schools/search') || (req.method === 'POST' && req.path === '/register')) return next()
+  authenticateToken(req, res, () => portalHandler(async (request, response, proceed) => {
+    requireVerifiedMfa(request)
+    await accessibleCompany(supabaseAdmin, request.user.id)
+    proceed()
+  })(req, res, next))
+})
 
 function requireAdminClient(res) {
   if (!supabaseAdmin) {

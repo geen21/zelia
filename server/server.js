@@ -25,6 +25,7 @@ import supportRoutes from './routes/support.js'
 import waitlistRoutes from './routes/waitlist.js'
 import ecolesRoutes from './routes/ecoles.js'
 import schoolPortalRoutes from './routes/schoolPortal.js'
+import { createPartnerDashboardRouter, createSchoolSharingRouter } from './routes/partnerDashboard.js'
 import { createSitemapRouter } from './routes/sitemap.js'
 import { createAdminRouter } from './routes/admin.js'
 import { authenticateToken } from './middleware/auth.js'
@@ -178,6 +179,8 @@ app.use('/api/share', shareRoutes)
 app.use('/api/support', supportRoutes)
 app.use('/api/waitlist', waitlistRoutes)
 app.use('/api/ecoles', ecolesRoutes)
+app.use('/api/users/school-sharing', createSchoolSharingRouter({ db: supabaseAdmin, authenticateToken }))
+app.use('/api/school-portal', createPartnerDashboardRouter({ db: supabaseAdmin, authenticateToken }))
 app.use('/api/school-portal', schoolPortalRoutes)
 app.use('/api/admin', createAdminRouter({ db: supabaseAdmin, authenticateToken, requirePlatformAdmin, isProtectedAdmin }))
 app.use('/api', createSitemapRouter({ db: supabase }))

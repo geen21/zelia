@@ -1,6 +1,7 @@
 // API client utilities for the Zelia application
 import axios from 'axios'
 import { supabase } from './supabase'
+import { SCHOOL_SHARING_VERSION } from './schoolSharing'
 import { buildToolModeResponse, isStandaloneToolRoute } from './toolMode'
 
 const DEFAULT_API_BASE = typeof window !== 'undefined' && window.location?.origin
@@ -84,6 +85,9 @@ export const authAPI = {
 
 // Users API
 export const usersAPI = {
+  getSchoolSharing: () => apiClient.get('/users/school-sharing'),
+  setSchoolSharing: (payload) => apiClient.post('/users/school-sharing', payload),
+  setSchoolBlock: (companyId, blocked) => apiClient.post(`/users/school-sharing/${companyId}`, { blocked }),
   getProfile: () => apiClient.get('/users/profile'),
   updateProfile: (profileData) => apiClient.put('/users/profile', profileData),
   getCurrentUser: () => apiClient.get('/users/me'),
@@ -248,6 +252,6 @@ export const ecolesAPI = {
   partenaires: () => apiClient.get('/ecoles/partenaires'),
   formation: (id) => apiClient.get(`/ecoles/partenaires/${id}`),
   matched: () => apiClient.get('/ecoles/matched'),
-  submit: (formationId) => apiClient.post('/ecoles/submit', { formation_id: formationId }),
+  submit: (formationId) => apiClient.post('/ecoles/submit', { formation_id: formationId, sharingVersion: SCHOOL_SHARING_VERSION }),
   mySubmissions: () => apiClient.get('/ecoles/my-submissions')
 }

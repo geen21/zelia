@@ -1,11 +1,12 @@
 import React from 'react'
 import { getDiplomaFamily, getFormationTitle } from '../lib/formationDisplay.js'
 import { getBestFormationResultKey, mixFormationResults } from '../lib/orientationFormationResults.js'
+import { SCHOOL_SHARING_NOTICE } from '../lib/schoolSharing'
 
 export default function OrientationFormationResults({ formations, partners, selectedIds, onToggleInfo, getTitle = (formation) => formation.title || getFormationTitle(formation.raw) }) {
   const results = mixFormationResults(formations, partners)
   const bestResultKey = getBestFormationResultKey(results)
-  return <div className="formation-lead-grid" aria-label="Formations recommandées">
+  return <><p className="formation-lead-empty-text">{SCHOOL_SHARING_NOTICE}</p><div className="formation-lead-grid" aria-label="Formations recommandées">
     {results.map(({ key, source, formation }) => {
       const partner = source === 'partner'
       const raw = formation.raw || {}
@@ -25,5 +26,5 @@ export default function OrientationFormationResults({ formations, partners, sele
         <label className={`formation-lead-check${checked ? ' is-checked' : ''}`}><input type="checkbox" checked={checked} onChange={() => onToggleInfo(selectionId)} /><i className={`ph ${checked ? 'ph-check-square' : 'ph-square'}`} aria-hidden="true" />Je veux plus d'infos</label>
       </div>
     })}
-  </div>
+  </div></>
 }

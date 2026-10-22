@@ -9,6 +9,7 @@ import {
   rememberRegistrationConsent
 } from '../lib/authFlow'
 import './OrientationFlow.css'
+import { SCHOOL_SHARING_VERSION } from '../lib/schoolSharing'
 
 const GENDER_OPTIONS = ['Femme', 'Homme', 'Non-binaire', 'Autre', 'Préfère ne pas répondre']
 const ORIENTATION_PROFILE_IDENTITY_KEY = 'orientation_profile_identity'
@@ -79,6 +80,7 @@ export default function Register() {
       accept_terms: acceptTerms,
       newsletter_opt_in: newsletterOptIn,
       accept_data_transfer: acceptDataTransfer,
+      sharing_version: SCHOOL_SHARING_VERSION,
       terms_accepted_at: new Date().toISOString()
     })
   }
@@ -299,7 +301,7 @@ export default function Register() {
             </label>
             <label className="identity-consent-row">
               <input type="checkbox" checked={acceptDataTransfer} onChange={(event) => setAcceptDataTransfer(event.target.checked)} />
-              <span>Autoriser le contact par des écoles partenaires.</span>
+              <span>Autoriser les écoles que je sollicite à recevoir mes coordonnées, mon profil scolaire, mes réponses au questionnaire et mon bilan d’orientation pour me recontacter. Cet accord peut être retiré depuis mon profil.</span>
             </label>
           </div>
 

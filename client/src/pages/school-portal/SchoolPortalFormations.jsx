@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react'
-import { Link, useOutletContext } from 'react-router-dom'
+import { useOutletContext } from 'react-router-dom'
 import { schoolPortalAPI } from '../../lib/schoolPortalApi'
+import SchoolPortalCatalog from './SchoolPortalCatalog'
 
 const EMPTY_FORM = { title: '', description: '', diplomaLevel: '', city: '', domain: '', link: '', contactEmail: '' }
 
 export default function SchoolPortalFormations() {
-  const { company } = useOutletContext()
-  const [catalogFormations, setCatalogFormations] = useState([])
+  const { company, api = schoolPortalAPI, readOnly = false } = useOutletContext()
   const [customFormations, setCustomFormations] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -18,11 +18,7 @@ export default function SchoolPortalFormations() {
     setLoading(true)
     setError('')
     try {
-      const [catalogResult, customResult] = await Promise.all([
-        schoolPortalAPI.getFormations(),
-        schoolPortalAPI.getSchoolFormations()
-      ])
-      setCatalogFormations(Array.isArray(catalogResult?.data?.formations) ? catalogResult.data.formations : [])
+      const customResult = await api.getSchoolFormations()
       setCustomFormations(Array.isArray(customResult?.data?.formations) ? customResult.data.formations : [])
     } catch (loadError) {
       setError(loadError?.response?.data?.error || 'Impossible de charger les formations')
@@ -31,7 +27,7 @@ export default function SchoolPortalFormations() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [api])
 
   function updateField(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -62,9 +58,9 @@ export default function SchoolPortalFormations() {
     setError('')
     try {
       if (editingId) {
-        await schoolPortalAPI.updateSchoolFormation(editingId, form)
+        await api.updateSchoolFormation(editingId, form)
       } else {
-        await schoolPortalAPI.createSchoolFormation(form)
+        await api.createSchoolFormation(form)
       }
       cancelEdit()
       await load()
@@ -77,7 +73,7 @@ export default function SchoolPortalFormations() {
 
   async function handleDelete(id) {
     try {
-      await schoolPortalAPI.deleteSchoolFormation(id)
+      await api.deleteSchoolFormation(id)
       await load()
     } catch {
       setError('Échec de la suppression')
@@ -98,37 +94,7 @@ export default function SchoolPortalFormations() {
         </div>
       )}
 
-      <div className="sp-section">
-        <div className="sp-section-head"><p className="sp-section-title">Référencées sur Zélia</p></div>
-        <div className="sp-card no-accent" style={{ padding: 0 }}>
-          {loading ? (
-            <p className="sp-empty">Chargement...</p>
-          ) : catalogFormations.length === 0 ? (
-            <p className="sp-empty">Aucune formation référencée pour votre établissement pour le moment.</p>
-          ) : (
-            <div className="sp-row-list" style={{ padding: '4px 20px' }}>
-              {catalogFormations.map((formation) => {
-                const isInternal = String(formation.link || '').startsWith('/')
-                return (
-                  <div key={formation.id} className="sp-row-item">
-                    <div>
-                      <p className="sp-row-title">{formation.title}</p>
-                      <p className="sp-row-meta">{[formation.city, formation.diplomaLevel].filter(Boolean).join(' • ')}</p>
-                    </div>
-                    {formation.link && (
-                      isInternal ? (
-                        <Link to={formation.link} target="_blank" className="sp-btn sp-btn-sm">Voir la fiche</Link>
-                      ) : (
-                        <a href={formation.link} target="_blank" rel="noopener noreferrer" className="sp-btn sp-btn-sm">Voir le lien</a>
-                      )
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </div>
+      <SchoolPortalCatalog />
 
       <div className="sp-section">
         <div className="sp-section-head"><p className="sp-section-title">Mes formations personnalisées</p></div>
@@ -144,8 +110,8 @@ export default function SchoolPortalFormations() {
                     <p className="sp-row-meta">{[formation.city, formation.diploma_level].filter(Boolean).join(' • ')}</p>
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button type="button" className="sp-btn sp-btn-sm" onClick={() => startEdit(formation)}>Modifier</button>
-                    <button type="button" className="sp-btn sp-btn-sm sp-btn-danger" onClick={() => handleDelete(formation.id)}>Supprimer</button>
+                    {!readOnly && <><button type="button" className="sp-btn sp-btn-sm" onClick={() => startEdit(formation)}>Modifier</button>
+                    <button type="button" className="sp-btn sp-btn-sm sp-btn-danger" onClick={() => handleDelete(formation.id)}>Supprimer</button></>}
                   </div>
                 </div>
               ))}
@@ -153,7 +119,7 @@ export default function SchoolPortalFormations() {
           )}
         </div>
 
-        <div className="sp-card accent-pink">
+        {!readOnly && <div className="sp-card accent-pink">
           <p className="sp-section-title" style={{ marginBottom: 14 }}>{editingId ? 'Modifier la formation' : 'Ajouter une formation'}</p>
           <form onSubmit={handleSubmit}>
             <div className="sp-form-grid">
@@ -193,7 +159,7 @@ export default function SchoolPortalFormations() {
               {editingId && <button type="button" className="sp-btn" onClick={cancelEdit}>Annuler</button>}
             </div>
           </form>
-        </div>
+        </div>}
       </div>
     </>
   )

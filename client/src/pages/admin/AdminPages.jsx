@@ -6,6 +6,7 @@ import { RecordPanel, EditForm, ConfirmAction } from './AdminControls'
 import { formationHref, isPartnerFormation, recommendedFormations, selectedFormations } from '../../lib/adminSelections'
 import Chart from 'react-apexcharts'
 import chartLocale from 'apexcharts/dist/locales/fr.json'
+import AdminSchoolAccess, { PartnerDashboardLink, SchoolDashboardActions } from './AdminSchoolAccess'
 
 export const dateLabel = (value) => value ? new Date(value).toLocaleDateString('fr-FR') : '—'
 export const nameLabel = (row) => [row.first_name,row.last_name].filter(Boolean).join(' ') || row.email || 'Sans nom'
@@ -33,8 +34,8 @@ export function PageTitle({ title, children }) {
   return <div className="bo-page-heading"><h1>{title}</h1><div className="bo-actions">{children}</div></div>
 }
 
-export function DataTable({ title, resource, columns, params = {}, filters, actions, onView, tableClassName = '' }) {
-  const [search, setSearch] = useState('')
+export function DataTable({ title, resource, columns, params = {}, filters, actions, onView, tableClassName = '', initialSearch = '' }) {
+  const [search, setSearch] = useState(initialSearch)
   const [offset, setOffset] = useState(0)
   const deferredSearch = useDeferredValue(search)
   const data = useAdminList(resource, { ...params, q: deferredSearch, limit: 50, offset })
@@ -121,24 +122,44 @@ export function AdminUsers() {
   </>
 }
 export function AdminSchoolRegistrations() {
-  return <><p className="bo-muted">Demandes d’inscription partenaires / écoles à recontacter dans les 2 jours ouvrés. Aucun compte n’est créé à ce stade.</p>
+  return <><p className="bo-muted">Demandes d’inscription partenaires / écoles à recontacter dans les 2 jours ouvrés. Aucun accès de connexion n’est créé automatiquement.</p>
     <DataTable title="Inscriptions écoles" resource="/school-registrations" columns={[
       { key:'school_name',label:'Établissement' },
       { key:'contact',label:'Contact',render:(row) => `${row.contact_first_name} ${row.contact_last_name}` },
       { key:'email',label:'Email professionnel',render:(row) => <a href={`mailto:${row.email}`}>{row.email}</a> },
       { key:'created_at',label:'Demande reçue le',render:(row) => dateLabel(row.created_at) }
+      ,{ key:'access',label:'Compte',render:(row) => row.company_id ? <Link to={`/admin/ecoles?company_id=${row.company_id}&invite_email=${encodeURIComponent(row.email)}`}>Gérer l’accès</Link> : <Link to={`/admin/ecoles?school_name=${encodeURIComponent(row.school_name)}&email=${encodeURIComponent(row.email)}&first_name=${encodeURIComponent(row.contact_first_name)}&last_name=${encodeURIComponent(row.contact_last_name)}&request_id=${row.id}`}>Préparer l’accès</Link> }
     ]} />
   </>
 }
 export function AdminSchools() {
+  const [query,setQuery] = useSearchParams()
+  const companyId = query.get('company_id')
+  const [creating,setCreating] = useState(Boolean(query.get('request_id')))
+  const [revision,setRevision] = useState(0)
   const [status,setStatus] = useState('all')
   const [selected,setSelected] = useState(null)
-  return <><DataTable title="Écoles" resource="/schools" params={{ status }} filters={<StatusFilter value={status} onChange={setStatus} options={[['active','Autorisées'],['inactive','Non autorisées']]} />} onView={(row,reload) => setSelected({ row,reload })} columns={[{ key:'name',label:'Établissement' },{ key:'email',label:'Contact' },{ key:'approved_at',label:'Accès',render:(row) => <Badge active={Boolean(row.approved_at)} /> },{ key:'created_at',label:'Création',render:(row) => dateLabel(row.created_at) }]} />
-    {selected && <RecordPanel title={selected.row.name} path={`/schools/${selected.row.id}`} onClose={() => setSelected(null)}>{(data,refresh) => <>
+  useEffect(() => {
+    if (companyId) setSelected((previous) => String(previous?.row.id) === companyId ? previous
+      : { row:{ id:companyId,name:'École' },reload:() => setRevision((value) => value+1) })
+    else setSelected(null)
+  }, [companyId])
+  function closeSchool() {
+    setSelected(null)
+    const next = new URLSearchParams(query)
+    next.delete('company_id')
+    next.delete('invite_email')
+    setQuery(next,{ replace:true })
+  }
+  return <><p className="bo-muted">Tous les partenaires disposent automatiquement d’un dashboard, tous campus regroupés. Invitez ensuite leur contact pour lui donner accès. La création manuelle reste disponible pour les autres écoles.</p>
+    <DataTable initialSearch={query.get('school_name') || ''} key={revision} title="Écoles" resource="/schools" params={{ status }} filters={<StatusFilter value={status} onChange={setStatus} options={[['active','Autorisées'],['inactive','Non autorisées']]} />} actions={<button className="bo-button bo-primary" onClick={() => setCreating(true)}>Créer un espace école</button>} onView={(row,reload) => setSelected({ row,reload })} columns={[{ key:'name',label:'Établissement' },{ key:'email',label:'Contact',render:(row) => row.email || 'Contact à inviter' },{ key:'approved_at',label:'Accès du partenaire',render:(row) => <Badge active={Boolean(row.approved_at)} /> },{ key:'created_at',label:'Création',render:(row) => dateLabel(row.created_at) },{ key:'dashboard',label:'Dashboard',render:(row) => <SchoolDashboardActions companyId={row.id} schoolName={row.name} /> }]} />
+    {creating && <RecordPanel title="Préparer un accès école" onClose={() => setCreating(false)}>{() => <EditForm fields={[['schoolName','Établissement','school-name',true],['email','Email professionnel','email',true],['firstName','Prénom'],['lastName','Nom']]} values={{ schoolName:query.get('school_name') || '',email:query.get('email') || '',firstName:query.get('first_name') || '',lastName:query.get('last_name') || '' }} submit={(payload) => adminApi.post('/portal/schools',{ ...payload,requestId:query.get('request_id') || null })} onSaved={() => { setCreating(false); setRevision((value) => value+1) }} />}</RecordPanel>}
+    {selected && <RecordPanel title={selected.row.name} path={`/schools/${selected.row.id}`} onClose={closeSchool}>{(data,refresh) => <>
       <div className="bo-actions"><Badge active={Boolean(data.item.approved_at)} /><ConfirmAction label={data.item.approved_at ? 'Retirer l’accès' : 'Valider l’accès'} danger={Boolean(data.item.approved_at)} description={data.item.name} action={(reason) => adminApi.post(`/schools/${data.item.id}/${data.item.approved_at ? 'revoke' : 'approve'}`,{ reason })} onDone={() => { selected.reload(); refresh() }} /></div>
       <h2>Contacts et rattachement</h2><EditForm fields={[['name','Établissement', 'school-name',true],['email','Email de contact','email',true],['contact_first_name','Prénom du contact'],['contact_last_name','Nom du contact']]} values={data.item} submit={(payload) => adminApi.patch(`/schools/${data.item.id}`,payload)} onSaved={selected.reload} />
       <h2>Propriétaire et équipe</h2><ul className="bo-record-list">{data.accounts.map((account) => <li key={account.id}><span>{nameLabel(account)}<small>{account.email}</small></span><Badge active={!account.is_suspended}>{account.id === data.item.owner_id ? 'Propriétaire' : 'Membre'}</Badge></li>)}</ul>
       <Link className="bo-button" to={`/admin/formations?company_id=${data.item.id}`}>Formations privées</Link>
+      <AdminSchoolAccess company={data.item} members={data.members} accounts={data.accounts} onChanged={() => { selected.reload(); refresh() }} />
     </>}</RecordPanel>}
   </>
 }
@@ -165,11 +186,13 @@ export function AdminPartners() {
   const [revision,setRevision] = useState(0)
   const fields = [['formation_name','Intitulé','text',true],['city','Ville','text',true],['domain','Domaine'],['diploma_level','Niveau de diplôme'],['description','Description','textarea'],['link','Lien','url'],['contact_email','Email de contact','email'],['show_in_results','Afficher dans les recommandations','checkbox'],['highlight_in_results','Accentuer la carte partenaire','checkbox'],['results_priority','Priorité d’affichage','number',true]]
   const createFields = [['school_name','École','text',true],...fields.map((field) => field[0] === 'city' ? ['cities','Villes des campus (une ville par ligne)','textarea',true] : field)]
-  return <><DataTable key={revision} title="Partenaires" resource="/partners" params={{ status }} filters={<StatusFilter value={status} onChange={setStatus} options={[['active','Actifs'],['inactive','Archivés']]} />} actions={<button className="bo-button bo-primary" onClick={() => setCreating({})}><PiPlus aria-hidden="true" />Ajouter</button>} onView={(row,reload) => setSelected({ row,reload })} columns={[{ key:'school_name',label:'École' },{ key:'formation_name',label:'Formation',render:(row) => <FormationLink formation={row}>{row.formation_name}</FormationLink> },{ key:'city',label:'Ville' },{ key:'diploma_level',label:'Niveau' },{ key:'is_active',label:'Statut',render:(row) => <Badge active={row.is_active}>{row.is_active ? 'Actif' : 'Archivé'}</Badge> }]} />
+  return <><p className="bo-muted">Chaque partenaire possède son dashboard automatiquement, sans recréer son école. Les formations et campus d’une même école partagent le même espace. Utilisez directement « Voir le dashboard » ou « Gérer les accès ».</p>
+    <DataTable key={revision} title="Partenaires" resource="/partners" params={{ status }} filters={<StatusFilter value={status} onChange={setStatus} options={[['active','Actifs'],['inactive','Archivés']]} />} actions={<button className="bo-button bo-primary" onClick={() => setCreating({})}><PiPlus aria-hidden="true" />Ajouter</button>} onView={(row,reload) => setSelected({ row,reload })} columns={[{ key:'school_name',label:'École' },{ key:'formation_name',label:'Formation',render:(row) => <FormationLink formation={row}>{row.formation_name}</FormationLink> },{ key:'city',label:'Ville' },{ key:'diploma_level',label:'Niveau' },{ key:'is_active',label:'Statut',render:(row) => <Badge active={row.is_active}>{row.is_active ? 'Actif' : 'Archivé'}</Badge> },{ key:'dashboard',label:'Espace partenaire',render:(row) => <SchoolDashboardActions companyId={row.portal_company_id} schoolName={row.school_name} /> }]} />
     {selected && <RecordPanel title={selected.row.school_name} path={`/partners/${selected.row.id}`} onClose={() => setSelected(null)}>{(data,refresh) => <>
       <div className="bo-actions"><Badge active={data.item.is_active}>{data.item.is_active ? 'Actif' : 'Archivé'}</Badge><ConfirmAction label={data.item.is_active ? 'Désactiver la formation' : 'Réactiver la formation'} danger={data.item.is_active} description={data.item.formation_name} action={(reason) => adminApi.patch(`/partners/${data.item.id}`,{ is_active: !data.item.is_active,reason })} onDone={() => { selected.reload(); refresh() }} /></div>
       <h2>{data.item.formation_name}</h2><EditForm fields={fields} values={data.item} submit={(payload) => adminApi.patch(`/partners/${data.item.id}`,payload)} onSaved={() => { selected.reload(); refresh() }} />
       <PartnerCampusActions row={data.item} onDone={() => { selected.reload(); refresh() }} />
+      <PartnerDashboardLink formation={data.item} />
       <button className="bo-button" onClick={() => { setCreating(data.item); setSelected(null) }}><PiPlus aria-hidden="true" />Ajouter des campus à cette formation</button>
     </>}</RecordPanel>}
     {creating && <RecordPanel title="Ajouter une formation partenaire" onClose={() => setCreating(null)}>{() => <>

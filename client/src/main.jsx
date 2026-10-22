@@ -28,14 +28,15 @@ import BlogChoisirSesEtudes from './pages/blog/BlogChoisirSesEtudes.jsx'
 import BlogEtudeSalaire from './pages/blog/BlogEtudeSalaire.jsx'
 import TagManager from 'react-gtm-module'
 import { usePageTracking } from './lib/usePageTracking.js'
+import { hasAuthParameters, isPrivatePortalPath } from './lib/analytics.js'
 import { TOOLBOX_ITEMS } from './lib/levelMapping.js'
 
 const tagManagerArgs = {
     gtmId: 'GTM-TTNGZ2H8'
 }
 
-const isAdminEntry = /^\/admin(?:\/|$)/.test(window.location.pathname) || /^\/espace-ecoles\/admin(?:\/|$)/.test(window.location.pathname)
-if (!isAdminEntry) {
+const isPrivateEntry = isPrivatePortalPath(window.location.pathname) || hasAuthParameters(window.location)
+if (!isPrivateEntry) {
   window.__zeliaPublicTrackingLoaded = true
   TagManager.initialize(tagManagerArgs)
 }
@@ -50,6 +51,8 @@ const SchoolPortalLeads = lazy(() => import('./pages/school-portal/SchoolPortalL
 const SchoolPortalStats = lazy(() => import('./pages/school-portal/SchoolPortalStats.jsx'))
 const SchoolPortalFormationsManager = lazy(() => import('./pages/school-portal/SchoolPortalFormations.jsx'))
 const SchoolPortalTeam = lazy(() => import('./pages/school-portal/SchoolPortalTeam.jsx'))
+const SchoolPortalSecurity = lazy(() => import('./pages/school-portal/SchoolPortalSecurity.jsx'))
+const AdminSchoolDashboard = lazy(() => import('./pages/admin/AdminSchoolDashboard.jsx'))
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout.jsx'))
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin.jsx'))
 const adminPage = (name) => lazy(() => import('./pages/admin/AdminPages.jsx').then((module) => ({ default: module[name] })))
@@ -180,6 +183,9 @@ function App() {
       <Route index element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalHome /></Suspense>} />
       <Route path="inscription" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalRegister /></Suspense>} />
       <Route path="connexion" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalLogin /></Suspense>} />
+      <Route path="activation" element={<Suspense fallback={<div>Chargement…</div>}><SchoolPortalSecurity mode="activation" /></Suspense>} />
+      <Route path="mot-de-passe-oublie" element={<Suspense fallback={<div>Chargement…</div>}><SchoolPortalSecurity mode="forgot" /></Suspense>} />
+      <Route path="securite" element={<Suspense fallback={<div>Chargement…</div>}><SchoolPortalSecurity /></Suspense>} />
       <Route path="admin" element={<Navigate to="/admin/ecoles" replace />} />
       <Route element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalLayout /></Suspense>}>
         <Route path="leads" element={<SchoolPortalLeads />} />
@@ -193,6 +199,13 @@ function App() {
           <Route index element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminDashboard /></Suspense>} />
           <Route path="utilisateurs" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminUsers /></Suspense>} />
           <Route path="ecoles" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminSchools /></Suspense>} />
+          <Route path="ecoles/:companyId/dashboard" element={<Suspense fallback={<div>Chargement…</div>}><AdminSchoolDashboard /></Suspense>}>
+            <Route index element={<Navigate to="leads" replace />} />
+            <Route path="leads" element={<SchoolPortalLeads />} />
+            <Route path="statistiques" element={<SchoolPortalStats />} />
+            <Route path="formations" element={<SchoolPortalFormationsManager />} />
+            <Route path="equipe" element={<SchoolPortalTeam />} />
+          </Route>
           <Route path="inscriptions-ecoles" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminSchoolRegistrations /></Suspense>} />
           <Route path="formations" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminFormations /></Suspense>} />
           <Route path="partenaires" element={<Suspense fallback={<div role="status">Chargement…</div>}><AdminPartners /></Suspense>} />

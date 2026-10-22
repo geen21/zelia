@@ -37,6 +37,12 @@ async function getTransporter() {
   return transporter
 }
 
+export async function sendMail({ to, subject, html }) {
+  const smtpTransporter = await getTransporter()
+  const fromAddress = process.env.EMAIL_FROM || 'Zélia <no-reply@zelia.io>'
+  await smtpTransporter.sendMail({ from: fromAddress, to, subject, html })
+}
+
 // Best-effort send: never throws, so callers can fire-and-forget without
 // risking the parent request (e.g. a lead creation) failing because of an
 // email/SMTP issue.
@@ -46,9 +52,7 @@ export async function sendMailSafe({ to, subject, html }) {
     return false
   }
   try {
-    const smtpTransporter = await getTransporter()
-    const fromAddress = process.env.EMAIL_FROM || 'Zélia <no-reply@zelia.io>'
-    await smtpTransporter.sendMail({ from: fromAddress, to, subject, html })
+    await sendMail({ to, subject, html })
     return true
   } catch (error) {
     console.warn('Mailer: failed to send email:', error.message)

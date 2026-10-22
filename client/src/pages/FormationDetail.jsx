@@ -183,6 +183,7 @@ export default function FormationDetail() {
             <FaPaperPlane className="w-5 h-5 text-gray-700" />
           </div>
           <h2 className="text-sm font-semibold text-gray-900 mb-1">Demande d'informations</h2>
+          <p className="text-xs text-gray-500 mb-4">En envoyant cette demande, tu autorises cette école à recevoir tes coordonnées, ton profil scolaire, tes réponses au questionnaire et ton bilan pour te recontacter. Tu peux retirer ce partage depuis ton profil.</p>
           <p className="text-xs text-gray-500 mb-4">
             {formation.is_active === false ? 'Cette formation n’est plus disponible pour de nouvelles demandes.' : `${formation.school_name} te recontactera après ta demande.`}
           </p>

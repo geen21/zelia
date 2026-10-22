@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { PGlite } from '@electric-sql/pglite'
+import { formationHref } from '../../client/src/lib/adminSelections.js'
 
 const db = new PGlite()
 const joris = '11111111-1111-4111-8111-111111111111'
@@ -209,7 +210,13 @@ try {
   await db.query(`INSERT INTO informations_complementaires(user_id,question_id,answer_text,created_at) VALUES
     ($1,'orientation_final_selection',$2,now()-interval '1 day'),($1,'orientation_final_selection',$3,now())`,[student,
     JSON.stringify([{ id:'old',type:'formation',title:'Old choice',requestMoreInformation:true }]),
-    JSON.stringify({ candidates:[{ id:'chosen',type:'formation',title:'Chosen current',requestMoreInformation:true },{ id:'chosen',type:'formation',title:'Chosen current',requestMoreInformation:true },{ id:'ignored',type:'formation',title:'Not chosen',requestMoreInformation:false },{ id:'job',type:'metier',title:'Not formation',requestMoreInformation:true }] })])
+    JSON.stringify({ candidates:[{ id:'chosen',type:'formation',title:'Chosen current',requestMoreInformation:true,link:'https://example.com/compact' },{ id:'chosen',type:'formation',title:'Chosen current',requestMoreInformation:true,link:'https://example.com/compact' },{ id:'ignored',type:'formation',title:'Not chosen',requestMoreInformation:false },{ id:'job',type:'metier',title:'Not formation',requestMoreInformation:true }] })])
+  await db.query('UPDATE ecoles_partenaires SET link=$1 WHERE id=$2',['https://example.com/partner-request',partner])
+  const storedSelectionsBefore = (await db.query('SELECT * FROM informations_complementaires WHERE user_id=$1 ORDER BY id',[student])).rows
+  const selectionLinksMigration = await readFile(new URL('../database/migration_backoffice_selection_links.sql',import.meta.url),'utf8')
+  await db.exec(selectionLinksMigration)
+  await db.exec(selectionLinksMigration)
+  assert.deepEqual((await db.query('SELECT * FROM informations_complementaires WHERE user_id=$1 ORDER BY id',[student])).rows,storedSelectionsBefore,'the fix must not rewrite existing selections')
   const selections = await rpc('SELECT public.backoffice_selections() AS result')
   assert.equal(selections.total,1003)
   assert.equal(selections.totalUsers,1002)
@@ -218,7 +225,10 @@ try {
   const personal = await rpc("SELECT public.backoffice_selections('','all',50,0,$1) AS result",[student])
   assert.equal(personal.total,2)
   assert.equal(personal.items.find((item) => item.source === 'orientation').formation_name,'Chosen current')
+  assert.equal(formationHref(personal.items.find((item) => item.source === 'orientation')),'https://example.com/compact','the actual SQL response must retain a compact saved link')
+  assert.equal(personal.items.find((item) => item.source === 'orientation').detail.link,'https://example.com/compact','existing clients must also receive the normalized detail.link')
   assert.equal(personal.items.find((item) => item.source === 'partner').formation_name,'Bachelor')
+  assert.equal(formationHref(personal.items.find((item) => item.source === 'partner')),'https://example.com/partner-request')
   assert.equal((await rpc("SELECT public.backoffice_selections('Chosen current') AS result")).total,1)
   assert.equal((await rpc("SELECT public.backoffice_selections('Old choice') AS result")).total,0)
   assert.equal((await rpc("SELECT public.backoffice_selections('','partner') AS result")).total,1)
@@ -232,10 +242,25 @@ try {
       schoolName:`Ecole partenaire ${index}`,subtitle:`Ecole partenaire ${index} - Paris`,city:'Paris',requestMoreInformation:true
     }))
   ]
+  Object.assign(recommended[0],{ link:'https://example.com/compact' })
+  Object.assign(recommended[1],{ detail:{ link:'https://example.com/detail',description:'Description conservée' } })
+  Object.assign(recommended[2],{ raw:{ fiche:'https://example.com/raw-fiche' } })
+  Object.assign(recommended[3],{ raw:{ etab_url:'https://example.com/raw-school' } })
+  Object.assign(recommended[4],{ raw:{ link:'www.example.com/raw-link' } })
+  Object.assign(recommended[5],{ fiche:'https://example.com/fiche' })
+  Object.assign(recommended[6],{ etab_url:'https://example.com/school' })
+  Object.assign(recommended[7],{ detail:{ link:'javascript:alert(1)' } })
+  Object.assign(recommended[8],{ detail:{ link:'javascript:alert(1)' },link:'https://example.com/partner-fallback' })
+  Object.assign(recommended[9],{ link:'https://example.com/partner-compact' })
   const savedRecommendation = await db.query(`INSERT INTO informations_complementaires(user_id,question_id,answer_text)
     VALUES($1,'orientation_final_selection',$2) RETURNING id`,[student,JSON.stringify(recommended)])
   const dashboardRecommendations = await rpc("SELECT public.backoffice_selections('','orientation',50,0,$1) AS result",[student])
   assert.equal(dashboardRecommendations.total,11,'Dashboard includes all eight national and three preselected partner recommendations')
+  for (const candidate of recommended) {
+    const row = dashboardRecommendations.items.find((item) => item.formation_name === candidate.title)
+    assert.equal(formationHref(row),formationHref(candidate),`Saved link lost for ${candidate.title}`)
+  }
+  assert.equal(dashboardRecommendations.items.find((item) => item.formation_name === recommended[1].title).detail.description,'Description conservée')
   for (let index=0;index<3;index+=1) {
     const row = dashboardRecommendations.items.find((item) => item.formation_name === `Formation partenaire ${index}`)
     assert.ok(row)

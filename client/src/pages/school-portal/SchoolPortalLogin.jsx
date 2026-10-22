@@ -19,6 +19,12 @@ export default function SchoolPortalLogin() {
     try {
       const { error: signInError } = await schoolPortalSupabase.auth.signInWithPassword({ email, password })
       if (signInError) throw signInError
+      const { data: assurance, error: mfaError } = await schoolPortalSupabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      if (mfaError) throw mfaError
+      if (assurance.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2') {
+        navigate('/espace-ecoles/securite?challenge=1', { replace: true })
+        return
+      }
       navigate('/espace-ecoles/leads', { replace: true })
     } catch (loginError) {
       setError(loginError?.message || 'Échec de connexion')
@@ -72,6 +78,7 @@ export default function SchoolPortalLogin() {
               {loading ? 'Connexion...' : 'Se connecter'}
             </button>
           </form>
+          <p><Link to="/espace-ecoles/mot-de-passe-oublie">Mot de passe oublié ?</Link></p>
         </div>
 
         <p className="sp-subtitle" style={{ textAlign: 'center', marginTop: 16 }}>

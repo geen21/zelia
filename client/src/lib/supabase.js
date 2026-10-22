@@ -18,6 +18,8 @@ try {
   throw new Error(`[supabase] Invalid VITE_SUPABASE_URL "${supabaseUrl}". Expected a full https URL, e.g. https://xyzcompany.supabase.co. Original error: ${error instanceof Error ? error.message : String(error)}`)
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: { detectSessionInUrl: !/^\/(?:espace-ecoles|admin)(?:\/|$)/.test(window.location.pathname) }
+})
 
 export default supabase

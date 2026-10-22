@@ -10,6 +10,7 @@
     "verify:admin-ui": "node scripts/verify-backoffice.mjs",
     "verify:parents-ui": "node scripts/verify-parents.mjs",
     "verify:school-registration": "node scripts/verify-school-registration.mjs",
+    "verify:school-portal": "node scripts/verify-school-portal.mjs",
     "verify:personas": "node scripts/verify-persona-distribution.mjs",
     "verify:orientation-ui": "node scripts/verify-formation-relevance.mjs && node scripts/verify-orientation-ui.mjs"
   },

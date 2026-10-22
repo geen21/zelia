@@ -1,5 +1,33 @@
 # Zelia V2 Development Guide
 
+## Dashboards et comptes partenaires
+
+Appliquer [migration_partner_dashboards.sql](server/database/migration_partner_dashboards.sql) apres les migrations portail v1/v2, back-office, reglages partenaires et demandes d'inscription ecoles, puis [migration_partner_dashboards_auto_spaces.sql](server/database/migration_partner_dashboards_auto_spaces.sql). Chaque partenaire existant ou futur dispose automatiquement d'un espace unique pour ses formations et campus, y compris les formations archivees. Les correspondances du catalogue national restent a valider manuellement ; un nom ressemblant ne donne aucun droit sur ses eleves.
+
+Les tableaux `/admin/partenaires` et `/admin/ecoles` affichent directement **Voir le dashboard** et **Gerer les acces**. Pour MyDigitalSchool deja partenaire, ne pas recreer une ecole : son espace existe apres migration ; ouvrir **Gerer les acces**, renseigner le contact, l'inviter et valider son acces. La creation manuelle reste reservee aux autres ecoles. La demande publique ne cree toujours pas de compte Auth et rejoint l'espace d'un partenaire deja connu sans lui accorder de connexion. L'apercu partage les ecrans du portail, mais ses API refusent toute mutation.
+
+La creation automatique ne fabrique ni email, ni mot de passe, ni utilisateur Auth. Un espace partenaire sans contact conserve `email = NULL` et affiche **Contact a inviter** ; les autres comptes entreprises continuent d'exiger un email en base. L'email est renseigne lors du rattachement du proprietaire invite. Les formations partenaires sont rattachees par leurs identifiants, avec l'origine systeme `partner` sans inventer d'administrateur validateur. Les espaces existants sont reutilises et leurs proprietaires, statuts et consentements sont conserves. Une ambiguite entre plusieurs espaces homonymes fait echouer explicitement la migration ; il faut verifier les anciens rattachements avant de relancer. Le changement d'ecole d'une formation et le retrait de son lien automatique sont bloques pour eviter un transfert implicite des donnees.
+
+Les invitations utilisent Supabase `generateLink` puis le mailer SMTP existant, configurable avec Resend. Le mot de passe est choisi sur `/espace-ecoles/activation`, jamais par Zelia ou un collegue. Les comptes existants ne sont ni ecrases ni supprimes ; retirer un membre retire uniquement son appartenance. Les echecs SMTP sont visibles et l'invitation peut etre renvoyee. Les emails natifs de recuperation utilisent le SMTP configure dans Supabase Auth, distinct de la configuration serveur.
+
+Les parcours `/espace-ecoles/mot-de-passe-oublie` et `/espace-ecoles/securite` gerent recuperation, changement de mot de passe et TOTP facultatif. Une fois un facteur verifie, toutes les routes privees ecoles exigent une session AAL2. La recuperation du mot de passe ne contourne pas le facteur. Les trois clients Supabase conservent leurs sessions distinctes ; seuls les callbacks ecoles consomment les liens d'activation ecoles.
+Les URLs des espaces prives et de l'activation ecole sont exclues des evenements analytics publics. Le chargement direct de ces pages ne demarre pas GTM, pour que les liens d'activation ne transmettent pas leurs jetons via une URL de pageview. Le suivi des pages publiques ecoles reste inchange.
+
+Les leads regroupent les demandes explicites du questionnaire, les fiches nationales et les candidatures partenaires. Un rattachement de catalogue deplace vers une autre ecole ne transfere pas les accords historiques. Un resultat simplement affiche ne cree pas de lead. Les references nationales/partenaires determinent l'origine ; une presence dans les deux catalogues ne requalifie pas l'historique. Les segments naturel seul, sponsorise seul et mixte sont exclusifs. Un eleve identifie est compte une fois par ecole ; les demandes anonymes restent separees par demande et ne donnent jamais acces a un compte par simple correspondance d'email. Les series datent les demandes, pas les inscriptions.
+
+L'historique conserve les demandes explicites et les contacts effectivement reveles, sous reserve de rattachements valides. Les simples affichages sans demande et sans revelation ne sont pas convertis en nouvelles autorisations. Les champs historiques restent accessibles, mais les reponses brutes exigent l'accord versionne `orientation-dossier-v1`. Le dossier detaille et les coordonnees sont envoyes seulement apres revelation autorisee (ou consultation admin tracee). Le profil eleve permet de confirmer/retirer l'accord general et de bloquer une ecole ; un accord donne directement a une ecole reste distinct de l'accord general. Un retrait bloque les lectures/revelations/exports futurs, sans rappeler les fichiers deja telecharges.
+
+Les listes, statistiques et exports partagent la meme requete SQL et les memes filtres. Le CSV utilise un instantane SQL unique, sans coupure a 1000 ou 5000 lignes et avec protection des cellules interpretables comme formules. Les notifications n'embarquent aucune reponse au questionnaire ; leurs erreurs et relances sont accessibles dans la fiche ecole. Un verrou SQL evite les envois concurrents repetes pour un meme lead ; une interruption SMTP peut toutefois necessiter une verification de delivrabilite avant relance.
+
+Verifications locales sans acces aux donnees distantes :
+
+```powershell
+npm --prefix server run verify:school-portal
+npm --prefix client run verify:school-portal
+```
+
+La verification navigateur utilise Vite sur le port 5187 (voir ci-dessous), ou `BACKOFFICE_TEST_URL`. Auth, SMTP et les API sont simules. Les tests SQL couvrent RLS, consentement, homonymes, origine mixte, references bigint et plus de 5000 leads. La recette d'envoi reel et les reglages Supabase/Resend restent a effectuer en staging.
+
 ## Sitemaps formations
 
 Les fichiers `/sitemap-formations-N.xml` conservent des blocs de 5000 formations tries par `id`, lus par pages de 1000 lignes maximum. Pour acceder directement a un bloc, seule une recherche de son curseur sur la colonne `id` utilise un offset ; les lectures des donnees completes utilisent ensuite `id > curseur`. Cela evite de parcourir les lignes completes de tous les blocs precedents a chaque page. La cle primaire sur `formation_france.id` du schema existant est requise ; aucun nouvel index ni changement de timeout n'est ajoute.
@@ -37,7 +65,9 @@ Dans Utilisateurs, la fiche affiche les noms des metiers de la derniere analyse 
 
 Les formations selectionnees sont prioritaires : dernieres selections sur l'accueil, liste par defaut dans `/admin/resultats` et rappel dans les fiches utilisateurs/analyses. Appliquer [migration_backoffice_selections.sql](server/database/migration_backoffice_selections.sql) pour activer cette vue. La recherche porte sur formation, etablissement, ville et utilisateur ; les demandes partenaires ont un filtre et un statut distincts. Les analyses restent disponibles dans leur onglet, en lecture seule.
 
-Les noms des formations sont cliquables depuis le tableau de bord, les selections, les fiches utilisateurs/analyses et les listes du catalogue et des partenaires. Le lien web enregistre (fiche de formation ou site de l'etablissement) s'ouvre dans un nouvel onglet, sans quitter le back-office. Si aucun lien HTTP(S) valide n'est disponible, le nom reste affiche avec la mention « Lien indisponible ». Aucun lien n'est invente et aucune nouvelle migration n'est requise.
+Les noms des formations sont cliquables depuis le tableau de bord, les selections, les fiches utilisateurs/analyses et les listes du catalogue et des partenaires. Appliquer [migration_backoffice_selection_links.sql](server/database/migration_backoffice_selection_links.sql) apres la migration des selections : la lecture reconstruit le lien des selections compactes (`link` a la racine) et conserve les anciens formats `detail.link`, `raw.fiche`, `raw.link`, `fiche` et `etab_url`. La sauvegarde preserve aussi les liens des formats historiques. Aucune reponse ou selection existante n'est modifiee et aucune nouvelle analyse n'est necessaire.
+
+Le lien web enregistre (fiche de formation ou site de l'etablissement) s'ouvre dans un nouvel onglet, sans quitter le back-office. La mention « Lien indisponible » reste reservee aux selections sans lien HTTP(S) exploitable. Aucun lien n'est invente. La migration suffit pour restaurer la lecture des liens deja enregistres ; deployer le backend mis a jour pour la sauvegarde des autres formats historiques.
 
 Pour le pilotage de la grille commune de recommandations, appliquer aussi [migration_backoffice_partner_results.sql](server/database/migration_backoffice_partner_results.sql). Les trois reglages sont dans chaque fiche `/admin/partenaires` : affichage dans les recommandations, accent visuel et priorite (0 a 100). Le controle pur du melange peut etre execute sans navigateur : `node client/scripts/verify-backoffice.mjs --results-only`.
 

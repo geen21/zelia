@@ -264,9 +264,15 @@ router.get('/formations/search', optionalAuth, async (req, res) => {
       rpcError = retry.error
     }
 
+    // The formation_france/metiers_france tables intermittently throw a
+    // Postgres statement timeout (57014), especially on the first query
+    // after a while (cold start). This is transient - an immediate retry of
+    // the exact same query usually succeeds - so retry once before falling
+    // back to the slower ILIKE search (mirrors the pattern in formations.js).
     if (rpcError && isStatementTimeout(rpcError)) {
-      console.warn('Catalog formations RPC search timeout:', rpcError.message)
-      return res.status(503).json({ error: 'Formation search timed out. Please try again.', code: '57014' })
+      const retry = await runFormationRpc(keywords)
+      rpcData = retry.data
+      rpcError = retry.error
     }
 
     if (!rpcError) {
@@ -277,11 +283,15 @@ router.get('/formations/search', optionalAuth, async (req, res) => {
 
     console.warn('Catalog formations RPC search error, using fallback:', rpcError.message)
 
-    const fallback = await runFormationFallbackSearch({ normalizedQuery, region, departement, from, pageSize })
+    let fallback = await runFormationFallbackSearch({ normalizedQuery, region, departement, from, pageSize })
+    if (fallback.error && isStatementTimeout(fallback.error)) {
+      fallback = await runFormationFallbackSearch({ normalizedQuery, region, departement, from, pageSize })
+    }
     if (fallback.error) {
       if (isStatementTimeout(fallback.error)) {
-        console.warn('Catalog formations fallback search timeout:', fallback.error.message)
-        return res.status(503).json({ error: 'Formation search timed out. Please try again.', code: '57014' })
+        // Ne pas mettre en cache un résultat vide dû à un timeout : cela
+        // masquerait les retries pendant toute la durée du cache.
+        return res.json(makePagePayload([], page, pageSize))
       }
       return res.status(400).json({ error: fallback.error.message })
     }

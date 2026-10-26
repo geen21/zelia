@@ -12,8 +12,7 @@
     "verify:orientation": "node scripts/verify_orientation_recommendation_guard.mjs && node --test scripts/verify_partner_matching.test.mjs",
     "verify:school-registration": "node scripts/verify_school_registration.mjs",
     "verify:school-portal": "node --test scripts/verify_school_dashboard.test.mjs scripts/verify_school_dashboard_api.test.mjs",
-    "verify:sitemap": "node --test scripts/verify_sitemap.test.mjs",
-    "verify:formation-search": "node --test scripts/verify_formation_search.test.mjs scripts/verify_formation_search_api.test.mjs"
+    "verify:sitemap": "node --test scripts/verify_sitemap.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.1",

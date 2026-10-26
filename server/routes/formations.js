@@ -376,6 +376,9 @@ router.post('/search', optionalAuth, async (req, res) => {
 
     if (error) {
       console.error('Formations search RPC error:', error)
+      if (isStatementTimeout(error)) {
+        return res.status(503).json({ error: 'Formation search timed out. Please try again.', code: '57014' })
+      }
       // Fallback to simple query if RPC fails
       return await fallbackSearch(req, res, cleanKeywords, department, region, parsedLimit, { commune: cleanCommune, cursus_types: cleanCursusTypes, preference: cleanPreference })
     }
@@ -389,6 +392,12 @@ router.post('/search', optionalAuth, async (req, res) => {
           p_region: null,
           p_limit: rpcLimit
         })
+      if (errCom) {
+        console.error('Formations commune search RPC error:', errCom)
+        if (isStatementTimeout(errCom)) {
+          return res.status(503).json({ error: 'Formation search timed out. Please try again.', code: '57014' })
+        }
+      }
       if (!errCom && dataCom && dataCom.length > 0) {
         data = dataCom
       }
@@ -440,6 +449,12 @@ router.post('/search', optionalAuth, async (req, res) => {
           p_region: null,
           p_limit: rpcLimit
         })
+      if (errBroad) {
+        console.error('Formations broader search RPC error:', errBroad)
+        if (isStatementTimeout(errBroad)) {
+          return res.status(503).json({ error: 'Formation search timed out. Please try again.', code: '57014' })
+        }
+      }
       if (!errBroad && dataBroad && dataBroad.length > 0) {
         data = dataBroad
       }
@@ -527,6 +542,9 @@ async function fallbackSearch(req, res, keywords, department, region, limit, ext
 
     if (error) {
       console.error('Formations fallback search error:', error)
+      if (isStatementTimeout(error)) {
+        return res.status(503).json({ error: 'Formation search timed out. Please try again.', code: '57014' })
+      }
       return res.status(400).json({ error: error.message })
     }
 

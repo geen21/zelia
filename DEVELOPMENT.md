@@ -1,5 +1,19 @@
 # Zelia V2 Development Guide
 
+## Recherche formations
+
+La recherche partage [rpc_search_formations.sql](server/database/rpc_search_formations.sql) entre catalogue, orientation et niveau 6. Le SQL utilise le texte combine indexe pour selectionner les candidats, puis normalise chaque champ une seule fois et calcule les scores sans multiplier les lectures par colonne et mot-cle. Les requetes sont replanifiees avec leurs parametres courants pour eviter un plan generique inadapte. Les poids, exclusions et filtres sont conserves ; le tri complet score/annee/id precede la pagination, sans plafond intermediaire de 1000 resultats.
+
+Les routes [catalog.js](server/routes/catalog.js) et [formations.js](server/routes/formations.js) signalent les timeouts par HTTP 503 et `code: "57014"`. Un timeout ne declenche pas une nouvelle recherche couteuse ni un faux resultat vide mis en cache. Le fallback pour les anciennes installations reste disponible en cas de RPC absent.
+
+```powershell
+npm --prefix server run verify:formation-search
+```
+
+La suite SQL execute le script deux fois dans PGlite avec les vraies extensions `pg_trgm` et `unaccent`. Elle compare les scores a une reference UNION, teste recherche floue, accents, exclusions, nettoyage, filtres et pagination apres 1000 lignes. Sur un catalogue synthetique de plus de 21000 lignes, elle verifie l'usage de l'index GIN pour une recherche selective et un budget local de cinq secondes par recherche selective ou large (jusqu'a huit mots-cles et termes de deux caracteres). Ce budget n'est pas une garantie de temps de reponse sur la base distante.
+
+Les tests HTTP utilisent les routeurs Express reels et un client Supabase simule : ils couvrent nombre d'appels, erreurs 503, absence de cache sur erreur, compatibilite `p_query`, fallback, post-filtres et format de pagination. Aucun appel distant n'est autorise. Appliquer le script SQL et effectuer la recette Supabase selon le [guide de deploiement](DEPLOYMENT.md#recherche-formations--timeouts-postgresql-57014).
+
 ## Dashboards et comptes partenaires
 
 Appliquer [migration_partner_dashboards.sql](server/database/migration_partner_dashboards.sql) apres les migrations portail v1/v2, back-office, reglages partenaires et demandes d'inscription ecoles, puis [migration_partner_dashboards_auto_spaces.sql](server/database/migration_partner_dashboards_auto_spaces.sql). Chaque partenaire existant ou futur dispose automatiquement d'un espace unique pour ses formations et campus, y compris les formations archivees. Les correspondances du catalogue national restent a valider manuellement ; un nom ressemblant ne donne aucun droit sur ses eleves.

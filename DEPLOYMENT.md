@@ -1,5 +1,25 @@
 # Zelia Deployment Guide
 
+## Recherche formations : timeouts PostgreSQL (57014)
+
+Le code `57014` avec `canceling statement due to statement timeout` indique que PostgreSQL a annule la recherche RPC. Un avertissement de health-check Storage ne prouve pas que Storage est la cause de cet echec.
+
+1. Appliquer [rpc_search_formations.sql](server/database/rpc_search_formations.sql) dans l'editeur SQL Supabase, de preference hors pic de trafic : la creation des index manquants peut prendre plusieurs minutes et bloquer les ecritures sur le catalogue. Le script est rejouable, recree les RPC, actualise les statistiques avec `ANALYZE` et recharge le cache PostgREST. Il ne modifie ni les lignes du catalogue, ni le timeout des roles.
+2. Deployer le backend. Une recherche annulee renvoie desormais HTTP **503** avec `code: "57014"` : elle n'est ni relancee automatiquement, ni remplacee par un resultat vide HTTP 200. La compatibilite avec les anciennes signatures RPC et leur fallback reste disponible quand la fonction est absente.
+3. Tester via les parcours catalogue, orientation et niveau 6 avec les parametres ayant echoue. Verifier aussi filtres geographiques et pagination. Le SQL selectionne les candidats avec l'index combine, normalise les textes une fois et conserve les poids de score. Les ex aequo sont tries par annee puis identifiant avant pagination ; les pages au-dela de 1000 resultats ne sont plus tronquees.
+4. Si le timeout persiste, mesurer la requete avec ses vrais parametres et le role API concerne, puis verifier le plan, les index et la charge/les attentes PostgreSQL. Les recherches tres courtes (moins de trois caracteres) et tres communes restent moins selectives. Ne pas augmenter globalement `statement_timeout` pour masquer le probleme.
+
+Exemple de mesure a adapter aux parametres reels :
+
+```sql
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM public.search_formations(
+  ARRAY['informatique', 'master'], '75', NULL, 21, 0, 'master informatique'
+);
+```
+
+Cet `EXPLAIN` mesure la duree globale de la fonction, pas ses plans SQL internes. Une execution dans l'editeur SQL peut utiliser un autre role et un autre timeout que REST ; elle ne remplace pas la recette API. Voir les [verifications locales](DEVELOPMENT.md#recherche-formations).
+
 ## Correctif des liens des formations selectionnees
 
 Si les selections affichent **Lien indisponible** alors que leur URL est enregistree, appliquer [migration_backoffice_selection_links.sql](server/database/migration_backoffice_selection_links.sql) apres `migration_backoffice_selections.sql`, puis actualiser le back-office. Ce correctif remplace uniquement la fonction de lecture : il restitue les liens compacts et historiques sans modifier les selections, leur date, leurs filtres ou leurs permissions. Aucun nouveau build client n'est requis pour afficher ces URL deja enregistrees. Deployer aussi le backend pour conserver les liens lors de futures sauvegardes aux anciens formats (`raw.link`, `fiche`, `etab_url`). Une URL absente ou non HTTP(S) reste indiquee comme indisponible.

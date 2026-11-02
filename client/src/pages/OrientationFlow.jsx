@@ -11,13 +11,14 @@ import { mixFormationResults } from '../lib/orientationFormationResults.js'
 import { buildFormationRelevanceProfile, buildRelevanceSearchQueries, scoreFormationRelevance } from '../lib/formationRelevance.js'
 import { FORMATION_PREFERENCE_LEVELS, filterCandidatesByTargetStudyLevel, getTargetStudyLevel, inferFormationStudyLevel } from '../lib/formationLevel.js'
 import { buildLoreleiUrl, buildPersonaAvatarConfig, computePersonaFromAnswers, getPersonaBySlug } from '../lib/personas.js'
+import { getAnswerChoiceIndex, getAnswerChoices, isInterestQuestion } from '../lib/questionScale.js'
 import { generatePersonaShareCard } from '../lib/shareImage.js'
 import { trackOrientationEvent } from '../lib/analytics.js'
 import './OrientationFlow.css'
 
 const QUESTION_LIMIT = 20
 const ANSWERS_PROGRESS_KEY = 'answers_progress'
-const ANSWERS_PROGRESS_VERSION = `orientation-flow-${QUESTION_LIMIT}`
+const ANSWERS_PROGRESS_VERSION = `orientation-flow-v2-${QUESTION_LIMIT}`
 const DRAG_THRESHOLD = 96
 const MAX_PROPOSAL_DECK = 24
 const MAX_FINAL_RESULTS = 14
@@ -137,24 +138,12 @@ const STRONG_SUBJECT_SEARCH_QUERIES = {
   numerique: 'informatique'
 }
 
-function getQuestionOptions(question) {
-  const options = Array.isArray(question?.options)
-    ? question.options.filter((option) => option && option.label)
-    : []
-  return options.length >= 2 ? options.slice(0, 2) : FALLBACK_QUESTION_OPTIONS
+function getQuestionChoices(question) {
+  const choices = getAnswerChoices(question)
+  return choices.length ? choices : getAnswerChoices({ ...question, options: FALLBACK_QUESTION_OPTIONS })
 }
 
 const MICRO_STEPS = [
-  {
-    id: 'grade_confidence',
-    title: 'Indique ta moyenne dans tes matières fortes',
-    options: [
-      { label: '10-12', value: '10-12' },
-      { label: '12-14', value: '12-14' },
-      { label: '14-16', value: '14-16' },
-      { label: '16+', value: '16+' }
-    ]
-  },
   {
     id: 'school_level',
     title: "Tu es aujourd'hui en...",
@@ -164,6 +153,23 @@ const MICRO_STEPS = [
       { label: '1ère', value: '1ere' },
       { label: 'Terminale', value: 'terminale' },
       { label: 'Post-bac', value: 'post_bac' }
+    ]
+  },
+  {
+    id: 'strong_subjects',
+    title: 'Tu te sens solide en...',
+    multi: true,
+    options: STRONG_SUBJECT_OPTIONS
+  },
+  {
+    id: 'grade_confidence',
+    title: 'Ta moyenne dans ces matières fortes, c’est plutôt...',
+    options: [
+      { label: 'Moins de 10', value: '<10' },
+      { label: '10-12', value: '10-12' },
+      { label: '12-14', value: '12-14' },
+      { label: '14-16', value: '14-16' },
+      { label: '16+', value: '16+' }
     ]
   },
   {
@@ -183,12 +189,6 @@ const MICRO_STEPS = [
       { label: 'Changer de ville', value: 'move_city' },
       { label: 'Les deux', value: 'both' }
     ]
-  },
-  {
-    id: 'strong_subjects',
-    title: 'Tu te sens solide en...',
-    multi: true,
-    options: STRONG_SUBJECT_OPTIONS
   },
   {
     id: 'career_domains',
@@ -1638,7 +1638,12 @@ export default function OrientationFlow() {
     })
 
     // Persona + avatar are computed automatically from the answers (no manual picker).
-    const { persona: computedPersona, profile: computedPersonaProfile } = computePersonaFromAnswers(sourceQuestions, sourceAnswers)
+    const {
+      persona: computedPersona,
+      profile: computedPersonaProfile,
+      axisStrength: computedAxisStrength,
+      topInterests: computedTopInterests
+    } = computePersonaFromAnswers(sourceQuestions, sourceAnswers)
     const personaAvatarUrl = buildLoreleiUrl(buildPersonaAvatarConfig(computedPersona.slug, profileIdentity.firstName || 'zelia'), 360)
     setPersona(computedPersona)
     setAvatarUrl(personaAvatarUrl)
@@ -1662,6 +1667,8 @@ export default function OrientationFlow() {
           personaSlug: computedPersona.slug,
           personaName: computedPersona.name,
           axes: computedPersonaProfile,
+          axisStrength: computedAxisStrength,
+          interests: computedTopInterests,
           formationPreference: buildFormationPreferenceSignal(finalMicroProfile),
           careerDomains: buildCareerDomainSignal(finalMicroProfile),
           searchProfile: buildOrientationSearchProfile(finalMicroProfile)
@@ -1746,19 +1753,19 @@ export default function OrientationFlow() {
     return nextAnswers
   }, [answers])
 
-  const answerQuestion = useCallback((optionIndex) => {
+  const answerQuestion = useCallback((choiceIndex) => {
     if (!currentQuestion) return
-    const optionList = getQuestionOptions(currentQuestion)
-    const safeIndex = Math.max(0, Math.min(Number(optionIndex) || 0, optionList.length - 1))
-    const picked = optionList[safeIndex]
+    const choices = getQuestionChoices(currentQuestion)
+    const safeIndex = Math.max(0, Math.min(Number(choiceIndex) || 0, choices.length - 1))
+    const picked = choices[safeIndex]
     trackOrientationEvent('orientation_question_answered', {
       orientation_step: 'questions',
       orientation_question_number: questionIndex + 1,
       orientation_question_category: currentQuestion.category || 'unknown',
       orientation_answer_position: safeIndex + 1
     })
-    const nextAnswers = persistAnswer(currentQuestion.id, picked.label)
-    setDragX(safeIndex === 1 ? 360 : -360)
+    const nextAnswers = persistAnswer(currentQuestion.id, picked.answer)
+    setDragX(safeIndex >= choices.length / 2 ? 360 : -360)
     window.setTimeout(() => {
       setDragX(0)
       if (questionIndex >= questions.length - 1) {
@@ -1773,8 +1780,9 @@ export default function OrientationFlow() {
   useEffect(() => {
     const onKeyDown = (event) => {
       if (phase === 'questions') {
-        if (event.key === 'ArrowRight') answerQuestion(1)
+        if (event.key === 'ArrowRight') answerQuestion(3)
         if (event.key === 'ArrowLeft') answerQuestion(0)
+        if (['1', '2', '3', '4'].includes(event.key)) answerQuestion(Number(event.key) - 1)
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -1801,7 +1809,7 @@ export default function OrientationFlow() {
       setDragX(0)
       return
     }
-    if (phase === 'questions') answerQuestion(delta > 0 ? 1 : 0)
+    if (phase === 'questions') answerQuestion(delta > 0 ? 3 : 0)
   }
 
   const canGoBack = !loading && !error && (
@@ -2333,7 +2341,10 @@ export default function OrientationFlow() {
 
   const renderQuestionCard = () => {
     if (!currentQuestion) return null
-    const options = getQuestionOptions(currentQuestion)
+    const choices = getQuestionChoices(currentQuestion)
+    const interestQuestion = isInterestQuestion(currentQuestion)
+    const selectedIndex = getAnswerChoiceIndex(currentQuestion, answers[currentQuestion.id])
+    const [poleA, poleB] = interestQuestion ? [] : [choices[0], choices[choices.length - 1]]
     return (
       <div className="orientation-stage question-stage">
         <div
@@ -2346,29 +2357,41 @@ export default function OrientationFlow() {
           style={{ transform: `translateX(${dragX}px) rotate(${dragX / 18}deg)` }}
         >
           <h1>{cleanQuestionText(currentQuestion.contenu)}</h1>
-          {questionIndex === 0 && (
-            <div className="question-swipe-tutorial" aria-label="Glisse la carte vers ta réponse, ou touche-la directement">
-              <span className="swipe-tutorial-answer reject">
-                <PiArrowLeft aria-hidden="true" />
-              </span>
-              <span className="swipe-tutorial-track" aria-hidden="true">
-                <span className="swipe-tutorial-cue" />
-              </span>
-              <span className="swipe-tutorial-answer accept">
-                <PiArrowRight aria-hidden="true" />
-              </span>
+        </div>
+        <div className={`orientation-actions answer-scale ${interestQuestion ? 'interest-scale' : 'axis-scale'}`}>
+          {!interestQuestion && (
+            <div className="axis-poles">
+              <div className="axis-pole reject">
+                <span className="option-letter">A</span>
+                <span className="option-label">{poleA.optionLabel}</span>
+              </div>
+              <div className="axis-pole accept">
+                <span className="option-letter">B</span>
+                <span className="option-label">{poleB.optionLabel}</span>
+              </div>
             </div>
           )}
-        </div>
-        <div className="orientation-actions option-actions-stack">
-          <button className="option-action reject" onClick={() => answerQuestion(0)} title={options[0].label}>
-            <span className="option-letter">A</span>
-            <span className="option-label">{options[0].label}</span>
-          </button>
-          <button className="option-action accept" onClick={() => answerQuestion(1)} title={options[1].label}>
-            <span className="option-letter">B</span>
-            <span className="option-label">{options[1].label}</span>
-          </button>
+          <div className="scale-actions" role="group" aria-label={interestQuestion ? "Ton niveau d'envie" : 'Ta préférence entre A et B'}>
+            {choices.map((choice) => {
+              const fullLabel = choice.kind === 'axis' ? `${choice.label} : ${choice.optionLabel}` : choice.label
+              return (
+                <button
+                  key={choice.answer}
+                  type="button"
+                  className={`scale-choice level-${choice.index}${choice.index === selectedIndex ? ' selected' : ''}`}
+                  onClick={() => answerQuestion(choice.index)}
+                  aria-pressed={choice.index === selectedIndex}
+                  aria-label={fullLabel}
+                  title={fullLabel}
+                >
+                  {choice.label}
+                </button>
+              )
+            })}
+          </div>
+          {questionIndex === 0 && (
+            <p className="scale-hint">Pas de bonne ou de mauvaise réponse : choisis ce qui te ressemble vraiment, même si tu hésites.</p>
+          )}
         </div>
       </div>
     )
@@ -2390,9 +2413,9 @@ export default function OrientationFlow() {
         <span className="orientation-pill">Bienvenue</span>
         <h1>Salut, moi c'est Zélia !</h1>
         <p>
-          Je vais te poser 20 questions rapides pour mieux te connaître. Ensuite, je te
-          révèle ton profil, tes pistes de formation, tes idées de métiers et ton avatar
-          personnalisé. Prêt·e ?
+          Je vais te poser 20 questions rapides pour mieux te connaître. Tu pourras nuancer
+          chaque réponse. Ensuite, je te révèle ton profil, tes pistes de formation, tes idées
+          de métiers et ton avatar personnalisé. Prêt·e ?
         </p>
       </div>
       <button className="primary-action" onClick={() => {

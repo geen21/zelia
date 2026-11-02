@@ -4,6 +4,7 @@ import { supabase, supabaseAdmin } from '../config/supabase.js'
 import { cloudinary, isCloudinaryConfigured } from '../config/cloudinary.js'
 import { authenticateToken } from '../middleware/auth.js'
 import { enforceOrientationRecommendationQuality, JOB_TITLE_GUIDELINES } from '../utils/orientationRecommendationGuard.js'
+import { INTEREST_LABELS, stripAnswerStrength } from '../../client/src/lib/questionScale.js'
 
 // Ensure environment variables are loaded (redundant-safe)
 dotenv.config()
@@ -23,6 +24,12 @@ function cleanOrientationProfileList(value, maxItems = 8) {
     .map((item) => cleanOrientationProfileText(item, 80))
     .filter(Boolean))]
     .slice(0, maxItems)
+}
+
+// Answers may carry a strength prefix ("Plutôt : <label>", "Un peu : <label>"); interpretations are keyed by the bare label.
+function resolveInterpretation(interpretations, response) {
+  if (!interpretations || typeof interpretations !== 'object') return null
+  return interpretations[response] || interpretations[stripAnswerStrength(response)] || null
 }
 
 // Generate analysis using Gemini API for the authenticated user only
@@ -61,10 +68,45 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
       field_office: ['terrain', 'bureau'],
       risk_safety: ['audace', 'securite']
     }
+    const axisPoleLabels = {
+      mains: 'concret / manuel',
+      tete: 'analyse / réflexion',
+      solo: 'autonomie',
+      equipe: 'collectif / relationnel',
+      creatif: 'créativité / liberté',
+      structure: 'organisation / cadre',
+      terrain: 'terrain / mouvement',
+      bureau: 'poste fixe / calme',
+      audace: 'audace / prise de risque',
+      securite: 'sécurité / prudence'
+    }
+    const axisStrengthLabels = {
+      nette: 'préférence nette',
+      moderee: 'préférence modérée',
+      legere: 'préférence légère',
+      equilibre: 'équilibré entre les deux'
+    }
+    const rawAxisStrength = orientationProfile.axisStrength && typeof orientationProfile.axisStrength === 'object' && !Array.isArray(orientationProfile.axisStrength)
+      ? orientationProfile.axisStrength
+      : {}
     const axisSummary = Object.entries(axisDefinitions)
-      .map(([axis, allowedValues]) => allowedValues.includes(clientAxes[axis]) ? `${axis}: ${clientAxes[axis]}` : '')
+      .map(([axis, allowedValues]) => {
+        if (!allowedValues.includes(clientAxes[axis])) return ''
+        const strength = axisStrengthLabels[rawAxisStrength[axis]]
+        if (rawAxisStrength[axis] === 'equilibre') {
+          return `${axis}: ${strength} (${allowedValues.map((pole) => axisPoleLabels[pole]).join(' / ')})`
+        }
+        return `${axis}: ${clientAxes[axis]} (${axisPoleLabels[clientAxes[axis]]}${strength ? `, ${strength}` : ''})`
+      })
       .filter(Boolean)
       .join(', ')
+    // Balanced axes keep a pole for compatibility but must not drive the recommendation guard.
+    const guardAxes = Object.fromEntries(Object.entries(axisDefinitions)
+      .filter(([axis, allowedValues]) => allowedValues.includes(clientAxes[axis]) && rawAxisStrength[axis] !== 'equilibre')
+      .map(([axis]) => [axis, clientAxes[axis]]))
+    const dominantInterests = cleanOrientationProfileList(orientationProfile.interests, 3)
+      .filter((code) => Object.prototype.hasOwnProperty.call(INTEREST_LABELS, code))
+    const interestSummary = dominantInterests.map((code) => INTEREST_LABELS[code]).join(' ; ')
 
     console.log('Generating analysis for user ID:', userId)
 
@@ -136,21 +178,18 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
     if (searchProfileLines.length) {
       formattedData += `Repères complémentaires pour choisir les formations :\n${searchProfileLines.join('\n')}\n\n`
     }
+    if (axisSummary) {
+      formattedData += `Profil sur les 5 axes (calculé sur l'ensemble des réponses) : ${axisSummary}\n\n`
+    }
+    if (interestSummary) {
+      formattedData += `Centres d'intérêt dominants : ${interestSummary}\n\n`
+    }
 
     responsesData.forEach((item, index) => {
       const questionNumber = index + 1
       const question = item.questions?.content || 'Question not found'
       const response = item.response || 'No response'
-      
-      // Get interpretation for the user's response
-      let interpretation = 'No interpretation available'
-      if (item.questions?.interpretations) {
-        const interpretations = item.questions.interpretations
-        // Find matching interpretation for the response
-        if (interpretations[response]) {
-          interpretation = interpretations[response]
-        }
-      }
+      const interpretation = resolveInterpretation(item.questions?.interpretations, response) || 'No interpretation available'
 
       formattedData += `questions ${questionNumber}) : ${question}\n`
       formattedData += `response ${questionNumber}) : ${response}\n`
@@ -185,13 +224,17 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
       ? `Les univers qui attirent l'élève sont : ${careerDomains}. Utilise-les pour orienter les métiers et les études, tout en gardant des pistes voisines et réalistes.`
       : `Aucun univers professionnel n'est imposé : laisse les réponses et les axes guider les domaines proposés.`
     const searchProfileInstruction = `Prends en compte tous les repères de formation fournis : classe actuelle, moyenne dans les matières fortes, mobilité, matières fortes, formats de formation et univers professionnels. La moyenne est un indicateur de confort scolaire : elle guide le niveau d'accompagnement et la progressivité des pistes, sans exclure arbitrairement une formation.`
+    const nuanceInstruction = `Les réponses aux questions d'axes sont nuancées : « Plutôt : » indique une préférence forte, « Un peu : » une préférence légère. Un axe « équilibré » n'est pas un trait marqué : ne le présente pas comme tel et garde des pistes compatibles avec ses deux pôles.`
+    const interestInstruction = interestSummary
+      ? `Les centres d'intérêt dominants (${interestSummary}) disent ce qui motive l'élève : la majorité des métiers proposés doivent y correspondre, en plus d'une éventuelle préférence métier explicite.`
+      : `Aucun centre d'intérêt dominant ne ressort : propose des métiers variés cohérents avec les axes.`
 
     const prompt = `Vous êtes un conseiller d'orientation professionnel expert qui fournit des analyses courtes, utiles et chaleureuses en français. `
       + `Vous devez synthétiser les tendances sans citer les questions, les réponses brutes, ni les numéros. `
       + `INTERDICTION ABSOLUE d'écrire des références comme Q2, Q14, question 3, réponse 8, item 12, ou toute mention similaire. `
       + `Votre tâche est de générer une réponse structurée qui DOIT IMPÉRATIVEMENT contenir EXACTEMENT les sections suivantes:\n\n`
       + `${zeliaPersonaContext}\n\n`
-      + `${personaInstruction}\n${aspirationInstruction}\n${formationPreferenceInstruction}\n${careerDomainInstruction}\n${searchProfileInstruction}\n\n`
+      + `${personaInstruction}\n${aspirationInstruction}\n${formationPreferenceInstruction}\n${careerDomainInstruction}\n${searchProfileInstruction}\n${nuanceInstruction}\n${interestInstruction}\n\n`
       + `###Type de personalité###\n`
       + `[Utilise exactement le persona calculé côté client quand il est fourni ; sinon choisis uniquement l'un des 12 personas ci-dessus. N'invente jamais un autre persona.]\n\n`
       + `###Analyse de personnalité###\n`
@@ -274,7 +317,7 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
         studyRecommendations: sections.studyRecommendations,
         careerAspiration,
         formationPreferences: searchProfile.formationPreferences,
-        axes: clientAxes
+        axes: guardAxes
       })
       sections.jobRecommendations = qualityCheckedRecommendations.jobRecommendations
       sections.studyRecommendations = qualityCheckedRecommendations.studyRecommendations
@@ -470,10 +513,8 @@ router.post('/generate-analysis-by-type', authenticateToken, async (req, res) =>
       const response = item.response || 'No response'
 
       let interpretation = 'No interpretation available'
-      if (item.questions?.interpretations) {
-        const interpretations = item.questions.interpretations
-        if (interpretations[response]) interpretation = interpretations[response]
-      }
+      const resolvedInterpretation = resolveInterpretation(item.questions?.interpretations, response)
+      if (resolvedInterpretation) interpretation = resolvedInterpretation
 
       formattedData += `questions ${questionNumber}) : ${question}\n`
       formattedData += `response ${questionNumber}) : ${response}\n`

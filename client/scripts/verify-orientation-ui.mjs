@@ -7,10 +7,15 @@ import { chromium, expect } from '@playwright/test'
 const base = process.env.ORIENTATION_TEST_URL || 'http://127.0.0.1:5187'
 const output = join(tmpdir(), 'zelia-orientation-tests')
 await mkdir(output, { recursive: true })
-const questions = Array.from({ length: 20 }, (_, index) => ({
-  id: index + 1, content: `Question ${index + 1}`, contenu: `Question ${index + 1}`, category: 'hands_mind',
-  options: [{ label: 'Non', value: 'non' }, { label: 'Oui', value: 'oui' }]
-}))
+const questions = Array.from({ length: 20 }, (_, index) => (index % 4 === 3
+  ? {
+      id: index + 1, content: `Question ${index + 1}`, contenu: `Question ${index + 1}`, category: 'interest',
+      options: ['Pas du tout', 'Plutôt pas', 'Plutôt oui', 'Carrément'].map((label, level) => ({ label, value: 'S', level }))
+    }
+  : {
+      id: index + 1, content: `Question ${index + 1}`, contenu: `Question ${index + 1}`, category: 'hands_mind',
+      options: [{ label: 'Construire', value: 'mains' }, { label: 'Analyser', value: 'tete' }]
+    }))
 const user = { id: 'orientation-fixture', first_name: 'Camille', department: '75' }
 const jobs = ['Infirmier', 'Électricien', 'Cuisinier', 'Mécanicien', 'Journaliste', 'Comptable']
 const formations = [
@@ -52,8 +57,8 @@ async function prepareJourney(viewport, { authenticated = false, reducedMotion =
       localStorage.setItem('token', 'orientation-fixture-token')
       localStorage.setItem('orientation_resume_after_auth', 'analysis')
       localStorage.setItem('answers_progress', JSON.stringify({
-        version: 'orientation-flow-20',
-        answers: Object.fromEntries(Array.from({ length: 20 }, (_, index) => [index + 1, 'oui']))
+        version: 'orientation-flow-v2-20',
+        answers: Object.fromEntries(Array.from({ length: 20 }, (_, index) => [index + 1, index % 4 === 3 ? 'Plutôt oui' : 'Plutôt : Analyser']))
       }))
     }
   }, { authenticated })
@@ -129,7 +134,12 @@ try {
       await expect(progress).toHaveAttribute('aria-valuenow', '5')
       await page.getByRole('button', { name: 'Revenir en arrière' }).click()
       await expect(progress).toHaveAttribute('aria-valuenow', '0')
-      await page.locator('.option-action.reject').click()
+      await expect(page.locator('.axis-pole')).toHaveCount(2)
+      await expect(page.locator('.scale-choice')).toHaveCount(4)
+      await expect(page.locator('.scale-choice')).toContainText(['Plutôt A', 'Un peu A', 'Un peu B', 'Plutôt B'])
+      await page.screenshot({ path: join(output, `questions-axis-${viewport.width}.png`) })
+      await expect(page.locator('.scale-choice.level-3')).toHaveAttribute('aria-pressed', 'true')
+      await page.locator('.scale-choice.level-2').click()
       await expect(progress).toHaveAttribute('aria-valuenow', '5')
       await page.reload()
       await expect(progress).toHaveAttribute('aria-valuenow', '5')
@@ -144,18 +154,24 @@ try {
       }
       while (await page.locator('.question-card').count()) {
         const previousQuestion = await page.locator('.flow-step-label').textContent()
-        await page.locator('.option-action.accept').click()
+        if (previousQuestion.startsWith('Question 4 ')) {
+          await expect(page.locator('.axis-pole')).toHaveCount(0)
+          await expect(page.getByRole('button', { name: 'Carrément', exact: true })).toBeVisible()
+          await page.keyboard.press('3')
+        } else {
+          await page.locator('.scale-choice.level-3').click()
+        }
         await expect(page.locator('.flow-step-label')).not.toHaveText(previousQuestion)
       }
       await expect(progress).toHaveAttribute('aria-valuenow', '100')
-      await expect(page.getByRole('heading', { name: 'Indique ta moyenne dans tes matières fortes' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: "Tu es aujourd'hui en..." })).toBeVisible()
       await page.getByRole('button', { name: 'Revenir en arrière' }).click()
       await expect(page.getByRole('button', { name: 'Revenir en arrière' }).locator('svg')).toBeVisible()
       await expect(progress).toHaveAttribute('aria-valuenow', '95')
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Questionnaire overflow.')
       await page.screenshot({ path: join(output, `questions-${viewport.width}.png`) })
       if (viewport.width === 390) {
-        await page.locator('.option-action.accept').click()
+        await page.locator('.scale-choice.level-3').click()
         await expect(progress).toHaveAttribute('aria-valuenow', '100')
         while (await page.locator('.choice-card').count()) {
           const previousTitle = await page.locator('.choice-card h1').textContent()
@@ -175,6 +191,9 @@ try {
         await expect(page).toHaveURL(`${base}/orientation`)
         await expect.poll(() => state.analyses).toBe(1)
         assert.equal(state.registrations[0].questionnaireResponses.length, 20)
+        const storedAnswers = JSON.stringify(state.registrations[0].questionnaireResponses)
+        assert.ok(storedAnswers.includes('Un peu : Analyser'), `Mild axis answer not stored: ${storedAnswers}`)
+        assert.ok(storedAnswers.includes('Plutôt oui'), `Interest answer not stored: ${storedAnswers}`)
         assert.equal(state.registrations[0].newsletterOptIn, false)
         assert.deepEqual(state.sharing[0], { granted: true, version: 'orientation-dossier-v1' })
         releaseAnalysis()
@@ -330,8 +349,8 @@ try {
       localStorage.setItem('token', 'orientation-fixture-token')
       localStorage.setItem('orientation_resume_after_auth', 'analysis')
       localStorage.setItem('answers_progress', JSON.stringify({
-        version: 'orientation-flow-20',
-        answers: Object.fromEntries(Array.from({ length: 20 }, (_, index) => [index + 1, 'oui']))
+        version: 'orientation-flow-v2-20',
+        answers: Object.fromEntries(Array.from({ length: 20 }, (_, index) => [index + 1, index % 4 === 3 ? 'Plutôt oui' : 'Plutôt : Analyser']))
       }))
       localStorage.setItem('orientation_micro_profile', JSON.stringify({
         formation_preferences: ['bts'], strong_subjects: ['sciences'], study_location: 'near_home'

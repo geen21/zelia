@@ -1,6 +1,9 @@
 // Persona system for the orientation flow.
-// 5 binary axes (matching questions.category / options[].value in the DB)
+// 5 axes answered on a 4-point scale (matching questions.category / options[].value in the DB),
+// RIASEC interests (questions.category = 'interest', see questionScale.js) passed to the LLM only,
 // + 12 curated personas with portrait-chinois attributes.
+
+import { INTEREST_MAX_LEVEL, parseAnswer } from './questionScale.js'
 
 export const AXES = [
   { id: 'hands_mind', poles: ['mains', 'tete'] },
@@ -240,73 +243,105 @@ function stableIndex(value, length) {
   return (hash >>> 0) % length
 }
 
-// Tallies pole picks per axis from answered questions and returns the closest persona.
-// `questions`: [{ id, category, options: [{label, value}] }], `answers`: { [questionId]: label }
+const AXIS_LEVEL_THRESHOLDS = [
+  { min: 4 / 3 - 1e-9, level: 'nette' },
+  { min: 2 / 3 - 1e-9, level: 'moderee' },
+  { min: 1e-6, level: 'legere' }
+]
+
+function getAxisLevel(score) {
+  const magnitude = Math.abs(score)
+  return AXIS_LEVEL_THRESHOLDS.find((threshold) => magnitude >= threshold.min)?.level || 'equilibre'
+}
+
+// Scores answers on the 5 axes (-2..+2, first pole positive) and returns the closest persona
+// (same answers always give the same persona). RIASEC interests (0..1) are computed separately
+// for the LLM prompt and never change the persona.
+// `questions`: [{ id, category, options }], `answers`: { [questionId]: stored answer }
 export function computePersonaFromAnswers(questions, answers) {
-  const tally = {}
-  for (const question of Array.isArray(questions) ? questions : []) {
-    const answerLabel = answers?.[question.id]
-    if (!answerLabel || !question.category || !Array.isArray(question.options)) continue
-    const picked = question.options.find((option) => option.label === answerLabel || option.value === answerLabel)
-    if (!picked?.value) continue
-    tally[question.category] = tally[question.category] || {}
-    tally[question.category][picked.value] = (tally[question.category][picked.value] || 0) + 1
+  const questionList = Array.isArray(questions) ? questions : []
+  const axisTotals = {}
+  const interestTotals = {}
+
+  for (const question of questionList) {
+    const parsed = parseAnswer(question, answers?.[question.id])
+    if (!parsed) continue
+    if (parsed.kind === 'interest') {
+      if (!parsed.code) continue
+      const entry = interestTotals[parsed.code] || { sum: 0, count: 0 }
+      entry.sum += parsed.level / INTEREST_MAX_LEVEL
+      entry.count += 1
+      interestTotals[parsed.code] = entry
+      continue
+    }
+    const axis = AXES.find((candidate) => candidate.id === question.category)
+    if (!axis || !axis.poles.includes(parsed.pole)) continue
+    const entry = axisTotals[axis.id] || { sum: 0, count: 0 }
+    entry.sum += parsed.pole === axis.poles[0] ? parsed.strength : -parsed.strength
+    entry.count += 1
+    axisTotals[axis.id] = entry
   }
 
-  // Build the dominant-pole profile per axis. Four binary questions per axis can
-  // legitimately tie, so use the detailed answer pattern rather than always
-  // defaulting to the first pole.
-  const profile = {}
+  const axisScores = {}
   for (const axis of AXES) {
-    const axisTally = tally[axis.id] || {}
-    const [a, b] = axis.poles
-    const aCount = axisTally[a] || 0
-    const bCount = axisTally[b] || 0
-    if (aCount > bCount) {
-      profile[axis.id] = a
-    } else if (bCount > aCount) {
-      profile[axis.id] = b
-    } else {
-      const answerPattern = (Array.isArray(questions) ? questions : [])
-        .filter((question) => question.category === axis.id)
-        .map((question) => `${question.id}:${answers?.[question.id] || ''}`)
-        .join('|')
-      profile[axis.id] = axis.poles[stableIndex(`${axis.id}|${answerPattern}`, axis.poles.length)]
-    }
+    const entry = axisTotals[axis.id]
+    axisScores[axis.id] = entry?.count ? entry.sum / entry.count : 0
   }
 
-  let best = PERSONAS[0]
-  let bestScore = -1
-  let bestCandidates = []
-  for (const persona of PERSONAS) {
-    let score = 0
+  const interests = {}
+  for (const [code, entry] of Object.entries(interestTotals)) {
+    interests[code] = entry.count ? entry.sum / entry.count : 0
+  }
+  // Organisation (C) is not asked directly: it comes from the structured pole.
+  if (axisTotals.creative_structured?.count) {
+    interests.C = Math.max(0, -axisScores.creative_structured) / 2
+  }
+
+  // The persona depends on the 5 axes only; interests are passed to the LLM, not used here.
+  const scorePersona = (persona) => {
+    let total = 0
     for (const axis of AXES) {
-      if (persona.signature[axis.id] === profile[axis.id]) score += 1
+      const score = axisScores[axis.id]
+      if (!score) continue
+      const pole = score > 0 ? axis.poles[0] : axis.poles[1]
+      total += persona.signature[axis.id] === pole ? Math.abs(score) : -Math.abs(score)
     }
-    if (score > bestScore) {
-      best = persona
-      bestScore = score
-      bestCandidates = [persona]
-    } else if (score === bestScore) {
-      bestCandidates.push(persona)
-    }
+    return total
   }
 
-  if (bestCandidates.length > 1) {
-    const answerPattern = (Array.isArray(questions) ? questions : [])
-      .map((question) => `${question.id}:${answers?.[question.id] || ''}`)
-      .join('|')
-    best = bestCandidates[stableIndex(`${JSON.stringify(profile)}|${answerPattern}`, bestCandidates.length)]
-  }
+  const ranked = PERSONAS
+    .map((persona, order) => ({ persona, order, total: scorePersona(persona) }))
+    .sort((a, b) => (b.total - a.total) || (a.order - b.order))
+  const bestScore = ranked[0].total
+  const tied = ranked.filter((entry) => Math.abs(entry.total - bestScore) < 1e-9)
+  // Personas that are exactly as close to the profile: break the tie from the axis profile
+  // itself (not the raw answers), so identical profiles always share the same persona.
+  const profileKey = AXES.map((axis) => `${axis.id}:${axisScores[axis.id].toFixed(3)}`).join('|')
+  let best = tied.length > 1
+    ? tied[stableIndex(profileKey, tied.length)].persona
+    : ranked[0].persona
 
-  // If we had no usable axis data at all (legacy Oui/Non questions), pick deterministically.
-  const hasAxisData = Object.keys(tally).length > 0
+  const hasAxisData = Object.keys(axisTotals).length > 0
   if (!hasAxisData) {
     const seed = hashString(JSON.stringify(answers || {}))
     best = PERSONAS[seed % PERSONAS.length]
   }
 
-  return { persona: best, profile }
+  const profile = {}
+  const axisStrength = {}
+  for (const axis of AXES) {
+    const score = axisScores[axis.id]
+    profile[axis.id] = score > 0 ? axis.poles[0] : score < 0 ? axis.poles[1] : best.signature[axis.id]
+    axisStrength[axis.id] = getAxisLevel(score)
+  }
+
+  const topInterests = Object.entries(interests)
+    .filter(([, value]) => value >= 0.5)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([code]) => code)
+
+  return { persona: best, profile, axisScores, axisStrength, interests, topInterests }
 }
 
 function hexNoHash(hex) {

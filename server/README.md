@@ -79,6 +79,10 @@ npm run dev
 - `GET /:id/responses` - Get user responses for questionnaire (authenticated)
 - `GET /user/responses` - Get all user questionnaire responses (authenticated)
 
+#### Questionnaire d'orientation v2
+
+Appliquer [migrate_questions_v2.sql](database/migrate_questions_v2.sql) dans le SQL Editor Supabase avant de deployer cette version. Elle archive les anciennes questions (`questionnaire_type = 'inscription_legacy_v2'`) et insere 20 questions (ids 300-319) : 15 questions d'axes (3 par axe, echelle « Plutôt A / Un peu A / Un peu B / Plutôt B ») et 5 questions d'interets RIASEC (« Pas du tout » a « Carrément »). Les interpretations des questions d'axes reprennent telles quelles celles des questions v1 equivalentes. Le persona est calcule uniquement sur les 5 axes ; les interets dominants sont seulement transmis au LLM. Les reponses sont encodees par `client/src/lib/questionScale.js` (`Plutôt : <label>`, `Un peu : <label>`, ou un niveau d'interet), partage avec `server/routes/analysis.js`. Les anciennes reponses (libelle seul) restent lues comme des reponses franches.
+
 ### Partage des résultats (`/api/share`)
 - `POST /results` - Envoie le PDF des résultats d’un élève aux adresses e-mail fournies (authentifié)
 

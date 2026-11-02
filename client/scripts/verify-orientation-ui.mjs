@@ -8,7 +8,7 @@ const base = process.env.ORIENTATION_TEST_URL || 'http://127.0.0.1:5187'
 const output = join(tmpdir(), 'zelia-orientation-tests')
 await mkdir(output, { recursive: true })
 const questions = Array.from({ length: 20 }, (_, index) => ({
-  id: index + 1, content: `Question ${index + 1}`, category: 'hands_mind',
+  id: index + 1, content: `Question ${index + 1}`, contenu: `Question ${index + 1}`, category: 'hands_mind',
   options: [{ label: 'Non', value: 'non' }, { label: 'Oui', value: 'oui' }]
 }))
 const user = { id: 'orientation-fixture', first_name: 'Camille', department: '75' }
@@ -38,11 +38,259 @@ const partners = [
 ]
 const browser = await chromium.launch({ headless: true })
 
+async function prepareJourney(viewport, { authenticated = false, reducedMotion = 'no-preference' } = {}) {
+  const context = await browser.newContext({ viewport, reducedMotion })
+  const page = await context.newPage()
+  page.setDefaultTimeout(15000)
+  const state = { errors: [], registrations: [], profiles: [], sharing: [], failProfile: false, failSharing: false, invalidSharing: false, failAnalysis: false, analyses: 0 }
+  let releaseAnalysis
+  const analysisReady = new Promise((resolve) => { releaseAnalysis = resolve })
+  page.on('pageerror', (error) => state.errors.push(error.message))
+  await context.addInitScript(({ authenticated }) => {
+    window.tailwind = { config: {} }
+    if (authenticated) {
+      localStorage.setItem('token', 'orientation-fixture-token')
+      localStorage.setItem('orientation_resume_after_auth', 'analysis')
+      localStorage.setItem('answers_progress', JSON.stringify({
+        version: 'orientation-flow-20',
+        answers: Object.fromEntries(Array.from({ length: 20 }, (_, index) => [index + 1, 'oui']))
+      }))
+    }
+  }, { authenticated })
+  await context.route('**/*', async (route) => {
+    const request = route.request()
+    const url = new URL(request.url())
+    if (url.pathname.includes('/auth/v1/')) {
+      if (url.pathname.endsWith('/token')) {
+        return route.fulfill({ json: {
+          access_token: 'fixture-access-token', refresh_token: 'fixture-refresh-token',
+          expires_in: 3600, token_type: 'bearer', user: { ...user, email: 'camille@example.com', aud: 'authenticated' }
+        } })
+      }
+      return route.fulfill({ json: { user } })
+    }
+    if (url.pathname.includes('/api/')) {
+      const path = url.pathname.replace(/^.*\/api/, '')
+      let data = {}
+      if (path === '/questionnaire/questions') data = questions
+      else if (path === '/auth/register') {
+        state.registrations.push(request.postDataJSON())
+        data = { user }
+      } else if (path === '/users/me') data = { user }
+      else if (path === '/users/profile') {
+        if (request.method() === 'PUT') {
+          state.profiles.push(request.postDataJSON())
+          if (state.failProfile) return route.fulfill({ status: 503, json: { error: 'Profil indisponible' } })
+        }
+        data = { profile: user }
+      } else if (path === '/users/school-sharing') {
+        state.sharing.push(request.postDataJSON())
+        if (state.failSharing) return route.fulfill({ status: 503, json: { error: 'Partage indisponible' } })
+        data = state.invalidSharing ? {} : { saved: true }
+      } else if (path === '/analysis/generate-analysis') {
+        state.analyses += 1
+        await analysisReady
+        if (state.failAnalysis) return route.fulfill({ status: 503, json: { error: 'Analyse indisponible' } })
+        data = { success: true }
+      } else if (path === '/analysis/my-results') data = { results: { personalityAnalysis: 'Profil concret.', skillsAssessment: 'Précision.' } }
+      else if (path !== '/users/profile/extra-info' && path !== '/questionnaire/submit') {
+        state.errors.push(`Unexpected journey request: ${request.method()} ${path}`)
+        return route.fulfill({ status: 404, json: { error: 'Unexpected fixture request' } })
+      }
+      return route.fulfill({ json: data })
+    }
+    if (url.origin === new URL(base).origin) return route.continue()
+    return route.abort()
+  })
+  return { context, page, state, releaseAnalysis }
+}
+
+async function fillRegistration(page) {
+  await page.getByLabel('Prénom', { exact: true }).fill('Camille')
+  await page.getByLabel('Nom', { exact: true }).fill('Martin')
+  await page.getByLabel('Genre', { exact: true }).selectOption('Femme')
+  await page.getByLabel('Département', { exact: true }).selectOption('75')
+  await page.getByLabel('Email', { exact: true }).fill('camille@example.com')
+  await page.getByLabel('Mot de passe', { exact: true }).fill('fixture-password')
+}
+
 try {
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 568 }]) {
+    const { context, page, state, releaseAnalysis } = await prepareJourney(viewport)
+    try {
+      await page.goto(`${base}/orientation`)
+      await page.getByRole('button', { name: "C'est parti !", exact: true }).click()
+      const progress = page.getByRole('progressbar', { name: 'Progression du questionnaire' })
+      await expect(progress).toBeVisible()
+      await expect(progress).toHaveAttribute('aria-valuenow', '0')
+      await expect(page.locator('.question-icon-badge')).toHaveCount(0)
+      await expect(page.getByRole('heading', { name: 'Question 1', exact: true })).toBeVisible()
+      await page.keyboard.press('ArrowRight')
+      await expect(progress).toHaveAttribute('aria-valuenow', '5')
+      await page.getByRole('button', { name: 'Revenir en arrière' }).click()
+      await expect(progress).toHaveAttribute('aria-valuenow', '0')
+      await page.locator('.option-action.reject').click()
+      await expect(progress).toHaveAttribute('aria-valuenow', '5')
+      await page.reload()
+      await expect(progress).toHaveAttribute('aria-valuenow', '5')
+      if (viewport.width === 390) {
+        const card = page.locator('.question-card')
+        const box = await card.boundingBox()
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+        await page.mouse.down()
+        await page.mouse.move(box.x + box.width / 2 + 130, box.y + box.height / 2, { steps: 8 })
+        await page.mouse.up()
+        await expect(progress).toHaveAttribute('aria-valuenow', '10')
+      }
+      while (await page.locator('.question-card').count()) {
+        const previousQuestion = await page.locator('.flow-step-label').textContent()
+        await page.locator('.option-action.accept').click()
+        await expect(page.locator('.flow-step-label')).not.toHaveText(previousQuestion)
+      }
+      await expect(progress).toHaveAttribute('aria-valuenow', '100')
+      await expect(page.getByRole('heading', { name: 'Indique ta moyenne dans tes matières fortes' })).toBeVisible()
+      await page.getByRole('button', { name: 'Revenir en arrière' }).click()
+      await expect(page.getByRole('button', { name: 'Revenir en arrière' }).locator('svg')).toBeVisible()
+      await expect(progress).toHaveAttribute('aria-valuenow', '95')
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Questionnaire overflow.')
+      await page.screenshot({ path: join(output, `questions-${viewport.width}.png`) })
+      if (viewport.width === 390) {
+        await page.locator('.option-action.accept').click()
+        await expect(progress).toHaveAttribute('aria-valuenow', '100')
+        while (await page.locator('.choice-card').count()) {
+          const previousTitle = await page.locator('.choice-card h1').textContent()
+          await page.locator('.choice-card button').first().click()
+          const continueButton = page.getByRole('button', { name: 'Continuer', exact: true })
+          if (await continueButton.count()) await continueButton.click()
+          await expect(page.getByRole('heading', { name: previousTitle, exact: true })).toHaveCount(0)
+        }
+        await expect(page).toHaveURL(`${base}/register?after=orientation-analysis`)
+        await expect(page.getByRole('heading', { name: 'Découvre ton profil complet' })).toBeVisible()
+        await fillRegistration(page)
+        await page.getByRole('checkbox').first().check()
+        await expect(page.getByRole('checkbox').nth(1)).not.toBeChecked()
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Registration overflow.')
+        await page.screenshot({ path: join(output, 'registration-mobile.png') })
+        await page.getByRole('button', { name: 'Voir mon profil complet', exact: true }).click()
+        await expect(page).toHaveURL(`${base}/orientation`)
+        await expect.poll(() => state.analyses).toBe(1)
+        assert.equal(state.registrations[0].questionnaireResponses.length, 20)
+        assert.equal(state.registrations[0].newsletterOptIn, false)
+        assert.deepEqual(state.sharing[0], { granted: true, version: 'orientation-dossier-v1' })
+        releaseAnalysis()
+        await expect(page.getByRole('button', { name: 'Découvre tes formations', exact: true })).toBeVisible()
+      }
+      assert.deepEqual(state.errors, [])
+      console.log(`questions-${viewport.width}: progress, keyboard, swipe, back and resume verified.`)
+    } finally {
+      releaseAnalysis()
+      await context.close()
+    }
+  }
+
+  for (const failure of [null, 'profile', 'sharing', 'invalid-sharing']) {
+    const { context, page, state, releaseAnalysis } = await prepareJourney({ width: failure ? 390 : 1440, height: 844 })
+    try {
+      await page.goto(`${base}/register?after=orientation-analysis`)
+      const checkboxes = page.getByRole('checkbox')
+      await expect(checkboxes).toHaveCount(2)
+      await expect(checkboxes.nth(0)).not.toBeChecked()
+      await expect(checkboxes.nth(1)).not.toBeChecked()
+      await expect(page.getByRole('button', { name: 'Tout valider' })).toHaveCount(0)
+      await fillRegistration(page)
+      await page.screenshot({ path: join(output, `registration-${failure || 'success'}.png`) })
+      await page.getByRole('button', { name: 'Créer avec email', exact: true }).click()
+      assert.equal(state.registrations.length, 0)
+      assert.equal(await checkboxes.nth(0).evaluate((input) => input.validity.valueMissing), true)
+      await checkboxes.nth(0).check()
+      const optedIn = failure === 'invalid-sharing'
+      if (optedIn) await checkboxes.nth(1).check()
+      state.failProfile = failure === 'profile'
+      state.failSharing = failure === 'sharing'
+      state.invalidSharing = failure === 'invalid-sharing'
+      await page.getByRole('button', { name: 'Créer avec email', exact: true }).click()
+      if (failure) {
+        await expect(page.getByRole('alert')).toContainText('Ton compte est créé')
+        await expect(page).toHaveURL(/\/register\?after=orientation-analysis/)
+        assert.equal(state.analyses, 0, 'No results before required persistence.')
+        if (failure === 'profile') assert.equal(state.sharing.length, 0)
+        state.failProfile = false
+        state.failSharing = false
+        state.invalidSharing = false
+        if (failure === 'sharing') {
+          await page.reload()
+          await expect(page.getByLabel('Email', { exact: true })).toHaveValue('camille@example.com')
+          await fillRegistration(page)
+          await page.getByRole('checkbox').first().check()
+        }
+        await page.getByRole('button', { name: 'Réessayer et continuer' }).click()
+      }
+      await expect(page).toHaveURL(`${base}/orientation`)
+      await expect.poll(() => state.analyses).toBe(1)
+      assert.equal(state.registrations.length, 1, 'Retry must not create a second account.')
+      const registration = state.registrations[0]
+      assert.equal(registration.acceptTerms, true)
+      assert.equal(registration.acceptDataTransfer, true)
+      assert.equal(registration.newsletterOptIn, optedIn)
+      const profile = state.profiles.findLast((item) => item.institution_data?.accept_terms)
+      assert.equal(profile.institution_data.accept_data_transfer, true)
+      assert.equal(profile.institution_data.newsletter_opt_in, optedIn)
+      assert.ok(Number.isFinite(Date.parse(profile.institution_data.terms_accepted_at)))
+      assert.deepEqual(state.sharing.at(-1), { granted: true, version: 'orientation-dossier-v1' })
+      assert.equal(await page.evaluate(() => localStorage.getItem('pending_registration_email')), null)
+      assert.deepEqual(state.errors, [])
+      console.log(`registration-${failure || 'success'}: two boxes, optional emails, persisted agreement and recovery verified.`)
+    } finally {
+      releaseAnalysis()
+      await context.close()
+    }
+  }
+
+  for (const reducedMotion of ['no-preference', 'reduce']) {
+    const { context, page, state, releaseAnalysis } = await prepareJourney({ width: 390, height: 844 }, { authenticated: true, reducedMotion })
+    try {
+      state.failAnalysis = reducedMotion === 'no-preference'
+      await page.goto(`${base}/orientation`)
+      await expect.poll(() => state.analyses).toBe(1)
+      const loading = page.locator('.orientation-loading')
+      const bar = loading.getByRole('progressbar')
+      await expect(bar).toBeVisible()
+      assert.equal(await bar.getAttribute('aria-valuenow'), null)
+      await expect(loading.locator('.loading-message')).toHaveText('Gimgembre')
+      if (reducedMotion === 'reduce') {
+        await expect(loading.locator('.loading-brain')).toHaveCSS('animation-name', 'none')
+        await expect(bar.locator('span')).toHaveCSS('animation-name', 'none')
+        await page.waitForTimeout(3000)
+        await expect(loading.locator('.loading-message')).toHaveText('Gimgembre')
+      } else {
+        await expect(loading.locator('.loading-message')).toHaveText('Ça charbonne')
+        await page.screenshot({ path: join(output, 'loading-mobile.png') })
+      }
+      releaseAnalysis()
+      if (state.failAnalysis) {
+        await expect(page.getByRole('alert')).toContainText("L'analyse n'a pas pu être générée")
+        await expect(loading).toHaveCount(0)
+        state.failAnalysis = false
+        await page.getByRole('button', { name: 'Réessayer', exact: true }).click()
+        await expect.poll(() => state.analyses).toBe(2)
+      }
+      await expect(page.getByRole('button', { name: 'Découvre tes formations', exact: true })).toBeVisible()
+      await expect(loading).toHaveCount(0)
+      assert.equal(state.sharing.length, 0, 'Existing users must not be asked for a new agreement.')
+      assert.equal(state.registrations.length, 0)
+      assert.deepEqual(state.errors, [])
+      console.log(`loading-${reducedMotion}: honest progress, messages, error retry and existing user access verified.`)
+    } finally {
+      releaseAnalysis()
+      await context.close()
+    }
+  }
+
   for (const scenario of [
     { name: 'desktop', viewport: { width: 1440, height: 900 }, populated: true },
     { name: 'mobile', viewport: { width: 390, height: 844 }, populated: true },
     { name: 'small-mobile', viewport: { width: 320, height: 568 }, populated: true },
+    { name: 'slow-partners', viewport: { width: 390, height: 844 }, populated: true, slowPartners: true },
     { name: 'national-best', viewport: { width: 1440, height: 900 }, populated: true, partnerMatchScore: 0 },
     { name: 'equal-best', viewport: { width: 390, height: 844 }, populated: true, partnerMatchScore: 99 },
     { name: 'many-partners', viewport: { width: 390, height: 844 }, populated: true, manyPartners: true },
@@ -60,6 +308,10 @@ try {
       formation_name: `BTS Partenaire ${index + 1}`, results_priority: 0, match_score: 40
     })) : []
     const partnerCount = hasPartners ? 3 : 0
+    // Relevance (match_score) ranks partners; the back-office priority only adds up to +5.
+    const expectedPartnerIds = scenario.partnerMatchScore === undefined
+      ? ['partner-fourth', 'partner-second', 'partner-third']
+      : ['partner-fixture', 'partner-second', 'partner-third']
     const selectPartners = hasPartners && scenario.selectPartners !== false
     const context = await browser.newContext({ viewport: scenario.viewport })
     const page = await context.newPage()
@@ -71,6 +323,8 @@ try {
     let partnerRequests = 0
     let releaseCatalog
     const catalogReady = new Promise((resolve) => { releaseCatalog = resolve })
+    let releasePartners
+    const partnersReady = new Promise((resolve) => { releasePartners = resolve })
     page.on('pageerror', (error) => errors.push(error.message))
     await context.addInitScript(() => {
       localStorage.setItem('token', 'orientation-fixture-token')
@@ -119,6 +373,7 @@ try {
       }
       else if (path === '/ecoles/matched') {
         partnerRequests += 1
+        await partnersReady
         if (scenario.partnerFailure && partnerRequests === 1) {
           return route.fulfill({ status: 503, json: { error: 'Partner matching unavailable' } })
         }
@@ -138,6 +393,10 @@ try {
       await page.goto(`${base}/orientation`)
       const studiesCta = page.getByRole('button', { name: 'Découvre tes formations', exact: true })
       await expect(studiesCta.locator('svg[aria-hidden="true"]')).toBeVisible()
+      const firstPartnerResponse = page.waitForResponse((response) => response.url().endsWith('/api/ecoles/matched'))
+      const firstCatalogResponse = scenario.slowPartners
+        ? page.waitForResponse((response) => response.url().includes('/api/catalog/formations/search'))
+        : null
       await studiesCta.click()
       const jobsCta = page.getByRole('button', { name: 'Découvre tes métiers', exact: true })
       await expect(page.getByText('On cherche parmi 127 498 formations celles qui collent vraiment à ton profil...')).toBeVisible()
@@ -145,17 +404,34 @@ try {
       await expect(jobsCta).toBeDisabled()
       await expect(jobsCta.locator('svg[aria-hidden="true"]')).toBeVisible()
       await expect(page.locator('.formation-reveal-actions')).toHaveCSS('position', 'fixed')
+      await expect(page.locator('.orientation-loading').getByRole('progressbar')).toBeVisible()
       const partnerCards = page.locator('.formation-lead-card[data-source="partner"]')
+      // Sponsored results must never be revealed before the national catalog results.
+      await expect.poll(() => partnerRequests).toBeGreaterThan(0)
+      if (scenario.slowPartners) {
+        releaseCatalog()
+        await (await firstCatalogResponse).finished()
+      } else {
+        releasePartners()
+        await (await firstPartnerResponse).finished()
+      }
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      await expect(page.locator('.formation-lead-card')).toHaveCount(0)
+      await expect(page.getByRole('alert')).toHaveCount(0)
+      await expect(jobsCta).toBeDisabled()
+      assert.equal(savedRecommendations.length, 0, 'No partial recommendations snapshot while either source is pending.')
+      releaseCatalog()
+      releasePartners()
+      await (await firstPartnerResponse).finished()
+
       if (scenario.partnerFailure) {
         await expect(page.getByRole('alert')).toContainText('Impossible de charger les formations partenaires')
+        await expect(page.locator('.formation-lead-card[data-source="national"]')).toHaveCount(8)
         await expect(partnerCards).toHaveCount(0)
         await page.getByRole('button', { name: 'Réessayer les formations partenaires' }).click()
         await expect(page.getByRole('alert')).toHaveCount(0)
       }
       await expect(partnerCards).toHaveCount(partnerCount)
-      // The badge needs a strong match: weak partner scores alone don't earn it.
-      const partnerBadge = hasPartners && (scenario.partnerMatchScore ?? 96) >= 80
-      await expect(page.getByText('Là où tu peux exceller', { exact: true })).toHaveCount(partnerBadge ? 1 : 0)
       await expect(page.getByRole('button', { name: /Demande d'infos|Demande envoyée/ })).toHaveCount(0)
       if (hasPartners) {
         for (const card of await partnerCards.all()) {
@@ -173,16 +449,15 @@ try {
         await page.getByRole('button',{ name:'Réessayer l’enregistrement des recommandations',exact:true }).click()
         await expect(page.getByRole('alert')).toHaveCount(0)
       }
-      if (hasPartners) {
-        await expect.poll(() => savedRecommendations.some((items) => items.filter((item) => item.sourceTable === 'ecoles_partenaires').length === partnerCount)).toBe(true)
-      }
-      releaseCatalog()
 
       await expect(page.getByRole('button', { name: "Voir d'autres formations" })).toHaveCount(1)
       await expect(jobsCta).toBeEnabled()
+      await expect(page.locator('.orientation-loading')).toHaveCount(0)
       await expect(page.locator('.formation-lead-card[data-source="national"]')).toHaveCount(scenario.populated ? 8 : 0)
       for (const title of offTopicTitles) await expect(page.locator('.formation-lead-card', { hasText: title })).toHaveCount(0)
       await expect(partnerCards).toHaveCount(partnerCount)
+      const cardSources = await page.locator('.formation-lead-card').evaluateAll((cards) => cards.map((card) => card.dataset.source))
+      if (hasPartners) assert.equal(cardSources.indexOf('partner'), scenario.populated ? 3 : 0, 'The first partner comes after the first three national results.')
       await expect(page.getByRole('checkbox')).toHaveCount((scenario.populated ? 8 : 0) + partnerCount)
       const recommendationCount = (scenario.populated ? 8 : 0) + partnerCount
       await expect.poll(() => savedRecommendations.at(-1)?.length).toBe(recommendationCount)
@@ -240,7 +515,7 @@ try {
         assert.equal(savedSelections[0].length, formationCount)
         const partnerSaved = savedSelections[0].filter((entry) => entry.sourceTable === 'ecoles_partenaires')
         assert.equal(partnerSaved.length, partnerCount)
-        assert.deepEqual(partnerSaved.map((entry) => entry.rawId), hasPartners ? partners.slice(0, 3).map((entry) => entry.id) : [])
+        assert.deepEqual(partnerSaved.map((entry) => entry.rawId), hasPartners ? expectedPartnerIds : [])
         assert.ok(partnerSaved.every((entry) => entry.requestMoreInformation === selectPartners && entry.partner && entry.detail.title === entry.raw.formation_name))
       }
       await page.getByRole('button', { name: 'Revenir en arrière' }).click()
@@ -270,12 +545,13 @@ try {
       }
       assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('orientation_final_selection'))), finalSelection)
       assert.deepEqual(errors, [])
-      console.log(`${scenario.name}: shared checkboxes, partner choices during loading, saved selections without submissions, CTA visibility and navigation verified.`)
+      console.log(`${scenario.name}: partners only after national results, relevance order, shared checkboxes, saved selections without submissions, CTA visibility and navigation verified.`)
     } catch (error) {
       await page.screenshot({ path: join(output, `${scenario.name}-failure.png`) })
       throw error
     } finally {
       releaseCatalog()
+      releasePartners()
       await context.close()
     }
   }

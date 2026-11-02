@@ -1,18 +1,21 @@
 import { BEST_MATCH_MIN_SCORE } from './formationRelevance.js'
+import { dedupePartnerCampuses, getPartnerRankScore } from './partnerRelevance.js'
 
+// Partners are ranked by relevance (match_score) plus the small back-office
+// priority bonus. The sort is stable so the server order (user's campus first)
+// is kept between equal ranks. Partners are only interleaved after national
+// results: one after every third national formation, the rest at the end.
 export function mixFormationResults(formations = [], partners = []) {
   const seen = new Set()
-  const selected = partners
+  const visible = partners
     .filter((partner) => partner?.id && partner.is_active !== false && partner.show_in_results !== false)
-    .sort((left, right) => (Number(right.results_priority) || 0) - (Number(left.results_priority) || 0)
-      || (Number(right.match_score) || 0) - (Number(left.match_score) || 0)
-      || String(left.id).localeCompare(String(right.id)))
     .filter((partner) => {
       if (seen.has(String(partner.id))) return false
       seen.add(String(partner.id))
       return true
     })
-    .slice(0, 3)
+    .sort((left, right) => getPartnerRankScore(right) - getPartnerRankScore(left))
+  const selected = dedupePartnerCampuses(visible).slice(0, 3)
   const results = []
   let partnerIndex = 0
   for (const [index, formation] of formations.entries()) {

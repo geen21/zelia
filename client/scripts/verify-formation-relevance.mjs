@@ -66,6 +66,17 @@ assert.ok(queries.every((query) => !/^(bachelor|bts|licence)$/i.test(query)), 'B
 
 assert.deepEqual(scoreFormationRelevance(row('BTS Maintenance'), { groups: [] }), { relevant: false, score: null, coverage: 0, matchedGroups: [] })
 
+for (const [degree, title] of [
+  ['BTS SIO', 'BTS Services informatiques aux organisations'],
+  ['BTS Services informatiques aux organisations', 'BTS SIO']
+]) {
+  const studyProfile = buildFormationRelevanceProfile({ analysis: { studyRecommendations: [{ degree }] } })
+  const result = scoreFormationRelevance(row(title), studyProfile, { levelMatches: true })
+  assert.equal(result.relevant, true, `Diploma acronyms must match in both directions: ${degree} -> ${title}`)
+  assert.equal(result.score, 92, 'The acronym and full title describe the same study recommendation')
+  assert.equal(scoreFormationRelevance(row('BTS Tourisme'), studyProfile).relevant, false)
+}
+
 assert.equal(getBestFormationResultKey(mixFormationResults([{ id: 1, matchScore: BEST_MATCH_MIN_SCORE - 1 }], [])), null)
 assert.equal(getBestFormationResultKey(mixFormationResults([{ id: 1, matchScore: BEST_MATCH_MIN_SCORE }], [])), 'formation-1')
 

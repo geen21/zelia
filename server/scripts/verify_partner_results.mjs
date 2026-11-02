@@ -62,6 +62,7 @@ const db = {
     const orders = []
     let range
     let limit
+    let selectedColumns
     let deleting = false
     const matches = (row) => filters.every(([key, value, equals]) => (row[key] === value) === equals)
     const result = () => {
@@ -84,10 +85,16 @@ const db = {
       })
       if (range) rows = rows.slice(range[0], range[1] + 1)
       if (limit) rows = rows.slice(0, limit)
+      if (table === 'user_results' && selectedColumns && selectedColumns !== '*') {
+        rows = rows.map((row) => Object.fromEntries(selectedColumns.split(',').map((column) => {
+          const key = column.trim()
+          return [key, row[key]]
+        })))
+      }
       return { data: rows, error: null }
     }
     return {
-      select() { return this },
+      select(columns) { selectedColumns = columns; return this },
       eq(key, value) { filters.push([key, value, true]); return this },
       neq(key, value) { filters.push([key, value, false]); return this },
       in(key, values) { assert.equal(values.length, 1); return this.eq(key, values[0]) },
@@ -175,9 +182,17 @@ try {
   assert.ok(first.matched.findIndex((formation) => formation.id === newPartnerId) >= 12, 'A newly created partner below the previous cutoff must remain visible')
   assert.ok(first.matched.every((formation) => formation.is_active && formation.show_in_results && formation.match_score > 0))
   assert.ok(!first.matched.some((formation) => ['hidden', 'inactive', 'unrelated'].includes(formation.id)))
-  const prioritized = await request(`/admin/partners/${newPartnerId}`, 'PATCH', { results_priority: 75 }, 'admin')
+  const newPartnerScore = first.matched.find((formation) => formation.id === newPartnerId).match_score
+  assert.ok(first.matched[0].match_score - newPartnerScore > 5, 'Fixture: the new partner is a clearly weaker match')
+  const prioritized = await request(`/admin/partners/${newPartnerId}`, 'PATCH', { results_priority: 100 }, 'admin')
   assert.equal(prioritized.status, 200)
-  assert.equal((await matched()).matched[0].id, newPartnerId)
+  const afterPriority = (await matched()).matched
+  assert.notEqual(afterPriority[0].id, newPartnerId, 'Priority must not lift a weaker match above clearly better ones')
+  assert.equal(afterPriority.find((formation) => formation.id === newPartnerId).match_score, newPartnerScore, 'Priority must not change the displayed score')
+  const tiedPartnerId = partners[23].id
+  const tiedPrioritized = await request(`/admin/partners/${tiedPartnerId}`, 'PATCH', { results_priority: 75 }, 'admin')
+  assert.equal(tiedPrioritized.status, 200)
+  assert.equal((await matched()).matched[0].id, tiedPartnerId, 'Priority orders partners with an equal match')
   entries.push(
     { user_id: student.id, question_id: 'orientation_study_location', answer_text: 'near_home' },
     { user_id: student.id, question_id: 'orientation_city', answer_text: 'Nancy' }
@@ -204,6 +219,18 @@ try {
   profile = { id: student.id }
   analysis = { ...analysis, job_recommendations: [] }
   assert.deepEqual((await matched()).matched, [], 'No profile signals must not return an unpersonalized catalog')
+  const studyPartner = {
+    ...partnerTemplate, id: 'study-only', formation_name: 'BTS Services informatiques aux organisations',
+    domain: '', diploma_level: 'Bac+2'
+  }
+  partners.push(studyPartner)
+  entries = [{ user_id: student.id, question_id: 'orientation_formation_preferences', answer_text: '["bts"]' }]
+  analysis = { ...analysis, study_recommendations: JSON.stringify([{ degree: 'BTS SIO' }]) }
+  const studyMatches = (await matched()).matched
+  assert.equal(studyMatches[0]?.id, studyPartner.id, 'Studies alone must rank the corresponding formation first, including abbreviated study titles')
+  assert.equal(studyMatches[0].match_score, 92)
+  assert.ok(!studyMatches.some((formation) => formation.id === 'unrelated'))
+  analysis = { ...analysis, study_recommendations: [] }
   entries = [{ user_id: student.id, question_id: 'orientation_career_domains', answer_text: '["technologie numerique"]' }]
   partners = Array.from({ length: 1002 }, (_, index) => ({ ...partnerTemplate, id: `partner-${String(index).padStart(4, '0')}` }))
   partnerRanges.length = 0

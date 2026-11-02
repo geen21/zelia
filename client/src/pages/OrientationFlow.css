@@ -43,7 +43,10 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 16px clamp(16px, 4vw, 44px) 12px;
+  width: min(760px, 100%);
+  box-sizing: border-box;
+  align-self: center;
+  padding: 20px 24px 16px;
   background: rgba(255, 251, 247, .86);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -52,18 +55,17 @@
 .orientation-topbar img { height: 26px; width: auto; display: block; }
 .topbar-lead { display: flex; align-items: center; gap: 10px; }
 .back-button {
-  width: 38px;
+  width: 32px;
   height: 38px;
   flex: 0 0 auto;
   display: inline-grid;
   place-items: center;
   border-radius: 999px;
-  border: 1px solid rgba(0,0,0,.1);
-  background: #fff;
+  border: 0;
+  background: transparent;
   color: #000;
   font-size: 18px;
   cursor: pointer;
-  box-shadow: 0 8px 18px rgba(0,0,0,.08);
   transition: background .15s ease, transform .15s ease;
 }
 .back-button:hover { background: var(--of-lime); transform: translateY(-1px); }
@@ -72,18 +74,15 @@
   display: inline-flex;
   align-items: center;
   min-height: 28px;
-  padding: 4px 13px;
-  border-radius: 999px;
-  border: 1px solid rgba(0,0,0,.08);
-  background: #fff;
+  padding: 4px 0;
   color: #4b5563;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: .01em;
   white-space: nowrap;
 }
-.flow-progress { height: 6px; border-radius: 999px; background: rgba(0,0,0,.08); overflow: hidden; }
-.flow-progress span { display: block; height: 100%; background: var(--of-lime); border-radius: inherit; transition: width .3s ease; }
+.flow-progress { height: 8px; border-radius: 999px; background: rgba(0,0,0,.08); overflow: hidden; }
+.flow-progress span { display: block; height: 100%; background: #78b63b; border-radius: inherit; transition: width .3s ease; }
 
 /* ---------- Stage / card shell ---------- */
 .orientation-stage {
@@ -132,7 +131,7 @@
 .swipe-card:active { cursor: grabbing; }
 
 /* ---------- Question card ---------- */
-.question-card { padding-top: clamp(32px, 6vw, 48px); }
+/* Still used by ParentsFormation. */
 .question-icon-badge {
   width: 54px;
   height: 54px;
@@ -143,7 +142,13 @@
   background: #f2fbe4;
   color: #558419;
 }
-.question-icon-badge.tone-1 { background: #fdeeff; color: #a83fae; }
+.question-stage { justify-content: flex-start; padding-top: clamp(36px, 7vh, 72px); }
+.question-card { padding: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; gap: 24px; }
+.question-card::before { display: none; }
+.question-stage .orientation-actions { width: min(640px, 100%); }
+.question-stage .option-action { border-width: 1px; box-shadow: none; min-height: 72px; font-size: 17px; }
+.orientation-flow button:focus-visible,
+.orientation-flow a:focus-visible { outline: 3px solid #558419; outline-offset: 4px; }
 .question-swipe-tutorial {
   display: grid;
   grid-template-columns: auto minmax(104px, 160px) auto;
@@ -331,11 +336,13 @@
   box-shadow: 0 20px 44px -20px rgba(0,0,0,.25);
 }
 .message-avatar { width: 88px; height: 88px; object-fit: contain; border-radius: 20px; background: #f8fafc; border: 1px solid rgba(0,0,0,.08); }
-.busy-dots { display: flex; align-items: center; gap: 9px; }
-.busy-dots span { width: 12px; height: 12px; border-radius: 999px; background: #111827; animation: busyBounce 1s ease-in-out infinite; }
-.busy-dots span:nth-child(1) { background: var(--of-lime); }
-.busy-dots span:nth-child(2) { background: var(--of-pink); animation-delay: .15s; }
-.busy-dots span:nth-child(3) { background: #111827; animation-delay: .3s; }
+.orientation-loading { display: grid; gap: 18px; width: 100%; padding: 12px 0; }
+.loading-scene { display: grid; justify-items: center; gap: 12px; padding: 8px 0; }
+.loading-brain { width: 120px; height: 100px; color: var(--of-pink); animation: loadingBrainFloat 2.8s ease-in-out infinite; }
+.loading-message { font-size: 20px; font-weight: 800; text-align: center; animation: loadingMessageIn .35s ease-out; }
+.loading-label { text-align: center; }
+.loading-track { height: 10px; border-radius: 999px; overflow: hidden; background: #e5e7eb; }
+.loading-track span { display: block; height: 100%; width: 40%; border-radius: inherit; background: #78b63b; animation: loadingSweep 1.6s ease-in-out infinite alternate; }
 
 /* ---------- Formation lead cards (partner formations + request-info CTA) ---------- */
 .formation-lead-grid {
@@ -539,20 +546,6 @@
   background: var(--of-cream);
   padding: 14px 16px;
 }
-.identity-consent-all {
-  justify-self: start;
-  min-height: 32px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(0,0,0,.15);
-  background: #fff;
-  color: #000;
-  font-size: 12px;
-  font-weight: 800;
-  cursor: pointer;
-  transition: background .15s ease, border-color .15s ease, transform .15s ease;
-}
-.identity-consent-all:hover { background: var(--of-lime); border-color: #a7ec4e; transform: translateY(-1px); }
 .identity-consent-row {
   display: flex;
   align-items: flex-start;
@@ -564,13 +557,15 @@
 }
 .identity-consent-row input {
   flex: 0 0 auto;
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   margin-top: 2px;
-  accent-color: var(--of-lime);
+  accent-color: #558419;
   cursor: pointer;
 }
 .identity-consent-row a { color: #000; font-weight: 700; text-decoration: underline; }
+.identity-consent-row small { display: block; margin-top: 8px; font-size: inherit; color: #4b5563; }
+.identity-submit:disabled { cursor: wait; opacity: .65; }
 .identity-switch {
   margin-top: 18px;
   text-align: center;
@@ -809,9 +804,17 @@
 .confirmed-detail a:hover { text-decoration: underline; }
 .empty-state { color: #6b7280; }
 
-@keyframes busyBounce {
-  0%, 80%, 100% { transform: translateY(0); opacity: .55; }
-  40% { transform: translateY(-9px); opacity: 1; }
+@keyframes loadingSweep {
+  from { transform: translateX(0); }
+  to { transform: translateX(150%); }
+}
+@keyframes loadingBrainFloat {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-8px) rotate(4deg); }
+}
+@keyframes loadingMessageIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 @keyframes questionSwipeDemo {
   0%, 12% { transform: translate(-50%, -50%) translateX(0) scale(.92); }
@@ -822,36 +825,19 @@
 }
 
 @media (max-width: 640px) {
-  /* Drop the topbar chrome entirely on mobile to give the card the full
-     screen; the back button floats over the content instead, and the
-     step/progress info already lives inside each phase's own pill/card. */
   .orientation-topbar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    padding: 10px 12px;
-    background: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    pointer-events: none;
-    z-index: 20;
+    padding: 12px 16px;
   }
-  .orientation-topbar img,
-  .flow-step-label,
-  .flow-progress { display: none; }
-  .topbar-row { justify-content: flex-start; pointer-events: none; }
-  .topbar-lead { pointer-events: none; }
+  .orientation-topbar img { height: 22px; }
+  .flow-step-label { font-size: 11px; }
   .back-button {
-    pointer-events: auto;
-    width: 36px;
-    height: 36px;
+    width: 28px;
+    height: 32px;
     font-size: 16px;
-    background: rgba(255, 255, 255, .92);
-    backdrop-filter: blur(6px);
   }
-  .orientation-stage { padding: 54px 14px 28px; gap: 16px; }
+  .orientation-stage { padding: 28px 16px; gap: 20px; }
   .orientation-card { padding: 22px; border-radius: 24px; }
+  .question-card { padding: 0; border-radius: 0; }
   .orientation-card h1 { font-size: 27px; }
   .identity-card h1 { font-size: 24px; }
   .orientation-card p { font-size: 15px; }
@@ -881,6 +867,9 @@
 @media (prefers-reduced-motion: reduce) {
   .orientation-card,
   .flow-progress span,
-  .busy-dots span,
+  .loading-brain,
+  .loading-message,
+  .loading-track span,
   .swipe-tutorial-cue { transition: none !important; animation: none !important; }
+  .loading-track span { margin: 0 auto; background: #a7c985; }
 }

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import axios from 'axios'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { PiArrowLeft } from 'react-icons/pi'
 import { supabase } from '../lib/supabase'
 import {
   buildProfileFromSupabaseUser,
@@ -47,7 +48,7 @@ const DEPARTMENTS = [
 ]
 
 export default function Register() {
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(() => localStorage.getItem('pending_registration_email') || '')
   const [password, setPassword] = useState('')
   const [identity, setIdentity] = useState(() => getStoredOrientationIdentity())
   const [departmentCode, setDepartmentCode] = useState(() => {
@@ -55,7 +56,8 @@ export default function Register() {
   })
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [newsletterOptIn, setNewsletterOptIn] = useState(false)
-  const [acceptDataTransfer, setAcceptDataTransfer] = useState(false)
+  const acceptDataTransfer = acceptTerms
+  const [createdAccountEmail, setCreatedAccountEmail] = useState(() => localStorage.getItem('pending_registration_email') || '')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState('')
   const navigate = useNavigate()
@@ -104,18 +106,11 @@ export default function Register() {
       return null
     }
     if (!acceptTerms) {
-      setError('Tu dois accepter les CGU pour continuer.')
+      setError('Accepte les conditions du service et le partage avec les écoles que tu sollicites pour continuer.')
       return null
     }
     persistRegistrationBasics()
     return completeIdentity
-  }
-
-  function acceptAll() {
-    setAcceptTerms(true)
-    setNewsletterOptIn(true)
-    setAcceptDataTransfer(true)
-    setError('')
   }
 
   async function handleEmailRegister(event) {
@@ -150,16 +145,21 @@ export default function Register() {
         termsAcceptedAt: new Date().toISOString()
       }
 
-      await axios.post('/api/auth/register', {
-        email,
-        password,
-        userData,
-        avatarData: onboardingCache.avatarData,
-        questionnaireResponses: onboardingCache.answers,
-        acceptTerms,
-        newsletterOptIn,
-        acceptDataTransfer
-      })
+      if (createdAccountEmail !== email.trim().toLowerCase()) {
+        await axios.post('/api/auth/register', {
+          email,
+          password,
+          userData,
+          avatarData: onboardingCache.avatarData,
+          questionnaireResponses: onboardingCache.answers,
+          acceptTerms,
+          newsletterOptIn,
+          acceptDataTransfer
+        })
+        const registeredEmail = email.trim().toLowerCase()
+        localStorage.setItem('pending_registration_email', registeredEmail)
+        setCreatedAccountEmail(registeredEmail)
+      }
 
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password })
       if (signInError) throw signInError
@@ -187,10 +187,12 @@ export default function Register() {
         localStorage.setItem(ORIENTATION_PROFILE_IDENTITY_KEY, JSON.stringify(completeIdentity))
         localStorage.setItem(ORIENTATION_PROFILE_IDENTITY_COMPLETE_KEY, 'true')
       }
+      localStorage.removeItem('pending_registration_email')
       navigate(target, { replace: true })
     } catch (registerError) {
       const message = registerError?.response?.data?.error || registerError?.message || "Échec de l'inscription"
-      setError(message)
+      const accountCreated = localStorage.getItem('pending_registration_email') === email.trim().toLowerCase()
+      setError(accountCreated ? `Ton compte est créé, mais l'enregistrement n'est pas terminé : ${message} Tu peux réessayer sans recréer ton compte.` : message)
     } finally {
       setLoading('')
     }
@@ -202,7 +204,7 @@ export default function Register() {
         <div className="topbar-row">
           <div className="topbar-lead">
             <Link to="/" className="back-button" aria-label="Accueil Zelia" title="Accueil Zelia">
-              <i className="ph ph-arrow-left" aria-hidden="true" />
+              <PiArrowLeft aria-hidden="true" />
             </Link>
             <img src="/static/images/logo-dark.png" alt="Zélia" />
           </div>
@@ -212,8 +214,7 @@ export default function Register() {
 
       <div className="orientation-stage compact identity-stage">
         <form className="orientation-card identity-card" onSubmit={handleEmailRegister}>
-          <span className="orientation-pill">Inscription</span>
-          <h1>Créer ton espace</h1>
+          <h1>{hasOrientationCache ? 'Découvre ton profil complet' : 'Créer ton espace'}</h1>
           <p>Ton profil et ton parcours seront rattachés à ce compte.</p>
 
           {hasOrientationCache && (
@@ -242,8 +243,9 @@ export default function Register() {
               />
             </label>
             <label>
-              <span>Genre</span>
+              <span id="registration-gender-label">Genre</span>
               <select
+                aria-labelledby="registration-gender-label"
                 value={identity.gender}
                 onChange={(event) => setIdentity((current) => ({ ...current, gender: event.target.value }))}
                 required
@@ -253,8 +255,9 @@ export default function Register() {
               </select>
             </label>
             <label>
-              <span>Département</span>
+              <span id="registration-department-label">Département</span>
               <select
+                aria-labelledby="registration-department-label"
                 value={departmentCode}
                 onChange={(event) => setDepartmentCode(event.target.value)}
                 required
@@ -273,6 +276,7 @@ export default function Register() {
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="toi@email.com"
                 autoComplete="email"
+                required
               />
             </label>
             <label>
@@ -283,32 +287,30 @@ export default function Register() {
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="6 caractères minimum"
                 autoComplete="new-password"
+                minLength={6}
+                required
               />
             </label>
           </div>
 
           <div className="identity-consent">
-            <button type="button" onClick={acceptAll} className="identity-consent-all">
-              Tout valider
-            </button>
             <label className="identity-consent-row">
-              <input type="checkbox" checked={acceptTerms} onChange={(event) => setAcceptTerms(event.target.checked)} />
-              <span>J'accepte les <Link to="/legal/conditions">CGU</Link> et la politique de confidentialité.</span>
+              <input type="checkbox" required checked={acceptTerms} onChange={(event) => setAcceptTerms(event.target.checked)} />
+              <span>
+                J'accepte les <Link to="/legal/conditions">conditions du service et la politique de confidentialité</Link> (obligatoire).
+                <small>J'autorise les écoles que je sollicite à recevoir mes coordonnées, mon profil scolaire, mes réponses au questionnaire et mon bilan d’orientation pour me recontacter. Je peux retirer cet accord depuis mon profil.</small>
+              </span>
             </label>
             <label className="identity-consent-row">
               <input type="checkbox" checked={newsletterOptIn} onChange={(event) => setNewsletterOptIn(event.target.checked)} />
-              <span>Recevoir les nouveautés Zélia.</span>
-            </label>
-            <label className="identity-consent-row">
-              <input type="checkbox" checked={acceptDataTransfer} onChange={(event) => setAcceptDataTransfer(event.target.checked)} />
-              <span>Autoriser les écoles que je sollicite à recevoir mes coordonnées, mon profil scolaire, mes réponses au questionnaire et mon bilan d’orientation pour me recontacter. Cet accord peut être retiré depuis mon profil.</span>
+              <span>Je souhaite recevoir les nouveautés Zélia par email (facultatif).</span>
             </label>
           </div>
 
           {error && <p className="identity-error" role="alert">{error}</p>}
 
           <button className="primary-action identity-submit" type="submit" disabled={Boolean(loading)}>
-            {loading === 'email' ? 'Création...' : 'Créer avec email'}
+            {loading === 'email' ? 'Enregistrement…' : createdAccountEmail && createdAccountEmail === email.trim().toLowerCase() ? 'Réessayer et continuer' : hasOrientationCache ? 'Voir mon profil complet' : 'Créer avec email'}
           </button>
         </form>
 

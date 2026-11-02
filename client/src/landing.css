@@ -200,6 +200,19 @@
 .blog-article .blog-nav{ margin-bottom: 0; }
 .blog-nav .brand-logo{ display: inline-flex; align-items: center; }
 .blog-nav .btn-highlight{ height: 2px; background: var(--landing-accent); }
+@media (max-width: 640px){
+  .blog-nav{ padding: 12px 0; }
+  .blog-nav .nav-content{ display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: nowrap; }
+  .blog-nav .brand-logo{ flex: 0 0 auto; }
+  .blog-nav .logo-image{ height: 26px; width: auto; max-width: none; }
+  .blog-nav .nav-actions{ gap: 6px; flex-wrap: nowrap; min-width: 0; }
+  .blog-nav .nav-link-btn{ display: none; }
+  .blog-nav button.nav-link-btn{ display: inline-flex; padding: 8px 10px; }
+  .blog-nav .nav-cta-btn{ padding: 8px 14px; white-space: nowrap; font-size: 14px; }
+}
+@media (max-width: 380px){
+  .blog-nav button.nav-link-btn{ display: none; }
+}
 
 /* Center the avatar/dialog pair */
 .hero-center{ flex: 1 1 auto; display:flex; align-items:center; justify-content:center; padding-top: 0; padding-bottom: 0; }
@@ -383,17 +396,87 @@
 
 /* Blog Listing */
 .blog-page{ background: #fffbf7; min-height: 100vh; color: #0f172a; }
-.blog-page__hero{ padding: 96px 0 48px; background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), transparent); }
-.blog-page__eyebrow{ display: inline-block; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; font-size: 13px; color: #f97316; margin-bottom: 12px; }
-.blog-page__title{ font-family: "GulfDisplay", "Bricolage Grotesque", "ClashGroteskMedium", system-ui, sans-serif; font-size: clamp(36px, 6vw, 64px); font-weight: 600; margin-bottom: 16px; }
-.blog-page__intro{ font-size: 18px; color: #475569; max-width: 680px; line-height: 1.7; }
-.blog-page__content{ padding-bottom: 120px; }
-.blog-page__grid{ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 28px; }
+.blog-page__hero{ position: relative; overflow: hidden; padding: 72px 0 40px; background: radial-gradient(circle at 92% 20%, rgba(246,143,255,0.18), transparent 40%), radial-gradient(circle at 70% 90%, rgba(193,255,114,0.28), transparent 45%); }
+.blog-page__hero-inner{ display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: center; gap: 40px; }
+.blog-page__eyebrow{ display: inline-block; padding: 6px 14px; border-radius: 999px; background: #000; color: #fff; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; font-size: 12px; margin-bottom: 20px; }
+.blog-page__title{ font-family: "Bricolage Grotesque", system-ui, sans-serif; font-size: clamp(38px, 5.6vw, 68px); font-weight: 800; line-height: 1.04; letter-spacing: -0.02em; color: #05080f; margin-bottom: 20px; }
+.blog-page__title-mark{ display: inline; padding: 0 0.12em; background: linear-gradient(transparent 58%, var(--landing-accent) 58%, var(--landing-accent) 92%, transparent 92%); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.blog-page__intro{ font-size: 18px; color: #475569; max-width: 560px; line-height: 1.7; }
+.blog-page__hero-art{ position: relative; height: 260px; }
+.hero-art__blob{ position: absolute; inset: 20px 30px 10px 40px; border-radius: 42% 58% 55% 45% / 50% 40% 60% 50%; background: var(--landing-accent); border: 3px solid #000; box-shadow: 10px 10px 0 #000; animation: blogBlobFloat 7s ease-in-out infinite; }
+.hero-art__star{ position: absolute; right: 10px; top: 0; width: 82px; height: 82px; background: var(--landing-accent-2); clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); animation: blogStarSpin 12s linear infinite; }
+.hero-art__sticker{ position: absolute; padding: 10px 18px; border: 2px solid #000; border-radius: 14px; background: #fff; font-weight: 800; font-size: 18px; box-shadow: 4px 4px 0 #000; white-space: nowrap; }
+.hero-art__sticker--bottom{ right: 24px; bottom: 26px; transform: rotate(5deg); background: var(--landing-accent-2); }
+
+.blog-page__content{ padding: 8px 0 120px; }
+.blog-page__filters{ display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 28px; }
+.blog-filter{ min-height: 40px; padding: 0 18px; border-radius: 999px; border: 1.5px solid rgba(5,8,15,0.15); background: #fff; color: #05080f; font-weight: 700; font-size: 14px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease; }
+.blog-filter:hover{ border-color: #05080f; transform: translateY(-1px); }
+.blog-filter.is-active{ background: #05080f; border-color: #05080f; color: #fff; }
+.blog-filter:focus-visible{ outline: 3px solid var(--landing-accent-2); outline-offset: 3px; }
+
+.blog-page__grid{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+
+.blog-cover{ position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: var(--accent-soft, #ffedd5); }
+.blog-cover img{ width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.4s ease; }
+.blog-cover__art{ position: absolute; inset: 0; }
+.blog-cover__blob{ position: absolute; width: 58%; aspect-ratio: 1; left: -8%; bottom: -30%; border-radius: 50%; background: var(--accent, #f97316); opacity: 0.85; }
+.blog-cover__star{ position: absolute; width: 22%; aspect-ratio: 1; right: 14%; top: 14%; background: var(--landing-accent); clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+.blog-cover__ring{ position: absolute; width: 30%; aspect-ratio: 1; right: 30%; bottom: 12%; border-radius: 50%; border: 3px dashed #05080f; opacity: 0.5; }
+.blog-cover__tag{ position: absolute; left: 14px; top: 14px; padding: 6px 12px; border-radius: 999px; background: #fff; color: #05080f; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; box-shadow: 0 4px 12px rgba(5,8,15,0.12); }
+
+.blog-page .blog-card--visual{ display: flex; flex-direction: column; padding: 0; overflow: hidden; border: 1.5px solid rgba(5,8,15,0.1); border-radius: 20px; }
+.blog-page .blog-card--visual:hover{ transform: translateY(-4px); border-color: #05080f; box-shadow: 6px 6px 0 #05080f; }
+.blog-page .blog-card--visual:hover .blog-cover img{ transform: scale(1.04); }
+.blog-card__body{ display: flex; flex: 1; flex-direction: column; padding: 20px 22px 22px; }
+.blog-page .blog-card__title{ font-family: "Bricolage Grotesque", system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; }
+.blog-page .blog-card__title a,
+.blog-featured__title a{ color: inherit; text-decoration: none; }
+.blog-page .blog-card__title a::after,
+.blog-featured__title a::after{ content: ""; position: absolute; inset: 0; }
+.blog-page .blog-card__title a:focus-visible,
+.blog-featured__title a:focus-visible{ outline: none; }
+.blog-page .blog-card--visual:focus-within,
+.blog-featured:focus-within{ outline: 3px solid var(--landing-accent-2); outline-offset: 3px; }
+.blog-page .blog-card__footer{ margin-top: auto; padding-top: 14px; border-top: 1px solid rgba(5,8,15,0.08); flex-wrap: wrap; gap: 8px 16px; color: #64748b; }
+.blog-page .blog-card__date{ font-weight: 600; font-size: 13px; }
+
+.blog-featured{ position: relative; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); margin-bottom: 32px; overflow: hidden; border: 2px solid #05080f; border-radius: 24px; background: #fff; box-shadow: 8px 8px 0 #05080f; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.blog-featured:hover{ transform: translate(-2px, -2px); box-shadow: 10px 10px 0 #05080f; }
+.blog-featured:hover .blog-cover img{ transform: scale(1.03); }
+.blog-cover--featured{ aspect-ratio: auto; min-height: 320px; }
+.blog-featured__body{ display: flex; flex-direction: column; justify-content: center; gap: 14px; padding: 36px; }
+.blog-featured__label{ align-self: flex-start; padding: 6px 12px; border-radius: 999px; background: var(--landing-accent); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
+.blog-featured__title{ font-family: "Bricolage Grotesque", system-ui, sans-serif; font-size: clamp(24px, 2.6vw, 34px); font-weight: 800; line-height: 1.15; letter-spacing: -0.015em; color: #05080f; }
+.blog-featured__description{ font-size: 16px; color: #475569; line-height: 1.65; }
+.blog-featured .blog-card__footer{ margin-top: 8px; flex-wrap: wrap; gap: 8px 16px; color: #64748b; }
+
+@keyframes blogBlobFloat{
+  0%, 100%{ transform: translateY(0) rotate(0deg); }
+  50%{ transform: translateY(-10px) rotate(3deg); }
+}
+@keyframes blogStarSpin{ to{ transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce){
+  .hero-art__blob, .hero-art__star{ animation: none; }
+  .blog-cover img, .blog-featured, .blog-page .blog-card--visual{ transition: none; }
+}
+
+@media (max-width: 900px){
+  .blog-page__grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .blog-page__hero-inner{ grid-template-columns: 1fr; }
+  .blog-page__hero-art{ display: none; }
+  .blog-featured{ grid-template-columns: 1fr; }
+  .blog-cover--featured{ aspect-ratio: 16 / 9; min-height: 0; }
+}
 
 @media (max-width: 768px){
-  .blog-page__hero{ padding: 100px 0 48px; }
+  .blog-page__hero{ padding: 48px 0 28px; }
   .blog-page__grid{ grid-template-columns: 1fr; }
   .blog-page__content{ padding-bottom: 72px; }
+  .blog-featured{ box-shadow: 5px 5px 0 #05080f; }
+  .blog-featured__body{ padding: 22px; }
+  .blog-page__filters{ flex-wrap: nowrap; overflow-x: auto; margin-bottom: 24px; padding: 4px 2px; scrollbar-width: none; }
+  .blog-filter{ flex: 0 0 auto; }
 }
 
 /* Blog Article */
@@ -413,7 +496,7 @@
 .blog-article__chips{ display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
 .blog-article__chip{ display: inline-flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.05); color: #0f172a; border-radius: 999px; padding: 6px 18px; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
 .blog-article__chip i{ font-size: 16px; color: var(--accent, var(--landing-accent-2)); }
-.blog-article__title{ font-family: "GulfDisplay", "Bricolage Grotesque", "ClashGroteskMedium", system-ui, sans-serif; font-size: clamp(32px, 5vw, 60px); font-weight: 600; line-height: 1.1; max-width: 100%; margin-bottom: 24px; color: #05080f; }
+.blog-article__title{ font-family: "Bricolage Grotesque", system-ui, sans-serif; font-size: clamp(32px, 5vw, 60px); font-weight: 800; line-height: 1.08; letter-spacing: -0.02em; max-width: 100%; margin-bottom: 24px; color: #05080f; }
 .blog-article__excerpt{ font-size: 18px; line-height: 1.6; color: rgba(5,8,15,0.7); max-width: 100%; margin-bottom: 24px; }
 .blog-article__meta{ display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-weight: 600; }
 .blog-article__meta span{ display: inline-flex; align-items: center; gap: 8px; }

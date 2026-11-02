@@ -165,11 +165,13 @@ export async function persistAuthSessionAndOnboarding({ after = '', profileData 
   if (Object.keys(updates).length) {
     await usersAPI.updateProfile(updates).catch((error) => {
       console.warn('Profile onboarding update failed:', error)
+      if (Object.keys(cache.registrationConsent).length) throw error
     })
   }
 
   if (cache.registrationConsent?.accept_data_transfer === true && cache.registrationConsent.sharing_version === SCHOOL_SHARING_VERSION) {
-    await usersAPI.setSchoolSharing({ granted: true, version: SCHOOL_SHARING_VERSION })
+    const response = await usersAPI.setSchoolSharing({ granted: true, version: SCHOOL_SHARING_VERSION })
+    if (response?.data?.saved !== true) throw new Error("L'accord de partage n'a pas été enregistré. Réessaie pour continuer.")
   }
   const microEntries = buildMicroProfileEntries({
     ...cache.microProfile,

@@ -1,7 +1,7 @@
 import express from 'express'
 import { supabaseAdmin } from '../config/supabase.js'
 import { authenticateToken } from '../middleware/auth.js'
-import { scoreFormations } from '../utils/partnerMatching.js'
+import { matchPartnerFormations } from '../utils/partnerMatching.js'
 import { notifyPortalLeads, SHARING_VERSION } from '../utils/schoolDashboard.js'
 
 const router = express.Router()
@@ -186,7 +186,7 @@ router.get('/matched', authenticateToken, async (req, res) => {
 
     const { data: analysisResult, error: analysisError } = await supabaseAdmin
       .from('user_results')
-      .select('job_recommendations')
+      .select('job_recommendations, study_recommendations')
       .eq('user_id', userId)
       .eq('questionnaire_type', 'inscription')
       .maybeSingle()
@@ -194,7 +194,7 @@ router.get('/matched', authenticateToken, async (req, res) => {
     if (analysisError && analysisError.code !== 'PGRST116') throw analysisError
 
     const userCity = nearHomeCity || storedCity
-    const matched = scoreFormations(formations, pickFirstValue, analysisResult?.job_recommendations, userCity)
+    const matched = matchPartnerFormations(formations, { pickFirstValue, analysisResult, userCity })
     const filteredMatched = nearHomeCity
       ? matched.filter((formation) => sameCity(formation.city, nearHomeCity))
       : matched

@@ -16,9 +16,9 @@ const partnerFixtures = [
 ]
 const mixed = mixFormationResults(nationalFixtures, partnerFixtures)
 assert.deepEqual(mixed.filter((entry) => entry.source === 'national').map((entry) => entry.formation), nationalFixtures)
-assert.deepEqual(mixed.filter((entry) => entry.source === 'partner').map((entry) => entry.formation.id), [2, 1])
-assert.equal(mixed[3].key, 'partner-2')
-assert.equal(mixed[7].key, 'partner-1')
+assert.deepEqual(mixed.filter((entry) => entry.source === 'partner').map((entry) => entry.formation.id), [1, 2], 'Relevance ranks partners; priority is only a small bonus')
+assert.equal(mixed[3].key, 'partner-1')
+assert.equal(mixed[7].key, 'partner-2')
 assert.equal(new Set(mixed.map((entry) => entry.key)).size, mixed.length)
 assert.equal(mixFormationResults([], partnerFixtures).length, 2)
 assert.equal(mixFormationResults(nationalFixtures, []).length, 7)
@@ -32,10 +32,20 @@ const manyPartners = [
 const manyPartnersBefore = structuredClone(manyPartners)
 for (const formations of [[], nationalFixtures, Array.from({ length: 12 }, (_, index) => ({ id: index + 1 }))]) {
   const limitedResults = mixFormationResults(formations, manyPartners)
-  assert.deepEqual(limitedResults.filter((entry) => entry.source === 'partner').map((entry) => entry.formation.id), [25, 24, 23])
+  assert.deepEqual(limitedResults.filter((entry) => entry.source === 'partner').map((entry) => entry.formation.id), [24, 23, 22])
   assert.deepEqual(limitedResults.filter((entry) => entry.source === 'national').map((entry) => entry.formation), formations)
 }
 assert.deepEqual(manyPartners, manyPartnersBefore)
+const partnerIds = (partners) => mixFormationResults([], partners).map((entry) => entry.formation.id)
+assert.deepEqual(partnerIds([{ id:'a',match_score:90 },{ id:'b',match_score:90,results_priority:50 }]),['b','a'],'Priority breaks ties')
+assert.deepEqual(partnerIds([{ id:'a',match_score:90 },{ id:'b',match_score:84,results_priority:1000 }]),['a','b'],'Priority bonus is capped at +5')
+assert.deepEqual(partnerIds([{ id:'a',match_score:90 },{ id:'b',match_score:86,results_priority:100 }]),['b','a'])
+assert.deepEqual(partnerIds([
+  { id:'paris',school_name:'MDS',formation_name:'Bachelor Web',city:'Paris',match_score:90 },
+  { id:'lyon',school_name:'mds',formation_name:'Bachelor  Web',city:'Lyon',match_score:90 },
+  { id:'sio',school_name:'MDS',formation_name:'BTS SIO',city:'Paris',match_score:85 },
+  { id:'other',school_name:'Autre',formation_name:'Bachelor Web',city:'Paris',match_score:80 }
+]),['paris','sio','other'],'One campus per school formation, first (user city) campus kept')
 assert.equal(partnerFixtures[0].id, 1)
 assert.equal(getBestFormationResultKey(mixed),'partner-1')
 assert.equal(getBestFormationResultKey(mixFormationResults([{ id:1,matchScore:99 },{ id:2,matchScore:80 }],partnerFixtures)),'formation-1')
@@ -48,7 +58,7 @@ assert.equal(getBestFormationResultKey(mixFormationResults([],[{ id:1,match_scor
 assert.equal(getBestFormationResultKey(mixFormationResults([],[
   { id:1,match_score:70,results_priority:30 },{ id:2,match_score:80,results_priority:20 },
   { id:3,match_score:90,results_priority:10 },{ id:4,match_score:100,results_priority:0 }
-])),'partner-3')
+])),'partner-4')
 assert.equal(getBestFormationResultKey([]),null)
 for (const matchScore of [undefined,null,'',false,'invalid',NaN,Infinity,-1,101]) {
   assert.equal(getBestFormationResultKey(mixFormationResults([{ id:1,matchScore }],[])),null)

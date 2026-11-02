@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { PiArrowRight } from 'react-icons/pi'
+import { PiArrowLeft, PiArrowRight } from 'react-icons/pi'
 import { orientationAPI, usersAPI, ecolesAPI } from '../lib/api.js'
 import { AI_JOB_DECK_SIZE } from '../lib/orientationJobs.js'
 import PersonaRevealCard from '../components/PersonaRevealCard.jsx'
+import OrientationLoading from '../components/OrientationLoading.jsx'
 import OrientationFormationResults from '../components/OrientationFormationResults.jsx'
 import { SCHOOL_SHARING_VERSION } from '../lib/schoolSharing'
 import { mixFormationResults } from '../lib/orientationFormationResults.js'
 import { buildFormationRelevanceProfile, buildRelevanceSearchQueries, scoreFormationRelevance } from '../lib/formationRelevance.js'
+import { FORMATION_PREFERENCE_LEVELS, filterCandidatesByTargetStudyLevel, getTargetStudyLevel, inferFormationStudyLevel } from '../lib/formationLevel.js'
 import { buildLoreleiUrl, buildPersonaAvatarConfig, computePersonaFromAnswers, getPersonaBySlug } from '../lib/personas.js'
 import { generatePersonaShareCard } from '../lib/shareImage.js'
 import { trackOrientationEvent } from '../lib/analytics.js'
@@ -24,7 +26,8 @@ const AI_FORMATION_KEYWORD_COUNT = 6
 const CATALOG_RETRY_ATTEMPTS = 2
 const PRESELECTED_CANDIDATES_PER_KIND = 4
 const MAX_PARTNER_FINAL_RESULTS = 4
-const FORMATION_SEARCH_WAITING_MESSAGE = 'Ne quitte pas la page, on cherche parmi 127 498 formations rien que pour toi ;)'
+// Partner cards wait for the national search; a stalled partner call must not hold it back.
+const PARTNER_MATCHING_TIMEOUT_MS = 20000
 const CATALOG_SEARCH_CONCURRENCY = 4
 const MAX_FORMATION_QUERY_VARIANTS = 2
 const FINAL_FORMATION_SEARCH_PLAN_COUNT = 4
@@ -113,16 +116,6 @@ const FORMATION_PREFERENCE_SEARCH_QUERIES = {
   voie_pro: 'cap bac professionnel'
 }
 
-const FORMATION_PREFERENCE_LEVELS = {
-  voie_pro: 1,
-  bts: 2,
-  but: 3,
-  licence: 3,
-  bachelor: 3,
-  master: 5,
-  doctorat: 8
-}
-
 const CAREER_DOMAIN_SEARCH_QUERIES = {
   sante_soin: 'santé soins',
   construction_technique: 'construction technique',
@@ -149,18 +142,6 @@ function getQuestionOptions(question) {
     ? question.options.filter((option) => option && option.label)
     : []
   return options.length >= 2 ? options.slice(0, 2) : FALLBACK_QUESTION_OPTIONS
-}
-
-const CATEGORY_ICONS = {
-  hands_mind: 'ph-hand-fist',
-  solo_team: 'ph-users-three',
-  creative_structured: 'ph-palette',
-  field_office: 'ph-compass',
-  risk_safety: 'ph-lightning'
-}
-
-function getCategoryIcon(category) {
-  return CATEGORY_ICONS[category] || 'ph-sparkle'
 }
 
 const MICRO_STEPS = [
@@ -324,21 +305,6 @@ function uniqueSearchQueries(queries) {
     seen.add(normalized)
     return true
   })
-}
-
-function modifyDicebearUrl(urlStr, params = {}) {
-  try {
-    const url = new URL(urlStr)
-    const isDicebear = /api\.dicebear\.com/.test(url.host) && /\/lorelei\/svg/.test(url.pathname)
-    if (!isDicebear) return urlStr
-    Object.entries(params).forEach(([key, value]) => {
-      if (value === null || value === undefined || value === '') url.searchParams.delete(key)
-      else url.searchParams.set(key, String(value))
-    })
-    return url.toString()
-  } catch {
-    return urlStr
-  }
 }
 
 function getStoredJson(key, fallback) {
@@ -715,82 +681,6 @@ function flattenTextParts(value) {
   if (value === null || value === undefined) return []
   if (typeof value === 'object') return Object.values(value).flatMap(flattenTextParts)
   return [String(value)]
-}
-
-function getTargetStudyLevel(profile = {}) {
-  const raw = String(profile?.target_level || '').trim().toLowerCase()
-  if (raw && raw !== 'open' && !raw.includes('ouvert')) {
-    if (raw.includes('8')) return 8
-    if (raw.includes('5')) return 5
-    if (raw.includes('3')) return 3
-    if (raw.includes('2')) return 2
-  }
-
-  const selectedPreferences = Array.isArray(profile?.formation_preferences) ? profile.formation_preferences : []
-  if (selectedPreferences.length !== 1) return null
-  return FORMATION_PREFERENCE_LEVELS[selectedPreferences[0]] || null
-}
-
-function getFormationLevelText(candidate) {
-  const raw = candidate?.raw || candidate || {}
-  return flattenTextParts([
-    candidate?.title,
-    candidate?.subtitle,
-    raw.nm,
-    raw.nmc,
-    raw.formation_name,
-    raw.diploma_level,
-    raw.tf,
-    raw.fl,
-    raw.tc,
-    raw.app,
-    raw.int,
-    raw.aut,
-    raw.code_formation
-  ]).join(' ')
-}
-
-function inferFormationStudyLevel(candidate) {
-  const text = normalizeDiversityText(getFormationLevelText(candidate))
-  if (!text) return null
-  if (/\b(doctorat|these|phd|internat|bac\s*8|niveau\s*8|rncp\s*8)\b/.test(text)) return 8
-  if (/\b(master|mastere|mba|msc|m1|m2|dnm|miage|ingenieur|ingenierie|dipl\s*ing|dscg|dnsep|grade\s*master|bac\s*5|niveau\s*7|rncp\s*7)\b/.test(text)) return 5
-  if (/\b(licence|bachelor|but|dcg|dn\s*made|dna|bac\s*3|niveau\s*6|rncp\s*6)\b/.test(text)) return 3
-  if (/\b(bts|dut|deust|bpjeps|bac\s*2|niveau\s*5|rncp\s*5)\b/.test(text)) return 2
-  if (/\b(cap|bac\s*pro|bac\s*professionnel|mention\s*complementaire)\b/.test(text)) return 1
-  return null
-}
-
-function hasShortCycleMarker(candidate) {
-  const text = normalizeDiversityText(getFormationLevelText(candidate))
-  return /\b(bts|dut|but|deust|bpjeps|cap|bac\s*pro|bac\s*professionnel|mention\s*complementaire|niveau\s*5|rncp\s*5)\b/.test(text)
-}
-
-function candidateMatchesTargetStudyLevel(candidate, targetLevel) {
-  if (candidate?.type !== 'formation' || !targetLevel) return true
-  const inferredLevel = inferFormationStudyLevel(candidate)
-
-  if (targetLevel >= 8) {
-    return inferredLevel === null ? !hasShortCycleMarker(candidate) : inferredLevel >= 8
-  }
-
-  if (targetLevel >= 5) {
-    if (inferredLevel === null) return !hasShortCycleMarker(candidate)
-    return inferredLevel >= 5
-  }
-
-  if (targetLevel >= 3) {
-    if (inferredLevel === null) return true
-    return inferredLevel >= 3
-  }
-
-  return true
-}
-
-function filterCandidatesByTargetStudyLevel(candidates = [], profile = {}) {
-  const targetLevel = getTargetStudyLevel(profile)
-  if (!targetLevel) return candidates
-  return candidates.filter((candidate) => candidateMatchesTargetStudyLevel(candidate, targetLevel))
 }
 
 function buildGenericFormationPlans(targetLevel) {
@@ -1541,7 +1431,6 @@ export default function OrientationFlow() {
   const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('avatar_url') || buildLoreleiUrl({ seed: 'zelia' }))
   const [persona, setPersona] = useState(() => getPersonaBySlug(localStorage.getItem('orientation_persona') || ''))
   const [sharingPersona, setSharingPersona] = useState(false)
-  const [mouthAlt, setMouthAlt] = useState(false)
   const [userDepartment, setUserDepartment] = useState(() => getStoredDepartment())
   const [analysisData, setAnalysisData] = useState(null)
   const [intent, setIntent] = useState('')
@@ -1593,6 +1482,11 @@ export default function OrientationFlow() {
   const formationRecommendations = useMemo(() => getAnalysisFormationCandidates(analysisData, 6), [analysisData])
   const visiblePartnerCandidates = useMemo(() => mixFormationResults([], partnerFormations)
     .map(({ formation }, index) => normalizePartnerFormation(formation, index)), [partnerFormations])
+  // Sponsored results are never revealed before the national catalog results.
+  // The first reveal also waits for the partner call so cards do not shift;
+  // a partner retry keeps the national results on screen.
+  const nationalFormationsPending = dbFormationsLoading || (Boolean(analysisData) && !dbFormationsResolved)
+  const formationResultsReady = !nationalFormationsPending && (partnerFormationsResolved || partnerRetryCount > 0)
 
   useEffect(() => {
     if (phase !== 'formationReveal') return
@@ -1602,7 +1496,7 @@ export default function OrientationFlow() {
     setPartnerFormationsError('')
     ;(async () => {
       try {
-        const matchedRes = await ecolesAPI.matched()
+        const matchedRes = await ecolesAPI.matched({ timeout: PARTNER_MATCHING_TIMEOUT_MS })
         if (!Array.isArray(matchedRes?.data?.matched)) {
           throw new Error('Invalid partner matching response')
         }
@@ -1636,17 +1530,11 @@ export default function OrientationFlow() {
     })
   }, [])
 
-  const zeliaSpeaking = phase === 'analysis'
-  const displayedAvatarUrl = useMemo(() => {
-    if (!zeliaSpeaking) return avatarUrl
-    return modifyDicebearUrl(avatarUrl, { mouth: mouthAlt ? 'happy08' : null })
-  }, [avatarUrl, mouthAlt, zeliaSpeaking])
-
   const progress = useMemo(() => {
-    const questionProgress = phase === 'questions' ? questionIndex : QUESTION_LIMIT
-    const phaseProgress = Math.max(0, phaseIndex(phase)) * 6
-    return Math.min(100, Math.round(((questionProgress + phaseProgress + 1) / (QUESTION_LIMIT + 61)) * 100))
-  }, [phase, questionIndex])
+    if (loading || phase === 'intro' || !questions.length) return 0
+    if (phase !== 'questions') return 100
+    return Math.round((questionIndex / questions.length) * 100)
+  }, [loading, phase, questionIndex, questions.length])
 
   const stepLabel = useMemo(() => {
     if (phase === 'intro') return 'Bienvenue'
@@ -1697,12 +1585,6 @@ export default function OrientationFlow() {
     orientationStepTrackingRef.current = trackingKey
     trackOrientationEvent('orientation_step_viewed', tracking)
   }, [activeMicroSteps, currentQuestion?.category, infoIndex, loading, phase, questionIndex, questions.length])
-
-  useEffect(() => {
-    if (!zeliaSpeaking) return
-    const interval = window.setInterval(() => setMouthAlt((value) => !value), 200)
-    return () => window.clearInterval(interval)
-  }, [zeliaSpeaking])
 
   const isAuthenticated = useCallback(async () => {
     const token = localStorage.getItem('supabase_auth_token') || localStorage.getItem('token')
@@ -2302,8 +2184,8 @@ export default function OrientationFlow() {
   }, [phase, analysisData])
 
   useEffect(() => {
-    if (phase !== 'formationReveal' || (!dbFormationsResolved && !partnerFormationsResolved)) return
-    const answerText = JSON.stringify([...(dbFormationsLoading ? [] : dbFormations), ...visiblePartnerCandidates]
+    if (phase !== 'formationReveal' || !formationResultsReady || partnerFormationsLoading) return
+    const answerText = JSON.stringify([...dbFormations, ...visiblePartnerCandidates]
       .map((candidate) => {
         const recommendation = serializeFinalCandidate(candidate, false)
         delete recommendation.requestMoreInformation
@@ -2327,7 +2209,7 @@ export default function OrientationFlow() {
       if (mounted) setRecommendationsSaveError('Impossible d’enregistrer les recommandations pour le moment.')
     })
     return () => { mounted = false }
-  }, [phase, dbFormationsLoading, dbFormationsResolved, partnerFormationsResolved, dbFormations, visiblePartnerCandidates, recommendationsRetryCount])
+  }, [phase, formationResultsReady, partnerFormationsLoading, dbFormations, visiblePartnerCandidates, recommendationsRetryCount])
 
   const toggleRequestInfoSelection = (candidateId) => {
     setRequestInfoSelections((prev) => {
@@ -2446,14 +2328,14 @@ export default function OrientationFlow() {
   }
 
   const renderAvatarFace = (className = 'message-avatar') => (
-    <img src={displayedAvatarUrl} alt="Avatar Zélia" className={className} />
+    <img src={avatarUrl} alt="Avatar Zélia" className={className} />
   )
 
   const renderQuestionCard = () => {
     if (!currentQuestion) return null
     const options = getQuestionOptions(currentQuestion)
     return (
-      <div className="orientation-stage">
+      <div className="orientation-stage question-stage">
         <div
           className="orientation-card swipe-card question-card"
           tabIndex={0}
@@ -2463,21 +2345,17 @@ export default function OrientationFlow() {
           onPointerCancel={onPointerUp}
           style={{ transform: `translateX(${dragX}px) rotate(${dragX / 18}deg)` }}
         >
-          <div className={`question-icon-badge tone-${questionIndex % 2}`}>
-            <i className={`ph ${getCategoryIcon(currentQuestion.category)}`} aria-hidden="true" />
-          </div>
-          <span className="orientation-pill">{Math.min(questionIndex + 1, questions.length)} / {questions.length}</span>
           <h1>{cleanQuestionText(currentQuestion.contenu)}</h1>
           {questionIndex === 0 && (
             <div className="question-swipe-tutorial" aria-label="Glisse la carte vers ta réponse, ou touche-la directement">
               <span className="swipe-tutorial-answer reject">
-                <i className="ph ph-arrow-left" aria-hidden="true" />
+                <PiArrowLeft aria-hidden="true" />
               </span>
               <span className="swipe-tutorial-track" aria-hidden="true">
                 <span className="swipe-tutorial-cue" />
               </span>
               <span className="swipe-tutorial-answer accept">
-                <i className="ph ph-arrow-right" aria-hidden="true" />
+                <PiArrowRight aria-hidden="true" />
               </span>
             </div>
           )}
@@ -2499,9 +2377,8 @@ export default function OrientationFlow() {
   const renderBusy = () => (
     <div className="orientation-stage compact">
       <div className="orientation-card message-card">
-        {renderAvatarFace()}
-        <div className="busy-dots"><span /><span /><span /></div>
-        <h1>{busyMessage || 'Chargement'}</h1>
+        <h1>{loading ? 'On prépare les questions' : 'Ton profil prend forme'}</h1>
+        <OrientationLoading label={busyMessage || 'Chargement du questionnaire…'} playful={!loading} />
       </div>
     </div>
   )
@@ -2652,18 +2529,20 @@ export default function OrientationFlow() {
             {renderAvatarFace('persona-avatar')}
           </div>
           <p className="persona-tagline">
-            {dbFormationsLoading
+            {!formationResultsReady
               ? 'On cherche parmi 127 498 formations celles qui collent vraiment à ton profil...'
               : dbFormations.length
                 ? "Sélectionnées à partir de tes réponses, ton niveau visé et ta localisation."
                 : "On n'a pas trouvé de correspondance exacte tout de suite, mais voilà des pistes cohérentes avec ton profil."}
           </p>
 
-          {(dbFormationsLoading || partnerFormationsLoading) && (
-            <div className="busy-dots" aria-hidden="true"><span /><span /><span /></div>
+          {(!formationResultsReady || partnerFormationsLoading) && (
+            <OrientationLoading
+              label={formationResultsReady ? 'On recharge les formations partenaires…' : 'On compare les formations à ton profil…'}
+            />
           )}
 
-          {partnerFormationsError && (
+          {formationResultsReady && partnerFormationsError && (
             <div className="formation-lead-empty" role="alert">
               <p>{partnerFormationsError}</p>
               <button type="button" className="secondary-action" onClick={() => setPartnerRetryCount((count) => count + 1)}>
@@ -2681,9 +2560,9 @@ export default function OrientationFlow() {
             </div>
           )}
 
-          {(dbFormations.length > 0 || partnerFormations.length > 0) && (
+          {formationResultsReady && (dbFormations.length > 0 || partnerFormations.length > 0) && (
             <OrientationFormationResults
-              formations={dbFormationsLoading ? [] : dbFormations}
+              formations={dbFormations}
               partners={partnerFormations}
               selectedIds={requestInfoSelections}
               onToggleInfo={toggleRequestInfoSelection}
@@ -2691,7 +2570,7 @@ export default function OrientationFlow() {
             />
           )}
 
-          {!dbFormationsLoading && dbFormations.length === 0 && formationRecommendations.length > 0 && (
+          {formationResultsReady && dbFormations.length === 0 && formationRecommendations.length > 0 && (
             <div className="persona-portrait-grid">
               {formationRecommendations.map((formation) => (
                 <div key={formation.id} className="persona-portrait-tile">
@@ -2703,7 +2582,7 @@ export default function OrientationFlow() {
             </div>
           )}
 
-          {!dbFormationsLoading && (
+          {formationResultsReady && (
             <div className={`formation-lead-empty${dbFormations.length > 0 || partnerFormations.length > 0 || formationRecommendations.length > 0 ? ' is-followup' : ''}`}>
               <p className="formation-lead-empty-text">
                 {dbFormations.length > 0 || partnerFormations.length > 0 || formationRecommendations.length > 0
@@ -2724,7 +2603,7 @@ export default function OrientationFlow() {
 
       </div>
       <div className="persona-actions formation-reveal-actions">
-        <button type="button" className="persona-continue" disabled={dbFormationsLoading || partnerFormationsLoading} onClick={continueFromFormationReveal}>
+        <button type="button" className="persona-continue" disabled={!formationResultsReady || partnerFormationsLoading} onClick={continueFromFormationReveal}>
           Découvre tes métiers
           <PiArrowRight size={20} aria-hidden="true" focusable="false" />
         </button>
@@ -2810,7 +2689,11 @@ export default function OrientationFlow() {
         <div className="orientation-stage compact">
           <div className="orientation-card message-card">
             {renderAvatarFace()}
-            <h1>{error}</h1>
+            <h1 role="alert">{error}</h1>
+            <button type="button" className="primary-action" onClick={() => {
+              if (phase === 'analysis') runInitialAnalysis()
+              else window.location.reload()
+            }}>Réessayer</button>
           </div>
         </div>
       )
@@ -2839,14 +2722,18 @@ export default function OrientationFlow() {
                 aria-label="Revenir en arrière"
                 title="Revenir en arrière"
               >
-                <i className="ph ph-arrow-left" aria-hidden="true" />
+                <PiArrowLeft aria-hidden="true" />
               </button>
             )}
             <img src="/static/images/logo-dark.png" alt="Zélia" />
           </div>
           <span className="flow-step-label">{stepLabel}</span>
         </div>
-        <div className="flow-progress"><span style={{ width: `${progress}%` }} /></div>
+        {!loading && ['intro', 'questions', 'info'].includes(phase) && (
+          <div className="flow-progress" role="progressbar" aria-label="Progression du questionnaire" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
+            <span style={{ width: `${progress}%` }} />
+          </div>
+        )}
       </header>
       {renderPhase()}
     </main>

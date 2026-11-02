@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import api, { usersAPI, ecolesAPI } from '../lib/api';
+import { dedupePartnerCampuses } from '../lib/partnerRelevance';
 import { ALL_QUEST_IDS, MAX_LEVEL, XP_PER_LEVEL, completeQuest, questLabel } from '../lib/progression';
 
 // Zélia Game Engine - French Career Orientation Game
@@ -439,7 +440,7 @@ const Activites = () => {
                 try {
                     const ecolesRes = await ecolesAPI.matched().catch(() => null);
                     const matchedEcoles = Array.isArray(ecolesRes?.data?.matched) ? ecolesRes.data.matched : [];
-                    if (isMounted) setEcolesPreview(matchedEcoles);
+                    if (isMounted) setEcolesPreview(dedupePartnerCampuses(matchedEcoles));
                 } catch {}
             } catch (e) {
                 console.error('Init load error:', e);

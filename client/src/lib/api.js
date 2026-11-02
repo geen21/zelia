@@ -251,7 +251,7 @@ export const waitlistAPI = {
 export const ecolesAPI = {
   partenaires: () => apiClient.get('/ecoles/partenaires'),
   formation: (id) => apiClient.get(`/ecoles/partenaires/${id}`),
-  matched: () => apiClient.get('/ecoles/matched'),
+  matched: (config) => apiClient.get('/ecoles/matched', config),
   submit: (formationId) => apiClient.post('/ecoles/submit', { formation_id: formationId, sharingVersion: SCHOOL_SHARING_VERSION }),
   mySubmissions: () => apiClient.get('/ecoles/my-submissions')
 }

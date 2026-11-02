@@ -65,7 +65,24 @@ const CAREER_DOMAIN_TERMS = {
   terrain_sport: ['sport', 'environnement', 'agriculture', 'aménagement'],
   science_numerique: ['informatique', 'numérique', 'data', 'mathématiques', 'physique', 'biologie'],
   hotellerie_restauration: ['hôtellerie', 'restauration', 'cuisine', 'tourisme'],
-  commerce_entrepreneuriat: ['commerce', 'vente', 'management', 'entrepreneuriat', 'marketing']
+  commerce_entrepreneuriat: ['commerce', 'vente', 'management', 'entrepreneuriat', 'marketing'],
+  // Labels saved by earlier versions of the questionnaire.
+  arts_creation: ['design', 'graphisme', 'création', 'audiovisuel'],
+  sciences_recherche: ['recherche', 'data', 'mathématiques', 'physique', 'biologie', 'chimie'],
+  technologie_numerique: ['informatique', 'numérique', 'développement web', 'cybersécurité', 'réseaux', 'data'],
+  sante_bien_etre: ['santé', 'paramédical', 'bien-être', 'esthétique'],
+  education_formation: ['éducation', 'enseignement', 'animation'],
+  commerce_vente: ['commerce', 'vente', 'négociation', 'business'],
+  marketing_communication: ['marketing', 'communication', 'publicité'],
+  finance_gestion: ['finance', 'comptabilité', 'gestion', 'banque'],
+  droit_justice: ['droit', 'justice', 'juridique'],
+  environnement_developpement_durable: ['environnement', 'développement durable', 'écologie', 'énergie'],
+  sport_loisirs: ['sport', 'STAPS', 'loisirs'],
+  transport_logistique: ['transport', 'logistique'],
+  batiment_travaux_publics: ['bâtiment', 'BTP', 'travaux publics', 'génie civil'],
+  cuisine_hotellerie: ['cuisine', 'hôtellerie', 'restauration'],
+  social_humanitaire: ['social', 'humanitaire', 'éducateur'],
+  culture_patrimoine: ['culture', 'patrimoine', 'musée']
 }
 
 export function normalizeRelevanceText(value) {
@@ -107,8 +124,28 @@ function significantOriginalWords(text) {
     .map((word) => word.toLowerCase())
 }
 
+// Expand diploma acronyms in both recommendations and formation titles.
+const FORMATION_ACRONYMS = {
+  sio: 'services informatiques organisations',
+  ciel: 'cybersécurité informatique réseaux électronique',
+  ndrc: 'négociation digitalisation relation client commerce',
+  mco: 'management commercial commerce',
+  gpme: 'gestion PME',
+  mmi: 'multimédia internet communication web',
+  gea: 'gestion entreprises administrations',
+  geii: 'génie électrique informatique industrielle',
+  gmp: 'génie mécanique productique',
+  qhse: 'qualité hygiène sécurité environnement',
+  staps: 'sport'
+}
+
 function stemSet(text) {
-  return new Set(significantTokens(text).map(stem))
+  const stems = new Set()
+  for (const token of significantTokens(text)) {
+    stems.add(stem(token))
+    for (const expanded of significantTokens(FORMATION_ACRONYMS[token])) stems.add(stem(expanded))
+  }
+  return stems
 }
 
 // Each signal token accepts its own stem plus the stems of related terms.
@@ -123,7 +160,9 @@ function buildTokenAlternatives(token) {
 }
 
 function buildGroup(kind, label, text, weight) {
-  const tokens = [...new Set(significantTokens(text))]
+  const tokens = [...new Set(significantTokens(text).flatMap((token) => (
+    FORMATION_ACRONYMS[token] ? significantTokens(FORMATION_ACRONYMS[token]) : [token]
+  )))]
   if (!tokens.length) return null
   return {
     kind,
@@ -146,6 +185,10 @@ function pickTitle(item, keys) {
   return ''
 }
 
+function getCareerDomainTerms(domain) {
+  return CAREER_DOMAIN_TERMS[normalizeRelevanceText(domain).replace(/ /g, '_')] || []
+}
+
 export function buildFormationRelevanceProfile({ analysis, profile = {} } = {}) {
   const block = getAnalysisBlock(analysis) || {}
   const jobs = Array.isArray(block.jobRecommendations) ? block.jobRecommendations : []
@@ -161,7 +204,7 @@ export function buildFormationRelevanceProfile({ analysis, profile = {} } = {}) 
       const title = pickTitle(job, ['title', 'intitule'])
       return buildGroup('job', title, title, 1)
     }),
-    ...domains.flatMap((domain) => (CAREER_DOMAIN_TERMS[domain] || []).map((term) => buildGroup('domain', term, term, 0.65)))
+    ...domains.flatMap((domain) => getCareerDomainTerms(domain).map((term) => buildGroup('domain', term, term, 0.65)))
   ].filter(Boolean)
 
   return { groups }

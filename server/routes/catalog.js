@@ -115,7 +115,11 @@ function buildFormationSearchKeywords(query) {
 }
 
 function escapePostgrestFilterValue(value) {
-  return String(value || '').replace(/,/g, '\\,').replace(/%/g, '\\%').replace(/_/g, '\\_')
+  return String(value || '').replace(/[\\%_]/g, '\\$&')
+}
+
+function quotePostgrestFilterValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
 }
 
 function makePagePayload(rows, page, pageSize) {
@@ -171,15 +175,15 @@ async function runFormationFallbackSearch({ normalizedQuery, region, departement
 
   if (region) query = query.ilike('region', `%${escapePostgrestFilterValue(region)}%`)
   if (departement) {
-    const safeDepartment = escapePostgrestFilterValue(departement)
-    query = query.or(`departement.ilike.%${safeDepartment}%,commune.ilike.%${safeDepartment}%`)
+    const pattern = quotePostgrestFilterValue(`%${escapePostgrestFilterValue(departement)}%`)
+    query = query.or(`departement.ilike.${pattern},commune.ilike.${pattern}`)
   }
 
   const fallbackTerms = buildFormationFallbackTerms(normalizedQuery)
   if (fallbackTerms.length) {
     const filters = fallbackTerms.flatMap((term) => {
-      const safeTerm = escapePostgrestFilterValue(term)
-      return FORMATION_FALLBACK_COLUMNS.map((column) => `${column}.ilike.%${safeTerm}%`)
+      const pattern = quotePostgrestFilterValue(`%${escapePostgrestFilterValue(term)}%`)
+      return FORMATION_FALLBACK_COLUMNS.map((column) => `${column}.ilike.${pattern}`)
     })
     query = query.or(filters.join(','))
   }

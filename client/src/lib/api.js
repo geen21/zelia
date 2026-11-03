@@ -179,7 +179,7 @@ export const orientationAPI = {
     headers: { 'Cache-Control': 'no-cache' },
     params: { _: Date.now(), ...params }
   }),
-  searchFormations: (params = {}) => apiClient.get('/catalog/formations/search', { params }),
+  searchFormations: (params = {}, { signal } = {}) => apiClient.get('/catalog/formations/search', { params, signal }),
   searchMetiers: (params = {}) => apiClient.get('/catalog/metiers/search', { params }),
   getMatchedSchools: () => apiClient.get('/ecoles/matched'),
   getPartnerSchools: () => apiClient.get('/ecoles/partenaires'),

@@ -63,6 +63,7 @@ const loaded = await loadExplorerCatalog(async (params) => {
 }, { context, department: 'Paris' })
 assert.equal(nationalExplorerCards(loaded.rows, context).filter((card) => card.score != null).length, 24, 'Continue after an off-topic first SQL page')
 assert.ok(requests.some((params) => params.page === 2))
+assert.equal(requests.length, 3, 'A visit performs at most three national searches in total')
 assert.deepEqual(loaded.nextQueries, [{ q: 'services informatiques organisations', page: 3 }])
 assert.deepEqual(loaded.errors, [])
 
@@ -83,7 +84,7 @@ assert.deepEqual(mixExplorerCards(cards), sortExplorerCards(cards))
 const partial = await loadExplorerCatalog(async ({ q }) => {
   if (q === 'BTS SIO') throw new Error('Catalogue unavailable')
   return { data: { items: nationalRows.slice(0, 24), has_more: false } }
-}, { context })
+}, { context, queries: [{ q: 'BTS SIO', page: 1 }, { q: 'services informatiques organisations', page: 1 }] })
 assert.equal(partial.errors.length, 1)
 assert.equal(partial.rows.length, 24, 'Keep successful national searches alongside explicit errors')
 const invalid = await loadExplorerCatalog(async () => ({ data: { items: null } }), { search: 'informatique' })
@@ -100,4 +101,49 @@ assert.equal(browseQuery, '', 'Students without a test can browse national forma
 assert.equal(browse.rows.length, 2)
 assert.ok(nationalExplorerCards(browse.rows).every((card) => card.score == null))
 assert.deepEqual(browse.nextQueries, [{ q: '', page: 2 }])
-console.log('Formation explorer: national discovery and pagination, 18/6 first-page mix, identical scores, all partners, errors and safe links verified.')
+
+const manyQueries = Array.from({ length: 10 }, (_, i) => ({ q: `topic ${i}`, page: 1 }))
+const gentleRequests = []
+let concurrent = 0
+let maxConcurrent = 0
+const gentleSearch = async (params) => {
+  gentleRequests.push(params)
+  concurrent += 1
+  maxConcurrent = Math.max(maxConcurrent, concurrent)
+  await new Promise((resolve) => setTimeout(resolve, 1))
+  concurrent -= 1
+  return { data: { items: [], has_more: true } }
+}
+const gentle = await loadExplorerCatalog(gentleSearch, { context, queries: manyQueries, department: 'Paris' })
+assert.equal(gentleRequests.length, 3, 'The budget applies across every topic and page, not per topic')
+assert.equal(maxConcurrent, 1, 'No parallel national requests')
+assert.ok(gentleRequests.every((params) => params.page_size === 24 && params.departement === 'Paris'))
+assert.deepEqual(gentle.nextQueries, [
+  ...manyQueries.slice(3), ...manyQueries.slice(0, 3).map((query) => ({ ...query, page: 2 }))
+])
+assert.ok(manyQueries.every((query) => query.page === 1), 'The continuation never mutates its input')
+const continued = await loadExplorerCatalog(gentleSearch, { context, queries: gentle.nextQueries })
+assert.equal(gentleRequests.length, 6, 'The next bounded batch requires an explicit invocation')
+assert.deepEqual(gentleRequests.slice(3).map(({ q }) => q), ['topic 3', 'topic 4', 'topic 5'])
+assert.equal(continued.nextQueries.length, 10, 'Unvisited topics and pages remain available')
+
+let earlyRequests = 0
+const early = await loadExplorerCatalog(async () => {
+  earlyRequests += 1
+  return { data: { items: nationalRows.slice(0, 24), has_more: true } }
+}, { context, queries: manyQueries })
+assert.equal(earlyRequests, 1, 'Stop as soon as the first page of relevant formations is available')
+assert.deepEqual(early.nextQueries, [...manyQueries.slice(1), { ...manyQueries[0], page: 2 }])
+
+const controller = new AbortController()
+let abortedRequests = 0
+const aborted = await loadExplorerCatalog(async (params, { signal }) => {
+  abortedRequests += 1
+  assert.equal(signal, controller.signal)
+  controller.abort()
+  throw new Error('Cancelled transport')
+}, { context, signal: controller.signal })
+assert.equal(aborted, null, 'Expected cancellation does not become an error or partial success')
+assert.equal(abortedRequests, 1, 'An obsolete search must not start more pages or topics')
+assert.equal(await loadExplorerCatalog(() => assert.fail('Aborted searches must not start'), { signal: controller.signal }), null)
+console.log('Formation explorer: bounded sequential discovery, continuation, cancellation, 18/6 first-page mix, scores, all partners, errors and safe links verified.')

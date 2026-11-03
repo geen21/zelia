@@ -151,7 +151,9 @@ Dans l'espace eleve, `/app/formations` affiche au contraire un catalogue commun 
 
 La page recalcule les correspondances a chaque visite avec le bilan et le profil courants. Les partenaires sont enrichis par `/api/ecoles/matched` ; les autres restent "A explorer" sans pourcentage. Les formations nationales utilisent les memes fonctions de pertinence et de niveau que le test. La priorite ne change jamais le pourcentage ; dans cette grille elle departage seulement des partenaires de meme score. Les cartes ouvrent les fiches existantes, sans creer de demande de contact. La preference de mobilite n'impose pas de filtre au catalogue partenaire complet. Un timeout persistant de la recherche nationale renvoie `503`, et non une liste vide de succes, pour permettre une reprise explicite.
 
-Verification ciblee : depuis `server`, `node --test scripts/verify_partner_matching.test.mjs` couvre aussi la pagination de 2005 partenaires et une panne de page intermediaire. Depuis `client`, `npm run verify:formations-ui` couvre la grille commune avec API simulees.
+La grille attend les deux sources pour son premier affichage. La decouverte nationale effectue au plus trois appels successifs par visite ou clic, puis conserve les pages et sujets restants pour une demande explicite. Chaque appel garde sa pagination et le cache serveur de cinq minutes. En repli PostgREST, les valeurs des filtres OR sont entre guillemets et echappees, y compris les parentheses, virgules, guillemets et caracteres de motif presents dans les intitules.
+
+Verification ciblee : depuis `server`, `node --test scripts/verify_partner_matching.test.mjs scripts/verify_catalog_search.test.mjs` couvre aussi la pagination de 2005 partenaires, les titres complexes, le cache et les pannes de recherche. Depuis `client`, `npm run verify:formations-ui` couvre la grille commune avec API simulees.
 
 ### Ajouter une formation sur plusieurs campus
 

@@ -17,40 +17,34 @@ export function buildExplorerProfile(entries = [], profile = {}) {
 }
 
 export async function loadExplorerCatalog(searchFormations, {
-  context = {}, search = '', department = '', pageSize = 24, queries, isCurrent = () => true
+  context = {}, search = '', department = '', pageSize = 24, queries, signal, isCurrent = () => true
 } = {}) {
   const relevanceProfile = buildFormationRelevanceProfile(context)
   const personalized = !search && relevanceProfile.groups.length > 0
-  let pending = queries || (search ? [search] : personalized ? buildRelevanceDiscoveryQueries(relevanceProfile) : [''])
+  const pending = queries ? [...queries] : (search ? [search] : personalized ? buildRelevanceDiscoveryQueries(relevanceProfile) : [''])
     .map((q) => ({ q, page: 1 }))
   const rows = new Map()
   const errors = []
+  const active = () => isCurrent() && !signal?.aborted
 
-  // SQL ranking is not thematic relevance: scan past off-topic pages, without
-  // relaxing the student's location or level to fill the grid.
-  for (let wave = 0; wave < 3 && pending.length; wave += 1) {
-    const next = []
-    for (let start = 0; start < pending.length; start += 3) {
-      if (!isCurrent()) return null
-      const batch = pending.slice(start, start + 3)
-      const results = await Promise.allSettled(batch.map(async ({ q, page }) => {
-        const { data } = await searchFormations({ q, departement: department, page, page_size: pageSize })
-        if (!Array.isArray(data?.items)) throw new Error('Invalid formation catalogue response')
-        return data
-      }))
-      if (!isCurrent()) return null
-      results.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          errors.push(result.reason)
-          return
-        }
-        for (const row of result.value.items) {
-          if (row.id != null) rows.set(String(row.id), row)
-        }
-        if (result.value.has_more === true) next.push({ ...batch[index], page: batch[index].page + 1 })
-      })
+  // Keep each visit/click bounded; remaining topics and pages wait for the user.
+  for (let request = 0; request < 3 && pending.length; request += 1) {
+    if (!active()) return null
+    const current = pending.shift()
+    try {
+      const { data } = await searchFormations({
+        q: current.q, departement: department, page: current.page, page_size: pageSize
+      }, { signal })
+      if (!active()) return null
+      if (!Array.isArray(data?.items)) throw new Error('Invalid formation catalogue response')
+      for (const row of data.items) {
+        if (row.id != null) rows.set(String(row.id), row)
+      }
+      if (data.has_more === true) pending.push({ ...current, page: current.page + 1 })
+    } catch (error) {
+      if (!active()) return null
+      errors.push(error)
     }
-    pending = next
     const cards = nationalExplorerCards([...rows.values()], context)
     if (!personalized || cards.filter((card) => card.score != null).length >= pageSize) break
   }

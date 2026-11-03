@@ -25,7 +25,7 @@ export default function FormationsEcoles() {
   const [city, setCity] = useState('')
   const [nationwide, setNationwide] = useState(false)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
-  const [catalog, setCatalog] = useState({ key: '', rows: [], loading: true, error: '', nextQueries: [] })
+  const [catalog, setCatalog] = useState({ key: '', rows: [], loading: true, ready: false, error: '', nextQueries: [] })
   const [catalogRequest, setCatalogRequest] = useState({ key: '', queries: null })
   const [submitting, setSubmitting] = useState(new Set())
   const [submissionError, setSubmissionError] = useState('')
@@ -77,15 +77,16 @@ export default function FormationsEcoles() {
   useEffect(() => {
     if (resources.context.loading) return
     let active = true
+    const controller = new AbortController()
     if (missingLocation) {
-      setCatalog({ key: catalogKey, rows: [], loading: false, error: '', nextQueries: [] })
+      setCatalog({ key: catalogKey, rows: [], loading: false, ready: true, error: '', nextQueries: [] })
       return
     }
     const append = catalogRequest.key === catalogKey && catalogRequest.queries != null
-    setCatalog((prev) => ({ ...prev, key: catalogKey, rows: append ? prev.rows : [], loading: true, error: '', nextQueries: [] }))
+    setCatalog((prev) => ({ ...prev, key: catalogKey, rows: append ? prev.rows : [], loading: true, ready: append && prev.ready, error: '', nextQueries: [] }))
     loadExplorerCatalog(orientationAPI.searchFormations, {
       context: context || {}, search, department, pageSize: PAGE_SIZE,
-      queries: append ? catalogRequest.queries : undefined, isCurrent: () => active
+      queries: append ? catalogRequest.queries : undefined, signal: controller.signal, isCurrent: () => active
     }).then((result) => {
       if (!active || !result) return
       result.errors.forEach((error) => console.error('Formation catalog search failed', error))
@@ -93,14 +94,15 @@ export default function FormationsEcoles() {
         key: catalogKey,
         rows: [...(append ? prev.rows : []), ...result.rows],
         loading: false,
+        ready: true,
         error: result.errors.length ? 'Certaines formations n’ont pas pu être chargées. Réessaie pour compléter les résultats.' : '',
         nextQueries: result.nextQueries
       }))
     }, (error) => {
       console.error('Formation catalog loading failed', error)
-      if (active) setCatalog((prev) => ({ ...prev, loading: false, error: 'Impossible de charger les formations nationales. Réessaie dans un instant.' }))
+      if (active) setCatalog((prev) => ({ ...prev, loading: false, ready: true, error: 'Impossible de charger les formations nationales. Réessaie dans un instant.' }))
     })
-    return () => { active = false }
+    return () => { active = false; controller.abort() }
   }, [context, resources.context.loading, search, department, missingLocation, catalogKey, catalogRequest])
 
   const partners = useMemo(() => partnerExplorerCards(resources.partners.data || [], resources.matched.data || []), [resources.partners.data, resources.matched.data])
@@ -116,16 +118,18 @@ export default function FormationsEcoles() {
   ])
   const anchorId = location.hash.startsWith('#formation-') ? location.hash.slice(11) : ''
   const anchorIndex = filtered.findIndex((card) => card.source === 'partner' && String(card.id) === anchorId)
-  const displayed = filtered.slice(0, Math.max(visibleCount, anchorIndex + 1))
+  const initialLoading = resources.context.loading || resources.partners.loading || resources.matched.loading
+    || catalog.key !== catalogKey || !catalog.ready || search !== q.trim()
+  const displayed = initialLoading ? [] : filtered.slice(0, Math.max(visibleCount, anchorIndex + 1))
   const submitted = new Set((resources.submissions.data || []).map((entry) => String(entry.formation_id)))
   const relevantCount = allCards.filter((card) => card.score != null).length
   const bestKey = allCards[0]?.score >= BEST_MATCH_MIN_SCORE ? allCards[0].key : null
-  const busy = resources.context.loading || resources.partners.loading || resources.matched.loading || catalog.loading
+  const busy = initialLoading || catalog.loading
 
   useEffect(() => {
-    if (!anchorId || anchorIndex < 0) return
+    if (initialLoading || !anchorId || anchorIndex < 0) return
     document.getElementById(`formation-${anchorId}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  }, [anchorId, anchorIndex])
+  }, [anchorId, anchorIndex, initialLoading])
 
   const submit = async (id) => {
     const key = String(id)
@@ -174,13 +178,14 @@ export default function FormationsEcoles() {
     {nationwide && <p className="fe-explanation">Recherche nationale élargie : vérifie la localisation avant de poursuivre.</p>}
 
     <div className="fe-summary" aria-live="polite">
-      <p>{filtered.filter((card) => card.source === 'national').length} formations nationales · {filtered.filter((card) => card.source === 'partner').length} formations partenaires</p>
+      {!initialLoading && <p>{filtered.filter((card) => card.source === 'national').length} formations nationales · {filtered.filter((card) => card.source === 'partner').length} formations partenaires</p>}
       {displayed.length < filtered.length && <span>{displayed.length} sur {filtered.length} affichées</span>}
       {busy && <span role="status">Recherche de tes formations…</span>}
     </div>
     {catalog.error && <div role="alert" className="fe-error">{catalog.error} <button onClick={() => setRetry((prev) => prev + 1)}>Réessayer les formations</button></div>}
-    {!busy && !catalog.error && !nationals.length && nearHome && !missingLocation && <p className="fe-notice">Aucune formation nationale trouvée près de chez toi. Coche « Élargir la recherche nationale à toute la France » pour explorer d’autres établissements.</p>}
-    {!busy && hasSignals && !relevantCount && !search && <p className="fe-notice">Aucune correspondance trouvée pour le moment. Explore les partenaires ci-dessous ou essaie une recherche plus large.</p>}
+    {!busy && !catalog.error && !catalog.nextQueries.length && !nationals.length && nearHome && !missingLocation && <p className="fe-notice">Aucune formation nationale trouvée près de chez toi. Coche « Élargir la recherche nationale à toute la France » pour explorer d’autres établissements.</p>}
+    {!busy && !catalog.error && !catalog.nextQueries.length && hasSignals && !relevantCount && !search && <p className="fe-notice">Aucune correspondance trouvée pour le moment. Explore les partenaires ci-dessous ou essaie une recherche plus large.</p>}
+    {!busy && catalog.nextQueries.length > 0 && !nationals.length && <p className="fe-notice">La recherche nationale se fait par petits lots. Continue pour découvrir d’autres formations.</p>}
 
     <p className="fe-sharing">{SCHOOL_SHARING_NOTICE} Explorer une fiche ne déclenche aucun partage.</p>
     <div className="fe-grid" aria-label="Formations et écoles">
@@ -208,7 +213,7 @@ export default function FormationsEcoles() {
     {!busy && !filtered.length && <p className="fe-notice">Aucune formation affichée. Essaie un autre mot-clé ou réinitialise les filtres.</p>}
     <div className="fe-more">
       {displayed.length < filtered.length && <button className="fe-secondary" onClick={() => setVisibleCount((prev) => Math.max(prev, anchorIndex + 1) + PAGE_SIZE)}>Afficher plus de formations ({filtered.length - displayed.length})</button>}
-      {catalog.nextQueries.length > 0 && <button className="fe-secondary" disabled={catalog.loading} onClick={() => { setCatalogRequest({ key: catalogKey, queries: catalog.nextQueries }); setVisibleCount((prev) => prev + PAGE_SIZE) }}>Chercher d’autres formations nationales</button>}
+      {!initialLoading && catalog.nextQueries.length > 0 && <button className="fe-secondary" disabled={catalog.loading} onClick={() => { setCatalogRequest({ key: catalogKey, queries: catalog.nextQueries }); setVisibleCount((prev) => prev + PAGE_SIZE) }}>Chercher d’autres formations nationales</button>}
     </div>
   </div>
 }

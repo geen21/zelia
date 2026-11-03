@@ -55,6 +55,11 @@ async function prepare(viewport, options = {}) {
     const path = url.pathname.replace(/^.*\/api/, '')
     state.requests.push({ path, q: url.searchParams.get('q'), page: url.searchParams.get('page'), department: url.searchParams.get('departement') })
     if (path === state.failure) return route.fulfill({ status: 503, json: { error: 'Fixture temporarily unavailable' } })
+    if (path === state.heldPath) {
+      state.heldStarted = true
+      await new Promise((resolve) => { state.releaseHeld = resolve })
+      state.heldPath = ''
+    }
     let data
     const analysis = state.noTest ? null : { studyRecommendations: [{ degree: state.degree }] }
     if (path === '/users/profile') data = { profile: user }
@@ -122,6 +127,37 @@ async function showAllLoaded(page) {
 }
 
 try {
+  for (const heldPath of ['/catalog/formations/search', '/ecoles/partenaires', '/ecoles/matched']) {
+    const { context, page, state, errors } = await prepare({ width: 390, height: 844 }, { discovery: true, heldPath })
+    try {
+      await page.goto(`${base}/app/formations`)
+      await expect.poll(() => state.heldStarted).toBe(true)
+      await expect.poll(() => state.requests.filter((r) => r.path === '/ecoles/matched').length).toBeGreaterThan(0)
+      await page.waitForTimeout(500)
+      await expect(page.getByRole('status')).toBeVisible()
+      await expect(page.locator('.fe-card')).toHaveCount(0, 'Neither source appears alone while the first batch is pending')
+      state.releaseHeld()
+      await ready(page)
+      await expect(page.locator('.fe-card[data-source=national]')).toHaveCount(18)
+      await expect(page.locator('.fe-card[data-source=partner]')).toHaveCount(6)
+      const initialRequests = state.requests.filter((r) => r.path === '/catalog/formations/search').length
+      assert.equal(initialRequests, 3)
+      await page.waitForTimeout(500)
+      assert.equal(state.requests.filter((r) => r.path === '/catalog/formations/search').length, initialRequests, 'No automatic background scan')
+      state.heldPath = '/catalog/formations/search'
+      state.heldStarted = false
+      await page.getByRole('button', { name: 'Chercher d’autres formations nationales' }).click()
+      await expect.poll(() => state.heldStarted).toBe(true)
+      await expect(page.locator('.fe-card[data-source=national]').first()).toBeVisible()
+      await expect(page.locator('.fe-card[data-source=partner]').first()).toBeVisible()
+      state.releaseHeld()
+      await ready(page)
+      await showAllLoaded(page)
+      await expect(page.locator('.fe-card[data-source=national]')).toHaveCount(discoveredRows.length)
+      assert.deepEqual(errors, [])
+    } finally { await context.close() }
+  }
+
   for (const [name, viewport] of [
     ['desktop', { width: 1440, height: 1000 }],
     ['mobile', { width: 390, height: 844 }],

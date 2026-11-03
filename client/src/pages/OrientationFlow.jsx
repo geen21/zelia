@@ -8,6 +8,7 @@ import OrientationLoading from '../components/OrientationLoading.jsx'
 import OrientationFormationResults from '../components/OrientationFormationResults.jsx'
 import { SCHOOL_SHARING_VERSION } from '../lib/schoolSharing'
 import { mixFormationResults } from '../lib/orientationFormationResults.js'
+import { getDepartmentCity } from '../lib/departments.js'
 import { buildFormationRelevanceProfile, buildRelevanceSearchQueries, scoreFormationRelevance } from '../lib/formationRelevance.js'
 import { FORMATION_PREFERENCE_LEVELS, filterCandidatesByTargetStudyLevel, getTargetStudyLevel, inferFormationStudyLevel } from '../lib/formationLevel.js'
 import { buildLoreleiUrl, buildPersonaAvatarConfig, computePersonaFromAnswers, getPersonaBySlug } from '../lib/personas.js'
@@ -37,33 +38,6 @@ const PROFILE_IDENTITY_KEY = 'orientation_profile_identity'
 const ORIENTATION_SHARE_URL = 'https://zelia.io/orientation?utm_source=Appfinparcours&utm_medium=Appfinparcours&utm_campaign=SharedLink-Appfinparcours&utm_id=Tracker-Shared-Link'
 const DEFAULT_PROFILE_IDENTITY = { firstName: '', lastName: '', gender: '' }
 const FORMATION_ANCHOR_STOPWORDS = new Set(['formation', 'formations', 'piste', 'parcours', 'etude', 'etudes', 'ecole', 'ecoles', 'universite', 'lycee', 'cfa', 'iut', 'cnam', 'greta', 'diplome', 'metier', 'metiers', 'professionnel', 'professionnelle', 'initiale', 'alternance', 'bts', 'but', 'dut', 'licence', 'bachelor', 'master', 'mastere', 'mba', 'msc', 'ingenieur', 'de', 'du', 'des', 'en', 'et', 'a', 'au', 'aux', 'le', 'la', 'les', 'pour', 'avec', 'dans', 'niveau', 'vise'])
-
-const PARTNER_CITY_BY_DEPARTMENT_CODE = {
-  '06': 'Nice',
-  '14': 'Caen',
-  '31': 'Toulouse',
-  '33': 'Bordeaux',
-  '34': 'Montpellier',
-  '35': 'Rennes',
-  '38': 'Grenoble',
-  '44': 'Nantes',
-  '49': 'Angers',
-  '54': 'Nancy',
-  '56': 'Vannes',
-  '59': 'Lille',
-  '69': 'Lyon',
-  '74': 'Annecy',
-  '75': 'Paris',
-  '77': 'Melun',
-  '78': 'St-Quentin-en-Yvelines',
-  '91': 'Paris',
-  '92': 'Paris',
-  '93': 'Paris',
-  '94': 'Paris',
-  '95': 'Paris'
-}
-
-const PARTNER_CITIES = new Set(Object.values(PARTNER_CITY_BY_DEPARTMENT_CODE).map((city) => city.toLowerCase()))
 
 const FALLBACK_QUESTION_OPTIONS = [
   { label: 'Non', value: 'non' },
@@ -351,20 +325,8 @@ function isSameLocation(left, right) {
   return a === b || a.includes(b) || b.includes(a)
 }
 
-function getPartnerCityForDepartment(department = {}) {
-  const directCity = department.city || department.ville || department.commune || ''
-  if (directCity) return directCity
-
-  const code = String(department.code || '').toUpperCase()
-  if (PARTNER_CITY_BY_DEPARTMENT_CODE[code]) return PARTNER_CITY_BY_DEPARTMENT_CODE[code]
-
-  const departmentName = String(department.name || '').trim()
-  if (departmentName && PARTNER_CITIES.has(departmentName.toLowerCase())) return departmentName
-  return ''
-}
-
 function getPreferredNearHomeLocation(department = {}) {
-  return getPartnerCityForDepartment(department) || department.city || department.name || department.code || ''
+  return getDepartmentCity(department) || department.name || department.code || ''
 }
 
 function getCandidateCity(candidate) {

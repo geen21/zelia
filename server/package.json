@@ -13,6 +13,8 @@
     "verify:school-registration": "node scripts/verify_school_registration.mjs",
     "verify:school-portal": "node --test scripts/verify_school_dashboard.test.mjs scripts/verify_school_dashboard_api.test.mjs",
     "verify:sitemap": "node --test scripts/verify_sitemap.test.mjs",
+    "metiers": "node scripts/metier-pages.mjs",
+    "verify:metiers": "node --test scripts/verify_metier_pages.test.mjs",
     "verify:payments": "node --test scripts/verify_payment_security.test.mjs scripts/verify_profile_payment_permissions.test.mjs"
   },
   "dependencies": {

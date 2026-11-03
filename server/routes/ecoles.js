@@ -3,36 +3,12 @@ import { supabaseAdmin } from '../config/supabase.js'
 import { authenticateToken } from '../middleware/auth.js'
 import { fetchActivePartnerFormations, matchPartnerFormations } from '../utils/partnerMatching.js'
 import { notifyPortalLeads, SHARING_VERSION } from '../utils/schoolDashboard.js'
+import { getDepartmentCity } from '../../client/src/lib/departments.js'
 
 const router = express.Router()
 
 const EXTRA_INFO_MATCHING_LIMIT = 250
 const MAX_MATCHING_SIGNAL_LENGTH = 12000
-
-const PARTNER_CITY_BY_DEPARTMENT_CODE = {
-  '06': 'Nice',
-  '14': 'Caen',
-  '31': 'Toulouse',
-  '33': 'Bordeaux',
-  '34': 'Montpellier',
-  '35': 'Rennes',
-  '38': 'Grenoble',
-  '44': 'Nantes',
-  '49': 'Angers',
-  '54': 'Nancy',
-  '56': 'Vannes',
-  '59': 'Lille',
-  '69': 'Lyon',
-  '74': 'Annecy',
-  '75': 'Paris',
-  '77': 'Melun',
-  '78': 'St-Quentin-en-Yvelines',
-  '91': 'Paris',
-  '92': 'Paris',
-  '93': 'Paris',
-  '94': 'Paris',
-  '95': 'Paris'
-}
 
 function normalizeLocationText(value) {
   return String(value || '')
@@ -48,13 +24,6 @@ function sameCity(left, right) {
   const b = normalizeLocationText(right)
   if (!a || !b) return false
   return a === b || a.includes(b) || b.includes(a)
-}
-
-function getPartnerCityForDepartment(code, departmentName = '') {
-  const normalizedCode = String(code || '').toUpperCase()
-  if (PARTNER_CITY_BY_DEPARTMENT_CODE[normalizedCode]) return PARTNER_CITY_BY_DEPARTMENT_CODE[normalizedCode]
-  const normalizedDepartment = normalizeLocationText(departmentName)
-  return Object.values(PARTNER_CITY_BY_DEPARTMENT_CODE).find((city) => normalizeLocationText(city) === normalizedDepartment) || ''
 }
 
 function sanitizeMatchingEntry(entry) {
@@ -155,8 +124,12 @@ router.get('/matched', authenticateToken, async (req, res) => {
     const departmentCode = pickFirstValue('orientation_department') || profile?.department || ''
     const departmentName = pickFirstValue('orientation_department_name') || institutionData.department_name || ''
     const nearHomeCity = studyLocation === 'near_home'
-      ? (storedCity || getPartnerCityForDepartment(departmentCode, departmentName))
+      ? getDepartmentCity({ city: storedCity, code: departmentCode, name: departmentName })
       : ''
+
+    if (studyLocation === 'near_home' && !nearHomeCity) {
+      return res.status(400).json({ error: 'Renseigne une ville ou un département reconnu pour rechercher près de chez toi.' })
+    }
 
     const formations = await fetchActivePartnerFormations(supabaseAdmin, { resultsOnly: true })
 

@@ -7,6 +7,28 @@ Run
 1. Install: npm install
 2. Dev server: npm run dev (proxy /api to http://localhost:8000)
 
+Landing publique (/)
+- Contenus historiques et avatar Zelia d'origine (DiceBear Lorelei, seed `zelia`), dans une palette citron/rose vive inspiree du blog, avec aplats colores et ombres decalees. Les styles restent scopes a `.zelia-home` dans `src/pages/Home.css`.
+- Le menu, l'apercu editorial et le pied de page donnent acces au blog. Les trois derniers articles proviennent de `src/pages/blog/posts.js`, tries par date decroissante comme la liste du blog, sans modifier le catalogue. Leurs couvertures reutilisent `BlogCover`.
+- Les parcours orientation, parents, ecoles et connexion, le partage et les redirections des utilisateurs connectes sont conserves. Le lien Metiers reste conditionne par `VITE_METIER_PAGES_ENABLED`.
+
+Verification de la landing (depuis client, avec Vite sur le port 5187)
+1. `npm run dev -- --host 127.0.0.1 --port 5187 --strictPort`
+2. `npm run verify:landing-ui`
+
+`LANDING_TEST_URL` permet de choisir un autre serveur Vite. Le controle couvre les largeurs 1440/1000/768/390/320 px, les articles et leur ordre, les liens, le menu mobile, le clavier, la FAQ, le partage et les redirections de connexion. Les destinations hors blog et les services externes sont simules : aucun partage, paiement ou contact reel n'est effectue. Les captures sont enregistrees dans un dossier temporaire indique en sortie.
+
+Pages metiers (/metiers/)
+- Catalogue editorial independant, conserve dans le schema Supabase `seo`, pas dans `public`.
+- Fiches courtes : verdict OUI/NON et explication liee a l'IA, reperes metier et CTA vers /orientation.
+- Aucun lien de candidature issu des anciennes annonces et aucun appel Gemini a la visite.
+- Depuis client, apres l'export serveur : `npm run build:metiers`. Le snapshot par defaut est `server/.generated/metiers.json` ; un autre fichier se choisit avec `-- --snapshot <chemin>`.
+- Le build inclut le HTML complet, les JSON par page, les liens d'annuaire, le SEO et les sitemaps. La navigation publique "Metiers" est activee uniquement par ce build.
+- Un export `--preview` produit des pages `noindex` et aucun sitemap metier. Un catalogue de production incomplet fait echouer l'export.
+- `npm run build` conserve le build historique sans activer ces pages ; une installation ayant active les metiers doit deployer avec `build:metiers`, jamais remplacer son catalogue par un build ordinaire.
+- `npm run verify:metiers` construit uniquement des donnees synthetiques locales, puis teste HTML sans JS, SEO, navigation React, erreurs et largeurs 1440/768/390/320 px. Ne jamais deployer ce build de test ; reconstruire ensuite depuis l'export reel.
+- Pour verifier le vrai echantillon et conserver son build : `npm run verify:metiers -- --snapshot ..\server\.generated\metiers.json`. La previsualisation doit rester non indexable et sans sitemap metier.
+
 Orientation (/orientation)
 - La v5 place chaque dilemme dans une phrase comparative courte, plutot que dans de longs boutons.
 - Quatre boutons colores : Carrement / Plutot oui / Plutot pas / Pas du tout. Un clic repond et avance, sans A/B ni second choix ; les touches 1-4 permettent de nuancer et les fleches/swipes choisissent les extremes.

@@ -15,6 +15,7 @@ import { fileURLToPath } from 'url'
 import { createServer } from 'vite'
 import { blogPosts } from '../src/pages/blog/posts.js'
 import { blogImageUrl, blogPageTitle, buildBlogSchema, buildBlogIndexSchema } from '../src/pages/blog/blogSeo.js'
+import { prerenderMetiers } from './prerender-metiers.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -42,7 +43,7 @@ function escHtml(str) {
     .replace(/>/g, '&gt;')
 }
 
-function injectSeo(html, { title, description, url, type, image, imageAlt, schema, publishedTime, modifiedTime }) {
+function injectSeo(html, { title, description, url, type, image, imageAlt, schema, publishedTime, modifiedTime, noindex }) {
   let out = html
 
   // Replace <title>
@@ -130,6 +131,9 @@ function injectSeo(html, { title, description, url, type, image, imageAlt, schem
   }
 
   // Add JSON-LD schema
+  if (noindex) {
+    out = out.replace('</head>', '    <meta name="robots" content="noindex, follow" data-rh="true" />\n  </head>')
+  }
   if (schema) {
     const scriptTag = `<script type="application/ld+json" data-rh="true">${JSON.stringify(schema).replace(/</g, '\\u003c')}</script>`
     out = out.replace('</head>', `    ${scriptTag}\n  </head>`)
@@ -200,6 +204,11 @@ async function main() {
     }
 
     console.log(`\n✅ Pre-rendered ${count} blog pages with SEO meta tags and five full-text articles.`)
+    if (process.env.METIER_SNAPSHOT_PATH) {
+      await prerenderMetiers({ vite, template, dist: DIST, injectSeo, snapshotPath: process.env.METIER_SNAPSHOT_PATH })
+    } else if (process.env.METIER_PAGES_REQUIRED === 'true' || process.env.VITE_METIER_PAGES_ENABLED === 'true') {
+      throw new Error('Instantané métiers obligatoire : utiliser npm run build:metiers')
+    }
   } finally {
     await vite.close()
   }

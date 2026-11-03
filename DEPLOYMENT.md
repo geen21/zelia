@@ -1,5 +1,37 @@
 # Zelia Deployment Guide
 
+## Pages metiers : contenu editorial isole
+
+1. Appliquer [migration_metier_pages.sql](server/database/migration_metier_pages.sql).
+   Tous les nouveaux objets sont dans `seo`, sans ecriture sur les annonces
+   de `public.metiers_france`. Ajouter `seo` aux schemas exposes de la Data API
+   Supabase pour les scripts serveur ; les roles `anon` et `authenticated` restent
+   interdits par les permissions de schema, tables et fonctions.
+2. Depuis `server`, executer `npm run metiers -- sync`, examiner le rapport
+   prive et les regroupements, puis `npm run metiers -- sample`. Le budget
+   total persistant est de 2 USD, echantillon et reprises inclus.
+3. Executer `npm run metiers -- export --preview`, puis depuis `client`
+   `npm run build:metiers`. Examiner les dix fiches avec l'utilisateur.
+   Une previsualisation est `noindex` et ne genere aucun sitemap metier.
+4. Seulement apres validation humaine, executer `approve-sample`, puis
+   `quote` pour le devis complet. Ne pas depasser le budget si le nombre
+   reel de metiers demande une decision supplementaire. `submit --limit 500`
+   utilise Gemini Flash-Lite Batch ; `collect` recupere les resultats sans
+   les resoumettre. Voir le [guide serveur](server/README.md#editorial-metier-pages-isolated-seo-schema).
+5. Resoudre les titres ambigus et erreurs, puis exporter sans `--preview`.
+   L'export final refuse les metiers manquants. Reconstruire avec
+   `npm run build:metiers`, qui exige un snapshot valide et inclut les liens
+   publics, HTML, JSON et sitemaps correspondants. Ne jamais deployer les
+   donnees synthetiques de `verify:metiers`.
+6. Deployer le dossier `dist` complet depuis un repertoire de release, puis
+   basculer atomiquement la version servie. Ne pas lancer Vite directement
+   dans le repertoire actuellement servi. Conserver la release precedente.
+   Installer la configuration Nginx fournie, verifier `nginx -t`, puis recharger.
+7. Controler les pages sans JavaScript, les canonical et redirections de slash,
+   les 404 de `/metiers/inconnu/` et `/metiers-data/inconnu/index.json`,
+   `robots.txt`, les sitemaps metiers et le maintien des sitemaps formations.
+   Les dates `lastmod` correspondent au contenu, pas au jour du build.
+
 ## Correctif des liens des formations selectionnees
 
 Si les selections affichent **Lien indisponible** alors que leur URL est enregistree, appliquer [migration_backoffice_selection_links.sql](server/database/migration_backoffice_selection_links.sql) apres `migration_backoffice_selections.sql`, puis actualiser le back-office. Ce correctif remplace uniquement la fonction de lecture : il restitue les liens compacts et historiques sans modifier les selections, leur date, leurs filtres ou leurs permissions. Aucun nouveau build client n'est requis pour afficher ces URL deja enregistrees. Deployer aussi le backend pour conserver les liens lors de futures sauvegardes aux anciens formats (`raw.link`, `fiche`, `etab_url`). Une URL absente ou non HTTP(S) reste indiquee comme indisponible.

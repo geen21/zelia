@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/prerender-seo.js",
+    "build:metiers": "node scripts/build-metiers.mjs",
+    "verify:metiers": "node scripts/verify-metiers.mjs",
     "preview": "vite preview",
+    "verify:landing-ui": "node scripts/verify-landing-ui.mjs",
     "verify:admin-ui": "node scripts/verify-backoffice.mjs",
     "verify:parents-ui": "node scripts/verify-parents.mjs",
     "verify:profile-ui": "node scripts/verify-profile-ui.mjs",

@@ -3,6 +3,7 @@ import test from 'node:test'
 import { buildPartnerMatchingProfile, fetchActivePartnerFormations, matchPartnerFormations } from '../utils/partnerMatching.js'
 import { buildFormationRelevanceProfile, scoreFormationRelevance } from '../../client/src/lib/formationRelevance.js'
 import { FORMATION_PREFERENCE_LEVELS, filterCandidatesByTargetStudyLevel, getTargetStudyLevel, inferFormationStudyLevel } from '../../client/src/lib/formationLevel.js'
+import { DEPARTMENTS, getDepartmentCity } from '../../client/src/lib/departments.js'
 
 const jobRecommendations = [
   { title: 'Ingénieur environnement', skills: ['Gestion de projet', 'Communication'] },
@@ -29,6 +30,39 @@ const match = (formations, values, analysisResult = {}, userCity = '') => matchP
   userCity
 })
 const ids = (matched) => matched.map((formation) => formation.id)
+
+test('all 101 registration departments resolve by code and name, including Corsica and overseas', () => {
+  const expectedCodes = [
+    ...Array.from({ length: 19 }, (_, index) => String(index + 1).padStart(2, '0')),
+    '2A', '2B',
+    ...Array.from({ length: 75 }, (_, index) => String(index + 21)),
+    '971', '972', '973', '974', '976'
+  ]
+  assert.deepEqual(DEPARTMENTS.map(([code]) => code), expectedCodes)
+  for (const [code, name, city] of DEPARTMENTS) {
+    assert.ok(city.trim(), `${code} must have a reference city`)
+    assert.equal(getDepartmentCity({ code }), city, code)
+    assert.equal(getDepartmentCity({ name }), city, name)
+  }
+  assert.equal(getDepartmentCity({ code: '13' }), 'Marseille')
+  assert.equal(getDepartmentCity({ code: '67' }), 'Strasbourg')
+  assert.equal(getDepartmentCity({ code: '61' }), 'Flers')
+  assert.equal(getDepartmentCity({ code: '62' }), 'Lens')
+  assert.equal(getDepartmentCity({ code: '80' }), 'Amiens')
+})
+
+test('department lookup normalizes saved values and preserves an explicitly supplied city', () => {
+  assert.equal(getDepartmentCity({ code: 6 }), 'Nice')
+  assert.equal(getDepartmentCity({ code: ' 2a ' }), 'Ajaccio')
+  assert.equal(getDepartmentCity({ name: ' bouches du rhone ' }), 'Marseille')
+  assert.equal(getDepartmentCity({ code: 'BAS-RHIN' }), 'Strasbourg')
+  assert.equal(getDepartmentCity({ name: "Cote-d'Or" }), 'Dijon')
+  assert.equal(getDepartmentCity({ code: '13', city: ' Aix-en-Provence ' }), 'Aix-en-Provence')
+  assert.equal(getDepartmentCity({ code: '67', ville: 'Haguenau' }), 'Haguenau')
+  assert.equal(getDepartmentCity({ commune: 'Nancy' }), 'Nancy')
+  assert.equal(getDepartmentCity({ code: 'XX' }), '')
+  assert.equal(getDepartmentCity(), '')
+})
 
 test('the active partner catalogue reads every page and propagates intermediate failures', async () => {
   const rows = Array.from({ length: 2005 }, (_, id) => ({ id, school_name: 'Same school', city: 'Paris' }))

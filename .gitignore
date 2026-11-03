@@ -7,3 +7,7 @@ build/
 
 # Ignore built client bundles
 client/dist/assets/
+
+# Private generated editorial snapshots and inventory reports
+client/.generated/
+server/.generated/

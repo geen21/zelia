@@ -32,6 +32,7 @@ import TagManager from 'react-gtm-module'
 import { usePageTracking } from './lib/usePageTracking.js'
 import { hasAuthParameters, isPrivatePortalPath } from './lib/analytics.js'
 import { TOOLBOX_ITEMS } from './lib/levelMapping.js'
+import MetierPage from './pages/metiers/MetierPage.jsx'
 
 const tagManagerArgs = {
     gtmId: 'GTM-TTNGZ2H8'
@@ -172,6 +173,7 @@ function App() {
         <Route path="/legal/mentions-legales" element={<MentionsLegales />} />
         <Route path="/legal/conditions" element={<ConditionsConfidentialite />} />
     <Route path="/blog" element={<BlogIndex />} />
+    <Route path="/metiers/*" element={<MetierPage />} />
     {editorialPosts.map((post) => (
       <Route key={post.slug} path={`/blog/${post.slug}`} element={<BlogEditorialArticle slug={post.slug} />} />
     ))}

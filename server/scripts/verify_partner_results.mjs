@@ -3,6 +3,7 @@ import { once } from 'node:events'
 import express from 'express'
 import { createAdminRouter } from '../routes/admin.js'
 import { createPlatformAdminGuard } from '../middleware/admin.js'
+import { DEPARTMENTS } from '../../client/src/lib/departments.js'
 
 process.env.SUPABASE_URL = 'https://example.invalid'
 process.env.SUPABASE_ANON_KEY = 'fixture-anon-key'
@@ -215,6 +216,52 @@ try {
   entries.find((entry) => entry.question_id === 'orientation_city').answer_text = 'Nantes'
   assert.deepEqual((await matched()).matched.map((item) => item.id),[ecvItems.find((item) => item.city === 'Nantes').id])
 
+  partners = [
+    { ...partnerTemplate, id: 'cadenelle', school_name: 'La Cadenelle', formation_name: 'Bachelor Commerce et Marketing', domain: 'Commerce', diploma_level: 'Bac+3', city: 'Marseille' },
+    { ...partnerTemplate, id: 'em-strasbourg', school_name: 'EM Strasbourg', formation_name: 'Bachelor of International Business', domain: 'Business', diploma_level: 'Bachelor', city: 'Strasbourg' },
+    { ...partnerTemplate, id: 'paris', city: 'Paris' }
+  ]
+  analysis = { ...analysis, job_recommendations: [], study_recommendations: [{ degree: 'Bachelor Business et Commerce' }] }
+  entries = [
+    { user_id: student.id, question_id: 'orientation_study_location', answer_text: 'near_home' },
+    { user_id: student.id, question_id: 'orientation_department', answer_text: '13' },
+    { user_id: student.id, question_id: 'orientation_formation_preferences', answer_text: '["bachelor"]' }
+  ]
+  assert.deepEqual((await matched()).matched.map((item) => item.id), ['cadenelle'], 'A department-only Marseille profile must not compete with national campuses')
+  entries.find((entry) => entry.question_id === 'orientation_department').answer_text = '67'
+  assert.deepEqual((await matched()).matched.map((item) => item.id), ['em-strasbourg'], 'A department-only Strasbourg profile must include EM Strasbourg')
+  entries.find((entry) => entry.question_id === 'orientation_department').answer_text = '02'
+  assert.deepEqual((await matched()).matched, [], 'No local partner must not broaden silently to the national catalogue')
+  entries.find((entry) => entry.question_id === 'orientation_department').answer_text = 'XX'
+  profile = { id: student.id }
+  const unknownLocation = await request('/ecoles/matched')
+  assert.equal(unknownLocation.status, 400, 'Unknown near-home locations must fail explicitly')
+  assert.match((await unknownLocation.json()).error, /ville|département/)
+  entries.find((entry) => entry.question_id === 'orientation_study_location').answer_text = 'anywhere'
+  assert.equal((await matched()).matched.length, 2, 'National mobility must not require a recognized department')
+
+  partners = DEPARTMENTS.map(([code, , city]) => ({ ...partnerTemplate, id: `department-${code}`, city }))
+  analysis = { ...analysis, job_recommendations: [{ title: 'Developpeur Web' }], study_recommendations: [] }
+  for (const [code, name, city] of DEPARTMENTS) {
+    entries = [
+      { user_id: student.id, question_id: 'orientation_career_domains', answer_text: '["technologie_numerique"]' },
+      { user_id: student.id, question_id: 'orientation_study_location', answer_text: 'near_home' },
+      { user_id: student.id, question_id: 'orientation_department', answer_text: code }
+    ]
+    const byCode = await matched()
+    assert.equal(byCode.userCity, city, code)
+    assert.ok(byCode.matched.some((item) => item.id === `department-${code}`), code)
+    assert.ok(byCode.matched.every((item) => item.city === city), `${code} must only return local campuses`)
+    entries[2] = { user_id: student.id, question_id: 'orientation_department_name', answer_text: name }
+    assert.deepEqual((await matched()).matched.map((item) => item.id), byCode.matched.map((item) => item.id), name)
+  }
+  entries = [
+    { user_id: student.id, question_id: 'orientation_career_domains', answer_text: '["technologie_numerique"]' },
+    { user_id: student.id, question_id: 'orientation_study_location', answer_text: 'near_home' }
+  ]
+  profile = { id: student.id, department: '13' }
+  assert.equal((await matched()).userCity, 'Marseille', 'The saved profile department must be used when orientation answers omit it')
+
   entries = []
   profile = { id: student.id }
   analysis = { ...analysis, job_recommendations: [] }
@@ -327,7 +374,7 @@ try {
   assert.equal(linksSave.status,200)
   const storedLinks = JSON.parse(entries.find((entry) => entry.question_id==='orientation_final_selection').answer_text)
   assert.deepEqual(storedLinks.map((entry) => entry.link),['https://example.com/raw-link','https://example.com/fiche','https://example.com/ecole'])
-  console.log('Partner creation -> personalized API candidates without premature cutoff, priority, visibility/city filters, pagination >1000 and 38 saved/read choices verified with local fixtures.')
+  console.log('Partner creation -> personalized API candidates without premature cutoff, priority, all 101 departments by code/name, Marseille/Strasbourg, visibility/city filters, pagination >1000 and 38 saved/read choices verified with local fixtures.')
 } finally {
   server.close()
   await once(server, 'close')

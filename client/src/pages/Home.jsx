@@ -1,22 +1,22 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { FiArrowRight, FiArrowUpRight, FiBookOpen, FiCheck, FiCompass, FiFeather, FiGrid, FiHeart, FiMenu, FiMessageCircle, FiSend, FiShare2, FiShield, FiSmile, FiStar, FiUsers, FiX } from 'react-icons/fi'
 import SEO from '../components/SEO'
 import { supabase } from '../lib/supabase'
-
-function buildZeliaAvatarUrl() {
-  const params = new URLSearchParams({
-    seed: 'zelia',
-    size: '560',
-    radius: '15'
-  })
-  return `https://api.dicebear.com/9.x/lorelei/svg?${params.toString()}`
-}
+import BlogCover from './blog/BlogCover'
+import { blogPosts } from './blog/posts'
+import './blog/blog-editorial.css'
+import './Home.css'
 
 export default function Home() {
   const navigate = useNavigate()
   const location = useLocation()
-  const avatarUrl = useMemo(() => buildZeliaAvatarUrl(), [])
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [shareStatus, setShareStatus] = useState('')
+  const menuToggle = useRef(null)
+  const latestPosts = useMemo(() => (
+    [...blogPosts].sort((a, b) => new Date(b.dateIso) - new Date(a.dateIso)).slice(0, 3)
+  ), [])
 
   const shareLanding = async () => {
     const shareData = {
@@ -25,17 +25,21 @@ export default function Home() {
       url: window.location.href
     }
 
+    setShareStatus('')
     try {
       if (typeof navigator.share === 'function') {
         await navigator.share(shareData)
+        setShareStatus('Merci de faire découvrir Zélia !')
       } else if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`)
+        setShareStatus('Lien copié ! À toi de le partager.')
       } else {
         window.prompt('Copie ce lien pour le partager :', shareData.url)
       }
     } catch (shareError) {
       if (shareError?.name !== 'AbortError') {
         console.warn('Landing share failed', shareError)
+        setShareStatus("Le partage n'a pas fonctionné. Tu peux copier l'adresse de cette page.")
       }
     }
   }
@@ -60,24 +64,18 @@ export default function Home() {
     return () => { active = false }
   }, [location.hash, navigate])
 
-  const proof = [
-    '5 minutes',
-    '20 questions originales',
-    '100% gratuit'
-  ]
-
   const steps = [
-    { icon: 'ph-chat-circle-dots', title: 'Réponds à 20 questions', detail: "Zélia apprend à te connaître à travers un quiz rapide et sans prise de tête." },
-    { icon: 'ph-sparkle', title: 'Découvre ton profil', detail: 'Une carte dédiée révèle ta personnalité et tes forces.' },
-    { icon: 'ph-graduation-cap', title: 'Reçois des formations qui matchent', detail: "Des formations chez nos écoles partenaires, sélectionnées selon ton profil et ta ville." },
-    { icon: 'ph-paper-plane-tilt', title: 'Contacte les écoles en un clic', detail: "Demande plus d'infos directement depuis l'appli, sans formulaire interminable." }
+    { Icon: FiMessageCircle, title: 'Réponds à 20 questions', detail: "Zélia apprend à te connaître à travers un quiz rapide et sans prise de tête." },
+    { Icon: FiSmile, title: 'Découvre ton profil', detail: 'Une carte dédiée révèle ta personnalité et tes forces.' },
+    { Icon: FiCompass, title: 'Reçois des formations qui matchent', detail: 'Des formations chez nos écoles partenaires, sélectionnées selon ton profil et ta ville.' },
+    { Icon: FiSend, title: 'Contacte les écoles en un clic', detail: "Demande plus d'infos directement depuis l'appli, sans formulaire interminable." }
   ]
 
   const pillars = [
-    { icon: 'ph-seal-percent', title: '100% gratuit pour les élèves', detail: "Le quiz, ton profil et tes pistes de formation ne te coûtent rien." },
-    { icon: 'ph-buildings', title: 'De vraies écoles partenaires', detail: "On te propose des formations réelles, pas juste des idées génériques." },
-    { icon: 'ph-shield-check', title: 'Tes données, ton choix', detail: "Rien n'est transmis à une école sans que tu aies demandé à être recontacté·e." },
-    { icon: 'ph-fingerprint-simple', title: 'Un profil qui te ressemble', detail: "Basé sur tes réponses, pas sur un test générique copié-collé." }
+    { Icon: FiHeart, title: '100% gratuit pour les élèves', detail: 'Le quiz, ton profil et tes pistes de formation ne te coûtent rien.' },
+    { Icon: FiGrid, title: 'De vraies écoles partenaires', detail: 'On te propose des formations réelles, pas juste des idées génériques.' },
+    { Icon: FiShield, title: 'Tes données, ton choix', detail: "Rien n'est transmis à une école sans que tu aies demandé à être recontacté·e." },
+    { Icon: FiFeather, title: 'Un profil qui te ressemble', detail: 'Basé sur tes réponses, pas sur un test générique copié-collé.' }
   ]
 
   const faqs = [
@@ -94,105 +92,162 @@ export default function Home() {
         description="Zélia accompagne les 15-20 ans pour apprendre à mieux se connaître et préparer sereinement leur futur."
         url="https://zelia.io/"
       />
-      <style>{homeStyles}</style>
-
-      <section className="zelia-home-hero">
-        <nav className="zelia-home-nav" aria-label="Navigation principale">
-          <Link to="/" className="zelia-home-logo" aria-label="Accueil Zelia">
-            <img src="/static/images/logo-dark.png" alt="Zelia" />
+      <a className="zelia-home-skip" href="#landing-content">Aller au contenu</a>
+      <header className="zelia-home-header">
+        <nav
+          className="zelia-home-nav zelia-home-container"
+          aria-label="Navigation principale"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && mobileMenuOpen) {
+              setMobileMenuOpen(false)
+              menuToggle.current?.focus()
+            }
+          }}
+        >
+          <Link to="/" className="zelia-home-logo" aria-label="Accueil Zélia">
+            <img src="/static/images/logo-dark.png" alt="Zélia" width="100" height="40" />
           </Link>
           <button
+            ref={menuToggle}
             type="button"
             className="zelia-home-menu-toggle"
             onClick={() => setMobileMenuOpen((open) => !open)}
             aria-expanded={mobileMenuOpen}
             aria-controls="zelia-home-mobile-menu"
             aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-            title={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
           >
-            <i className={`ph ${mobileMenuOpen ? 'ph-x' : 'ph-list'}`} aria-hidden="true" />
+            {mobileMenuOpen ? <FiX aria-hidden="true" /> : <FiMenu aria-hidden="true" />}
           </button>
           <div id="zelia-home-mobile-menu" className={`zelia-home-nav-actions${mobileMenuOpen ? ' is-open' : ''}`}>
             <Link to="/espace-ecoles" onClick={() => setMobileMenuOpen(false)}>Ambassadeur</Link>
             <Link to="/parents" onClick={() => setMobileMenuOpen(false)}>Parents</Link>
-            <Link to="/blog" onClick={() => setMobileMenuOpen(false)}>Nos conseils</Link>
+            <Link to="/blog" onClick={() => setMobileMenuOpen(false)}>Le blog</Link>
+            {import.meta.env.VITE_METIER_PAGES_ENABLED === 'true' && <Link to="/metiers/" onClick={() => setMobileMenuOpen(false)}>Métiers</Link>}
             <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Me connecter</Link>
-            <Link to="/orientation" className="nav-cta" onClick={() => setMobileMenuOpen(false)}>Me découvrir</Link>
+            <Link to="/orientation" className="zelia-home-button" onClick={() => setMobileMenuOpen(false)}>
+              Me découvrir <FiArrowUpRight aria-hidden="true" />
+            </Link>
           </div>
         </nav>
+      </header>
 
-        <img className="zelia-home-avatar" src={avatarUrl} alt="Avatar Zelia" loading="eager" />
-
+      <section id="landing-content" className="zelia-home-hero zelia-home-container" tabIndex={-1} aria-labelledby="landing-title">
         <div className="zelia-home-hero-content">
-          <h1>L'expérience ultime des 15-20 ans pour apprendre à se connaître et préparer sereinement son futur.</h1>
-          <div className="zelia-home-proof" aria-label="Points clés Zélia">
-            {proof.map((item) => <span key={item}>{item}</span>)}
-          </div>
+          <h1 id="landing-title">L'expérience ultime des 15-20 ans pour <span>apprendre à se connaître</span> et préparer sereinement son futur.</h1>
+          <ul className="zelia-home-proof" aria-label="Les petits plus du quiz">
+            {['5 minutes', '20 questions originales', '100% gratuit'].map((item) => (
+              <li key={item}><FiCheck aria-hidden="true" />{item}</li>
+            ))}
+          </ul>
           <p className="zelia-home-lead">
             On découvre ensemble qui tu es et quelles formations sont faites pour toi !
           </p>
           <div className="zelia-home-actions">
-            <button type="button" onClick={() => navigate('/orientation')}>Commencer !</button>
-            <button type="button" className="secondary" onClick={shareLanding}>Partager à un.e proche</button>
+            <Link to="/orientation" className="zelia-home-button zelia-home-button--primary">
+              Commencer ! <FiArrowUpRight aria-hidden="true" />
+            </Link>
+            <button type="button" className="zelia-home-button zelia-home-button--share" onClick={shareLanding}>
+              <FiShare2 aria-hidden="true" /> Partager à un.e proche
+            </button>
+          </div>
+          <p className="zelia-home-share-status" role="status">{shareStatus}</p>
+        </div>
+        <div className="zelia-home-avatar-scene">
+          <div className="zelia-home-avatar-frame">
+            <img
+              className="zelia-home-avatar"
+              src="https://api.dicebear.com/9.x/lorelei/svg?seed=zelia&size=560&radius=15"
+              alt="Avatar Zélia"
+              width="560"
+              height="560"
+              loading="eager"
+            />
+          </div>
+          <FiStar className="zelia-home-avatar-star" aria-hidden="true" />
+          <span className="zelia-home-avatar-label" aria-hidden="true">Zélia <FiHeart /></span>
+        </div>
+      </section>
+
+      <section className="zelia-home-steps zelia-home-section zelia-home-container" aria-labelledby="landing-steps-title">
+        <div className="zelia-home-section-heading">
+          <h2 id="landing-steps-title">Comment ça marche</h2>
+        </div>
+        <ol className="zelia-home-steps-grid">
+          {steps.map(({ Icon, title, detail }, index) => (
+            <li key={title} className="zelia-home-step-card">
+              <div className="zelia-home-step-top"><Icon aria-hidden="true" /><span>0{index + 1}</span></div>
+              <h3>{title}</h3>
+              <p>{detail}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="zelia-home-pillars" aria-labelledby="landing-pillars-title">
+        <div className="zelia-home-pillars-inner zelia-home-section zelia-home-container">
+          <div className="zelia-home-section-heading">
+            <h2 id="landing-pillars-title">Pourquoi Zélia</h2>
+            <Link to="/orientation" className="zelia-home-button zelia-home-button--primary">Commencer ! <FiArrowUpRight aria-hidden="true" /></Link>
+          </div>
+          <div className="zelia-home-pillars-grid">
+            {pillars.map(({ Icon, title, detail }) => (
+              <div key={title} className="zelia-home-pillar-card">
+                <Icon aria-hidden="true" />
+                <h3>{title}</h3>
+                <p>{detail}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="zelia-home-steps">
-        <h2>Comment ça marche</h2>
-        <div className="zelia-home-steps-grid">
-          {steps.map((step, index) => (
-            <div key={step.title} className="zelia-home-step-card">
-              <span className="zelia-home-step-number">{index + 1}</span>
-              <i className={`ph ${step.icon}`} aria-hidden="true" />
-              <h3>{step.title}</h3>
-              <p>{step.detail}</p>
-            </div>
+      <section className="zelia-home-blog zelia-home-section zelia-home-container" aria-labelledby="landing-blog-title">
+        <div className="zelia-home-blog-heading">
+          <div className="zelia-home-section-heading">
+            <p className="zelia-home-kicker"><FiBookOpen aria-hidden="true" /> Le blog Zélia</p>
+            <h2 id="landing-blog-title">Un peu de lecture,<br />plein de déclics.</h2>
+            <p>Des conseils, des idées et l'actu décryptée pour y voir plus clair.</p>
+          </div>
+          <Link to="/blog" className="zelia-home-text-link">Voir tous les articles <FiArrowRight aria-hidden="true" /></Link>
+        </div>
+        <div className="zelia-home-blog-grid">
+          {latestPosts.map((post) => (
+            <article key={post.slug} className="zelia-home-blog-card" style={{ '--accent': post.accent, '--accent-soft': post.accentSoft }}>
+              <Link to={`/blog/${post.slug}`} aria-labelledby={`landing-post-${post.slug}`}>
+                <BlogCover post={post} />
+                <div className="zelia-home-blog-body">
+                  <span className="zelia-home-blog-category">{post.category}</span>
+                  <h3 id={`landing-post-${post.slug}`}>{post.title}</h3>
+                  <p>{post.description}</p>
+                  <div className="zelia-home-blog-meta"><span>{post.readingTime} de lecture</span><FiArrowUpRight aria-hidden="true" /></div>
+                </div>
+              </Link>
+            </article>
           ))}
         </div>
       </section>
 
-      <section className="zelia-home-pillars">
-        <div className="zelia-home-start-cta">
-          <Link to="/orientation">Commencer !</Link>
+      <section className="zelia-home-audiences zelia-home-container" aria-label="Parents et établissements">
+        <div className="zelia-home-audience-card zelia-home-audience-card--parents">
+          <FiUsers className="zelia-home-audience-icon" aria-hidden="true" />
+          <p className="zelia-home-kicker">Pour les parents</p>
+          <h2>Devenez le meilleur allié orientation de votre enfant</h2>
+          <p>Une formation pas-à-pas pour l'accompagner au lycée avec sérénité, sans stress ni conflit.</p>
+          <Link to="/parents" className="zelia-home-text-link">Découvrir la formation <FiArrowUpRight aria-hidden="true" /></Link>
         </div>
-        <h2>Pourquoi Zélia</h2>
-        <div className="zelia-home-pillars-grid">
-          {pillars.map((pillar) => (
-            <div key={pillar.title} className="zelia-home-pillar-card">
-              <i className={`ph ${pillar.icon}`} aria-hidden="true" />
-              <h3>{pillar.title}</h3>
-              <p>{pillar.detail}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="zelia-home-parents-teaser">
-        <div className="zelia-home-parents-teaser-inner">
-          <i className="ph ph-users-three" aria-hidden="true" />
-          <div>
-            <p className="zelia-home-kicker">Pour les parents</p>
-            <h2>Devenez le meilleur allié orientation de votre enfant</h2>
-            <p>Une formation pas-à-pas pour l'accompagner au lycée avec sérénité, sans stress ni conflit.</p>
-          </div>
-          <Link to="/parents" className="zelia-home-parents-teaser-cta">Découvrir la formation</Link>
+        <div className="zelia-home-audience-card zelia-home-audience-card--schools">
+          <FiGrid className="zelia-home-audience-icon" aria-hidden="true" />
+          <p className="zelia-home-kicker">Établissements</p>
+          <h2>Vous êtes une école ou un centre de formation ?</h2>
+          <p>Rejoignez nos écoles partenaires et recevez les demandes des élèves qui s'intéressent à vos formations.</p>
+          <Link to="/espace-ecoles" className="zelia-home-text-link">Devenir partenaire <FiArrowUpRight aria-hidden="true" /></Link>
         </div>
       </section>
 
-      <section className="zelia-home-schools">
-        <div className="zelia-home-schools-inner">
-          <div>
-            <p className="zelia-home-kicker">Établissements</p>
-            <h2>Vous êtes une école ou un centre de formation ?</h2>
-            <p>Rejoignez nos écoles partenaires et recevez les demandes des élèves qui s'intéressent à vos formations.</p>
-          </div>
-          <Link to="/espace-ecoles" className="zelia-home-schools-cta">Devenir partenaire</Link>
+      <section className="zelia-home-faq zelia-home-section zelia-home-container" aria-labelledby="landing-faq-title">
+        <div className="zelia-home-section-heading">
+          <h2 id="landing-faq-title">Questions fréquentes</h2>
         </div>
-      </section>
-
-      <section className="zelia-home-faq">
-        <h2>Questions fréquentes</h2>
         <div className="zelia-home-faq-list">
           {faqs.map((item) => (
             <details key={item.q} className="zelia-home-faq-item">
@@ -204,435 +259,34 @@ export default function Home() {
       </section>
 
       <footer className="zelia-home-footer">
-        <div className="zelia-home-footer-top">
-          <div className="zelia-home-footer-brand">
-            <img src="/static/images/logo-dark.png" alt="Zelia" />
-            <p>Zélia t'aide à trouver les formations qui te correspondent et te met en relation directe avec les écoles adaptées à ton projet.</p>
+        <div className="zelia-home-container">
+          <div className="zelia-home-footer-top">
+            <div className="zelia-home-footer-brand">
+              <Link to="/" aria-label="Accueil Zélia"><img src="/static/images/logo-dark.png" alt="Zélia" width="100" height="40" /></Link>
+              <p>Zélia t'aide à trouver les formations qui te correspondent et te met en relation directe avec les écoles adaptées à ton projet.</p>
+            </div>
+            <div className="zelia-home-footer-col">
+              <h3>Produit</h3>
+              <Link to="/orientation">Commencer le parcours</Link>
+              <Link to="/formations">Formations</Link>
+              <Link to="/blog">Le blog</Link>
+              <Link to="/parents">Espace parents</Link>
+            </div>
+            <div className="zelia-home-footer-col">
+              <h3>Établissements</h3>
+              <Link to="/espace-ecoles">Devenir partenaire</Link>
+              <Link to="/espace-ecoles/connexion">Connexion école</Link>
+            </div>
+            <div className="zelia-home-footer-col">
+              <h3>Légal</h3>
+              <Link to="/legal/mentions-legales">Mentions légales</Link>
+              <Link to="/legal/conditions">CGU, CGV &amp; confidentialité</Link>
+              <a href="mailto:nicolas.wiegele@zelia.io">Nous contacter</a>
+            </div>
           </div>
-          <div className="zelia-home-footer-col">
-            <h3>Produit</h3>
-            <Link to="/orientation">Commencer le parcours</Link>
-            <Link to="/formations">Formations</Link>
-            <Link to="/blog">Blog</Link>
-          </div>
-          <div className="zelia-home-footer-col">
-            <h3>Établissements</h3>
-            <Link to="/espace-ecoles">Devenir partenaire</Link>
-            <Link to="/espace-ecoles/connexion">Connexion école</Link>
-          </div>
-          <div className="zelia-home-footer-col">
-            <h3>Légal</h3>
-            <Link to="/legal/mentions-legales">Mentions légales</Link>
-            <Link to="/legal/conditions">CGU, CGV &amp; confidentialité</Link>
-            <a href="mailto:nicolas.wiegele@zelia.io">Nous contacter</a>
-          </div>
-        </div>
-        <div className="zelia-home-footer-bottom">
-          <span>© {new Date().getFullYear()} Zélia. Tous droits réservés.</span>
+          <div className="zelia-home-footer-bottom"><span>© {new Date().getFullYear()} Zélia. Tous droits réservés.</span></div>
         </div>
       </footer>
-
     </main>
   )
 }
-
-const homeStyles = `
-.zelia-home {
-  min-height: 100vh;
-  background: #fffbf7;
-  color: #000;
-  font-family: inherit;
-  overflow-x: hidden;
-}
-.zelia-home-hero {
-  position: relative;
-  min-height: 88vh;
-  display: flex;
-  align-items: center;
-  padding: 24px clamp(18px, 6vw, 72px) 72px;
-  border-bottom: 1px solid rgba(0,0,0,.08);
-  overflow: hidden;
-}
-.zelia-home-nav {
-  position: absolute;
-  top: 20px;
-  left: clamp(18px, 6vw, 72px);
-  right: clamp(18px, 6vw, 72px);
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-}
-.zelia-home-logo img { height: 30px; width: auto; display: block; }
-.zelia-home-menu-toggle {
-  display: none;
-  width: 42px;
-  height: 42px;
-  place-items: center;
-  border: 1px solid rgba(0,0,0,.12);
-  border-radius: 12px;
-  background: #fff;
-  color: #000;
-  font-size: 22px;
-  cursor: pointer;
-}
-.zelia-home-nav-actions { display: flex; align-items: center; gap: 8px; }
-.zelia-home-nav-actions a {
-  min-height: 38px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(0,0,0,.1);
-  background: #fff;
-  color: #000;
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: none;
-}
-.zelia-home-nav-actions .nav-cta { background: #000; color: #fff; border-color: #000; }
-.zelia-home-avatar {
-  position: absolute;
-  right: clamp(-40px, 4vw, 80px);
-  bottom: -34px;
-  z-index: 1;
-  width: min(48vw, 560px);
-  min-width: 360px;
-  pointer-events: none;
-}
-.zelia-home-hero-content {
-  position: relative;
-  z-index: 2;
-  max-width: 760px;
-  padding-top: 80px;
-}
-.zelia-home-kicker {
-  margin: 0 0 12px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0;
-  color: #6b7280;
-}
-.zelia-home h1,
-.zelia-home h2,
-.zelia-home h3,
-.zelia-home p { letter-spacing: 0; }
-.zelia-home h1 {
-  margin: 0;
-  font-size: 52px;
-  line-height: 1.04;
-  font-weight: 650;
-  max-width: 720px;
-}
-.zelia-home-lead {
-  margin: 22px 0 0;
-  max-width: 560px;
-  font-size: 20px;
-  line-height: 1.45;
-  color: #374151;
-}
-.zelia-home-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 30px;
-}
-.zelia-home-actions button {
-  min-height: 52px;
-  padding: 0 26px;
-  border-radius: 999px;
-  border: 1px solid #000;
-  background: #000;
-  color: #fff;
-  font-weight: 700;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: transform .15s ease;
-}
-.zelia-home-actions button:hover { transform: translateY(-2px); }
-.zelia-home-actions button.secondary {
-  background: #fff;
-  color: #000;
-  border-color: rgba(0,0,0,.12);
-}
-.zelia-home-proof {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 22px;
-}
-.zelia-home-proof span {
-  display: inline-block;
-  color: #000;
-  padding: 0;
-  font-size: 13px;
-  font-weight: 600;
-}
-.zelia-home-proof span:not(:last-child)::after { content: '·'; margin-left: 8px; color: #6b7280; }
-.zelia-home h2 { margin: 0; font-size: 30px; line-height: 1.12; font-weight: 650; }
-
-.zelia-home-steps {
-  padding: clamp(48px, 8vw, 88px) clamp(18px, 6vw, 72px);
-  max-width: 1180px;
-  margin: 0 auto;
-}
-.zelia-home-steps h2 { text-align: center; margin-bottom: 36px; }
-.zelia-home-steps-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 18px;
-}
-.zelia-home-step-card {
-  position: relative;
-  background: #fff;
-  border: 1px solid rgba(0,0,0,.06);
-  border-radius: 28px;
-  box-shadow: 0 26px 60px -30px rgba(0,0,0,.22), 0 2px 10px rgba(0,0,0,.04);
-  padding: 28px 22px;
-  display: grid;
-  gap: 10px;
-}
-.zelia-home-step-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 26px;
-  right: 26px;
-  height: 6px;
-  border-radius: 0 0 8px 8px;
-  background: #c1ff72;
-}
-.zelia-home-step-card:nth-child(2)::before { background: #f68fff; }
-.zelia-home-step-card:nth-child(3)::before { background: #111827; }
-.zelia-home-step-number {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  background: #111827;
-  color: #c1ff72;
-  display: inline-grid;
-  place-items: center;
-  font-size: 13px;
-  font-weight: 800;
-}
-.zelia-home-step-card i { font-size: 30px; color: #f68fff; }
-.zelia-home-step-card h3 { margin: 4px 0 0; font-size: 18px; font-weight: 700; }
-.zelia-home-step-card p { margin: 0; font-size: 14px; line-height: 1.5; color: #4b5563; }
-
-/* ---------- Pourquoi Zelia (trust pillars) ---------- */
-.zelia-home-pillars {
-  padding: clamp(40px, 7vw, 72px) clamp(18px, 6vw, 72px);
-  max-width: 1180px;
-  margin: 0 auto;
-}
-.zelia-home-pillars h2 { text-align: center; margin-bottom: 32px; }
-.zelia-home-pillars-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
-}
-.zelia-home-pillar-card {
-  background: #f2fbe4;
-  border: 1px solid rgba(193,255,114,.5);
-  border-radius: 22px;
-  padding: 22px;
-  display: grid;
-  gap: 8px;
-}
-.zelia-home-pillar-card:nth-child(2) { background: #fdf1ff; border-color: rgba(246,143,255,.4); }
-.zelia-home-pillar-card:nth-child(3) { background: #f3f4f6; border-color: rgba(17,24,39,.1); }
-.zelia-home-pillar-card:nth-child(4) { background: #f2fbe4; border-color: rgba(193,255,114,.5); }
-.zelia-home-pillar-card i { font-size: 26px; color: #111827; }
-.zelia-home-pillar-card h3 { margin: 4px 0 0; font-size: 16px; font-weight: 700; }
-.zelia-home-pillar-card p { margin: 0; font-size: 14px; line-height: 1.5; color: #4b5563; }
-.zelia-home-start-cta { display: flex; justify-content: center; margin-bottom: 30px; }
-.zelia-home-start-cta a {
-  min-height: 52px;
-  padding: 0 30px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #000;
-  color: #fff;
-  font-weight: 700;
-  text-decoration: none;
-  transition: transform .15s ease, box-shadow .15s ease;
-  box-shadow: 0 14px 28px rgba(0,0,0,.16);
-}
-.zelia-home-start-cta a:hover { transform: translateY(-2px); box-shadow: 0 18px 32px rgba(0,0,0,.22); }
-
-/* ---------- Formation parents teaser ---------- */
-.zelia-home-parents-teaser {
-  padding: 0 clamp(18px, 6vw, 72px);
-  max-width: 1180px;
-  margin: 0 auto;
-}
-.zelia-home-parents-teaser-inner {
-  background: #f68fff;
-  border-radius: 24px;
-  padding: clamp(20px, 4vw, 30px) clamp(24px, 5vw, 36px);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 20px;
-}
-.zelia-home-parents-teaser-inner i { flex: 0 0 auto; font-size: 34px; color: #111827; }
-.zelia-home-parents-teaser-inner > div { flex: 1 1 320px; }
-.zelia-home-parents-teaser-inner .zelia-home-kicker { margin: 0 0 4px; color: #111827; opacity: .7; }
-.zelia-home-parents-teaser-inner h2 { margin: 0; font-size: 20px; }
-.zelia-home-parents-teaser-inner p { margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: #111827; max-width: 520px; }
-.zelia-home-parents-teaser-cta {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 48px;
-  padding: 0 24px;
-  border-radius: 999px;
-  background: #111827;
-  color: #fff;
-  font-weight: 700;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-/* ---------- Ecole partenaire teaser ---------- */
-.zelia-home-schools {
-  padding: clamp(32px, 6vw, 56px) clamp(18px, 6vw, 72px);
-  max-width: 1180px;
-  margin: 0 auto;
-}
-.zelia-home-schools-inner {
-  background: #111827;
-  color: #fff;
-  border-radius: 28px;
-  padding: clamp(28px, 5vw, 44px);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-}
-.zelia-home-schools-inner .zelia-home-kicker { color: #c1ff72; }
-.zelia-home-schools-inner h2 { color: #fff; max-width: 480px; }
-.zelia-home-schools-inner p { margin: 10px 0 0; max-width: 480px; color: #d1d5db; font-size: 15px; line-height: 1.5; }
-.zelia-home-schools-cta {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 52px;
-  padding: 0 26px;
-  border-radius: 999px;
-  background: #c1ff72;
-  color: #111827;
-  font-weight: 700;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-/* ---------- FAQ ---------- */
-.zelia-home-faq {
-  padding: clamp(40px, 7vw, 72px) clamp(18px, 6vw, 72px);
-  max-width: 860px;
-  margin: 0 auto;
-}
-.zelia-home-faq h2 { text-align: center; margin-bottom: 28px; }
-.zelia-home-faq-list { display: grid; gap: 10px; }
-.zelia-home-faq-item {
-  background: #fff;
-  border: 1px solid rgba(0,0,0,.08);
-  border-radius: 16px;
-  padding: 16px 20px;
-}
-.zelia-home-faq-item summary {
-  cursor: pointer;
-  font-weight: 700;
-  font-size: 15px;
-  list-style: none;
-}
-.zelia-home-faq-item summary::-webkit-details-marker { display: none; }
-.zelia-home-faq-item summary::before { content: '+'; display: inline-block; width: 18px; color: #111827; font-weight: 800; }
-.zelia-home-faq-item[open] summary::before { content: '−'; }
-.zelia-home-faq-item p { margin: 12px 0 0 18px; font-size: 14px; line-height: 1.6; color: #4b5563; }
-
-/* ---------- Footer ---------- */
-.zelia-home-footer {
-  border-top: 1px solid rgba(0,0,0,.08);
-  padding: clamp(32px, 6vw, 56px) clamp(18px, 6vw, 72px) 24px;
-}
-.zelia-home-footer-top {
-  max-width: 1180px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr 1fr;
-  gap: 32px;
-}
-.zelia-home-footer-brand img { height: 26px; width: auto; display: block; margin-bottom: 12px; }
-.zelia-home-footer-brand p { margin: 0; max-width: 320px; font-size: 13px; line-height: 1.6; color: #6b7280; }
-.zelia-home-footer-col { display: flex; flex-direction: column; gap: 10px; }
-.zelia-home-footer-col h3 { margin: 0 0 2px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; color: #9ca3af; }
-.zelia-home-footer-col a { font-size: 14px; color: #111827; text-decoration: none; }
-.zelia-home-footer-col a:hover { text-decoration: underline; }
-.zelia-home-footer-bottom {
-  max-width: 1180px;
-  margin: 32px auto 0;
-  padding-top: 18px;
-  border-top: 1px solid rgba(0,0,0,.06);
-  font-size: 13px;
-  color: #9ca3af;
-}
-
-@media (max-width: 900px) {
-  .zelia-home-hero { min-height: auto; align-items: flex-start; padding-top: 82px; padding-bottom: 46px; }
-  .zelia-home-hero-content { padding-top: 0; }
-  .zelia-home h1 { font-size: 40px; line-height: 1.08; }
-  .zelia-home-lead { font-size: 17px; max-width: 480px; }
-  .zelia-home-avatar { opacity: .24; width: 520px; min-width: 520px; right: -170px; }
-  .zelia-home-footer-top { grid-template-columns: 1fr 1fr; }
-}
-@media (max-width: 700px) {
-  .zelia-home-hero { padding-top: 94px; }
-  .zelia-home-nav { top: 14px; }
-  .zelia-home-menu-toggle { display: inline-grid; }
-  .zelia-home-nav-actions {
-    display: none;
-    position: absolute;
-    top: calc(100% + 10px);
-    left: 0;
-    right: 0;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-    padding: 10px;
-    border: 1px solid rgba(0,0,0,.1);
-    border-radius: 16px;
-    background: rgba(255,255,255,.98);
-    box-shadow: 0 18px 40px rgba(0,0,0,.14);
-  }
-  .zelia-home-nav-actions.is-open { display: grid; }
-  .zelia-home-nav-actions a { min-height: 44px; padding: 0 10px; font-size: 13px; white-space: nowrap; }
-  .zelia-home-nav-actions .nav-cta { grid-column: 1 / -1; }
-}
-@media (max-width: 560px) {
-  .zelia-home h1 { font-size: 34px; }
-  .zelia-home h2 { font-size: 26px; }
-  .zelia-home-actions { flex-direction: column; }
-  .zelia-home-actions button { width: 100%; }
-  .zelia-home-proof { gap: 4px 8px; }
-  .zelia-home-proof span { width: auto; }
-  .zelia-home-steps { padding: 40px 18px; }
-  .zelia-home-start-cta a { width: 100%; }
-  .zelia-home-parents-teaser-inner { flex-direction: column; align-items: flex-start; }
-  .zelia-home-parents-teaser-cta { width: 100%; }
-  .zelia-home-schools-inner { flex-direction: column; align-items: flex-start; }
-  .zelia-home-schools-cta { width: 100%; }
-  .zelia-home-footer-top { grid-template-columns: 1fr; gap: 24px; }
-}
-`

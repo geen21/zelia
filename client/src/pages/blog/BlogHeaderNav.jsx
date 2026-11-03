@@ -12,6 +12,7 @@ export default function BlogHeaderNav() {
             <img src="/assets/images/logo-dark.png" alt="Zélia" className="logo-image" />
           </Link>
           <div className="nav-actions">
+            {import.meta.env.VITE_METIER_PAGES_ENABLED === 'true' && <Link to="/metiers/" className="nav-link-btn">Métiers</Link>}
             <Link to="/formations" className="nav-link-btn" aria-label="Formations">
               <span>Formations</span>
               <div className="btn-highlight"></div>

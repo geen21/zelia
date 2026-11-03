@@ -8,10 +8,11 @@ Run
 2. Dev server: npm run dev (proxy /api to http://localhost:8000)
 
 Orientation (/orientation)
-- La v4 utilise 20 dilemmes entre deux activites concretes et leurs contraintes, sans echelle d'adhesion a des qualites positives.
-- Deux boutons affichent directement les activites : un clic repond et avance, sans lettres A/B ni echelle supplementaire. Les couleurs ne valorisent aucun cote ; les fleches, le swipe et les touches 1-2 choisissent une activite.
+- La v5 place chaque dilemme dans une phrase comparative courte, plutot que dans de longs boutons.
+- Quatre boutons colores : Carrement / Plutot oui / Plutot pas / Pas du tout. Un clic repond et avance, sans A/B ni second choix ; les touches 1-4 permettent de nuancer et les fleches/swipes choisissent les extremes.
+- L'accord favorise la premiere activite ; le desaccord favorise l'alternative, pas un rejet des deux activites.
 - Les pistes moins choisies sont depriorisees progressivement, sans elimination d'un secteur sur une seule reponse. Les preferences ne mesurent pas les aptitudes.
-- Appliquer `server/database/migrate_questions_v4.sql` avant de deployer ; les questions et reponses v1/v2/v3 sont preservees. Une progression ancienne est invalidee.
+- Appliquer `server/database/migrate_questions_v5.sql` avant de deployer ; les questions et reponses v1/v2/v3/v4 sont preservees. Une progression ancienne est invalidee.
 - Avec Vite sur le port 5187 : `npm run verify:personas` puis `npm run verify:orientation-ui`. Les API sont simulees : aucune generation IA reelle.
 
 Page parents (/parents)

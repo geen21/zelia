@@ -198,6 +198,106 @@ try {
   assert.ok(updatedCare.interpretations[historicalV4Answer], 'Do not erase interpretations of existing v4 answers.')
   assert.equal(parseAnswer(updatedCare, historicalV4Answer).signed, 1)
   assert.equal((await db.query('SELECT response FROM public.user_responses WHERE question_id = $1', [care.id])).rows[0].response, historicalV4Answer)
+
+  const beforeV5 = (await db.query('SELECT * FROM public.questions ORDER BY id')).rows
+  const responsesBeforeV5 = (await db.query('SELECT * FROM public.user_responses ORDER BY question_id')).rows
+  const v5Migration = await readFile(new URL('../database/migrate_questions_v5.sql', import.meta.url), 'utf8')
+  await db.exec(v5Migration)
+  const { rows: comparisons } = await db.query("SELECT * FROM public.questions WHERE questionnaire_type = 'inscription_v5' ORDER BY id")
+  assert.equal(comparisons.length, 20)
+  assert.deepEqual(comparisons.map((q) => q.id), Array.from({ length: 20 }, (_, i) => 600 + i))
+  assert.equal(new Set(comparisons.map((q) => q.content)).size, 20)
+  const comparisonExposure = {}
+  for (const q of comparisons) {
+    assert.ok(q.content.length <= 105, `Comparison too long: ${q.content}`)
+    assert.match(q.content, /je préfère .+ (?:plutôt )?qu['e]/i)
+    assert.deepEqual(q.options.map(({ label, level }) => ({ label, level })), AGREEMENT_LEVELS)
+    assert.equal(new Set(q.options.map((o) => o.value)).size, 1)
+    assert.equal(new Set(q.options.map((o) => o.alternative)).size, 1)
+    assert.notEqual(q.options[0].value, q.options[0].alternative)
+    const choices = getAnswerChoices(q)
+    assert.deepEqual(choices.map((c) => c.label), ['Carrément', 'Plutôt oui', 'Plutôt pas', 'Pas du tout'])
+    assert.deepEqual(choices.map((c) => c.level), [3, 2, 1, 0])
+    assert.deepEqual(getAnswerChoices({ ...q, options: [...q.options].reverse() }), choices)
+    for (const [index, choice] of choices.entries()) {
+      const parsed = parseAnswer(q, choice.answer)
+      assert.equal(parsed.signed, [2, 1, -1, -2][index])
+      assert.equal(parsed.alternative, q.options[0].alternative)
+      assert.equal(getAnswerChoiceIndex(q, choice.answer), index)
+      const interpretation = resolveInterpretation(q.interpretations, choice.answer)
+      assert.match(interpretation, /Préférence (nette|légère)/)
+      assert.match(interpretation, /pas un rejet absolu/)
+      if (q.category === 'interest') {
+        const score = computePersonaFromAnswers([q], { [q.id]: choice.answer })
+        assert.equal(score.interests[parsed.value], [1, 0.75, 0.25, 0][index])
+        assert.equal(score.interests[parsed.alternative], [0, 0.25, 0.75, 1][index])
+        assert.deepEqual(score.lowerPriorityInterests, [], 'One disagreement must not deprioritize a whole family.')
+      } else {
+        const axis = AXES.find((a) => a.id === q.category)
+        const score = computePersonaFromAnswers([q], { [q.id]: choice.answer })
+        assert.equal(score.axisScores[axis.id], (parsed.value === axis.poles[0] ? 1 : -1) * parsed.signed)
+      }
+    }
+    for (const invalid of ['Clairement A', 'Plutôt B', 'inconnu', historicalV4Answer]) {
+      assert.equal(parseAnswer(q, invalid), null)
+      assert.equal(getAnswerChoiceIndex(q, invalid), -1)
+    }
+    if (q.category === 'interest') {
+      for (const code of [q.options[0].value, q.options[0].alternative]) {
+        comparisonExposure[code] = (comparisonExposure[code] || 0) + 1
+      }
+    }
+  }
+  assert.deepEqual(Object.keys(comparisonExposure).sort(), ['A', 'C', 'E', 'I', 'R', 'S'])
+  assert.ok(Object.values(comparisonExposure).every((count) => count >= 3 && count <= 4))
+  for (const axis of AXES) {
+    const axisQuestions = comparisons.filter((q) => q.category === axis.id)
+    assert.equal(axisQuestions.length, 2)
+    assert.deepEqual(axisQuestions.map((q) => q.options[0].value).sort(), [...axis.poles].sort())
+    assert.deepEqual(axisQuestions.map((q) => q.options[0].alternative).sort(), [...axis.poles].sort())
+  }
+  for (const persona of PERSONAS) {
+    const answers = Object.fromEntries(comparisons.map((q) => [
+      q.id,
+      q.category === 'interest' || q.options[0].value === persona.signature[q.category] ? 'Carrément' : 'Pas du tout'
+    ]))
+    const result = computePersonaFromAnswers(comparisons, answers)
+    assert.equal(result.persona.slug, persona.slug)
+    assert.ok(Object.values(result.axisStrength).every((s) => s === 'nette'))
+  }
+  for (const label of AGREEMENT_LEVELS.map((l) => l.label)) {
+    const answers = Object.fromEntries(comparisons.map((q) => [q.id, label]))
+    assert.ok(Object.values(computePersonaFromAnswers(comparisons, answers).axisStrength).every((s) => s === 'equilibre'))
+  }
+  const v5Interests = comparisons.filter((q) => q.category === 'interest')
+  const noCareAnswers = Object.fromEntries(v5Interests.map((q) => [q.id, [601, 609, 611].includes(q.id) ? 'Pas du tout' : 'Carrément']))
+  const v5Profile = computePersonaFromAnswers(v5Interests, noCareAnswers)
+  for (const [code, score] of Object.entries(v5Profile.interests)) {
+    const related = v5Interests.filter((q) => [q.options[0].value, q.options[0].alternative].includes(code))
+    const wins = related.filter((q) => {
+      const parsed = parseAnswer(q, noCareAnswers[q.id])
+      return (parsed.signed > 0 ? parsed.value : parsed.alternative) === code
+    }).length
+    assert.equal(score, wins / related.length, `Unnormalised comparative score for ${code}`)
+  }
+  const v5Context = buildOrientationQuestionnaireContext(v5Interests.map((q) => ({
+    question_id: q.id, response: noCareAnswers[q.id], questions: q
+  })))
+  assert.match(v5Context.interestSummary, /transmission/)
+  assert.doesNotMatch(v5Context.interestSummary, /soin|infirmier/)
+  assert.match(v5Context.interestInstruction, /normalisées par le nombre de comparaisons/)
+  const careInterpretation = resolveInterpretation(comparisons[1].interpretations, 'Pas du tout')
+  assert.match(careInterpretation, /pour : Réparer du matériel en atelier/)
+  assert.match(QUESTIONNAIRE_NUANCE_INSTRUCTION, /ce ne sont pas des rejets des deux activités/)
+  await db.exec(v5Migration)
+  assert.deepEqual((await db.query('SELECT * FROM public.questions WHERE id < 600 ORDER BY id')).rows, beforeV5)
+  assert.deepEqual((await db.query('SELECT * FROM public.user_responses ORDER BY question_id')).rows, responsesBeforeV5)
+  assert.deepEqual((await db.query("SELECT * FROM public.questions WHERE questionnaire_type = 'inscription_v5' ORDER BY id")).rows, comparisons)
+  await db.exec("UPDATE public.questions SET questionnaire_type = 'other' WHERE id = 600")
+  await assert.rejects(db.exec(v5Migration), /already used/)
+  await db.exec('ROLLBACK')
+  assert.equal((await db.query('SELECT questionnaire_type FROM public.questions WHERE id = 600')).rows[0].questionnaire_type, 'other')
+
   await db.exec("UPDATE public.questions SET questionnaire_type = 'other' WHERE id = 500")
   await assert.rejects(db.exec(v4Migration), /already used/)
   await db.exec('ROLLBACK')
@@ -207,7 +307,7 @@ try {
   await assert.rejects(db.exec(migration), /already used/)
   await db.exec('ROLLBACK')
   assert.equal((await db.query('SELECT questionnaire_type FROM public.questions WHERE id = 400')).rows[0].questionnaire_type, 'other')
-  console.log('Orientation v3/v4: actual questions, balanced dilemmas, weighted relative scoring, model context, idempotence and historical answers verified.')
+  console.log('Orientation v3/v4/v5: short comparisons, four agreement levels, both alternatives scored, model context, idempotence and historical answers verified.')
 } finally {
   await db.close()
 }

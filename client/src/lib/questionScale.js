@@ -1,6 +1,8 @@
 // Answer formats for the orientation questionnaire.
 // Shared by the client flow and server/routes/analysis.js: keep it dependency-free.
 //
+// v5 embeds the comparison in the statement. Agreement options include `alternative`:
+// disagreement favours that alternative, not an absolute lack of interest in both activities.
 // v4 dilemmas show two activities and store the selected activity.
 // The initial four-option v4 format remains readable, but also displays only two choices.
 // Each v3 question is one statement ("J'aime faire des choses de mes mains...") answered with
@@ -81,7 +83,10 @@ export function getAnswerChoices(question) {
     return [...AGREEMENT_LEVELS].reverse().map((level, index) => {
       const option = options.find((candidate) => Number(candidate.level) === level.level)
       const label = option?.label || level.label
-      return { index, answer: label, label, value: option?.value || value, level: level.level }
+      return {
+        index, answer: label, label, value: option?.value || value, level: level.level,
+        ...(option?.alternative ? { alternative: option.alternative } : {})
+      }
     })
   }
   return options.slice(0, 2).map((option, index) => ({
@@ -116,7 +121,10 @@ export function parseAnswer(question, answer) {
   if (isAgreementQuestion(question)) {
     const choice = getAnswerChoices(question).find((candidate) => candidate.answer === text)
     if (!choice?.value) return null
-    return { value: choice.value, level: choice.level, signed: choice.level >= 2 ? choice.level - 1 : choice.level - 2 }
+    return {
+      value: choice.value, level: choice.level, signed: choice.level >= 2 ? choice.level - 1 : choice.level - 2,
+      ...(choice.alternative ? { alternative: choice.alternative } : {})
+    }
   }
 
   const label = stripAnswerStrength(text)

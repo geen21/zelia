@@ -7,7 +7,7 @@ export function resolveInterpretation(interpretations, response) {
   return interpretations[response] || interpretations[label] || interpretations[`Clairement : ${label}`] || null
 }
 
-export const QUESTIONNAIRE_NUANCE_INSTRUCTION = `Le questionnaire v4 oppose deux activités concrètes avec leurs contraintes. La réponse est directement l'activité choisie ; aucun degré d'adhésion n'est demandé. L'autre activité est moins choisie dans ce contexte, pas détestée ni inaccessible. Croise plusieurs dilemmes avant de déprioriser une piste ; une réponse isolée ne doit jamais exclure un secteur. Les premières réponses v4 préfixées « Clairement : » et « Plutôt : » restent respectivement des préférences nettes et légères. Les anciennes affirmations utilisent « Pas du tout », « Plutôt pas », « Plutôt oui », « Carrément ». Les anciennes réponses binaires « Plutôt : <choix> » sont fortes, « Un peu : <choix> » légères. Un axe équilibré n'est pas un trait marqué. Ces réponses sont des préférences relatives, pas des aptitudes mesurées ni un test psychométrique validé.`
+export const QUESTIONNAIRE_NUANCE_INSTRUCTION = `Le questionnaire v5 contient des phrases comparatives « je préfère une activité plutôt qu'une autre ». « Carrément » et « Plutôt oui » favorisent la première activité, nettement ou légèrement. « Pas du tout » et « Plutôt pas » favorisent l'alternative, nettement ou légèrement : ce ne sont pas des rejets des deux activités. La v4 enregistrait directement l'activité choisie ; ses premiers préfixes « Clairement : » et « Plutôt : » indiquaient une préférence nette ou légère. La v3 utilisait l'adhésion à une affirmation sans comparaison. Les anciennes réponses binaires « Plutôt : <choix> » sont fortes, « Un peu : <choix> » légères. L'activité moins choisie n'est pas détestée ni inaccessible. Croise plusieurs dilemmes avant de déprioriser une piste ; une réponse isolée ne doit jamais exclure un secteur. Un axe équilibré n'est pas un trait marqué. Ces réponses sont des préférences relatives, pas des aptitudes mesurées ni un test psychométrique validé.`
 
 export function buildOrientationQuestionnaireContext(responses) {
   const questions = responses
@@ -15,7 +15,8 @@ export function buildOrientationQuestionnaireContext(responses) {
     .map((item) => ({ ...item.questions, id: item.question_id }))
   const answers = Object.fromEntries(responses.map((item) => [item.question_id, item.response]))
   const { topInterests, lowerPriorityInterests } = computePersonaFromAnswers(questions, answers)
-  const hasDilemmas = questions.some(isDilemmaQuestion)
+  const hasDilemmas = questions.some((question) => isDilemmaQuestion(question)
+    || (Array.isArray(question.options) && question.options.some((option) => option.alternative)))
   const interestSummary = topInterests.map((code) => INTEREST_LABELS[code]).join(' ; ')
   const lowerPrioritySummary = lowerPriorityInterests.map((code) => INTEREST_LABELS[code]).join(' ; ')
   const interestInstruction = [

@@ -8,23 +8,20 @@ import { getAnswerChoices } from '../src/lib/questionScale.js'
 const base = process.env.ORIENTATION_TEST_URL || 'http://127.0.0.1:5187'
 const output = join(tmpdir(), 'zelia-orientation-tests')
 await mkdir(output, { recursive: true })
-const agreementOptions = (value) => ['Pas du tout', 'Plutôt pas', 'Plutôt oui', 'Carrément'].map((label, level) => ({ label, value, level }))
-const dilemmaOptions = (a, valueA, b, valueB) => [
-  { label: a, value: valueA, strength: 2 },
-  { label: b, value: valueB, strength: 2 }
-]
+const agreementOptions = (value, alternative) => ['Pas du tout', 'Plutôt pas', 'Plutôt oui', 'Carrément']
+  .map((label, level) => ({ label, value, level, ...(alternative ? { alternative } : {}) }))
+const firstStatement = "Pour comprendre une panne, je préfère démonter l'objet plutôt qu'étudier son schéma."
+const longStatement = 'Je préfère tester un outil nouveau, quitte à tout reprendre, plutôt que garder celui que je maîtrise.'
 const questions = Array.from({ length: 20 }, (_, index) => {
-  const base = { id: index + 1, content: `Question ${index + 1}`, contenu: `Question ${index + 1}` }
-  // Keep both legacy formats covered alongside the new dilemmas.
+  const content = index === 0 ? firstStatement : index === 1 ? longStatement : `Question ${index + 1}`
+  const base = { id: index + 1, content, contenu: content }
+  // Keep legacy formats covered alongside comparative agreement statements.
   if (index === 19) return { ...base, category: 'hands_mind', options: [{ label: 'Construire', value: 'mains' }, { label: 'Analyser', value: 'tete' }] }
   if (index === 18) return { ...base, category: 'interest', options: agreementOptions('S') }
   return {
     ...base,
     category: index % 4 === 3 ? 'interest' : 'hands_mind',
-    options: dilemmaOptions(
-      'Démonter et tester des pièces, quitte à recommencer plusieurs fois.', index % 4 === 3 ? 'R' : 'mains',
-      "Comparer les schémas et les mesures, sans manipuler l'objet.", index % 4 === 3 ? 'I' : 'tete'
-    )
+    options: agreementOptions(index % 4 === 3 ? 'R' : 'mains', index % 4 === 3 ? 'I' : 'tete')
   }
 })
 const savedAnswers = Object.fromEntries(questions.map((q, index) => [q.id, getAnswerChoices(q)[index === 19 ? 1 : 0].answer]))
@@ -88,7 +85,7 @@ async function prepareJourney(viewport, { authenticated = false, answered = fals
     }
     if (authenticated || answered) {
       localStorage.setItem('answers_progress', JSON.stringify({
-        version: 'orientation-flow-v4-binary-20',
+        version: 'orientation-flow-v5-20',
         answers: savedAnswers
       }))
     }
@@ -109,7 +106,7 @@ async function prepareJourney(viewport, { authenticated = false, answered = fals
       const path = url.pathname.replace(/^.*\/api/, '')
       let data = {}
       if (path === '/questionnaire/questions') {
-        assert.equal(url.searchParams.get('type'), 'inscription_v4')
+        assert.equal(url.searchParams.get('type'), 'inscription_v5')
         data = questions
       }
       else if (path === '/auth/register') {
@@ -154,7 +151,7 @@ async function fillRegistration(page) {
 }
 
 try {
-  for (const version of ['orientation-flow-v2-20', 'orientation-flow-v3-20', 'orientation-flow-v4-20', 'orientation-flow-v4-binary-20']) {
+  for (const version of ['orientation-flow-v2-20', 'orientation-flow-v3-20', 'orientation-flow-v4-20', 'orientation-flow-v4-binary-20', 'orientation-flow-v5-20']) {
     const { context, page, state, releaseAnalysis } = await prepareJourney({ width: 390, height: 844 })
     try {
       await context.addInitScript(({ version }) => {
@@ -165,11 +162,11 @@ try {
         }))
       }, { version })
       await page.goto(`${base}/orientation`)
-      if (version !== 'orientation-flow-v4-binary-20') {
+      if (version !== 'orientation-flow-v5-20') {
         await page.getByRole('button', { name: "C'est parti !", exact: true }).click()
         assert.equal(await page.evaluate(() => localStorage.getItem('orientation_resume_after_auth')), null)
       }
-      await expect(page.getByRole('heading', { name: 'Question 1', exact: true })).toBeVisible()
+      await expect(page.getByRole('heading', { name: firstStatement, exact: true })).toBeVisible()
       assert.equal(state.analyses, 0, 'Stale answers must not trigger analysis.')
       assert.deepEqual(state.errors, [])
     } finally {
@@ -187,29 +184,28 @@ try {
       await expect(progress).toBeVisible()
       await expect(progress).toHaveAttribute('aria-valuenow', '0')
       await expect(page.locator('.question-icon-badge')).toHaveCount(0)
-      await expect(page.getByRole('heading', { name: 'Question 1', exact: true })).toBeVisible()
+      await expect(page.getByRole('heading', { name: firstStatement, exact: true })).toBeVisible()
       await page.keyboard.press('ArrowRight')
       await expect(progress).toHaveAttribute('aria-valuenow', '5')
-      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['1']), questions[0].options[1].label)
-      assert.equal(await page.evaluate(() => window.dataLayer.filter((item) => item?.event === 'orientation_question_answered').at(-1).orientation_answer_position), 2)
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['1']), 'Pas du tout')
+      assert.equal(await page.evaluate(() => window.dataLayer.filter((item) => item?.event === 'orientation_question_answered').at(-1).orientation_answer_position), 4)
       await page.getByRole('button', { name: 'Revenir en arrière' }).click()
       await expect(progress).toHaveAttribute('aria-valuenow', '0')
-      await expect(page.locator('.question-prompt, .dilemma-options')).toHaveCount(0)
-      await expect(page.locator('.scale-choice')).toHaveCount(2)
-      await expect(page.locator('.scale-choice')).toHaveText([
-        'Démonter et tester des pièces, quitte à recommencer plusieurs fois.',
-        "Comparer les schémas et les mesures, sans manipuler l'objet."
-      ])
-      await expect(page.locator('.scale-choice.level-3')).toHaveAttribute('aria-pressed', 'true')
-      assert.equal(await page.locator('.scale-choice').first().evaluate((el) => getComputedStyle(el).borderColor), await page.locator('.scale-choice').nth(1).evaluate((el) => getComputedStyle(el).borderColor), 'Preference controls must not imply a good or bad choice.')
-      await expect(page.locator('.scale-choice').first()).toHaveAccessibleName(questions[0].options[0].label)
+      await expect(page.locator('.question-prompt')).toHaveCount(0)
+      await expect(page.locator('.dilemma-options, .dilemma-scale')).toHaveCount(0)
+      await expect(page.locator('.scale-choice')).toHaveCount(4)
+      await expect(page.locator('.scale-choice')).toHaveText(['Carrément', 'Plutôt oui', 'Plutôt pas', 'Pas du tout'])
+      await expect(page.locator('.scale-choice.level-0')).toHaveAttribute('aria-pressed', 'true')
+      const colors = await page.locator('.scale-choice').evaluateAll((buttons) => buttons.map((el) => getComputedStyle(el).backgroundColor))
+      assert.deepEqual(colors, ['rgb(193, 255, 114)', 'rgb(248, 255, 240)', 'rgb(255, 247, 253)', 'rgb(252, 232, 255)'])
+      await expect(page.locator('.scale-choice').first()).toHaveAccessibleName('Carrément')
       await page.keyboard.press('ArrowLeft')
       await expect(progress).toHaveAttribute('aria-valuenow', '5')
-      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['1']), questions[0].options[0].label)
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['1']), 'Carrément')
       assert.equal(await page.evaluate(() => window.dataLayer.filter((item) => item?.event === 'orientation_question_answered').at(-1).orientation_answer_position), 1)
       await page.getByRole('button', { name: 'Revenir en arrière' }).click()
       await expect(progress).toHaveAttribute('aria-valuenow', '0')
-      await expect(page.locator('.scale-choice.level-0')).toHaveAttribute('aria-pressed', 'true')
+      await expect(page.locator('.scale-choice.level-3')).toHaveAttribute('aria-pressed', 'true')
       await expect(page.locator('.axis-pole')).toHaveCount(0)
       const buttons = await page.locator('.scale-choice').evaluateAll((elements) => elements.map((element) => {
         const { x, y, width, height } = element.getBoundingClientRect()
@@ -223,14 +219,15 @@ try {
         assert.ok(buttons.slice(1).every((button, index) => button.x >= buttons[index].x + buttons[index].width), 'Desktop answers must go from left to right.')
       }
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Dilemma overflow.')
-      await page.screenshot({ path: join(output, `questions-dilemma-${viewport.width}.png`) })
-      await page.keyboard.press('3')
-      await page.keyboard.press('4')
-      await expect(progress).toHaveAttribute('aria-valuenow', '0')
-      await page.locator('.scale-choice.level-3').click()
+      await expect(page.locator('.scale-choice').last()).toBeInViewport({ ratio: 1 })
+      await page.screenshot({ path: join(output, `questions-comparison-${viewport.width}.png`) })
+      await page.locator('.scale-choice.level-2').click()
       await expect(progress).toHaveAttribute('aria-valuenow', '5')
       await page.reload()
       await expect(progress).toHaveAttribute('aria-valuenow', '5')
+      await expect(page.getByRole('heading', { name: longStatement, exact: true })).toBeVisible()
+      await expect(page.locator('.scale-choice').last()).toBeInViewport({ ratio: 1 })
+      await page.screenshot({ path: join(output, `questions-comparison-long-${viewport.width}.png`) })
       if (viewport.width === 390) {
         const card = page.locator('.question-card')
         const box = await card.boundingBox()
@@ -239,7 +236,7 @@ try {
         await page.mouse.move(box.x + box.width / 2 + 130, box.y + box.height / 2, { steps: 8 })
         await page.mouse.up()
         await expect(progress).toHaveAttribute('aria-valuenow', '10')
-        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['2']), questions[1].options[1].label)
+        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['2']), 'Pas du tout')
         await expect(card).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)')
         const nextBox = await card.boundingBox()
         await page.mouse.move(nextBox.x + nextBox.width / 2, nextBox.y + nextBox.height / 2)
@@ -247,16 +244,16 @@ try {
         await page.mouse.move(nextBox.x + nextBox.width / 2 - 130, nextBox.y + nextBox.height / 2, { steps: 8 })
         await page.mouse.up()
         await expect(progress).toHaveAttribute('aria-valuenow', '15')
-        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['3']), questions[2].options[0].label)
+        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['3']), 'Carrément')
       }
       while (await page.locator('.question-card').count()) {
         const previousQuestion = await page.locator('.flow-step-label').textContent()
         const questionNumber = Number(previousQuestion.match(/^Question (\d+)/)?.[1])
         if (questionNumber >= 4 && questionNumber <= 7) {
-          await expect(page.locator('.scale-choice')).toHaveCount(2)
-          const position = questionNumber % 2 + 1
+          await expect(page.locator('.scale-choice')).toHaveCount(4)
+          const position = questionNumber - 3
           await page.keyboard.press(String(position))
-          assert.equal(await page.evaluate((id) => JSON.parse(localStorage.getItem('answers_progress')).answers[id], questionNumber), questions[questionNumber - 1].options[position - 1].label)
+          assert.equal(await page.evaluate((id) => JSON.parse(localStorage.getItem('answers_progress')).answers[id], questionNumber), ['Carrément', 'Plutôt oui', 'Plutôt pas', 'Pas du tout'][position - 1])
           assert.equal(await page.evaluate(() => window.dataLayer.filter((item) => item?.event === 'orientation_question_answered').at(-1).orientation_answer_position), position)
         } else if (questionNumber === 19) {
           await expect(page.locator('.question-prompt')).toHaveText('Ça te ressemble ?')
@@ -300,8 +297,8 @@ try {
         await expect.poll(() => state.analyses).toBe(1)
         assert.equal(state.registrations[0].questionnaireResponses.length, 20)
         const storedAnswers = JSON.stringify(state.registrations[0].questionnaireResponses)
-        assert.ok(storedAnswers.includes(questions[0].options[1].label), `Activity answer not stored: ${storedAnswers}`)
-        assert.ok(!storedAnswers.includes('Clairement : ') && !storedAnswers.includes('Plutôt : '), 'New dilemmas must store the activity directly.')
+        assert.ok(storedAnswers.includes('Plutôt oui'), `Nuanced agreement answer not stored: ${storedAnswers}`)
+        assert.ok(!storedAnswers.includes('Clairement : ') && !storedAnswers.includes('Plutôt : '), 'Comparisons must store agreement labels, not activity labels.')
         assert.ok(storedAnswers.includes('Carrément'), `Agreement answer not stored: ${storedAnswers}`)
         assert.ok(storedAnswers.includes('Analyser'), `Legacy answer not stored: ${storedAnswers}`)
         assert.equal(state.registrations[0].newsletterOptIn, false)
@@ -479,7 +476,7 @@ try {
       localStorage.setItem('token', 'orientation-fixture-token')
       localStorage.setItem('orientation_resume_after_auth', 'analysis')
       localStorage.setItem('answers_progress', JSON.stringify({
-        version: 'orientation-flow-v4-binary-20',
+        version: 'orientation-flow-v5-20',
         answers: savedAnswers
       }))
       localStorage.setItem('orientation_micro_profile', JSON.stringify({

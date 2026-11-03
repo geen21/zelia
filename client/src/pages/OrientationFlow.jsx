@@ -18,7 +18,7 @@ import './OrientationFlow.css'
 
 const QUESTION_LIMIT = 20
 const ANSWERS_PROGRESS_KEY = 'answers_progress'
-const ANSWERS_PROGRESS_VERSION = `orientation-flow-v4-binary-${QUESTION_LIMIT}`
+const ANSWERS_PROGRESS_VERSION = `orientation-flow-v5-${QUESTION_LIMIT}`
 const DRAG_THRESHOLD = 96
 const MAX_PROPOSAL_DECK = 24
 const MAX_FINAL_RESULTS = 14
@@ -2346,6 +2346,7 @@ export default function OrientationFlow() {
     if (!currentQuestion) return null
     const choices = getQuestionChoices(currentQuestion)
     const agreementQuestion = isAgreementQuestion(currentQuestion)
+    const comparativeQuestion = agreementQuestion && choices.some((choice) => choice.alternative)
     const dilemmaQuestion = isDilemmaQuestion(currentQuestion)
     const selectedIndex = getAnswerChoiceIndex(currentQuestion, answers[currentQuestion.id])
     return (
@@ -2360,7 +2361,7 @@ export default function OrientationFlow() {
           style={{ transform: `translateX(${dragX}px) rotate(${dragX / 18}deg)` }}
         >
           <h1>{cleanQuestionText(currentQuestion.contenu)}</h1>
-          {agreementQuestion && <p className="question-prompt">Ça te ressemble ?</p>}
+          {agreementQuestion && !comparativeQuestion && <p className="question-prompt">Ça te ressemble ?</p>}
         </div>
         <div className="orientation-actions answer-scale">
           <div
@@ -2383,7 +2384,7 @@ export default function OrientationFlow() {
           {questionIndex === 0 && (
             <p className="scale-hint">{dilemmaQuestion
               ? "Choisis l'activité que tu préfères, pas celle qui fait bonne impression."
-              : 'Pas de bonne ou de mauvaise réponse : réponds selon ce que tu ressens vraiment.'}</p>
+              : 'Réponds au choix proposé, pas à ce qui fait bonne impression.'}</p>
           )}
         </div>
       </div>

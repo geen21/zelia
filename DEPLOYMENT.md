@@ -1,5 +1,22 @@
 # Zelia Deployment Guide
 
+## Core Web Vitals : verification apres deploiement
+
+- Reconstruire et deployer le client complet (y compris les nouveaux chunks et CSS).
+  Utiliser `build:metiers` si le catalogue metiers est active, sinon `build`.
+  Le correctif ne demande pas de migration SQL ni de modification du backend.
+- Avant livraison, depuis `client`, executer `npm run verify:web-vitals` sur le build.
+  Les mesures locales excluent les services externes et la latence reelle des API.
+- Apres livraison, tester l'accueil, une fiche formation et le blog avec PageSpeed
+  Insights sur mobile et desktop, puis lancer **Valider la correction** dans le
+  rapport mobile Search Console. Ne pas lancer cette validation avant deploiement.
+- Le rapport consulte le 3 novembre 2026 signale 3286 URL mobiles dans un groupe
+  LCP a 3,5 s. Sur desktop, les trois categories sont a zero et aucun probleme
+  n'est detecte : l'absence de bonnes URL n'etablit pas une regression, elle peut
+  correspondre a un volume insuffisant de mesures CrUX.
+- Les donnees terrain reposent sur une fenetre glissante de 28 jours : le retour
+  a un statut vert n'est ni immediat ni garanti par les seuls tests locaux.
+
 ## Pages metiers : contenu editorial isole
 
 1. Appliquer [migration_metier_pages.sql](server/database/migration_metier_pages.sql).
@@ -10,8 +27,11 @@
 2. Depuis `server`, executer `npm run metiers -- sync`, examiner le rapport
    prive et les regroupements, puis `npm run metiers -- sample`. Le budget
    total persistant est de 2 USD, echantillon et reprises inclus.
-3. Executer `npm run metiers -- export --preview`, puis depuis `client`
-   `npm run build:metiers`. Examiner les dix fiches avec l'utilisateur.
+3. Executer `npm run metiers -- export --preview --detailed-only`, puis depuis `client`
+   `npm run build:metiers`. Examiner les trois fiches detaillees avec l'utilisateur :
+   600–900 mots utiles, FAQ et sources, verdict explique en 1–2 phrases.
+   Pour les anciens pilotes courts, utiliser `regenerate --id <id>`.
+   Les metiers sans documentation verifiee restent bloques pour la generation longue.
    Une previsualisation est `noindex` et ne genere aucun sitemap metier.
 4. Seulement apres validation humaine, executer `approve-sample`, puis
    `quote` pour le devis complet. Ne pas depasser le budget si le nombre

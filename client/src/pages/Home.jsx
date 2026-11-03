@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { FiArrowRight, FiArrowUpRight, FiBookOpen, FiCheck, FiCompass, FiFeather, FiGrid, FiHeart, FiMenu, FiMessageCircle, FiSend, FiShare2, FiShield, FiSmile, FiStar, FiUsers, FiX } from 'react-icons/fi'
+import { FiArrowRight, FiArrowUpRight, FiBookOpen, FiCheck, FiCompass, FiFeather, FiGrid, FiHeart, FiMessageCircle, FiSend, FiShare2, FiShield, FiSmile, FiStar, FiUsers } from 'react-icons/fi'
 import SEO from '../components/SEO'
-import { supabase } from '../lib/supabase'
+import PublicHeader from '../components/PublicHeader'
 import BlogCover from './blog/BlogCover'
 import { blogPosts } from './blog/posts'
 import './blog/blog-editorial.css'
@@ -11,9 +11,7 @@ import './Home.css'
 export default function Home() {
   const navigate = useNavigate()
   const location = useLocation()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [shareStatus, setShareStatus] = useState('')
-  const menuToggle = useRef(null)
   const latestPosts = useMemo(() => (
     [...blogPosts].sort((a, b) => new Date(b.dateIso) - new Date(a.dateIso)).slice(0, 3)
   ), [])
@@ -54,7 +52,12 @@ export default function Home() {
       }
 
       const storedToken = localStorage.getItem('supabase_auth_token') || localStorage.getItem('token')
-      const { data } = await supabase.auth.getSession().catch(() => ({ data: null }))
+      const { data } = await import('../lib/supabase')
+        .then(({ supabase }) => supabase.auth.getSession())
+        .catch((error) => {
+          console.warn('Landing session check failed', error)
+          return { data: null }
+        })
       if (!active) return
       if (storedToken || data?.session?.access_token) {
         if (data?.session?.access_token) localStorage.setItem('supabase_auth_token', data.session.access_token)
@@ -93,43 +96,7 @@ export default function Home() {
         url="https://zelia.io/"
       />
       <a className="zelia-home-skip" href="#landing-content">Aller au contenu</a>
-      <header className="zelia-home-header">
-        <nav
-          className="zelia-home-nav zelia-home-container"
-          aria-label="Navigation principale"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape' && mobileMenuOpen) {
-              setMobileMenuOpen(false)
-              menuToggle.current?.focus()
-            }
-          }}
-        >
-          <Link to="/" className="zelia-home-logo" aria-label="Accueil Zélia">
-            <img src="/static/images/logo-dark.png" alt="Zélia" width="100" height="40" />
-          </Link>
-          <button
-            ref={menuToggle}
-            type="button"
-            className="zelia-home-menu-toggle"
-            onClick={() => setMobileMenuOpen((open) => !open)}
-            aria-expanded={mobileMenuOpen}
-            aria-controls="zelia-home-mobile-menu"
-            aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-          >
-            {mobileMenuOpen ? <FiX aria-hidden="true" /> : <FiMenu aria-hidden="true" />}
-          </button>
-          <div id="zelia-home-mobile-menu" className={`zelia-home-nav-actions${mobileMenuOpen ? ' is-open' : ''}`}>
-            <Link to="/espace-ecoles" onClick={() => setMobileMenuOpen(false)}>Ambassadeur</Link>
-            <Link to="/parents" onClick={() => setMobileMenuOpen(false)}>Parents</Link>
-            <Link to="/blog" onClick={() => setMobileMenuOpen(false)}>Le blog</Link>
-            {import.meta.env.VITE_METIER_PAGES_ENABLED === 'true' && <Link to="/metiers/" onClick={() => setMobileMenuOpen(false)}>Métiers</Link>}
-            <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Me connecter</Link>
-            <Link to="/orientation" className="zelia-home-button" onClick={() => setMobileMenuOpen(false)}>
-              Me découvrir <FiArrowUpRight aria-hidden="true" />
-            </Link>
-          </div>
-        </nav>
-      </header>
+      <PublicHeader />
 
       <section id="landing-content" className="zelia-home-hero zelia-home-container" tabIndex={-1} aria-labelledby="landing-title">
         <div className="zelia-home-hero-content">

@@ -1,49 +1,37 @@
 import React, { Suspense, lazy } from 'react'
-import { createRoot } from 'react-dom/client'
+import { createRoot, hydrateRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
-import 'bootstrap/dist/js/bootstrap.bundle.min.js'
+import './tailwind.css'
 import './landing.css'
 import './admin.css'
 import { loadLegacyStyles } from './lib/loadLegacyStyles.js'
-import Login from './pages/Login.jsx'
-import Register from './pages/Register.jsx'
-import Questionnaire from './pages/Questionnaire.jsx'
 import Home from './pages/Home.jsx'
-import Results from './pages/Results.jsx'
-import Profile from './pages/Profile.jsx'
-import Layout from './pages/Layout.jsx'
-import FormationsEcoles from './pages/FormationsEcoles.jsx'
-import Emplois from './pages/Emplois.jsx'
-import MentionsLegales from './pages/MentionsLegales.jsx'
-import ConditionsConfidentialite from './pages/ConditionsConfidentialite.jsx'
-import Lettre from './pages/Lettre.jsx'
-import AuthCallback from './pages/AuthCallback.jsx'
-import BlogIndex from './pages/blog/BlogIndex.jsx'
-import BlogExploreMetiers from './pages/blog/BlogExploreMetiers.jsx'
-import BlogQuestionnaire from './pages/blog/BlogQuestionnaire.jsx'
-import BlogParents from './pages/blog/BlogParents.jsx'
-import BlogMetierFaitPourSoi from './pages/blog/BlogMetierFaitPourSoi.jsx'
-import BlogChoisirSesEtudes from './pages/blog/BlogChoisirSesEtudes.jsx'
-import BlogEtudeSalaire from './pages/blog/BlogEtudeSalaire.jsx'
-import BlogEditorialArticle from './pages/blog/BlogEditorialArticle.jsx'
 import { editorialPosts } from './pages/blog/editorialPosts.js'
-import TagManager from 'react-gtm-module'
 import { usePageTracking } from './lib/usePageTracking.js'
-import { hasAuthParameters, isPrivatePortalPath } from './lib/analytics.js'
 import { TOOLBOX_ITEMS } from './lib/levelMapping.js'
-import MetierPage from './pages/metiers/MetierPage.jsx'
 
-const tagManagerArgs = {
-    gtmId: 'GTM-TTNGZ2H8'
-}
-
-const isPrivateEntry = isPrivatePortalPath(window.location.pathname) || hasAuthParameters(window.location)
-if (!isPrivateEntry) {
-  window.__zeliaPublicTrackingLoaded = true
-  TagManager.initialize(tagManagerArgs)
-}
-
+const Login = lazy(() => import('./pages/Login.jsx'))
+const Register = lazy(() => import('./pages/Register.jsx'))
+const Questionnaire = lazy(() => import('./pages/Questionnaire.jsx'))
+const Results = lazy(() => import('./pages/Results.jsx'))
+const Profile = lazy(() => import('./pages/Profile.jsx'))
+const Layout = lazy(() => import('./pages/Layout.jsx'))
+const FormationsEcoles = lazy(() => import('./pages/FormationsEcoles.jsx'))
+const Emplois = lazy(() => import('./pages/Emplois.jsx'))
+const MentionsLegales = lazy(() => import('./pages/MentionsLegales.jsx'))
+const ConditionsConfidentialite = lazy(() => import('./pages/ConditionsConfidentialite.jsx'))
+const Lettre = lazy(() => import('./pages/Lettre.jsx'))
+const AuthCallback = lazy(() => import('./pages/AuthCallback.jsx'))
+const BlogIndex = lazy(() => import('./pages/blog/BlogIndex.jsx'))
+const BlogExploreMetiers = lazy(() => import('./pages/blog/BlogExploreMetiers.jsx'))
+const BlogQuestionnaire = lazy(() => import('./pages/blog/BlogQuestionnaire.jsx'))
+const BlogParents = lazy(() => import('./pages/blog/BlogParents.jsx'))
+const BlogMetierFaitPourSoi = lazy(() => import('./pages/blog/BlogMetierFaitPourSoi.jsx'))
+const BlogChoisirSesEtudes = lazy(() => import('./pages/blog/BlogChoisirSesEtudes.jsx'))
+const BlogEtudeSalaire = lazy(() => import('./pages/blog/BlogEtudeSalaire.jsx'))
+const BlogEditorialArticle = lazy(() => import('./pages/blog/BlogEditorialArticle.jsx'))
+const MetierPage = lazy(() => import('./pages/metiers/MetierPage.jsx'))
 const ConversationalHome = lazy(() => import('./pages/ConversationalHome.jsx'))
 const DiscuterZelia = lazy(() => import('./pages/DiscuterZelia.jsx'))
 const SchoolPortalHome = lazy(() => import('./pages/school-portal/SchoolPortalHome.jsx'))
@@ -162,6 +150,7 @@ function App() {
     <HelmetProvider>
       <BrowserRouter>
         <PageTracker />
+        <Suspense fallback={<div className="p-6 text-center" role="status">Chargement…</div>}>
         <Routes>
     <Route path="/" element={<Home />} />
   <Route path="/login" element={<Login />} />
@@ -251,13 +240,18 @@ function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" />} />
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </HelmetProvider>
   )
 }
 
-const root = createRoot(document.getElementById('root'))
-root.render(<App />)
+const rootElement = document.getElementById('root')
+if (rootElement.dataset.prerendered === 'true') {
+  hydrateRoot(rootElement, <App />)
+} else {
+  createRoot(rootElement).render(<App />)
+}
 
 function RequireAuth({ children }) {
   const token = localStorage.getItem('token') || localStorage.getItem('supabase_auth_token')

@@ -52,6 +52,8 @@ test('strict short content, AI context, minimal thinking and known token prices'
   assert.ok(!JSON.stringify(request).includes('PRIVATE'))
   assert.equal(request.generationConfig.thinkingConfig.thinkingLevel, 'MINIMAL')
   assert.equal(request.generationConfig.maxOutputTokens, MAX_OUTPUT_TOKENS)
+  assert.ok(generationRequest({ title: 'Infirmier', rome_codes: [], last_error: 'Fiche détaillée : 939 mots utiles, attendu 600–900' })
+    .contents[0].parts[0].text.includes('939 mots utiles'))
   assert.equal(tokenCost('standard', 1000000, 1000000), 1.75)
   assert.equal(tokenCost('batch', 1000000, 1000000), 0.875)
   assert.equal(responseCost('batch', { maxCost: 0.1 }, {}), 0.1)
@@ -180,6 +182,10 @@ test('detailed content is 600–900 useful words with complete sections, real so
   assert.equal(validated.faq.length, 3)
   assert.throws(() => validateMetierContent({ ...content, sections: content.sections.slice(1) }))
   assert.throws(() => validateMetierContent({ ...content, faq: [{ ...content.faq[0], sourceIds: ['invented-source'] }, ...content.faq.slice(1)] }))
+  assert.throws(() => validateMetierContent({ ...content, faq: [{ ...content.faq[0], question: 'Ce diplôme est-il le seul moyen d’exercer ?', answer: 'Oui, il s’agit de la seule voie.' }, ...content.faq.slice(1)] }), /exclusive/)
+  assert.throws(() => validateMetierContent({ ...content, sections: content.sections.map((section, index) => index ? section : {
+    ...section, paragraphs: ['Ces outils se caractérisent par leur incapacité à comprendre une stratégie.', section.paragraphs[1]]
+  }) }), /incapacité/)
   assert.throws(() => validateMetierContent({ ...content, sources: [{ ...content.sources[0], url: 'https://example.com/invented' }, content.sources[1]] }))
   assert.throws(() => validateMetierContent({ ...content, sections: content.sections.map((section) => ({ ...section, paragraphs: ['Trop court.', 'Encore trop court.'] })) }))
   const sources = metierEditorialContext({ title: 'Infirmier' }).publicSources

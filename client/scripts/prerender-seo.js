@@ -176,7 +176,7 @@ async function main() {
       })
       const dir = resolve(DIST, 'blog')
       mkdirSync(dir, { recursive: true })
-      writeFileSync(resolve(dir, 'index.html'), html.replace('<div id="root"></div>', () => `<div id="root">${renderBlogPage()}</div>`), 'utf-8')
+      writeFileSync(resolve(dir, 'index.html'), html.replace('<div id="root"></div>', () => `<div id="root" data-prerendered="true">${renderBlogPage()}</div>`), 'utf-8')
       count++
       console.log(`  ✓ /blog`)
     }
@@ -198,7 +198,7 @@ async function main() {
       const dir = resolve(DIST, 'blog', post.slug)
       mkdirSync(dir, { recursive: true })
       const content = post.sections ? renderBlogPage(post.slug) : ''
-      writeFileSync(resolve(dir, 'index.html'), html.replace('<div id="root"></div>', () => `<div id="root">${content}</div>`), 'utf-8')
+      writeFileSync(resolve(dir, 'index.html'), html.replace('<div id="root"></div>', () => `<div id="root"${content ? ' data-prerendered="true"' : ''}>${content}</div>`), 'utf-8')
       count++
       console.log(`  ✓ /blog/${post.slug}`)
     }

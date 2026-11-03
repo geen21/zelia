@@ -136,6 +136,7 @@ export default function MetierPage({ initialDocument }) {
           <p className="metier-method">Ces repères décrivent le métier, pas une offre d’emploi. Les anciennes annonces ne permettent pas de connaître les postes disponibles aujourd’hui.</p>
           {data.page.content.version === 2 && <article className="metier-editorial" aria-label={`Comprendre le métier : ${data.page.title}`}>
             {data.page.content.sections.map((section) => <section id={section.id} key={section.id}>
+              {section.id === 'intelligence-artificielle' && <p className="metier-eyebrow">Analyse prospective · pas une prévision de recrutement</p>}
               <h2>{section.heading}</h2>
               {section.paragraphs.map((text, index) => <p key={index}>{text}</p>)}
               <Citations ids={section.sourceIds} sources={data.page.content.sources} />

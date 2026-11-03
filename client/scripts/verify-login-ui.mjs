@@ -84,6 +84,25 @@ async function fillCredentials(page) {
 }
 
 try {
+  for (const cached of [false, true]) {
+    const { context, page, state } = await prepare({ width: 390, height: 844 }, { cached })
+    try {
+      await page.goto(`${base}/register`)
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(cached ? 'Découvre ton profil complet' : 'Créer ton espace')
+      await expect(page.getByText('Ton profil et ton parcours seront rattachés à ce compte.', { exact: true })).toHaveCount(0)
+      await expect(page.getByText('Ton parcours est prêt, il sera rattaché à ton compte après connexion.', { exact: true })).toHaveCount(0)
+      await expect(page.getByLabel('Email', { exact: true })).toBeVisible()
+      await expect(page.getByLabel('Mot de passe', { exact: true })).toBeVisible()
+      await expect(page.getByRole('button', { name: cached ? 'Voir mon profil complet' : 'Créer avec email', exact: true })).toBeEnabled()
+      if (cached) assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_cache')).answers), answers)
+      assert.deepEqual(state.errors, [])
+      assert.equal(state.credentials.length, 0)
+      console.log(`Registration messages removed with${cached ? '' : 'out'} an existing orientation journey.`)
+    } finally {
+      await context.close()
+    }
+  }
+
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }, { width: 320, height: 568 }]) {
     const { context, page, state } = await prepare(viewport, { reducedMotion: viewport.width === 320 ? 'reduce' : 'no-preference' })
     try {

@@ -17,7 +17,7 @@ Run from `server`:
 npm run metiers -- sync
 npm run metiers -- sample
 npm run metiers -- budget
-npm run metiers -- export --preview
+npm run metiers -- export --preview --detailed-only
 ```
 
 `sync` inventories the whole history, not the recent-ad search window. The
@@ -31,16 +31,31 @@ occupations. Resolve advertisement variants before bulk generation. A quote
 can reject the conservative output reservation before counting every input,
 avoiding thousands of unnecessary token-count requests.
 
-The first ten distinct sample occupations use `gemini-3.1-flash-lite` standard
-generation. The complete catalogue uses the actual Gemini Batch API, not
+The detailed pilot covers infographiste, collaborateur comptable junior and
+infirmier en soins generaux. Each page contains 600–900 useful words, five
+developed sections, three or four FAQ answers, and official sources. The
+OUI/NON explanation remains one or two sentences. Use `regenerate --id <id>`
+to replace an existing short pilot page; old contents survive a failed attempt.
+
+Verified factual notes are in [metierEditorialSources.js](utils/metierEditorialSources.js).
+The provider receives only public job labels and those paraphrased facts.
+Source URLs are attached from server metadata, never invented by the model.
+Missing job-specific documentation blocks detailed generation; do not generate
+unverified long articles for the remaining candidate labels. The nursing
+qualification source is RNCP42589, which replaces RNCP39923; future changes
+described there must not be presented as already applicable to every cohort.
+
+The pilot uses `gemini-3.1-flash-lite` standard generation, with a durable limit
+of ten distinct standard-sample occupation IDs including older attempts.
+The complete catalogue uses the actual Gemini Batch API, not
 parallel standard requests. No alternate model is selected automatically.
 Standard input/output rates are USD 0.25/1.50 per million tokens; Batch rates
-are 0.125/0.75. Output is capped at 768 tokens and thinking is set to MINIMAL;
+are 0.125/0.75. Detailed JSON output is capped at 4096 tokens and thinking is set to MINIMAL;
 thinking tokens are included in cost accounting.
 Prices: https://aistudio.google.com/docs/pricing#gemini-3.1-flash-lite.
 The older 2.5 Flash-Lite is not available for this project's generation requests.
 
-After **human validation** of the sample:
+After **human validation** of at least three detailed, sourced pages:
 
 ```powershell
 npm run metiers -- approve-sample
@@ -65,12 +80,13 @@ with `attach --id <reservation UUID> --job batches/<job-id>`, then `collect`.
 A failed request without usable token accounting keeps its conservative maximum
 cost. Explicitly retriable content errors require `--retry-errors`; do not clear
 an uncertain reservation without checking the provider.
-To revise one of the ten existing sample pages explicitly, use
+To revise one of the existing sample pages explicitly, use
 `regenerate --id <occupation-id>`. Its previous content is retained until a
 valid replacement is stored, and the extra attempt counts toward USD 2.
 
-Export refuses an incomplete production catalogue. `export --preview` explicitly
-allows a non-indexable sample; neither mode exposes the private inventory,
+Export refuses an incomplete production catalogue and any remaining short-only
+content. `export --preview --detailed-only` explicitly allows the non-indexable
+detailed sample; neither mode exposes the private inventory,
 generation ledger or service key. Test with `npm run verify:metiers` (mocked
 provider and local PostgreSQL; no paid calls).
 

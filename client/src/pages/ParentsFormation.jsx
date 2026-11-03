@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import SEO from '../components/SEO.jsx'
+import PublicHeader from '../components/PublicHeader.jsx'
 import { parentTrainingAPI } from '../lib/api.js'
 import './OrientationFlow.css'
 import './ParentsFormation.css'
@@ -221,19 +222,15 @@ export default function ParentsFormation() {
         type="website"
       />
 
-      <header className="parents-header">
-        <a href="/" className="parents-logo-link">
-          <img src="/static/images/logo-dark.png" alt="Zélia" />
-        </a>
-        <button type="button" className="secondary-action parents-header-cta" onClick={scrollToInscription}>
-          Je m'inscris
-        </button>
-      </header>
+      <PublicHeader />
 
       <section className="parents-hero">
         <span className="orientation-pill">Formation pour les parents</span>
         <h1>La méthode pas-à-pas pour les parents de lycéens (Seconde, Première, Terminale)</h1>
         <p>Devenez un allié orientation pour votre enfant et retrouvez le dialogue avec lui.</p>
+        <button type="button" className="secondary-action parents-hero-cta" onClick={scrollToInscription}>
+          Je m'inscris
+        </button>
       </section>
 
       <section className="parents-section">

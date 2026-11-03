@@ -159,6 +159,7 @@
 .persona-icon-btn:disabled { opacity: 0.5; cursor: default; }
 .persona-continue {
   flex: 1 1 auto;
+  scroll-margin-block: 4px;
   min-height: 52px;
   display: inline-flex;
   align-items: center;

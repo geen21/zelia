@@ -69,7 +69,7 @@ async function verifyLayout(page) {
     const root = document.querySelector('.parents-landing')
     const issues = root.scrollWidth > root.clientWidth + 1 ? ['Landing overflow'] : []
     for (const element of document.querySelectorAll(
-      '.parents-header, .parents-header-cta, .parents-video iframe, .parents-module-card, ' +
+      '.public-header, .parents-hero-cta, .parents-video iframe, .parents-module-card, ' +
       '.parents-cta-block .primary-action, .parents-pricing-card, .identity-form-grid input, ' +
       '.parents-confirmation, .calendly-inline-widget'
     )) {
@@ -84,11 +84,22 @@ async function verifyLayout(page) {
 }
 
 async function verifyInscriptionScroll(page) {
-  await expect.poll(() => page.evaluate(() => {
-    const top = document.getElementById('inscription').getBoundingClientRect().top
-    const headerBottom = document.querySelector('.parents-header').getBoundingClientRect().bottom
-    return top >= headerBottom - 1 && top < headerBottom + 100
-  })).toBe(true)
+  try {
+    await expect.poll(() => page.evaluate(() => {
+      const top = document.getElementById('inscription').getBoundingClientRect().top
+      const headerBottom = document.querySelector('.public-header').getBoundingClientRect().bottom
+      return top >= headerBottom - 1 && top < headerBottom + 100
+    })).toBe(true)
+  } catch (error) {
+    console.error('Inscription scroll position:', await page.evaluate(() => ({
+      width: innerWidth, height: innerHeight, scrollY,
+      top: document.getElementById('inscription').getBoundingClientRect().top,
+      headerBottom: document.querySelector('.public-header').getBoundingClientRect().bottom,
+      margin: getComputedStyle(document.getElementById('inscription')).scrollMarginTop,
+      focused: document.activeElement?.textContent
+    })))
+    throw error
+  }
 }
 
 try {

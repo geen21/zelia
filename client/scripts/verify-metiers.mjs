@@ -27,6 +27,7 @@ try {
   const docs = [...buildMetierDocuments(snapshot)]
   for (const doc of docs) {
     const html = await readFile(resolve(dist, ...doc.path.split('/').filter(Boolean), 'index.html'), 'utf8')
+    const renderedHtml = html.split('<script type="application/json" id="zelia-metier-data">')[0]
     assert.equal((html.match(/<h1\b/g) || []).length, 1)
     assert.equal((html.match(/rel="canonical"/g) || []).length, 1)
     assert.ok(html.includes(`href="https://zelia.io${doc.path}"`))
@@ -46,7 +47,7 @@ try {
         assert.ok(html.includes('id="questions-frequentes"') && html.includes('id="sources-metier"'))
         for (const section of doc.page.content.sections) {
           assert.ok(html.includes(`id="${section.id}"`))
-          for (const text of section.paragraphs) assert.ok(html.includes(text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;')))
+          for (const text of section.paragraphs) assert.ok(renderedHtml.includes(text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;')))
         }
         for (const source of doc.page.content.sources) assert.ok(html.includes(`href="${source.url}"`))
       }
@@ -127,8 +128,10 @@ try {
   assert.equal(await page.locator('h1').count(), 1)
   assert.equal(await page.locator('link[rel=canonical]').count(), 1)
   if (snapshot.pages.every((entry) => entry.content.version === 2)) {
-    await page.locator('.metier-faq summary').first().click()
+    await page.locator('.metier-faq summary').first().focus()
+    await page.keyboard.press('Enter')
     assert.ok(await page.locator('.metier-faq details').first().getAttribute('open') !== null)
+    assert.equal(await page.locator('.metier-faq summary').first().evaluate((element) => getComputedStyle(element).outlineWidth), '3px')
     assert.equal(await page.locator('.metier-sources li').count(), snapshot.pages.find((entry) => page.url().includes(entry.slug)).content.sources.length)
   }
   await page.route('**/metiers-data/index.json', (route) => route.fulfill({ status: 503, body: 'Unavailable' }))

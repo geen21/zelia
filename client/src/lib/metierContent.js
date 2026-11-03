@@ -68,6 +68,12 @@ export function validateMetierContent(value) {
     if (!Array.isArray(value.faq) || value.faq.length < 3 || value.faq.length > 4) throw new Error('FAQ métier incomplète')
     result.faq = value.faq.map((item) => ({ question: plainText(item.question, 180, 'question FAQ'),
       answer: plainText(item.answer, 900, 'réponse FAQ'), sourceIds: citations(item.sourceIds) }))
+    if (result.faq.some((item) => /\b(?:seul|unique)\b/iu.test(item.question) && /^oui\b/iu.test(item.answer))) {
+      throw new Error('Ne pas affirmer une voie de qualification exclusive sans documenter les exceptions')
+    }
+    if (/incapacité\s+(?:de|à)\s+(?:saisir|comprendre|analyser)/iu.test(result.sections.flatMap((section) => section.paragraphs).join(' '))) {
+      throw new Error('Ne pas fonder les perspectives sur une incapacité définitive supposée de l’IA')
+    }
     if (new Set(result.faq.map((item) => item.question.toLowerCase())).size !== result.faq.length) throw new Error('Questions FAQ dupliquées')
     result.version = 2
     const words = metierWordCount(result)

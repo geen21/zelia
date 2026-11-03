@@ -10,6 +10,8 @@
     "verify:metiers": "node scripts/verify-metiers.mjs",
     "preview": "vite preview",
     "verify:landing-ui": "node scripts/verify-landing-ui.mjs",
+    "verify:public-nav": "node scripts/verify-public-navigation.mjs",
+    "verify:web-vitals": "node scripts/verify-web-vitals.mjs",
     "verify:admin-ui": "node scripts/verify-backoffice.mjs",
     "verify:parents-ui": "node scripts/verify-parents.mjs",
     "verify:profile-ui": "node scripts/verify-profile-ui.mjs",
@@ -47,12 +49,11 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
-    "@tailwindcss/postcss": "^4.1.13",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.21",
     "jspdf": "^2.5.1",
     "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.12",
+    "tailwindcss": "^3.4.19",
     "vite": "^5.2.0"
   }
 }

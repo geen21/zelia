@@ -7,6 +7,19 @@ Run
 1. Install: npm install
 2. Dev server: npm run dev (proxy /api to http://localhost:8000)
 
+Performance des pages publiques
+- Tailwind est compile par PostCSS, sans script CDN ni compilation dans le navigateur. La version 3 conserve les regles du Play CDN historique ; le theme est dans `tailwind.config.js`. Les classes doivent etre ecrites en entier dans les sources pour etre detectees au build.
+- Les routes autres que la landing sont chargees a la demande : les graphiques, outils et ecrans connectes ne font plus partie du JavaScript initial des pages publiques. La verification de session de la landing charge aussi Supabase a la demande.
+- Les pages de blog prerendees sont hydratees sans remplacer leur contenu initial. GTM reste charge une seule fois par le HTML, avec les exclusions existantes pour les portails prives et jetons d'authentification.
+- Apres `npm run build`, lancer `npm run verify:web-vitals`. Le controle demarre et ferme sa propre preview ; aucun serveur externe n'est requis. Il teste la landing, une fiche formation et le blog en 390/1440 px, cache froid, reseau a 1,6 Mbit/s et latence 40 ms, CPU ralenti x4 sur mobile.
+- Budgets : LCP median de trois visites <= 2,5 s, CLS <= 0,1, JavaScript charge < 180 Kio gzip. Le controle verifie aussi l'hydratation, l'absence de CDN Tailwind et de double GTM. Les API et services externes sont simules/bloques : ce test de regression ne remplace ni PageSpeed en production ni les donnees terrain CrUX.
+
+Navigation publique partagee
+- `src/components/PublicHeader.jsx` et son CSS definissent le meme menu sur la landing, la page parents, le blog et ses articles, les formations publiques et les metiers. `BlogHeaderNav` reexporte ce composant pour les pages existantes.
+- Les liens, le logo, le CTA et le menu mobile sont communs ; le lien Metiers reste conditionne par `VITE_METIER_PAGES_ENABLED`. Les portails connectes conservent leur navigation dediee.
+- Le bouton parents "Je m'inscris" reste disponible dans le hero, en dehors du menu commun.
+- Avec Vite sur le port 5187 : `npm run verify:public-nav`. `PUBLIC_NAV_TEST_URL` permet de choisir un autre serveur. Le controle compare les liens et les styles sur huit pages et cinq largeurs, teste le clavier et la navigation sans rechargement. Les API et services externes sont simules.
+
 Landing publique (/)
 - Contenus historiques et avatar Zelia d'origine (DiceBear Lorelei, seed `zelia`), dans une palette citron/rose vive inspiree du blog, avec aplats colores et ombres decalees. Les styles restent scopes a `.zelia-home` dans `src/pages/Home.css`.
 - Le menu, l'apercu editorial et le pied de page donnent acces au blog. Les trois derniers articles proviennent de `src/pages/blog/posts.js`, tries par date decroissante comme la liste du blog, sans modifier le catalogue. Leurs couvertures reutilisent `BlogCover`.
@@ -20,11 +33,11 @@ Verification de la landing (depuis client, avec Vite sur le port 5187)
 
 Pages metiers (/metiers/)
 - Catalogue editorial independant, conserve dans le schema Supabase `seo`, pas dans `public`.
-- Fiches courtes : verdict OUI/NON et explication liee a l'IA, reperes metier et CTA vers /orientation.
+- Fiches detaillees : 600–900 mots utiles, cinq sections developpees, FAQ et sources officielles ; verdict OUI/NON explique en 1–2 phrases, sommaire et CTA vers /orientation.
 - Aucun lien de candidature issu des anciennes annonces et aucun appel Gemini a la visite.
 - Depuis client, apres l'export serveur : `npm run build:metiers`. Le snapshot par defaut est `server/.generated/metiers.json` ; un autre fichier se choisit avec `-- --snapshot <chemin>`.
 - Le build inclut le HTML complet, les JSON par page, les liens d'annuaire, le SEO et les sitemaps. La navigation publique "Metiers" est activee uniquement par ce build.
-- Un export `--preview` produit des pages `noindex` et aucun sitemap metier. Un catalogue de production incomplet fait echouer l'export.
+- Un export `--preview --detailed-only` produit les fiches detaillees pilotes en `noindex`, sans sitemap metier. Un catalogue de production incomplet ou contenant encore des fiches courtes fait echouer l'export.
 - `npm run build` conserve le build historique sans activer ces pages ; une installation ayant active les metiers doit deployer avec `build:metiers`, jamais remplacer son catalogue par un build ordinaire.
 - `npm run verify:metiers` construit uniquement des donnees synthetiques locales, puis teste HTML sans JS, SEO, navigation React, erreurs et largeurs 1440/768/390/320 px. Ne jamais deployer ce build de test ; reconstruire ensuite depuis l'export reel.
 - Pour verifier le vrai echantillon et conserver son build : `npm run verify:metiers -- --snapshot ..\server\.generated\metiers.json`. La previsualisation doit rester non indexable et sans sitemap metier.

@@ -80,7 +80,7 @@ const profiles = [
   },
   {
     matches: (title) => /^infirmier(?: en soins généraux)?(?: \(ide\))?$/iu.test(title),
-    scope: 'Infirmier en soins généraux en France. Décrire le métier, sans conseil médical ni protocole de soins.',
+    scope: 'Infirmier en soins généraux en France. Décrire le métier, sans conseil médical ni protocole de soins. Le diplôme d’État est le parcours initial présenté, pas une affirmation que toute autre qualification ou reconnaissance serait impossible. Éviter les questions juridiques sur le seul diplôme autorisé : les reconnaissances et autorisations particulières ne sont pas documentées ici.',
     sources: [
       {
         id: 'rncp-infirmier',
@@ -122,7 +122,8 @@ export function metierEditorialContext(page) {
     publicSources: sources.map(({ facts, ...source }) => source)
   }
 
-  export function hasMetierEditorialSources(page) {
-    return profiles.some((profile) => profile.matches(page.title))
-  }
+}
+
+export function hasMetierEditorialSources(page) {
+  return profiles.some((profile) => profile.matches(page.title))
 }

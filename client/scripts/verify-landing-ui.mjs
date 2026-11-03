@@ -79,7 +79,7 @@ async function assertLayout(page) {
     const problems = []
     if (document.documentElement.scrollWidth > innerWidth + 1) problems.push('Document overflow')
     for (const element of document.querySelectorAll(
-      '.zelia-home-nav, .zelia-home-hero-content, .zelia-home-avatar-frame, ' +
+      '.public-header__nav, .zelia-home-hero-content, .zelia-home-avatar-frame, ' +
       '.zelia-home-step-card, .zelia-home-pillar-card, .zelia-home-blog-card, ' +
       '.zelia-home-audience-card, .zelia-home-faq-item, .zelia-home-button'
     )) {
@@ -255,7 +255,7 @@ try {
         await verifySharing(page)
         for (const [selector, path] of [
           ['.zelia-home-actions a', '/orientation'],
-          ['.zelia-home-nav a[href="/login"]', '/login'],
+          ['.public-header__nav a[href="/login"]', '/login'],
           ['.zelia-home-audiences a[href="/parents"]', '/parents'],
           ['.zelia-home-audiences a[href="/espace-ecoles"]', '/espace-ecoles']
         ]) {

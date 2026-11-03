@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import { renderToString } from 'react-dom/server'
 import { StaticRouter } from 'react-router-dom/server.js'
 import { HelmetProvider } from 'react-helmet-async'
@@ -10,7 +10,9 @@ export function renderBlogPage(slug) {
   return renderToString(
     <HelmetProvider context={{}}>
       <StaticRouter location={location}>
-        {slug ? <BlogEditorialArticle slug={slug} /> : <BlogIndex />}
+        <Suspense fallback={<div className="p-6 text-center" role="status">Chargement…</div>}>
+          {slug ? <BlogEditorialArticle slug={slug} /> : <BlogIndex />}
+        </Suspense>
       </StaticRouter>
     </HelmetProvider>
   )

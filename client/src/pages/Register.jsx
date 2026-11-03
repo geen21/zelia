@@ -198,11 +198,6 @@ export default function Register() {
       <div className="orientation-stage compact identity-stage">
         <form className="orientation-card identity-card" onSubmit={handleEmailRegister}>
           <h1>{hasOrientationCache ? 'Découvre ton profil complet' : 'Créer ton espace'}</h1>
-          <p>Ton profil et ton parcours seront rattachés à ce compte.</p>
-
-          {hasOrientationCache && (
-            <p className="identity-banner">Ton parcours est prêt, il sera rattaché à ton compte après connexion.</p>
-          )}
 
           <div className="identity-form-grid">
             <label>

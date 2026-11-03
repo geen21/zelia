@@ -6,26 +6,8 @@
   display: block;
 }
 
-/* ---------- Header ---------- */
-.parents-header {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px clamp(16px, 4vw, 44px);
-  background: rgba(255, 251, 247, .88);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(0,0,0,.06);
-}
-.parents-logo-link { display: inline-flex; align-items: center; }
-.parents-logo-link img { height: 26px; width: auto; display: block; }
-.parents-header-cta { min-width: 0; min-height: 40px; padding: 0 18px; font-size: 14px; box-shadow: none; flex-shrink: 0; }
-
 /* ---------- Hero ---------- */
+.parents-hero-cta { min-height: 44px; padding: 0 18px; font-size: 14px; }
 .parents-hero {
   max-width: 760px;
   margin: 0 auto;
@@ -129,7 +111,7 @@
 .parents-module-card ul { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 8px; color: #4b5563; font-size: 14px; line-height: 1.45; }
 
 /* ---------- Pricing / confirmation ---------- */
-#inscription { scroll-margin-top: 88px; }
+#inscription { scroll-margin-top: 108px; }
 .parents-pricing-card,
 .parents-confirmation { max-width: 460px; margin: 0 auto; text-align: center; }
 .parents-confirmation { max-width: 640px; }

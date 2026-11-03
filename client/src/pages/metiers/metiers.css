@@ -49,6 +49,7 @@
 .metier-editorial > section { margin-bottom: 36px; scroll-margin-top: 110px; }
 .metier-editorial h2 { font-size: clamp(24px, 2.5vw, 31px); line-height: 1.3; letter-spacing: -.025em; margin: 0 0 20px; }
 .metier-editorial p { font-size: 16px; line-height: 1.85; margin: 0 0 18px; overflow-wrap: anywhere; }
+.metier-editorial .metier-eyebrow { font-size: 12px; line-height: 1.6; }
 .metier-editorial .metier-citations { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; line-height: 1.6; color: #526055; margin-top: 8px; }
 .metier-citations a { text-decoration: underline; text-underline-offset: 3px; }
 .metier-faq details { border-bottom: 1px solid #dfe3d9; padding: 18px 0; }
@@ -65,7 +66,7 @@
 .metier-footer { margin-top: 28px; border-top: 1px solid #dfe3d9; }
 .metier-preview { padding: 12px 18px; border-radius: 12px; background: #fff1c8; font-size: 13px; }
 .metier-empty { min-height: 55vh; padding: 70px 0; }
-.metiers-page :is(a,button):focus-visible { outline: 3px solid #5b652d; outline-offset: 5px; }
+.metiers-page :is(a,button,summary):focus-visible { outline: 3px solid #5b652d; outline-offset: 5px; }
 .metier-skip { position: fixed; top: -100px; left: 16px; z-index: 999; padding: 12px; background: #fff; }
 .metier-skip:focus { top: 16px; }
 @media (max-width: 900px) { .metier-grid, .metier-facts { grid-template-columns: repeat(2,minmax(0,1fr)); } .metier-detail-grid { grid-template-columns: minmax(0,1fr); } }

@@ -26,7 +26,6 @@ function cleanOrientationProfileList(value, maxItems = 8) {
     .slice(0, maxItems)
 }
 
-// Answers may carry a strength prefix ("Plutôt : <label>", "Un peu : <label>"); interpretations are keyed by the bare label.
 function resolveInterpretation(interpretations, response) {
   if (!interpretations || typeof interpretations !== 'object') return null
   return interpretations[response] || interpretations[stripAnswerStrength(response)] || null
@@ -224,9 +223,9 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
       ? `Les univers qui attirent l'élève sont : ${careerDomains}. Utilise-les pour orienter les métiers et les études, tout en gardant des pistes voisines et réalistes.`
       : `Aucun univers professionnel n'est imposé : laisse les réponses et les axes guider les domaines proposés.`
     const searchProfileInstruction = `Prends en compte tous les repères de formation fournis : classe actuelle, moyenne dans les matières fortes, mobilité, matières fortes, formats de formation et univers professionnels. La moyenne est un indicateur de confort scolaire : elle guide le niveau d'accompagnement et la progressivité des pistes, sans exclure arbitrairement une formation.`
-    const nuanceInstruction = `Les réponses aux questions d'axes sont nuancées : « Plutôt : » indique une préférence forte, « Un peu : » une préférence légère. Un axe « équilibré » n'est pas un trait marqué : ne le présente pas comme tel et garde des pistes compatibles avec ses deux pôles.`
+    const nuanceInstruction = `Dans le questionnaire actuel, chaque question est une affirmation : la réponse indique à quel point l'élève s'y reconnaît (« Pas du tout », « Plutôt pas », « Plutôt oui », « Carrément »). « Carrément » et « Pas du tout » sont des signaux nets, « Plutôt » des tendances. Les anciennes réponses « Plutôt : <choix> » et « Un peu : <choix> » indiquent respectivement une préférence forte et légère pour ce choix. Un axe « équilibré » n'est pas un trait marqué : ne le présente pas comme tel et garde des pistes compatibles avec ses deux pôles. Ces réponses décrivent des envies, pas des aptitudes mesurées : ne déduis pas une incapacité ni une exclusion de parcours d'une seule réponse.`
     const interestInstruction = interestSummary
-      ? `Les centres d'intérêt dominants (${interestSummary}) disent ce qui motive l'élève : la majorité des métiers proposés doivent y correspondre, en plus d'une éventuelle préférence métier explicite.`
+      ? `Les centres d'intérêt dominants (${interestSummary}) regroupent plusieurs domaines : vérifie les réponses détaillées pour retenir ceux qui attirent réellement l'élève. Par exemple, un intérêt pour la société ne signifie pas un intérêt pour le soin, ni un intérêt pour la nature un goût du sport. Croise ces envies avec les autres réponses et une éventuelle préférence métier explicite.`
       : `Aucun centre d'intérêt dominant ne ressort : propose des métiers variés cohérents avec les axes.`
 
     const prompt = `Vous êtes un conseiller d'orientation professionnel expert qui fournit des analyses courtes, utiles et chaleureuses en français. `

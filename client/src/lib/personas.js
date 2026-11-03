@@ -1,9 +1,10 @@
 // Persona system for the orientation flow.
-// 5 axes answered on a 4-point scale (matching questions.category / options[].value in the DB),
+// 5 axes, each measured by statements answered on a 4-level agreement scale
+// (questions.category = axis id, options[].value = pole the statement describes),
 // RIASEC interests (questions.category = 'interest', see questionScale.js) passed to the LLM only,
 // + 12 curated personas with portrait-chinois attributes.
 
-import { INTEREST_MAX_LEVEL, parseAnswer } from './questionScale.js'
+import { MAX_LEVEL, isInterestQuestion, parseAnswer } from './questionScale.js'
 
 export const AXES = [
   { id: 'hands_mind', poles: ['mains', 'tete'] },
@@ -266,18 +267,17 @@ export function computePersonaFromAnswers(questions, answers) {
   for (const question of questionList) {
     const parsed = parseAnswer(question, answers?.[question.id])
     if (!parsed) continue
-    if (parsed.kind === 'interest') {
-      if (!parsed.code) continue
-      const entry = interestTotals[parsed.code] || { sum: 0, count: 0 }
-      entry.sum += parsed.level / INTEREST_MAX_LEVEL
+    if (isInterestQuestion(question)) {
+      const entry = interestTotals[parsed.value] || { sum: 0, count: 0 }
+      entry.sum += parsed.level / MAX_LEVEL
       entry.count += 1
-      interestTotals[parsed.code] = entry
+      interestTotals[parsed.value] = entry
       continue
     }
     const axis = AXES.find((candidate) => candidate.id === question.category)
-    if (!axis || !axis.poles.includes(parsed.pole)) continue
+    if (!axis || !axis.poles.includes(parsed.value)) continue
     const entry = axisTotals[axis.id] || { sum: 0, count: 0 }
-    entry.sum += parsed.pole === axis.poles[0] ? parsed.strength : -parsed.strength
+    entry.sum += parsed.value === axis.poles[0] ? parsed.signed : -parsed.signed
     entry.count += 1
     axisTotals[axis.id] = entry
   }

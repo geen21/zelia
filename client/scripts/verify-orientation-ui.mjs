@@ -7,15 +7,15 @@ import { chromium, expect } from '@playwright/test'
 const base = process.env.ORIENTATION_TEST_URL || 'http://127.0.0.1:5187'
 const output = join(tmpdir(), 'zelia-orientation-tests')
 await mkdir(output, { recursive: true })
-const questions = Array.from({ length: 20 }, (_, index) => (index % 4 === 3
-  ? {
-      id: index + 1, content: `Question ${index + 1}`, contenu: `Question ${index + 1}`, category: 'interest',
-      options: ['Pas du tout', 'Plutôt pas', 'Plutôt oui', 'Carrément'].map((label, level) => ({ label, value: 'S', level }))
-    }
-  : {
-      id: index + 1, content: `Question ${index + 1}`, contenu: `Question ${index + 1}`, category: 'hands_mind',
-      options: [{ label: 'Construire', value: 'mains' }, { label: 'Analyser', value: 'tete' }]
-    }))
+const agreementOptions = (value) => ['Pas du tout', 'Plutôt pas', 'Plutôt oui', 'Carrément'].map((label, level) => ({ label, value, level }))
+const questions = Array.from({ length: 20 }, (_, index) => {
+  const base = { id: index + 1, content: `Question ${index + 1}`, contenu: `Question ${index + 1}` }
+  // Last question uses the legacy two-option format (before the v2 migration is applied).
+  if (index === 19) return { ...base, category: 'hands_mind', options: [{ label: 'Construire', value: 'mains' }, { label: 'Analyser', value: 'tete' }] }
+  return index % 4 === 3
+    ? { ...base, category: 'interest', options: agreementOptions('S') }
+    : { ...base, category: 'hands_mind', options: agreementOptions(index % 2 ? 'tete' : 'mains') }
+})
 const user = { id: 'orientation-fixture', first_name: 'Camille', department: '75' }
 const jobs = ['Infirmier', 'Électricien', 'Cuisinier', 'Mécanicien', 'Journaliste', 'Comptable']
 const formations = [
@@ -43,7 +43,7 @@ const partners = [
 ]
 const browser = await chromium.launch({ headless: true })
 
-async function prepareJourney(viewport, { authenticated = false, reducedMotion = 'no-preference' } = {}) {
+async function prepareJourney(viewport, { authenticated = false, answered = false, reducedMotion = 'no-preference' } = {}) {
   const context = await browser.newContext({ viewport, reducedMotion })
   const page = await context.newPage()
   page.setDefaultTimeout(15000)
@@ -51,17 +51,19 @@ async function prepareJourney(viewport, { authenticated = false, reducedMotion =
   let releaseAnalysis
   const analysisReady = new Promise((resolve) => { releaseAnalysis = resolve })
   page.on('pageerror', (error) => state.errors.push(error.message))
-  await context.addInitScript(({ authenticated }) => {
+  await context.addInitScript(({ authenticated, answered }) => {
     window.tailwind = { config: {} }
     if (authenticated) {
       localStorage.setItem('token', 'orientation-fixture-token')
       localStorage.setItem('orientation_resume_after_auth', 'analysis')
+    }
+    if (authenticated || answered) {
       localStorage.setItem('answers_progress', JSON.stringify({
-        version: 'orientation-flow-v2-20',
-        answers: Object.fromEntries(Array.from({ length: 20 }, (_, index) => [index + 1, index % 4 === 3 ? 'Plutôt oui' : 'Plutôt : Analyser']))
+        version: 'orientation-flow-v3-20',
+        answers: Object.fromEntries(Array.from({ length: 20 }, (_, index) => [index + 1, index === 19 ? 'Analyser' : index % 4 === 3 ? 'Plutôt oui' : 'Carrément']))
       }))
     }
-  }, { authenticated })
+  }, { authenticated, answered })
   await context.route('**/*', async (route) => {
     const request = route.request()
     const url = new URL(request.url())
@@ -77,7 +79,10 @@ async function prepareJourney(viewport, { authenticated = false, reducedMotion =
     if (url.pathname.includes('/api/')) {
       const path = url.pathname.replace(/^.*\/api/, '')
       let data = {}
-      if (path === '/questionnaire/questions') data = questions
+      if (path === '/questionnaire/questions') {
+        assert.equal(url.searchParams.get('type'), 'inscription_v3')
+        data = questions
+      }
       else if (path === '/auth/register') {
         state.registrations.push(request.postDataJSON())
         data = { user }
@@ -120,6 +125,30 @@ async function fillRegistration(page) {
 }
 
 try {
+  for (const version of ['orientation-flow-v2-20', 'orientation-flow-v3-20']) {
+    const { context, page, state, releaseAnalysis } = await prepareJourney({ width: 390, height: 844 })
+    try {
+      await context.addInitScript(({ version }) => {
+        localStorage.setItem('orientation_resume_after_auth', 'analysis')
+        localStorage.setItem('answers_progress', JSON.stringify({
+          version,
+          answers: { 300: 'Plutôt : Construire' }
+        }))
+      }, { version })
+      await page.goto(`${base}/orientation`)
+      if (version === 'orientation-flow-v2-20') {
+        await page.getByRole('button', { name: "C'est parti !", exact: true }).click()
+        assert.equal(await page.evaluate(() => localStorage.getItem('orientation_resume_after_auth')), null)
+      }
+      await expect(page.getByRole('heading', { name: 'Question 1', exact: true })).toBeVisible()
+      assert.equal(state.analyses, 0, 'Stale answers must not trigger analysis.')
+      assert.deepEqual(state.errors, [])
+    } finally {
+      releaseAnalysis()
+      await context.close()
+    }
+  }
+
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 568 }]) {
     const { context, page, state, releaseAnalysis } = await prepareJourney(viewport)
     try {
@@ -134,10 +163,21 @@ try {
       await expect(progress).toHaveAttribute('aria-valuenow', '5')
       await page.getByRole('button', { name: 'Revenir en arrière' }).click()
       await expect(progress).toHaveAttribute('aria-valuenow', '0')
-      await expect(page.locator('.axis-pole')).toHaveCount(2)
+      await expect(page.locator('.question-prompt')).toHaveText('Ça te ressemble ?')
       await expect(page.locator('.scale-choice')).toHaveCount(4)
-      await expect(page.locator('.scale-choice')).toContainText(['Plutôt A', 'Un peu A', 'Un peu B', 'Plutôt B'])
-      await page.screenshot({ path: join(output, `questions-axis-${viewport.width}.png`) })
+      await expect(page.locator('.scale-choice')).toHaveText(['Pas du tout', 'Plutôt pas', 'Plutôt oui', 'Carrément'])
+      await expect(page.locator('.axis-pole')).toHaveCount(0)
+      const buttons = await page.locator('.scale-choice').evaluateAll((elements) => elements.map((element) => {
+        const { x, y, width, height } = element.getBoundingClientRect()
+        return { x, y, width, height }
+      }))
+      if (viewport.width <= 640) {
+        assert.ok(buttons.every((button) => button.width >= viewport.width - 40 && button.height >= 44), 'Mobile answers must be wide touch targets.')
+        assert.ok(buttons.slice(1).every((button, index) => button.y >= buttons[index].y + buttons[index].height), 'Mobile answers must be stacked vertically.')
+      } else {
+        assert.ok(buttons.every((button) => Math.abs(button.y - buttons[0].y) < 1), 'Desktop answers must stay on one row.')
+      }
+      await page.screenshot({ path: join(output, `questions-statement-${viewport.width}.png`) })
       await expect(page.locator('.scale-choice.level-3')).toHaveAttribute('aria-pressed', 'true')
       await page.locator('.scale-choice.level-2').click()
       await expect(progress).toHaveAttribute('aria-valuenow', '5')
@@ -155,9 +195,12 @@ try {
       while (await page.locator('.question-card').count()) {
         const previousQuestion = await page.locator('.flow-step-label').textContent()
         if (previousQuestion.startsWith('Question 4 ')) {
-          await expect(page.locator('.axis-pole')).toHaveCount(0)
           await expect(page.getByRole('button', { name: 'Carrément', exact: true })).toBeVisible()
           await page.keyboard.press('3')
+        } else if (previousQuestion.startsWith('Question 20 ')) {
+          await expect(page.locator('.question-prompt')).toHaveCount(0)
+          await expect(page.locator('.scale-choice')).toHaveText(['Construire', 'Analyser'])
+          await page.locator('.scale-choice.level-3').click()
         } else {
           await page.locator('.scale-choice.level-3').click()
         }
@@ -192,8 +235,9 @@ try {
         await expect.poll(() => state.analyses).toBe(1)
         assert.equal(state.registrations[0].questionnaireResponses.length, 20)
         const storedAnswers = JSON.stringify(state.registrations[0].questionnaireResponses)
-        assert.ok(storedAnswers.includes('Un peu : Analyser'), `Mild axis answer not stored: ${storedAnswers}`)
-        assert.ok(storedAnswers.includes('Plutôt oui'), `Interest answer not stored: ${storedAnswers}`)
+        assert.ok(storedAnswers.includes('Carrément'), `Agreement answer not stored: ${storedAnswers}`)
+        assert.ok(storedAnswers.includes('Plutôt oui'), `Agreement answer not stored: ${storedAnswers}`)
+        assert.ok(storedAnswers.includes('Analyser'), `Legacy answer not stored: ${storedAnswers}`)
         assert.equal(state.registrations[0].newsletterOptIn, false)
         assert.deepEqual(state.sharing[0], { granted: true, version: 'orientation-dossier-v1' })
         releaseAnalysis()
@@ -208,7 +252,7 @@ try {
   }
 
   for (const failure of [null, 'profile', 'sharing', 'invalid-sharing']) {
-    const { context, page, state, releaseAnalysis } = await prepareJourney({ width: failure ? 390 : 1440, height: 844 })
+    const { context, page, state, releaseAnalysis } = await prepareJourney({ width: failure ? 390 : 1440, height: 844 }, { answered: true })
     try {
       await page.goto(`${base}/register?after=orientation-analysis`)
       const checkboxes = page.getByRole('checkbox')
@@ -349,8 +393,8 @@ try {
       localStorage.setItem('token', 'orientation-fixture-token')
       localStorage.setItem('orientation_resume_after_auth', 'analysis')
       localStorage.setItem('answers_progress', JSON.stringify({
-        version: 'orientation-flow-v2-20',
-        answers: Object.fromEntries(Array.from({ length: 20 }, (_, index) => [index + 1, index % 4 === 3 ? 'Plutôt oui' : 'Plutôt : Analyser']))
+        version: 'orientation-flow-v3-20',
+        answers: Object.fromEntries(Array.from({ length: 20 }, (_, index) => [index + 1, index === 19 ? 'Analyser' : index % 4 === 3 ? 'Plutôt oui' : 'Carrément']))
       }))
       localStorage.setItem('orientation_micro_profile', JSON.stringify({
         formation_preferences: ['bts'], strong_subjects: ['sciences'], study_location: 'near_home'

@@ -11,14 +11,14 @@ import { mixFormationResults } from '../lib/orientationFormationResults.js'
 import { buildFormationRelevanceProfile, buildRelevanceSearchQueries, scoreFormationRelevance } from '../lib/formationRelevance.js'
 import { FORMATION_PREFERENCE_LEVELS, filterCandidatesByTargetStudyLevel, getTargetStudyLevel, inferFormationStudyLevel } from '../lib/formationLevel.js'
 import { buildLoreleiUrl, buildPersonaAvatarConfig, computePersonaFromAnswers, getPersonaBySlug } from '../lib/personas.js'
-import { getAnswerChoiceIndex, getAnswerChoices, isInterestQuestion } from '../lib/questionScale.js'
+import { getAnswerChoiceIndex, getAnswerChoices, isAgreementQuestion } from '../lib/questionScale.js'
 import { generatePersonaShareCard } from '../lib/shareImage.js'
 import { trackOrientationEvent } from '../lib/analytics.js'
 import './OrientationFlow.css'
 
 const QUESTION_LIMIT = 20
 const ANSWERS_PROGRESS_KEY = 'answers_progress'
-const ANSWERS_PROGRESS_VERSION = `orientation-flow-v2-${QUESTION_LIMIT}`
+const ANSWERS_PROGRESS_VERSION = `orientation-flow-v3-${QUESTION_LIMIT}`
 const DRAG_THRESHOLD = 96
 const MAX_PROPOSAL_DECK = 24
 const MAX_FINAL_RESULTS = 14
@@ -422,6 +422,7 @@ function getStoredAnswersProgress() {
   if (stored) {
     localStorage.removeItem(ANSWERS_PROGRESS_KEY)
     localStorage.removeItem('answers_cache')
+    localStorage.removeItem('orientation_resume_after_auth')
   }
   return {}
 }
@@ -1615,7 +1616,7 @@ export default function OrientationFlow() {
     const sourceQuestions = Array.isArray(questionsOverride) && questionsOverride.length ? questionsOverride : questions
     const sourceAnswers = answersOverride || answers
     const payload = {
-      answers: Object.entries(sourceAnswers).map(([qid, answer]) => ({ question_id: Number(qid), answer }))
+      answers: sourceQuestions.map((question) => ({ question_id: question.id, answer: sourceAnswers[question.id] }))
     }
     localStorage.setItem('answers_cache', JSON.stringify(payload))
     setError('')
@@ -1714,22 +1715,23 @@ export default function OrientationFlow() {
         const { data } = await orientationAPI.getInitialQuestions(QUESTION_LIMIT)
         if (cancelled) return
         const compactQuestions = Array.isArray(data) ? data.slice(0, QUESTION_LIMIT) : []
+        if (!compactQuestions.length) throw new Error('No orientation questions available')
         setQuestions(compactQuestions)
 
-        if (localStorage.getItem('orientation_resume_after_auth') === 'analysis') {
+        const firstMissing = compactQuestions.findIndex((question) => getAnswerChoiceIndex(question, answers[question.id]) === -1)
+        if (firstMissing === -1 && localStorage.getItem('orientation_resume_after_auth') === 'analysis') {
           setLoading(false)
           window.setTimeout(() => advanceFromInfo(compactQuestions), 0)
           return
         }
 
-        const firstMissing = compactQuestions.findIndex((question) => !answers[question.id])
         if (firstMissing === -1 && compactQuestions.length) {
           setInfoIndex(0)
           setPhase('info')
           setLoading(false)
           return
         }
-        if (firstMissing > 0) {
+        if (firstMissing >= 0 && Object.keys(answers).length) {
           setPhase('questions')
           setQuestionIndex(firstMissing)
         }
@@ -2342,9 +2344,8 @@ export default function OrientationFlow() {
   const renderQuestionCard = () => {
     if (!currentQuestion) return null
     const choices = getQuestionChoices(currentQuestion)
-    const interestQuestion = isInterestQuestion(currentQuestion)
+    const agreementQuestion = isAgreementQuestion(currentQuestion)
     const selectedIndex = getAnswerChoiceIndex(currentQuestion, answers[currentQuestion.id])
-    const [poleA, poleB] = interestQuestion ? [] : [choices[0], choices[choices.length - 1]]
     return (
       <div className="orientation-stage question-stage">
         <div
@@ -2357,40 +2358,28 @@ export default function OrientationFlow() {
           style={{ transform: `translateX(${dragX}px) rotate(${dragX / 18}deg)` }}
         >
           <h1>{cleanQuestionText(currentQuestion.contenu)}</h1>
+          {agreementQuestion && <p className="question-prompt">Ça te ressemble ?</p>}
         </div>
-        <div className={`orientation-actions answer-scale ${interestQuestion ? 'interest-scale' : 'axis-scale'}`}>
-          {!interestQuestion && (
-            <div className="axis-poles">
-              <div className="axis-pole reject">
-                <span className="option-letter">A</span>
-                <span className="option-label">{poleA.optionLabel}</span>
-              </div>
-              <div className="axis-pole accept">
-                <span className="option-letter">B</span>
-                <span className="option-label">{poleB.optionLabel}</span>
-              </div>
-            </div>
-          )}
-          <div className="scale-actions" role="group" aria-label={interestQuestion ? "Ton niveau d'envie" : 'Ta préférence entre A et B'}>
-            {choices.map((choice) => {
-              const fullLabel = choice.kind === 'axis' ? `${choice.label} : ${choice.optionLabel}` : choice.label
-              return (
-                <button
-                  key={choice.answer}
-                  type="button"
-                  className={`scale-choice level-${choice.index}${choice.index === selectedIndex ? ' selected' : ''}`}
-                  onClick={() => answerQuestion(choice.index)}
-                  aria-pressed={choice.index === selectedIndex}
-                  aria-label={fullLabel}
-                  title={fullLabel}
-                >
-                  {choice.label}
-                </button>
-              )
-            })}
+        <div className="orientation-actions answer-scale">
+          <div
+            className={`scale-actions${choices.length === 2 ? ' two-choices' : ''}`}
+            role="group"
+            aria-label={agreementQuestion ? 'À quel point ça te ressemble' : 'Ta réponse'}
+          >
+            {choices.map((choice) => (
+              <button
+                key={choice.answer}
+                type="button"
+                className={`scale-choice level-${choice.level}${choice.index === selectedIndex ? ' selected' : ''}`}
+                onClick={() => answerQuestion(choice.index)}
+                aria-pressed={choice.index === selectedIndex}
+              >
+                {choice.label}
+              </button>
+            ))}
           </div>
           {questionIndex === 0 && (
-            <p className="scale-hint">Pas de bonne ou de mauvaise réponse : choisis ce qui te ressemble vraiment, même si tu hésites.</p>
+            <p className="scale-hint">Pas de bonne ou de mauvaise réponse : réponds selon ce que tu ressens vraiment.</p>
           )}
         </div>
       </div>

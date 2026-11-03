@@ -1,40 +1,40 @@
-// 4-point answer scale for the orientation questionnaire (v2).
+// Agreement scale for the orientation questionnaire (v3).
 // Shared by the client flow and server/routes/analysis.js: keep it dependency-free.
 //
-// Axis questions (category = axis id) have two options [{label, value: pole}].
-// Choices: "Plutôt A / Un peu A / Un peu B / Plutôt B".
-// The stored answer is readable text: "Plutôt : <label>" (strong) or "Un peu : <label>" (mild).
-// Interest questions (category = 'interest') have four options [{label, value: code, level}]
-// and the stored answer is the option label ("Pas du tout" ... "Carrément").
-// A bare option label (v1 binary answers) is read as a clear choice.
+// Each v3 question is one statement ("J'aime faire des choses de mes mains...") answered with
+// the same 4 levels. options = [{ label, value, level }] x4, where value is:
+//   - the axis pole the statement describes (category = axis id), or
+//   - a RIASEC code (category = 'interest').
+// The stored answer is the level label ("Pas du tout" ... "Carrément").
+// Legacy v1 questions have two options [{ label, value: pole }] and store the picked label.
+// Legacy v2 axis answers prefix that label with "Plutôt : " or "Un peu : ".
 
 export const INTEREST_CATEGORY = 'interest'
 
-export const AXIS_STRENGTH_PREFIXES = {
-  2: 'Plutôt',
-  1: 'Un peu'
-}
-
-export const INTEREST_LEVELS = [
+export const AGREEMENT_LEVELS = [
   { label: 'Pas du tout', level: 0 },
   { label: 'Plutôt pas', level: 1 },
   { label: 'Plutôt oui', level: 2 },
   { label: 'Carrément', level: 3 }
 ]
 
-export const INTEREST_MAX_LEVEL = 3
+export const MAX_LEVEL = 3
+
+const LEGACY_STRENGTH_PREFIX = /^(Plutôt|Un peu|Clairement)\s*:\s*/i
+
+export function stripAnswerStrength(answer) {
+  return String(answer ?? '').replace(LEGACY_STRENGTH_PREFIX, '').trim()
+}
 
 // RIASEC codes. C (organisation) is derived from the creative_structured axis.
 export const INTEREST_LABELS = {
-  R: 'concret, technique, matériaux, nature',
-  I: 'sciences, recherche, comprendre comment ça marche',
+  R: 'concret, technique, nature, sport',
+  I: 'sciences, numérique, comprendre comment ça marche',
   A: 'création, expression, art',
-  S: 'aider, soigner, conseiller, transmettre',
-  E: 'convaincre, vendre, entreprendre, diriger',
+  S: 'aider, soigner, transmettre, société',
+  E: 'convaincre, vendre, entreprendre',
   C: 'organisation, méthode, gestion'
 }
-
-const STRENGTH_PREFIX_PATTERN = /^(Plutôt|Un peu)\s*:\s*/i
 
 export function isInterestQuestion(question) {
   return question?.category === INTEREST_CATEGORY
@@ -46,90 +46,52 @@ function getLabelledOptions(question) {
     : []
 }
 
-export function getAxisOptions(question) {
-  const options = getLabelledOptions(question)
-  return options.length >= 2 ? options.slice(0, 2) : []
+export function isAgreementQuestion(question) {
+  return getLabelledOptions(question).some((option) => option.level !== undefined && option.level !== null)
 }
 
-export function getInterestOptions(question) {
-  const options = getLabelledOptions(question)
-  const code = options.find((option) => option.value)?.value || null
-  return INTEREST_LEVELS.map((level, index) => {
-    const option = options.find((candidate) => Number(candidate.level) === level.level) || options[index]
-    return { label: option?.label || level.label, value: option?.value || code, level: level.level }
-  })
-}
-
-export function encodeAxisAnswer(optionLabel, strength) {
-  const prefix = AXIS_STRENGTH_PREFIXES[strength >= 2 ? 2 : 1]
-  return `${prefix} : ${optionLabel}`
-}
-
-// Ordered choices shown to the student (left to right).
+// Ordered choices shown to the student (left to right / top to bottom).
+// `level` 0..3 drives the colour; legacy two-option questions use levels 0 and 3.
 export function getAnswerChoices(question) {
-  if (isInterestQuestion(question)) {
-    return getInterestOptions(question).map((option, index) => ({
-      index,
-      answer: option.label,
-      label: option.label,
-      kind: 'interest',
-      code: option.value,
-      level: option.level
-    }))
+  const options = getLabelledOptions(question)
+  if (isAgreementQuestion(question)) {
+    const value = options.find((option) => option.value)?.value || null
+    return AGREEMENT_LEVELS.map((level, index) => {
+      const option = options.find((candidate) => Number(candidate.level) === level.level)
+      const label = option?.label || level.label
+      return { index, answer: label, label, value: option?.value || value, level: level.level }
+    })
   }
-
-  const [first, second] = getAxisOptions(question)
-  if (!first || !second) return []
-  return [
-    { option: first, side: 'A', strength: 2 },
-    { option: first, side: 'A', strength: 1 },
-    { option: second, side: 'B', strength: 1 },
-    { option: second, side: 'B', strength: 2 }
-  ].map(({ option, side, strength }, index) => ({
+  return options.slice(0, 2).map((option, index) => ({
     index,
-    answer: encodeAxisAnswer(option.label, strength),
-    label: `${AXIS_STRENGTH_PREFIXES[strength]} ${side}`,
-    optionLabel: option.label,
-    kind: 'axis',
-    side,
-    pole: option.value,
-    strength
+    answer: option.label,
+    label: option.label,
+    value: option.value,
+    level: index === 0 ? 0 : MAX_LEVEL
   }))
 }
 
-export function stripAnswerStrength(answer) {
-  return String(answer ?? '').replace(STRENGTH_PREFIX_PATTERN, '').trim()
-}
-
-export function getAnswerStrengthPrefix(answer) {
-  const match = String(answer ?? '').match(STRENGTH_PREFIX_PATTERN)
-  if (!match) return null
-  return match[1].toLowerCase() === 'un peu' ? AXIS_STRENGTH_PREFIXES[1] : AXIS_STRENGTH_PREFIXES[2]
-}
-
+// Returns { value, level, signed } where signed is the agreement with `value` on -2..+2
+// (-2 = "Pas du tout", -1 = "Plutôt pas", +1 = "Plutôt oui", +2 = "Carrément").
+// A legacy two-option answer is a clear choice of the picked option (signed = +2).
 export function parseAnswer(question, answer) {
   if (answer === undefined || answer === null || answer === '') return null
   const text = String(answer).trim()
 
-  if (isInterestQuestion(question)) {
-    const option = getInterestOptions(question).find((candidate) => candidate.label === text)
-    return option ? { kind: 'interest', code: option.value, level: option.level } : null
+  if (isAgreementQuestion(question)) {
+    const choice = getAnswerChoices(question).find((candidate) => candidate.answer === text)
+    if (!choice?.value) return null
+    return { value: choice.value, level: choice.level, signed: choice.level >= 2 ? choice.level - 1 : choice.level - 2 }
   }
 
-  const options = getAxisOptions(question)
-  const baseLabel = stripAnswerStrength(text)
-  const option = options.find((candidate) => candidate.label === baseLabel || candidate.value === baseLabel)
-  if (!option?.value) return null
-  const prefix = getAnswerStrengthPrefix(text)
-  return {
-    kind: 'axis',
-    pole: option.value,
-    optionLabel: option.label,
-    strength: prefix === AXIS_STRENGTH_PREFIXES[1] ? 1 : 2
-  }
+  const label = stripAnswerStrength(text)
+  const option = getLabelledOptions(question).find((candidate) => candidate.label === label || candidate.value === label)
+  const strength = text.match(LEGACY_STRENGTH_PREFIX)?.[1].toLowerCase() === 'un peu' ? 1 : 2
+  return option?.value ? { value: option.value, level: MAX_LEVEL, signed: strength } : null
 }
 
 export function getAnswerChoiceIndex(question, answer) {
   if (!answer) return -1
-  return getAnswerChoices(question).findIndex((choice) => choice.answer === answer)
+  const label = isAgreementQuestion(question) ? answer : stripAnswerStrength(answer)
+  return getAnswerChoices(question).findIndex((choice) => choice.answer === label)
 }

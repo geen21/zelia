@@ -168,7 +168,7 @@ export const analysisAPI = {
 
 export const orientationAPI = {
   getInitialQuestions: (limit = 20) => apiClient.get('/questionnaire/questions', {
-    params: { type: 'inscription', limit }
+    params: { type: 'inscription_v3', limit }
   }),
   submitInitialAnswers: (answers) => apiClient.post('/questionnaire/submit', {
     answers,

@@ -210,7 +210,8 @@ try {
   const comparisonExposure = {}
   for (const q of comparisons) {
     assert.ok(q.content.length <= 85, `Comparison too long: ${q.content}`)
-    assert.match(q.content, /je préfère .+ plutôt qu['e]/i)
+    // Both options must belong to one shared situation, otherwise they are not a real dilemma.
+    assert.match(q.content, /^[^,]+, je préfère .+ plutôt qu['e]/i, `Missing shared context: ${q.content}`)
     assert.doesNotMatch(q.content, /quitte à|malgré|sous la pluie|même /i)
     assert.deepEqual(q.options.map(({ label, level }) => ({ label, level })), AGREEMENT_LEVELS)
     assert.equal(new Set(q.options.map((o) => o.value)).size, 1)
@@ -249,6 +250,8 @@ try {
       }
     }
   }
+  const contexts = comparisons.map((q) => q.content.split(',')[0].toLowerCase())
+  assert.equal(new Set(contexts).size, comparisons.length, 'Each dilemma must use a different situation.')
   assert.deepEqual(Object.keys(comparisonExposure).sort(), ['A', 'C', 'E', 'I', 'R', 'S'])
   assert.ok(Object.values(comparisonExposure).every((count) => count >= 3 && count <= 4))
   for (const axis of AXES) {
@@ -271,7 +274,8 @@ try {
     assert.ok(Object.values(computePersonaFromAnswers(comparisons, answers).axisStrength).every((s) => s === 'equilibre'))
   }
   const v5Interests = comparisons.filter((q) => q.category === 'interest')
-  const noCareAnswers = Object.fromEntries(v5Interests.map((q) => [q.id, [601, 609, 611].includes(q.id) ? 'Pas du tout' : 'Carrément']))
+  // Coaching, teaching and welcoming are preferred, but the hospital care side is rejected.
+  const noCareAnswers = Object.fromEntries(v5Interests.map((q) => [q.id, [609, 611, 619].includes(q.id) ? 'Pas du tout' : 'Carrément']))
   const v5Profile = computePersonaFromAnswers(v5Interests, noCareAnswers)
   for (const [code, score] of Object.entries(v5Profile.interests)) {
     const related = v5Interests.filter((q) => [q.options[0].value, q.options[0].alternative].includes(code))
@@ -287,8 +291,9 @@ try {
   assert.match(v5Context.interestSummary, /transmission/)
   assert.doesNotMatch(v5Context.interestSummary, /soin|infirmier/)
   assert.match(v5Context.interestInstruction, /normalisées par le nombre de comparaisons/)
-  const careInterpretation = resolveInterpretation(comparisons[1].interpretations, 'Pas du tout')
-  assert.match(careInterpretation, /pour : Réparer et régler du matériel technique/)
+  const careQuestion = comparisons.find((q) => q.id === 619)
+  assert.match(resolveInterpretation(careQuestion.interpretations, 'Carrément'), /pour : S'occuper des patients/)
+  assert.match(resolveInterpretation(careQuestion.interpretations, 'Pas du tout'), /pour : Travailler en laboratoire/)
   assert.match(QUESTIONNAIRE_NUANCE_INSTRUCTION, /ce ne sont pas des rejets des deux activités/)
   await db.exec(v5Migration)
   assert.deepEqual((await db.query('SELECT * FROM public.questions WHERE id < 600 ORDER BY id')).rows, beforeV5)

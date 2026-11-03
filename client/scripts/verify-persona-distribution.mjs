@@ -113,11 +113,19 @@ for (const persona of PERSONAS) {
   assert.deepEqual(creativeResult.topInterests.slice(0, 2), ['A', 'R'])
 }
 
-// 6) Every statement shows the same 4 answers; the answer stored is the label.
+// 6) Every statement shows agreement first; stored answers and scoring keep their meaning.
 {
-  const choices = getAnswerChoices(v2Questions[0])
-  assert.deepEqual(choices.map((choice) => choice.label), ['Pas du tout', 'Plutôt pas', 'Plutôt oui', 'Carrément'])
-  assert.deepEqual(choices.map((choice) => choice.answer), choices.map((choice) => choice.label))
+  for (const question of [v2Questions[0], interestStatements[0]]) {
+    const choices = getAnswerChoices(question)
+    assert.deepEqual(choices.map((choice) => choice.label), ['Carrément', 'Plutôt oui', 'Plutôt pas', 'Pas du tout'])
+    assert.deepEqual(choices.map((choice) => choice.level), [3, 2, 1, 0])
+    assert.deepEqual(choices.map((choice) => choice.answer), choices.map((choice) => choice.label))
+    for (const [index, choice] of choices.entries()) {
+      assert.equal(getAnswerChoiceIndex(question, choice.answer), index)
+      assert.equal(parseAnswer(question, choice.answer).signed, [2, 1, -1, -2][index])
+    }
+    assert.deepEqual(getAnswerChoices({ ...question, options: [...question.options].reverse() }), choices)
+  }
 }
 
 // 7) Legacy v1 binary answers (bare labels, 4 questions per axis) still map to personas,

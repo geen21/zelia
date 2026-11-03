@@ -161,11 +161,21 @@ try {
       await expect(page.getByRole('heading', { name: 'Question 1', exact: true })).toBeVisible()
       await page.keyboard.press('ArrowRight')
       await expect(progress).toHaveAttribute('aria-valuenow', '5')
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['1']), 'Pas du tout')
+      assert.equal(await page.evaluate(() => window.dataLayer.filter((item) => item?.event === 'orientation_question_answered').at(-1).orientation_answer_position), 4)
       await page.getByRole('button', { name: 'Revenir en arrière' }).click()
       await expect(progress).toHaveAttribute('aria-valuenow', '0')
       await expect(page.locator('.question-prompt')).toHaveText('Ça te ressemble ?')
       await expect(page.locator('.scale-choice')).toHaveCount(4)
-      await expect(page.locator('.scale-choice')).toHaveText(['Pas du tout', 'Plutôt pas', 'Plutôt oui', 'Carrément'])
+      await expect(page.locator('.scale-choice')).toHaveText(['Carrément', 'Plutôt oui', 'Plutôt pas', 'Pas du tout'])
+      await expect(page.locator('.scale-choice.level-0')).toHaveAttribute('aria-pressed', 'true')
+      await page.keyboard.press('ArrowLeft')
+      await expect(progress).toHaveAttribute('aria-valuenow', '5')
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['1']), 'Carrément')
+      assert.equal(await page.evaluate(() => window.dataLayer.filter((item) => item?.event === 'orientation_question_answered').at(-1).orientation_answer_position), 1)
+      await page.getByRole('button', { name: 'Revenir en arrière' }).click()
+      await expect(progress).toHaveAttribute('aria-valuenow', '0')
+      await expect(page.locator('.scale-choice.level-3')).toHaveAttribute('aria-pressed', 'true')
       await expect(page.locator('.axis-pole')).toHaveCount(0)
       const buttons = await page.locator('.scale-choice').evaluateAll((elements) => elements.map((element) => {
         const { x, y, width, height } = element.getBoundingClientRect()
@@ -176,9 +186,9 @@ try {
         assert.ok(buttons.slice(1).every((button, index) => button.y >= buttons[index].y + buttons[index].height), 'Mobile answers must be stacked vertically.')
       } else {
         assert.ok(buttons.every((button) => Math.abs(button.y - buttons[0].y) < 1), 'Desktop answers must stay on one row.')
+        assert.ok(buttons.slice(1).every((button, index) => button.x >= buttons[index].x + buttons[index].width), 'Desktop answers must go from left to right.')
       }
       await page.screenshot({ path: join(output, `questions-statement-${viewport.width}.png`) })
-      await expect(page.locator('.scale-choice.level-3')).toHaveAttribute('aria-pressed', 'true')
       await page.locator('.scale-choice.level-2').click()
       await expect(progress).toHaveAttribute('aria-valuenow', '5')
       await page.reload()
@@ -191,12 +201,24 @@ try {
         await page.mouse.move(box.x + box.width / 2 + 130, box.y + box.height / 2, { steps: 8 })
         await page.mouse.up()
         await expect(progress).toHaveAttribute('aria-valuenow', '10')
+        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['2']), 'Pas du tout')
+        const nextBox = await card.boundingBox()
+        await page.mouse.move(nextBox.x + nextBox.width / 2, nextBox.y + nextBox.height / 2)
+        await page.mouse.down()
+        await page.mouse.move(nextBox.x + nextBox.width / 2 - 130, nextBox.y + nextBox.height / 2, { steps: 8 })
+        await page.mouse.up()
+        await expect(progress).toHaveAttribute('aria-valuenow', '15')
+        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['3']), 'Carrément')
       }
       while (await page.locator('.question-card').count()) {
         const previousQuestion = await page.locator('.flow-step-label').textContent()
-        if (previousQuestion.startsWith('Question 4 ')) {
+        const questionNumber = Number(previousQuestion.match(/^Question (\d+)/)?.[1])
+        if (questionNumber >= 4 && questionNumber <= 7) {
           await expect(page.getByRole('button', { name: 'Carrément', exact: true })).toBeVisible()
-          await page.keyboard.press('3')
+          const position = questionNumber - 3
+          await page.keyboard.press(String(position))
+          assert.equal(await page.evaluate((id) => JSON.parse(localStorage.getItem('answers_progress')).answers[id], questionNumber), ['Carrément', 'Plutôt oui', 'Plutôt pas', 'Pas du tout'][position - 1])
+          assert.equal(await page.evaluate(() => window.dataLayer.filter((item) => item?.event === 'orientation_question_answered').at(-1).orientation_answer_position), position)
         } else if (previousQuestion.startsWith('Question 20 ')) {
           await expect(page.locator('.question-prompt')).toHaveCount(0)
           await expect(page.locator('.scale-choice')).toHaveText(['Construire', 'Analyser'])

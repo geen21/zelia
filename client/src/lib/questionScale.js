@@ -51,12 +51,13 @@ export function isAgreementQuestion(question) {
 }
 
 // Ordered choices shown to the student (left to right / top to bottom).
+// Agreement levels remain 0..3 for scoring, but are displayed strongest first.
 // `level` 0..3 drives the colour; legacy two-option questions use levels 0 and 3.
 export function getAnswerChoices(question) {
   const options = getLabelledOptions(question)
   if (isAgreementQuestion(question)) {
     const value = options.find((option) => option.value)?.value || null
-    return AGREEMENT_LEVELS.map((level, index) => {
+    return [...AGREEMENT_LEVELS].reverse().map((level, index) => {
       const option = options.find((candidate) => Number(candidate.level) === level.level)
       const label = option?.label || level.label
       return { index, answer: label, label, value: option?.value || value, level: level.level }

@@ -37,7 +37,7 @@ try {
     assert.ok(question.content.length <= 95, `Statement too long: ${question.content}`)
     assert.equal(new Set(question.options.map((option) => option.value)).size, 1)
     assert.deepEqual(question.options.map(({ label, level }) => ({ label, level })), AGREEMENT_LEVELS)
-    assert.deepEqual(getAnswerChoices(question).map((choice) => choice.answer), AGREEMENT_LEVELS.map(({ label }) => label))
+    assert.deepEqual(getAnswerChoices(question).map((choice) => choice.answer), [...AGREEMENT_LEVELS].reverse().map(({ label }) => label))
     for (const { label, level } of AGREEMENT_LEVELS) {
       assert.ok(question.interpretations[label], `Missing interpretation for ${question.id}/${label}`)
       assert.equal(parseAnswer(question, label).signed, [-2, -1, 1, 2][level])

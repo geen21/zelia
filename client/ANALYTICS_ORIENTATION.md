@@ -22,9 +22,11 @@ answer labels, career aspirations, formation names, or job names.
 Every event also includes `orientation_flow: orientation_v1`.
 
 Since questionnaire v3 (`inscription_v3`), every question is a statement answered on the same 1-4 scale:
-`orientation_answer_position` is 1 = "Pas du tout", 2 = "Plutôt pas", 3 = "Plutôt oui",
-4 = "Carrément" (legacy two-option questions only use positions 1-2), and
+`orientation_answer_position` is 1 = "Carrément", 2 = "Plutôt oui", 3 = "Plutôt pas",
+4 = "Pas du tout" (legacy two-option questions only use positions 1-2), and
 `orientation_question_category` is either an axis id or `interest`.
+Earlier questionnaire v3 events used the opposite position order; take this display-order change
+into account when interpreting historical analytics.
 
 ## GTM Setup
 

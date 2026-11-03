@@ -81,7 +81,7 @@ npm run dev
 
 #### Questionnaire d'orientation v3
 
-Appliquer [migrate_questions_v3.sql](database/migrate_questions_v3.sql) avant de deployer le nouveau client. Elle ajoute 20 phrases naturelles (ids 400-419, `questionnaire_type = 'inscription_v3'`), toutes avec les reponses « Pas du tout / Plutôt pas / Plutôt oui / Carrément ». Les 10 questions d'axes couvrent les deux poles de chaque axe ; les 10 questions d'interets couvrent sciences, sante et aide, arts, nature, entreprise, numerique, transmission, communication, sport et societe. Chaque option porte `value` (pole ou code RIASEC) et `level` (0-3).
+Appliquer [migrate_questions_v3.sql](database/migrate_questions_v3.sql) avant de deployer le nouveau client. Elle ajoute 20 phrases naturelles (ids 400-419, `questionnaire_type = 'inscription_v3'`), toutes avec les reponses affichees dans l'ordre « Carrément / Plutôt oui / Plutôt pas / Pas du tout ». Les 10 questions d'axes couvrent les deux poles de chaque axe ; les 10 questions d'interets couvrent sciences, sante et aide, arts, nature, entreprise, numerique, transmission, communication, sport et societe. Chaque option porte `value` (pole ou code RIASEC) et `level` (0-3, de « Pas du tout » a « Carrément ») : l'ordre d'affichage ne change pas le calcul.
 
 Le parcours demande explicitement `GET /api/questionnaire/questions?type=inscription_v3&limit=20`. Les anciennes questions restent intactes et disponibles aux anciens clients : ne pas remplacer leurs libelles ou interpretations par ceux de la v3. Les reponses et resultats continuent d'utiliser le type `inscription`, avec les nouveaux identifiants de questions. Le cache de progression passe a `orientation-flow-v3-20` ; une progression anterieure ne declenche pas d'analyse automatique.
 

@@ -11,7 +11,7 @@ await mkdir(output, { recursive: true })
 const agreementOptions = (value, alternative) => ['Pas du tout', 'Plutôt pas', 'Plutôt oui', 'Carrément']
   .map((label, level) => ({ label, value, level, ...(alternative ? { alternative } : {}) }))
 const firstStatement = "Pour comprendre une panne, je préfère démonter l'objet plutôt qu'étudier son schéma."
-const longStatement = 'Je préfère tester un outil nouveau, quitte à tout reprendre, plutôt que garder celui que je maîtrise.'
+const longStatement = "Pour lancer une idée, je préfère imaginer le concept créatif plutôt que convaincre des partenaires."
 const questions = Array.from({ length: 20 }, (_, index) => {
   const content = index === 0 ? firstStatement : index === 1 ? longStatement : `Question ${index + 1}`
   const base = { id: index + 1, content, contenu: content }

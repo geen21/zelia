@@ -209,8 +209,9 @@ try {
   assert.equal(new Set(comparisons.map((q) => q.content)).size, 20)
   const comparisonExposure = {}
   for (const q of comparisons) {
-    assert.ok(q.content.length <= 105, `Comparison too long: ${q.content}`)
-    assert.match(q.content, /je préfère .+ (?:plutôt )?qu['e]/i)
+    assert.ok(q.content.length <= 100, `Comparison too long: ${q.content}`)
+    assert.match(q.content, /je préfère .+ plutôt qu['e]/i)
+    assert.doesNotMatch(q.content, /quitte à|malgré|sous la pluie|même /i)
     assert.deepEqual(q.options.map(({ label, level }) => ({ label, level })), AGREEMENT_LEVELS)
     assert.equal(new Set(q.options.map((o) => o.value)).size, 1)
     assert.equal(new Set(q.options.map((o) => o.alternative)).size, 1)
@@ -287,7 +288,7 @@ try {
   assert.doesNotMatch(v5Context.interestSummary, /soin|infirmier/)
   assert.match(v5Context.interestInstruction, /normalisées par le nombre de comparaisons/)
   const careInterpretation = resolveInterpretation(comparisons[1].interpretations, 'Pas du tout')
-  assert.match(careInterpretation, /pour : Réparer du matériel en atelier/)
+  assert.match(careInterpretation, /pour : Installer et régler le matériel technique lors d'un événement/)
   assert.match(QUESTIONNAIRE_NUANCE_INSTRUCTION, /ce ne sont pas des rejets des deux activités/)
   await db.exec(v5Migration)
   assert.deepEqual((await db.query('SELECT * FROM public.questions WHERE id < 600 ORDER BY id')).rows, beforeV5)

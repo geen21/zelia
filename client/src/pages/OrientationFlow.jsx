@@ -138,11 +138,6 @@ const STRONG_SUBJECT_SEARCH_QUERIES = {
   numerique: 'informatique'
 }
 
-function getQuestionChoices(question) {
-  const choices = getAnswerChoices(question)
-  return choices.length ? choices : getAnswerChoices({ ...question, options: FALLBACK_QUESTION_OPTIONS })
-}
-
 const MICRO_STEPS = [
   {
     id: 'school_level',
@@ -1714,7 +1709,11 @@ export default function OrientationFlow() {
         setLoading(true)
         const { data } = await orientationAPI.getInitialQuestions(QUESTION_LIMIT)
         if (cancelled) return
-        const compactQuestions = Array.isArray(data) ? data.slice(0, QUESTION_LIMIT) : []
+        const compactQuestions = Array.isArray(data)
+          ? data.slice(0, QUESTION_LIMIT).map((question) => (
+            getAnswerChoices(question).length ? question : { ...question, options: FALLBACK_QUESTION_OPTIONS }
+          ))
+          : []
         if (!compactQuestions.length) throw new Error('No orientation questions available')
         setQuestions(compactQuestions)
 
@@ -1757,7 +1756,7 @@ export default function OrientationFlow() {
 
   const answerQuestion = useCallback((choiceIndex) => {
     if (!currentQuestion) return
-    const choices = getQuestionChoices(currentQuestion)
+    const choices = getAnswerChoices(currentQuestion)
     const safeIndex = Math.max(0, Math.min(Number(choiceIndex) || 0, choices.length - 1))
     const picked = choices[safeIndex]
     trackOrientationEvent('orientation_question_answered', {
@@ -1782,7 +1781,7 @@ export default function OrientationFlow() {
   useEffect(() => {
     const onKeyDown = (event) => {
       if (phase === 'questions') {
-        const choiceCount = getQuestionChoices(currentQuestion).length
+        const choiceCount = getAnswerChoices(currentQuestion).length
         if (event.key === 'ArrowRight') answerQuestion(choiceCount - 1)
         if (event.key === 'ArrowLeft') answerQuestion(0)
         if (['1', '2', '3', '4'].includes(event.key) && Number(event.key) <= choiceCount) answerQuestion(Number(event.key) - 1)
@@ -2344,7 +2343,7 @@ export default function OrientationFlow() {
 
   const renderQuestionCard = () => {
     if (!currentQuestion) return null
-    const choices = getQuestionChoices(currentQuestion)
+    const choices = getAnswerChoices(currentQuestion)
     const agreementQuestion = isAgreementQuestion(currentQuestion)
     const comparativeQuestion = agreementQuestion && choices.some((choice) => choice.alternative)
     const dilemmaQuestion = isDilemmaQuestion(currentQuestion)

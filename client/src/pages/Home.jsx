@@ -63,8 +63,7 @@ export default function Home() {
   const proof = [
     '5 minutes',
     '20 questions originales',
-    '100% gratuit',
-    'Approfondissant avec des activités'
+    '100% gratuit'
   ]
 
   const steps = [
@@ -125,7 +124,6 @@ export default function Home() {
         <img className="zelia-home-avatar" src={avatarUrl} alt="Avatar Zelia" loading="eager" />
 
         <div className="zelia-home-hero-content">
-          <p className="zelia-home-kicker">Quand tu te connais, tu sais où aller</p>
           <h1>L'expérience ultime des 15-20 ans pour apprendre à se connaître et préparer sereinement son futur.</h1>
           <div className="zelia-home-proof" aria-label="Points clés Zélia">
             {proof.map((item) => <span key={item}>{item}</span>)}

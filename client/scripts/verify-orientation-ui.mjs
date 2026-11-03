@@ -11,7 +11,7 @@ await mkdir(output, { recursive: true })
 const agreementOptions = (value, alternative) => ['Pas du tout', 'Plutôt pas', 'Plutôt oui', 'Carrément']
   .map((label, level) => ({ label, value, level, ...(alternative ? { alternative } : {}) }))
 const firstStatement = "Pour comprendre une panne, je préfère démonter l'objet plutôt qu'étudier son schéma."
-const longStatement = "Pour lancer une idée, je préfère imaginer le concept créatif plutôt que convaincre des partenaires."
+const longStatement = "Je préfère gérer l'organisation en coulisses plutôt qu'accueillir le public."
 const questions = Array.from({ length: 20 }, (_, index) => {
   const content = index === 0 ? firstStatement : index === 1 ? longStatement : `Question ${index + 1}`
   const base = { id: index + 1, content, contenu: content }
@@ -69,11 +69,11 @@ const partners = [
 ]
 const browser = await chromium.launch({ headless: true })
 
-async function prepareJourney(viewport, { authenticated = false, answered = false, reducedMotion = 'no-preference' } = {}) {
+async function prepareJourney(viewport, { authenticated = false, answered = false, reducedMotion = 'no-preference', questionnaire = questions, progressAnswers = savedAnswers } = {}) {
   const context = await browser.newContext({ viewport, reducedMotion })
   const page = await context.newPage()
   page.setDefaultTimeout(15000)
-  const state = { errors: [], registrations: [], profiles: [], sharing: [], failProfile: false, failSharing: false, invalidSharing: false, failAnalysis: false, analyses: 0 }
+  const state = { errors: [], registrations: [], profiles: [], sharing: [], submissions: [], failProfile: false, failSharing: false, invalidSharing: false, failAnalysis: false, analyses: 0 }
   let releaseAnalysis
   const analysisReady = new Promise((resolve) => { releaseAnalysis = resolve })
   page.on('pageerror', (error) => state.errors.push(error.message))
@@ -89,7 +89,7 @@ async function prepareJourney(viewport, { authenticated = false, answered = fals
         answers: savedAnswers
       }))
     }
-  }, { authenticated, answered, savedAnswers })
+  }, { authenticated, answered, savedAnswers: progressAnswers })
   await context.route('**/*', async (route) => {
     const request = route.request()
     const url = new URL(request.url())
@@ -107,7 +107,7 @@ async function prepareJourney(viewport, { authenticated = false, answered = fals
       let data = {}
       if (path === '/questionnaire/questions') {
         assert.equal(url.searchParams.get('type'), 'inscription_v5')
-        data = questions
+        data = questionnaire
       }
       else if (path === '/auth/register') {
         state.registrations.push(request.postDataJSON())
@@ -123,13 +123,16 @@ async function prepareJourney(viewport, { authenticated = false, answered = fals
         state.sharing.push(request.postDataJSON())
         if (state.failSharing) return route.fulfill({ status: 503, json: { error: 'Partage indisponible' } })
         data = state.invalidSharing ? {} : { saved: true }
+      } else if (path === '/questionnaire/submit') {
+        state.submissions.push(request.postDataJSON())
+        data = { success: true }
       } else if (path === '/analysis/generate-analysis') {
         state.analyses += 1
         await analysisReady
         if (state.failAnalysis) return route.fulfill({ status: 503, json: { error: 'Analyse indisponible' } })
         data = { success: true }
       } else if (path === '/analysis/my-results') data = { results: { personalityAnalysis: 'Profil concret.', skillsAssessment: 'Précision.' } }
-      else if (path !== '/users/profile/extra-info' && path !== '/questionnaire/submit') {
+      else if (path !== '/users/profile/extra-info') {
         state.errors.push(`Unexpected journey request: ${request.method()} ${path}`)
         return route.fulfill({ status: 404, json: { error: 'Unexpected fixture request' } })
       }
@@ -151,6 +154,48 @@ async function fillRegistration(page) {
 }
 
 try {
+  for (const complete of [true, false]) {
+    const questionnaire = questions.map((question, index) => {
+      if (index === 4) return { ...question, options: null }
+      if (index === 10) return { ...question, options: [] }
+      if (index === 15) {
+        const { options, ...withoutOptions } = question
+        return withoutOptions
+      }
+      return question
+    })
+    const progressAnswers = { ...savedAnswers, 5: 'Oui', 11: 'Non', 16: 'Oui' }
+    if (!complete) progressAnswers[3] = 'Ancien choix incompatible'
+    const { context, page, state, releaseAnalysis } = await prepareJourney({ width: 390, height: 844 }, {
+      answered: true, questionnaire, progressAnswers
+    })
+    try {
+      await page.goto(`${base}/register?after=orientation-analysis`)
+      await fillRegistration(page)
+      await page.getByRole('checkbox').first().check()
+      await page.getByRole('button', { name: 'Créer avec email', exact: true }).click()
+      await expect(page).toHaveURL(`${base}/orientation`)
+      if (complete) {
+        await expect.poll(() => state.analyses).toBe(1)
+        assert.deepEqual(state.submissions[0].answers, questionnaire.map((question) => ({
+          question_id: question.id, answer: progressAnswers[question.id]
+        })))
+        releaseAnalysis()
+        await expect(page.getByRole('button', { name: 'Découvre tes formations', exact: true })).toBeVisible()
+        assert.equal(await page.evaluate(() => localStorage.getItem('orientation_resume_after_auth')), null)
+      } else {
+        await expect(page.locator('.flow-step-label')).toHaveText('Question 3 / 20')
+        assert.equal(state.analyses, 0, 'An incompatible answer must still require correction.')
+        assert.deepEqual(state.submissions, [])
+      }
+      assert.deepEqual(state.errors, [])
+      console.log(`registration-fallback-${complete ? 'complete' : 'incompatible'}: saved answers validated against displayed choices.`)
+    } finally {
+      releaseAnalysis()
+      await context.close()
+    }
+  }
+
   for (const version of ['orientation-flow-v2-20', 'orientation-flow-v3-20', 'orientation-flow-v4-20', 'orientation-flow-v4-binary-20', 'orientation-flow-v5-20']) {
     const { context, page, state, releaseAnalysis } = await prepareJourney({ width: 390, height: 844 })
     try {

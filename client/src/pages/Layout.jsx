@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { usersAPI } from '../lib/api'
 import { buildAvatarFromProfile } from '../lib/avatar'
 import { supabase } from '../lib/supabase'
-import { isStandaloneToolRoute, isToolCompletionText } from '../lib/toolMode'
+import { TOOLBOX_ITEMS } from '../lib/levelMapping'
+import ToolExperience, { ToolIcon } from '../components/ToolExperience'
 
 const HOME_NAV_ITEM = { to: '/app', label: "Conseiller d'orientation", icon: 'ph-compass', end: true }
 
@@ -18,26 +19,6 @@ const BOTTOM_NAV_ITEMS = [
 ]
 
 const TOP_NAV_ITEMS = [HOME_NAV_ITEM, ...PRIMARY_NAV_ITEMS, ...BOTTOM_NAV_ITEMS]
-
-// Standalone tool pages that were rebuilt as single functional pages (no more
-// step-by-step "dialogue" flow) shouldn't get a forced "Terminer" button in
-// the shell topbar — only the "Retour aux outils" link.
-const TOOL_SLUGS_WITHOUT_FINISH_BUTTON = [
-  'anglais',
-  'parcoursup',
-  'pitch',
-  'entretien',
-  'axes-amelioration',
-  'classement-metiers',
-  'videos-orientation',
-  'quiz-orientation',
-  'lettre-futur'
-]
-
-function getToolSlug(pathname = '') {
-  const match = String(pathname || '').match(/^\/app\/outils\/([^/]+)/)
-  return match ? match[1] : ''
-}
 
 function isNavItemActive(item, pathname) {
   if (item.end) return pathname === item.to
@@ -59,7 +40,6 @@ export default function Layout() {
   const [avatarUrl, setAvatarUrl] = useState('/static/images/logo-dark.png')
   const [userName, setUserName] = useState('Utilisateur')
   const [loggingOut, setLoggingOut] = useState(false)
-  const contentRef = useRef(null)
 
   useEffect(() => {
     let mounted = true
@@ -85,46 +65,7 @@ export default function Layout() {
   }, [])
 
   const isChatSurface = location.pathname.startsWith('/app/discuter')
-  const isToolDetail = isStandaloneToolRoute(location.pathname)
-  const toolSlug = getToolSlug(location.pathname)
-  const showFinishButton = isToolDetail && !TOOL_SLUGS_WITHOUT_FINISH_BUTTON.includes(toolSlug)
-
-  useEffect(() => {
-    if (!showFinishButton) return undefined
-    const root = contentRef.current
-    if (!root) return undefined
-
-    const decorateCompletionButtons = () => {
-      root.querySelectorAll('button, a').forEach((element) => {
-        if (element.closest('[data-tool-shell-control="true"]')) return
-        if (!isToolCompletionText(element.textContent)) return
-        if (element.textContent.trim() !== 'Terminer') {
-          element.textContent = 'Terminer'
-        }
-        element.setAttribute('aria-label', 'Terminer')
-        if (element.tagName === 'BUTTON' && !element.getAttribute('type')) {
-          element.setAttribute('type', 'button')
-        }
-      })
-    }
-
-    decorateCompletionButtons()
-    const observer = new MutationObserver(decorateCompletionButtons)
-    observer.observe(root, { childList: true, subtree: true, characterData: true })
-    return () => observer.disconnect()
-  }, [showFinishButton, location.pathname])
-
-  function handleToolClickCapture(event) {
-    if (!showFinishButton) return
-    const action = event.target?.closest?.('button, a')
-    if (!action || action.closest('[data-tool-shell-control="true"]')) return
-    if (!isToolCompletionText(action.textContent)) return
-
-    event.preventDefault()
-    event.stopPropagation()
-    event.nativeEvent?.stopImmediatePropagation?.()
-    navigate('/app', { replace: true })
-  }
+  const currentTool = TOOLBOX_ITEMS.find((tool) => tool.path === location.pathname.replace(/\/$/, '') && tool.id !== 'formations')
 
   async function logout() {
     if (loggingOut) return
@@ -145,10 +86,11 @@ export default function Layout() {
       <Link
         key={item.to}
         to={item.to}
+        aria-label={item.label}
         aria-current={isActive ? 'page' : undefined}
         className={`zelia-topnav-link ${isActive ? 'is-active' : ''}`}
       >
-        <i className={`ph ${item.icon} text-base`} aria-hidden="true" />
+        <ToolIcon name={item.icon} size={18} />
         <span>{item.label}</span>
       </Link>
     )
@@ -186,7 +128,7 @@ export default function Layout() {
               title="Déconnexion"
               aria-label="Déconnexion"
             >
-              <i className={`ph ${loggingOut ? 'ph-spinner-gap animate-spin' : 'ph-sign-out'} text-lg`} aria-hidden="true" />
+              <ToolIcon name={loggingOut ? 'ph-spinner-gap' : 'ph-sign-out'} size={18} className={loggingOut ? 'animate-spin' : undefined} />
             </button>
           </div>
         </div>
@@ -195,30 +137,8 @@ export default function Layout() {
       <div className="zelia-app-main flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden">
 
       <main className={isChatSurface ? 'flex-1 min-h-0 overflow-hidden' : 'flex-1 min-h-0 overflow-y-auto'}>
-        <div ref={contentRef} onClickCapture={handleToolClickCapture} className={isChatSurface ? 'w-full h-full min-h-0 max-w-none overflow-hidden px-3 sm:px-5 lg:px-8 py-3 sm:py-4' : 'w-full max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-6'}>
-          {isToolDetail && (
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <Link
-                to="/app/outils"
-                data-tool-shell-control="true"
-                className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-3 text-sm font-medium text-gray-800 hover:border-black"
-              >
-                <i className="ph ph-arrow-left" aria-hidden="true" />
-                <span>Retour aux outils</span>
-              </Link>
-              {showFinishButton && (
-                <button
-                  type="button"
-                  data-tool-shell-control="true"
-                  onClick={() => navigate('/app', { replace: true })}
-                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-black bg-black px-3 text-sm font-semibold text-white hover:bg-gray-900"
-                >
-                  Terminer
-                </button>
-              )}
-            </div>
-          )}
-          <Outlet />
+        <div className={isChatSurface ? 'w-full h-full min-h-0 max-w-none overflow-hidden px-3 sm:px-5 lg:px-8 py-3 sm:py-4' : 'w-full max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-6'}>
+          {currentTool ? <ToolExperience key={currentTool.id} tool={currentTool}><Outlet /></ToolExperience> : <Outlet />}
         </div>
       </main>
       </div>
@@ -269,6 +189,8 @@ const appShellStyles = `
 
 .zelia-topnav-link {
   display: inline-flex;
+  flex: 0 0 auto;
+  justify-content: center;
   align-items: center;
   gap: 8px;
   height: 40px;
@@ -328,4 +250,3 @@ const appShellStyles = `
   .zelia-topbar-profile-name { display: inline; font-size: 13px; font-weight: 600; color: #030712; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
 }
 `
-

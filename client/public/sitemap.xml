@@ -20,7 +20,7 @@
   </url>
   <url>
     <loc>https://zelia.io/blog</loc>
-    <lastmod>2026-02-23</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
@@ -29,6 +29,36 @@
     <lastmod>2026-07-03</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://zelia.io/blog/parcoursup-2027-dates-nouveautes</loc>
+    <lastmod>2026-11-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://zelia.io/blog/nombre-eleves-par-classe-lycee</loc>
+    <lastmod>2026-11-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://zelia.io/blog/blocus-lycee-legal-risques</loc>
+    <lastmod>2026-11-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://zelia.io/blog/prepa-cpge-c-est-quoi</loc>
+    <lastmod>2026-11-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://zelia.io/blog/bac-5-premier-emploi-insertion</loc>
+    <lastmod>2026-11-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://zelia.io/blog/etude-salaire-bon-salaire-ados</loc>

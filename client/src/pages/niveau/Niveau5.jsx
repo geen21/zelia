@@ -316,12 +316,10 @@ export default function Niveau5() {
   }
 
   return (
-    <div className="p-2 md:p-6">
+    <div className="tool-stack">
       <style>{styles}</style>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="niv5-card">
-          <div className="niv5-card-bar" />
-          <h1 className="text-xl md:text-2xl font-bold mb-1">Test d'anglais</h1>
+      <div className="tool-stack">
+        <div className="tool-panel niv5-card">
           <p className="text-text-secondary">
             Réponds à toutes les questions ci-dessous (listening, reading, writing, vocabulaire, grammaire) puis clique sur « Évaluer mon niveau ».
             Estimation indicative du niveau CECR (A1 à C2) — cela ne remplace pas un test officiel.
@@ -329,8 +327,7 @@ export default function Niveau5() {
         </div>
 
         {SECTIONS.map((section) => (
-          <div key={section} className="niv5-card">
-            <div className="niv5-card-bar" />
+          <div key={section} className="tool-panel niv5-card">
             <h2 className="text-lg font-bold mb-4">{section}</h2>
             <div className="space-y-5">
               {QUESTIONS.filter((question) => question.section === section).map((question) => {
@@ -347,8 +344,11 @@ export default function Niveau5() {
                     {question.text && (
                       <p className="niv5-passage">“{question.text}”</p>
                     )}
-                    <label className="niv5-prompt">{question.prompt}</label>
+                    <label htmlFor={`english-${question.id}`} className="niv5-prompt">{question.prompt}</label>
                     <textarea
+                      id={`english-${question.id}`}
+                      aria-invalid={Boolean(showError)}
+                      aria-describedby={showError ? `english-error-${question.id}` : undefined}
                       className="niv5-textarea"
                       placeholder={question.placeholder}
                       value={value}
@@ -360,7 +360,7 @@ export default function Niveau5() {
                         {question.minWords ? `${countWords(value)} / ${question.minWords} mots minimum` : `${countSentences(value)} / ${question.minSentences} phrases minimum`}
                       </p>
                     )}
-                    {showError && <p className="niv5-error">{errorsById[question.id]}</p>}
+                    {showError && <p id={`english-error-${question.id}`} className="niv5-error">{errorsById[question.id]}</p>}
                   </div>
                 )
               })}
@@ -368,8 +368,7 @@ export default function Niveau5() {
           </div>
         ))}
 
-        <div className="niv5-card">
-          <div className="niv5-card-bar accent-ink" />
+        <div className="tool-panel niv5-card">
           {error && <p className="niv5-error mb-3">{error}</p>}
           <button type="button" className="niv5-submit-btn" onClick={handleSubmit} disabled={saving}>
             {saving ? 'Analyse en cours…' : "Évaluer mon niveau"}
@@ -380,8 +379,7 @@ export default function Niveau5() {
         </div>
 
         {assessment && (
-          <div className="niv5-card">
-            <div className="niv5-card-bar accent-pink" />
+          <div className="tool-panel niv5-card">
             <h2 className="text-lg font-bold mb-3">Ton résultat</h2>
             <p className="niv5-result-text">{getLevelMessage(assessment.level)}</p>
             <div className="niv5-skills-grid">

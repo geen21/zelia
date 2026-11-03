@@ -26,6 +26,8 @@ import BlogParents from './pages/blog/BlogParents.jsx'
 import BlogMetierFaitPourSoi from './pages/blog/BlogMetierFaitPourSoi.jsx'
 import BlogChoisirSesEtudes from './pages/blog/BlogChoisirSesEtudes.jsx'
 import BlogEtudeSalaire from './pages/blog/BlogEtudeSalaire.jsx'
+import BlogEditorialArticle from './pages/blog/BlogEditorialArticle.jsx'
+import { editorialPosts } from './pages/blog/editorialPosts.js'
 import TagManager from 'react-gtm-module'
 import { usePageTracking } from './lib/usePageTracking.js'
 import { hasAuthParameters, isPrivatePortalPath } from './lib/analytics.js'
@@ -170,6 +172,9 @@ function App() {
         <Route path="/legal/mentions-legales" element={<MentionsLegales />} />
         <Route path="/legal/conditions" element={<ConditionsConfidentialite />} />
     <Route path="/blog" element={<BlogIndex />} />
+    {editorialPosts.map((post) => (
+      <Route key={post.slug} path={`/blog/${post.slug}`} element={<BlogEditorialArticle slug={post.slug} />} />
+    ))}
     <Route path="/blog/ia-remplacer-futur-metier" element={<BlogExploreMetiers />} />
     <Route path="/blog/pourquoi-ecole-ne-t-aide-pas" element={<BlogQuestionnaire />} />
     <Route path="/blog/accompagner-parents" element={<BlogParents />} />

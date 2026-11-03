@@ -3,26 +3,11 @@ import { Link } from 'react-router-dom'
 import { blogPosts } from './posts'
 import BlogHeaderNav from './BlogHeaderNav'
 import SEO from '../../components/SEO'
+import BlogCover from './BlogCover'
+import { buildBlogIndexSchema } from './blogSeo.js'
+import './blog-editorial.css'
 
 const ALL_CATEGORIES = 'Tous'
-
-function BlogCover({ post, featured = false }) {
-  const hasPhoto = typeof post.image === 'string' && post.image.startsWith('http')
-  return (
-    <div className={`blog-cover${featured ? ' blog-cover--featured' : ''}`} aria-hidden="true">
-      {hasPhoto ? (
-        <img src={post.image} alt="" loading={featured ? 'eager' : 'lazy'} />
-      ) : (
-        <div className="blog-cover__art">
-          <span className="blog-cover__blob" />
-          <span className="blog-cover__star" />
-          <span className="blog-cover__ring" />
-        </div>
-      )}
-      <span className="blog-cover__tag">{post.category}</span>
-    </div>
-  )
-}
 
 export default function BlogIndex() {
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORIES)
@@ -46,6 +31,7 @@ export default function BlogIndex() {
         title="Blog Zelia - Conseils et actualités sur l'orientation"
         description="Retrouvez nos analyses, astuces et retours d'expérience pour accompagner les jeunes dans leur quête d'orientation scolaire et professionnelle."
         url="https://zelia.io/blog"
+        schema={buildBlogIndexSchema(blogPosts)}
       />
       <BlogHeaderNav />
       <header className="blog-page__hero">

@@ -9,10 +9,14 @@
     "preview": "vite preview",
     "verify:admin-ui": "node scripts/verify-backoffice.mjs",
     "verify:parents-ui": "node scripts/verify-parents.mjs",
+    "verify:profile-ui": "node scripts/verify-profile-ui.mjs",
     "verify:school-registration": "node scripts/verify-school-registration.mjs",
     "verify:school-portal": "node scripts/verify-school-portal.mjs",
     "verify:personas": "node scripts/verify-persona-distribution.mjs",
-    "verify:orientation-ui": "node scripts/verify-formation-relevance.mjs && node scripts/verify-orientation-ui.mjs"
+    "verify:orientation-ui": "node scripts/verify-formation-relevance.mjs && node scripts/verify-orientation-ui.mjs",
+    "verify:formations-ui": "node scripts/verify-formation-explorer.mjs && node scripts/verify-formations-ui.mjs",
+    "verify:tools-ui": "node scripts/verify-tools-ui.mjs",
+    "verify:login-ui": "node scripts/verify-login-ui.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

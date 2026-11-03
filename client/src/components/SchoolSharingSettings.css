@@ -1,0 +1,60 @@
+.school-sharing { color: #171917; background: #fff; border: 1px solid #e0e5d9; border-radius: 26px; padding: 28px; font-size: 13px; line-height: 1.6; min-width: 0; }
+.school-sharing * { box-sizing: border-box; }
+.school-sharing :is(h2, h3, p, ul) { margin: 0; }
+.school-sharing :is(button, input, summary):focus-visible { outline: 3px solid #536e32; outline-offset: 4px; }
+.ss-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.school-sharing .ss-eyebrow { margin-bottom: 10px; color: #62665f; font-size: 11px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+.ss-heading h2 { font-family: inherit; color: #171917; font-size: 23px; font-weight: 750; line-height: 1.2; letter-spacing: -.035em; }
+.ss-heading h2 + p { color: #62665f; font-size: 13px; margin-top: 8px; }
+.ss-shield { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; background: #e3f9cb; border-radius: 14px; font-size: 24px; }
+.ss-intro { color: #62665f; font-size: 13px; line-height: 1.7; }
+.ss-consent { margin-top: 20px; background: #f7faef; border: 1px solid #dfe9d2; border-radius: 18px; padding: 20px; }
+.ss-consent-label { display: flex; align-items: center; justify-content: space-between; gap: 20px; cursor: pointer; margin: 0; }
+.ss-consent-label strong { display: block; color: #171917; font-size: 14px; font-weight: 750; }
+.ss-consent-label > span > span { display: block; margin-top: 6px; color: #555e4b; font-size: 12px; font-weight: 400; }
+/* The legacy theme applies important padding and borders to every input. */
+.school-sharing input.ss-toggle[type="checkbox"] { appearance: none; -webkit-appearance: none; display: block; position: relative; flex: 0 0 46px; width: 46px; height: 28px; min-height: 0; padding: 0 !important; margin: 0; border: 1px solid #7e8872 !important; border-radius: 999px; background: #dce1d4; cursor: pointer; box-shadow: none; transition: background .15s; }
+.school-sharing input.ss-toggle::after { content: ""; display: block; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0002; transition: transform .15s; }
+.school-sharing input.ss-toggle:checked { background: #c1ff72; border-color: #6e9244 !important; }
+.school-sharing input.ss-toggle:checked::after { transform: translateX(18px); background: #25351b; }
+.school-sharing input.ss-toggle:disabled { opacity: .6; cursor: wait; }
+.school-sharing .ss-consent > p { font-size: 11px; color: #626b58; margin-top: 12px; }
+.ss-badge { display: inline-block; color: #62665f; background: #e9ece3; border-radius: 999px; padding: 4px 9px; font-size: 10px; font-weight: 700; margin-top: 12px; }
+.ss-badge--active { color: #395a23; background: #e0f3ca; }
+.ss-schools { margin-top: 24px; }
+.ss-schools h3 { font-family: inherit; color: #171917; font-size: 15px; font-weight: 750; }
+.ss-schools > p { color: #62665f; font-size: 12px; margin-top: 6px; }
+.ss-schools ul { list-style: none; padding: 0; margin-top: 16px; }
+.ss-school { display: flex; align-items: center; gap: 12px; padding: 16px 0; border-top: 1px solid #e9ece3; }
+.ss-school-icon { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; background: #f1f3ed; border-radius: 12px; font-size: 20px; }
+.ss-school-info { flex: 1; min-width: 0; }
+.ss-school-info strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
+.ss-school-info > span { display: block; font-size: 11px; margin-top: 4px; }
+.ss-school-allowed { color: #496931; }
+.ss-school-blocked { color: #62665f; }
+.ss-school-action { min-height: 44px; max-width: 220px; padding: 8px 12px; border: 1px solid #e0e3db; border-radius: 12px; background: #fff; color: #555e4b; font-family: inherit; font-size: 11px; font-weight: 650; line-height: 1.5; cursor: pointer; }
+.ss-school-action:hover:not(:disabled) { background: #f6f8f2; border-color: #bec9b0; }
+.ss-school-action:disabled { opacity: .6; cursor: wait; }
+.school-sharing .ss-no-schools { display: flex; align-items: flex-start; gap: 10px; padding: 16px; margin-top: 16px; border: 1px dashed #d8dfce; border-radius: 14px; }
+.ss-no-schools i { font-size: 22px; }
+.ss-details { color: #62665f; margin-top: 12px; border-top: 1px solid #e9ece3; font-size: 11px; }
+.ss-details summary { cursor: pointer; padding: 16px 0 0; }
+.ss-details p { padding-top: 12px; font-size: 11px; line-height: 1.7; }
+.ss-message { padding: 12px 14px; background: #f1fae9; border: 1px solid #d4e4c4; border-radius: 12px; color: #345520; font-size: 12px; margin: 16px 0; }
+.ss-message--error { color: #973a2b; border-color: #edc8c0; background: #fff4f1; }
+.ss-message button { display: block; min-height: 44px; border: 0; padding: 8px 0 0; background: none; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.ss-loading { padding: 20px 0; color: #62665f; font-size: 13px; }
+@media (max-width: 1050px) { .school-sharing { padding: 22px; } }
+@media (max-width: 600px) {
+  .ss-school { flex-wrap: wrap; }
+  .ss-school-action { width: 100%; max-width: none; margin-left: 48px; }
+}
+@media (max-width: 480px) {
+  .school-sharing { padding: 20px 16px; border-radius: 22px; }
+  .ss-heading h2 { font-size: 21px; }
+  .ss-heading h2 + p { font-size: 12px; }
+  .ss-heading { gap: 10px; }
+  .ss-consent { padding: 16px; }
+  .ss-consent-label { gap: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .school-sharing input.ss-toggle, .school-sharing input.ss-toggle::after { transition: none; } }

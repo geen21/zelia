@@ -168,16 +168,16 @@ export const analysisAPI = {
 
 export const orientationAPI = {
   getInitialQuestions: (limit = 20) => apiClient.get('/questionnaire/questions', {
-    params: { type: 'inscription_v3', limit }
+    params: { type: 'inscription_v4', limit }
   }),
   submitInitialAnswers: (answers) => apiClient.post('/questionnaire/submit', {
     answers,
     questionnaireType: 'inscription'
   }),
   generateInitialAnalysis: (payload = {}) => apiClient.post('/analysis/generate-analysis', payload),
-  getResults: () => apiClient.get('/analysis/my-results', {
+  getResults: (params = {}) => apiClient.get('/analysis/my-results', {
     headers: { 'Cache-Control': 'no-cache' },
-    params: { _: Date.now() }
+    params: { _: Date.now(), ...params }
   }),
   searchFormations: (params = {}) => apiClient.get('/catalog/formations/search', { params }),
   searchMetiers: (params = {}) => apiClient.get('/catalog/metiers/search', { params }),

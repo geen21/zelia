@@ -3,21 +3,50 @@ import { mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chromium, expect } from '@playwright/test'
+import { getAnswerChoices } from '../src/lib/questionScale.js'
 
 const base = process.env.ORIENTATION_TEST_URL || 'http://127.0.0.1:5187'
 const output = join(tmpdir(), 'zelia-orientation-tests')
 await mkdir(output, { recursive: true })
 const agreementOptions = (value) => ['Pas du tout', 'Plutôt pas', 'Plutôt oui', 'Carrément'].map((label, level) => ({ label, value, level }))
+const dilemmaOptions = (a, valueA, b, valueB) => [
+  { label: a, value: valueA, strength: 2 },
+  { label: b, value: valueB, strength: 2 }
+]
 const questions = Array.from({ length: 20 }, (_, index) => {
   const base = { id: index + 1, content: `Question ${index + 1}`, contenu: `Question ${index + 1}` }
-  // Last question uses the legacy two-option format (before the v2 migration is applied).
+  // Keep both legacy formats covered alongside the new dilemmas.
   if (index === 19) return { ...base, category: 'hands_mind', options: [{ label: 'Construire', value: 'mains' }, { label: 'Analyser', value: 'tete' }] }
-  return index % 4 === 3
-    ? { ...base, category: 'interest', options: agreementOptions('S') }
-    : { ...base, category: 'hands_mind', options: agreementOptions(index % 2 ? 'tete' : 'mains') }
+  if (index === 18) return { ...base, category: 'interest', options: agreementOptions('S') }
+  return {
+    ...base,
+    category: index % 4 === 3 ? 'interest' : 'hands_mind',
+    options: dilemmaOptions(
+      'Démonter et tester des pièces, quitte à recommencer plusieurs fois.', index % 4 === 3 ? 'R' : 'mains',
+      "Comparer les schémas et les mesures, sans manipuler l'objet.", index % 4 === 3 ? 'I' : 'tete'
+    )
+  }
 })
+const savedAnswers = Object.fromEntries(questions.map((q, index) => [q.id, getAnswerChoices(q)[index === 19 ? 1 : 0].answer]))
 const user = { id: 'orientation-fixture', first_name: 'Camille', department: '75' }
+const avatarFixture = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="22" fill="#fbe7ef"/>
+  <circle cx="50" cy="39" r="26" fill="#a95f39"/>
+  <path d="M23 100c2-20 13-30 27-30s25 10 27 30" fill="#c1ff72"/>
+  <circle cx="50" cy="45" r="19" fill="#f1c8a4"/>
+  <path d="M31 38c2-13 9-20 19-20s18 7 19 20c-10-2-17-7-21-12-3 6-9 10-17 12" fill="#a95f39"/>
+  <circle cx="43" cy="45" r="2" fill="#29211b"/><circle cx="57" cy="45" r="2" fill="#29211b"/>
+  <path d="M44 55q6 5 12 0" fill="none" stroke="#7d4938" stroke-width="2" stroke-linecap="round"/>
+</svg>`
 const jobs = ['Infirmier', 'Électricien', 'Cuisinier', 'Mécanicien', 'Journaliste', 'Comptable']
+const longJobs = [
+  { title: "UX/UI Designer (Designer d'Expérience Utilisateur et d'Interface Utilisateur)", skills: ['Créativité', 'Écoute', 'Ergonomie'] },
+  { title: 'Chef de Projet Innovation', skills: [] },
+  { title: 'Consultant en Stratégie Digitale', skills: ['Analyse', 'Stratégie'] },
+  { title: 'Concepteur Rédacteur (Publicité / Contenu)', skills: ['Rédaction', 'Créativité'] },
+  { title: 'Chargé de Marketing Digital', skills: ['Communication', 'Analyse'] },
+  { title: 'Ingénieur R&D (Recherche et Développement)', skills: ['Recherche', 'Rigueur'] }
+]
 const formations = [
   ...Array.from({ length: 12 }, (_, index) => ({
     id: index + 1, nm: [`BTS Maintenance ${index + 1}`], nmc: `BTS-Maintenance-${index + 1}`,
@@ -51,7 +80,7 @@ async function prepareJourney(viewport, { authenticated = false, answered = fals
   let releaseAnalysis
   const analysisReady = new Promise((resolve) => { releaseAnalysis = resolve })
   page.on('pageerror', (error) => state.errors.push(error.message))
-  await context.addInitScript(({ authenticated, answered }) => {
+  await context.addInitScript(({ authenticated, answered, savedAnswers }) => {
     window.tailwind = { config: {} }
     if (authenticated) {
       localStorage.setItem('token', 'orientation-fixture-token')
@@ -59,11 +88,11 @@ async function prepareJourney(viewport, { authenticated = false, answered = fals
     }
     if (authenticated || answered) {
       localStorage.setItem('answers_progress', JSON.stringify({
-        version: 'orientation-flow-v3-20',
-        answers: Object.fromEntries(Array.from({ length: 20 }, (_, index) => [index + 1, index === 19 ? 'Analyser' : index % 4 === 3 ? 'Plutôt oui' : 'Carrément']))
+        version: 'orientation-flow-v4-binary-20',
+        answers: savedAnswers
       }))
     }
-  }, { authenticated, answered })
+  }, { authenticated, answered, savedAnswers })
   await context.route('**/*', async (route) => {
     const request = route.request()
     const url = new URL(request.url())
@@ -80,7 +109,7 @@ async function prepareJourney(viewport, { authenticated = false, answered = fals
       const path = url.pathname.replace(/^.*\/api/, '')
       let data = {}
       if (path === '/questionnaire/questions') {
-        assert.equal(url.searchParams.get('type'), 'inscription_v3')
+        assert.equal(url.searchParams.get('type'), 'inscription_v4')
         data = questions
       }
       else if (path === '/auth/register') {
@@ -125,7 +154,7 @@ async function fillRegistration(page) {
 }
 
 try {
-  for (const version of ['orientation-flow-v2-20', 'orientation-flow-v3-20']) {
+  for (const version of ['orientation-flow-v2-20', 'orientation-flow-v3-20', 'orientation-flow-v4-20', 'orientation-flow-v4-binary-20']) {
     const { context, page, state, releaseAnalysis } = await prepareJourney({ width: 390, height: 844 })
     try {
       await context.addInitScript(({ version }) => {
@@ -136,7 +165,7 @@ try {
         }))
       }, { version })
       await page.goto(`${base}/orientation`)
-      if (version === 'orientation-flow-v2-20') {
+      if (version !== 'orientation-flow-v4-binary-20') {
         await page.getByRole('button', { name: "C'est parti !", exact: true }).click()
         assert.equal(await page.evaluate(() => localStorage.getItem('orientation_resume_after_auth')), null)
       }
@@ -161,21 +190,26 @@ try {
       await expect(page.getByRole('heading', { name: 'Question 1', exact: true })).toBeVisible()
       await page.keyboard.press('ArrowRight')
       await expect(progress).toHaveAttribute('aria-valuenow', '5')
-      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['1']), 'Pas du tout')
-      assert.equal(await page.evaluate(() => window.dataLayer.filter((item) => item?.event === 'orientation_question_answered').at(-1).orientation_answer_position), 4)
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['1']), questions[0].options[1].label)
+      assert.equal(await page.evaluate(() => window.dataLayer.filter((item) => item?.event === 'orientation_question_answered').at(-1).orientation_answer_position), 2)
       await page.getByRole('button', { name: 'Revenir en arrière' }).click()
       await expect(progress).toHaveAttribute('aria-valuenow', '0')
-      await expect(page.locator('.question-prompt')).toHaveText('Ça te ressemble ?')
-      await expect(page.locator('.scale-choice')).toHaveCount(4)
-      await expect(page.locator('.scale-choice')).toHaveText(['Carrément', 'Plutôt oui', 'Plutôt pas', 'Pas du tout'])
-      await expect(page.locator('.scale-choice.level-0')).toHaveAttribute('aria-pressed', 'true')
+      await expect(page.locator('.question-prompt, .dilemma-options')).toHaveCount(0)
+      await expect(page.locator('.scale-choice')).toHaveCount(2)
+      await expect(page.locator('.scale-choice')).toHaveText([
+        'Démonter et tester des pièces, quitte à recommencer plusieurs fois.',
+        "Comparer les schémas et les mesures, sans manipuler l'objet."
+      ])
+      await expect(page.locator('.scale-choice.level-3')).toHaveAttribute('aria-pressed', 'true')
+      assert.equal(await page.locator('.scale-choice').first().evaluate((el) => getComputedStyle(el).borderColor), await page.locator('.scale-choice').nth(1).evaluate((el) => getComputedStyle(el).borderColor), 'Preference controls must not imply a good or bad choice.')
+      await expect(page.locator('.scale-choice').first()).toHaveAccessibleName(questions[0].options[0].label)
       await page.keyboard.press('ArrowLeft')
       await expect(progress).toHaveAttribute('aria-valuenow', '5')
-      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['1']), 'Carrément')
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['1']), questions[0].options[0].label)
       assert.equal(await page.evaluate(() => window.dataLayer.filter((item) => item?.event === 'orientation_question_answered').at(-1).orientation_answer_position), 1)
       await page.getByRole('button', { name: 'Revenir en arrière' }).click()
       await expect(progress).toHaveAttribute('aria-valuenow', '0')
-      await expect(page.locator('.scale-choice.level-3')).toHaveAttribute('aria-pressed', 'true')
+      await expect(page.locator('.scale-choice.level-0')).toHaveAttribute('aria-pressed', 'true')
       await expect(page.locator('.axis-pole')).toHaveCount(0)
       const buttons = await page.locator('.scale-choice').evaluateAll((elements) => elements.map((element) => {
         const { x, y, width, height } = element.getBoundingClientRect()
@@ -188,8 +222,12 @@ try {
         assert.ok(buttons.every((button) => Math.abs(button.y - buttons[0].y) < 1), 'Desktop answers must stay on one row.')
         assert.ok(buttons.slice(1).every((button, index) => button.x >= buttons[index].x + buttons[index].width), 'Desktop answers must go from left to right.')
       }
-      await page.screenshot({ path: join(output, `questions-statement-${viewport.width}.png`) })
-      await page.locator('.scale-choice.level-2').click()
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Dilemma overflow.')
+      await page.screenshot({ path: join(output, `questions-dilemma-${viewport.width}.png`) })
+      await page.keyboard.press('3')
+      await page.keyboard.press('4')
+      await expect(progress).toHaveAttribute('aria-valuenow', '0')
+      await page.locator('.scale-choice.level-3').click()
       await expect(progress).toHaveAttribute('aria-valuenow', '5')
       await page.reload()
       await expect(progress).toHaveAttribute('aria-valuenow', '5')
@@ -201,24 +239,29 @@ try {
         await page.mouse.move(box.x + box.width / 2 + 130, box.y + box.height / 2, { steps: 8 })
         await page.mouse.up()
         await expect(progress).toHaveAttribute('aria-valuenow', '10')
-        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['2']), 'Pas du tout')
+        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['2']), questions[1].options[1].label)
+        await expect(card).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)')
         const nextBox = await card.boundingBox()
         await page.mouse.move(nextBox.x + nextBox.width / 2, nextBox.y + nextBox.height / 2)
         await page.mouse.down()
         await page.mouse.move(nextBox.x + nextBox.width / 2 - 130, nextBox.y + nextBox.height / 2, { steps: 8 })
         await page.mouse.up()
         await expect(progress).toHaveAttribute('aria-valuenow', '15')
-        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['3']), 'Carrément')
+        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['3']), questions[2].options[0].label)
       }
       while (await page.locator('.question-card').count()) {
         const previousQuestion = await page.locator('.flow-step-label').textContent()
         const questionNumber = Number(previousQuestion.match(/^Question (\d+)/)?.[1])
         if (questionNumber >= 4 && questionNumber <= 7) {
-          await expect(page.getByRole('button', { name: 'Carrément', exact: true })).toBeVisible()
-          const position = questionNumber - 3
+          await expect(page.locator('.scale-choice')).toHaveCount(2)
+          const position = questionNumber % 2 + 1
           await page.keyboard.press(String(position))
-          assert.equal(await page.evaluate((id) => JSON.parse(localStorage.getItem('answers_progress')).answers[id], questionNumber), ['Carrément', 'Plutôt oui', 'Plutôt pas', 'Pas du tout'][position - 1])
+          assert.equal(await page.evaluate((id) => JSON.parse(localStorage.getItem('answers_progress')).answers[id], questionNumber), questions[questionNumber - 1].options[position - 1].label)
           assert.equal(await page.evaluate(() => window.dataLayer.filter((item) => item?.event === 'orientation_question_answered').at(-1).orientation_answer_position), position)
+        } else if (questionNumber === 19) {
+          await expect(page.locator('.question-prompt')).toHaveText('Ça te ressemble ?')
+          await expect(page.locator('.scale-choice')).toHaveText(['Carrément', 'Plutôt oui', 'Plutôt pas', 'Pas du tout'])
+          await page.locator('.scale-choice.level-3').click()
         } else if (previousQuestion.startsWith('Question 20 ')) {
           await expect(page.locator('.question-prompt')).toHaveCount(0)
           await expect(page.locator('.scale-choice')).toHaveText(['Construire', 'Analyser'])
@@ -257,8 +300,9 @@ try {
         await expect.poll(() => state.analyses).toBe(1)
         assert.equal(state.registrations[0].questionnaireResponses.length, 20)
         const storedAnswers = JSON.stringify(state.registrations[0].questionnaireResponses)
+        assert.ok(storedAnswers.includes(questions[0].options[1].label), `Activity answer not stored: ${storedAnswers}`)
+        assert.ok(!storedAnswers.includes('Clairement : ') && !storedAnswers.includes('Plutôt : '), 'New dilemmas must store the activity directly.')
         assert.ok(storedAnswers.includes('Carrément'), `Agreement answer not stored: ${storedAnswers}`)
-        assert.ok(storedAnswers.includes('Plutôt oui'), `Agreement answer not stored: ${storedAnswers}`)
         assert.ok(storedAnswers.includes('Analyser'), `Legacy answer not stored: ${storedAnswers}`)
         assert.equal(state.registrations[0].newsletterOptIn, false)
         assert.deepEqual(state.sharing[0], { granted: true, version: 'orientation-dossier-v1' })
@@ -385,8 +429,28 @@ try {
     { name: 'unselected-partners', viewport: { width: 390, height: 844 }, populated: true, selectPartners: false },
     { name: 'partners-only', viewport: { width: 390, height: 844 }, populated: false, partnersOnly: true },
     { name: 'partners-only-unselected', viewport: { width: 390, height: 844 }, populated: false, partnersOnly: true, selectPartners: false },
-    { name: 'empty', viewport: { width: 390, height: 844 }, populated: false }
+    { name: 'empty', viewport: { width: 390, height: 844 }, populated: false },
+    { name: 'jobs-long-desktop', viewport: { width: 680, height: 900 }, populated: false, jobRecommendations: longJobs },
+    { name: 'jobs-long-tablet', viewport: { width: 570, height: 800 }, populated: false, jobRecommendations: longJobs },
+    { name: 'jobs-long-mobile', viewport: { width: 320, height: 568 }, populated: false, jobRecommendations: longJobs },
+    { name: 'jobs-single', viewport: { width: 570, height: 800 }, populated: false, jobRecommendations: longJobs.slice(0, 1) },
+    { name: 'jobs-odd', viewport: { width: 680, height: 900 }, populated: false, jobRecommendations: longJobs.slice(0, 3) },
+    { name: 'jobs-unbroken', viewport: { width: 320, height: 568 }, populated: false, jobRecommendations: [{ title: 'A'.repeat(85), skills: ['Compétence'.repeat(6)] }] },
+    {
+      name: 'jobs-legacy', viewport: { width: 390, height: 844 }, populated: false,
+      jobRecommendations: ['Photographe', { intitule: 'Architecte', competences: ['Dessin', 'Créativité'] }, { title: 'Archiviste' }, { title: 'Technicienne', strengths: 'Organisation' }],
+      expectedJobCards: [
+        { title: 'Photographe', skills: [] },
+        { title: 'Architecte', skills: ['Dessin', 'Créativité'] },
+        { title: 'Archiviste', skills: [] },
+        { title: 'Technicienne', skills: ['Organisation'] }
+      ]
+    },
+    { name: 'jobs-empty', viewport: { width: 390, height: 844 }, populated: false, jobRecommendations: [] },
+    { name: 'jobs-empty-with-formations', viewport: { width: 390, height: 844 }, populated: false, partnersOnly: true, jobRecommendations: [] }
   ]) {
+    const jobFixtures = scenario.jobRecommendations || jobs.map((title) => ({ title, skills: ['Rigueur'] }))
+    const expectedJobCards = scenario.expectedJobCards || jobFixtures
     const hasPartners = !scenario.noPartners && (scenario.populated || scenario.partnersOnly)
     const extraPartners = scenario.manyPartners ? Array.from({ length: 20 }, (_, index) => ({
       ...partner, id: `partner-extra-${String(index).padStart(2, '0')}`,
@@ -411,21 +475,22 @@ try {
     let releasePartners
     const partnersReady = new Promise((resolve) => { releasePartners = resolve })
     page.on('pageerror', (error) => errors.push(error.message))
-    await context.addInitScript(() => {
+    await context.addInitScript(({ savedAnswers }) => {
       localStorage.setItem('token', 'orientation-fixture-token')
       localStorage.setItem('orientation_resume_after_auth', 'analysis')
       localStorage.setItem('answers_progress', JSON.stringify({
-        version: 'orientation-flow-v3-20',
-        answers: Object.fromEntries(Array.from({ length: 20 }, (_, index) => [index + 1, index === 19 ? 'Analyser' : index % 4 === 3 ? 'Plutôt oui' : 'Carrément']))
+        version: 'orientation-flow-v4-binary-20',
+        answers: savedAnswers
       }))
       localStorage.setItem('orientation_micro_profile', JSON.stringify({
         formation_preferences: ['bts'], strong_subjects: ['sciences'], study_location: 'near_home'
       }))
       // Prevent the optional CDN Tailwind script from being needed by this test.
       window.tailwind = { config: {} }
-    })
+    }, { savedAnswers })
     await context.route('**/*', async (route) => {
       const url = new URL(route.request().url())
+      if (url.hostname === 'api.dicebear.com') return route.fulfill({ contentType: 'image/svg+xml', body: avatarFixture })
       if (url.pathname.includes('/api/')) return route.fallback()
       if (url.origin === new URL(base).origin) return route.continue()
       return route.abort()
@@ -452,7 +517,7 @@ try {
         results: {
           personalityAnalysis: 'Tu apprécies les activités concrètes.',
           skillsAssessment: 'Précision et écoute.',
-          jobRecommendations: jobs.map((title) => ({ title, skills: ['Rigueur'] })),
+          jobRecommendations: jobFixtures,
           studyRecommendations: scenario.populated ? [{ degree: 'BTS Maintenance', type: 'Formation pratique.' }] : []
         }
       }
@@ -587,7 +652,55 @@ try {
       await jobsCta.click()
       await expect(page.getByRole('heading', { name: 'Des métiers qui pourraient te plaire' })).toBeVisible()
       await expect(page.locator('.formation-reveal-actions')).toHaveCount(0)
-      assert.deepEqual(await page.locator('.persona-portrait-tile strong').allTextContents(), jobs)
+      await expect.poll(() => page.locator('.metier-reveal-card .persona-avatar').evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true)
+      const jobItems = page.locator('.metier-reveal-item')
+      await expect(jobItems).toHaveCount(jobFixtures.length)
+      assert.deepEqual(await jobItems.locator('strong').allTextContents(), expectedJobCards.map((job) => job.title))
+      await expect(jobItems.getByRole('button')).toHaveCount(0)
+      await expect(jobItems.getByRole('link')).toHaveCount(0)
+      if (jobFixtures.length) {
+        await expect(page.getByRole('region', { name: 'Tes pistes' }).getByRole('list')).toBeVisible()
+        await expect(page.locator('.metier-reveal-count')).toHaveText(`${jobFixtures.length} métier${jobFixtures.length > 1 ? 's' : ''}`)
+        for (const [index, job] of expectedJobCards.entries()) {
+          const skills = jobItems.nth(index).locator('.metier-reveal-skills')
+          if (job.skills.length) await expect(skills).toHaveText(`Compétences : ${job.skills.slice(0, 2).join(' · ')}`)
+          else await expect(skills).toHaveCount(0)
+        }
+        const layout = await jobItems.evaluateAll((items) => items.map((item) => {
+          const box = item.getBoundingClientRect()
+          const title = item.querySelector('strong')
+          const titleBox = title.getBoundingClientRect()
+          const skills = item.querySelector('.metier-reveal-skills')
+          return {
+            x: box.x, y: box.y, width: box.width, height: box.height,
+            titleLeft: titleBox.left - box.left, titleRight: titleBox.right,
+            titleFits: title.scrollWidth <= title.clientWidth + 1,
+            skillsFit: !skills || skills.scrollWidth <= skills.clientWidth + 1
+          }
+        }))
+        for (const card of layout) {
+          assert.ok(card.titleFits && card.skillsFit, 'Job titles and skills must wrap without clipping.')
+          assert.ok(card.titleLeft > 0 && card.titleRight <= card.x + card.width + 1, 'Job content must stay inside its card.')
+          assert.ok(Math.abs(card.titleLeft - layout[0].titleLeft) <= 1, 'Job titles must align.')
+        }
+        const gridWidth = await page.locator('.metier-reveal-list').evaluate((list) => list.clientWidth)
+        const gridGap = scenario.viewport.width <= 520 ? 8 : 10
+        if (gridWidth >= 420 + gridGap && layout.length > 1) {
+          for (let index = 0; index + 1 < layout.length; index += 2) {
+            assert.ok(Math.abs(layout[index].y - layout[index + 1].y) <= 1 && Math.abs(layout[index].height - layout[index + 1].height) <= 1, 'Job cards must align in each row.')
+          }
+          if (layout.length % 2) assert.ok(layout.at(-1).width > layout[0].width, 'An unpaired job must fill the last row.')
+        } else {
+          assert.ok(layout.every((card) => Math.abs(card.x - layout[0].x) <= 1 && Math.abs(card.width - layout[0].width) <= 1), 'Mobile job cards must form one aligned column.')
+        }
+      } else {
+        await expect(page.getByText("On n'a pas encore assez d'infos pour te proposer des métiers précis", { exact: false })).toBeVisible()
+        await expect(page.locator('.metier-reveal-count')).toHaveCount(0)
+      }
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Job reveal horizontal overflow.')
+      if (['desktop', 'mobile', 'small-mobile', 'jobs-long-desktop', 'jobs-long-tablet', 'jobs-long-mobile', 'jobs-empty'].includes(scenario.name)) {
+        await page.locator('.metier-reveal-card').screenshot({ path: join(output, `${scenario.name}-jobs.png`) })
+      }
       const formationCount = (scenario.populated ? 8 : 0) + partnerCount
       await expect.poll(() => savedSelections.length).toBe(formationCount ? 1 : 0)
       if (scenario.populated) {
@@ -620,15 +733,29 @@ try {
         await expect.poll(() => savedSelections.length).toBe(2)
         assert.deepEqual(savedSelections[1], savedSelections[0], 'Returning to recommendations must preserve deselections.')
       }
-      await page.getByRole('button', { name: 'On continue !', exact: true }).click()
-      await expect.poll(() => savedSelections.length).toBe(formationCount ? 3 : 1)
-      const finalSelection = savedSelections.at(-1)
-      assert.equal(finalSelection.length, formationCount + jobs.length)
-      assert.equal(finalSelection.filter((entry) => entry.type === 'metier').length, jobs.length)
-      if (formationCount) {
-        assert.deepEqual(finalSelection.filter((entry) => entry.type === 'formation'), savedSelections[0])
+      const avatarCta = page.getByRole('button', { name: 'Découvrir mon avatar', exact: true })
+      await avatarCta.scrollIntoViewIfNeeded()
+      await expect(avatarCta).toBeInViewport({ ratio: 1 })
+      await expect(avatarCta.locator('svg[aria-hidden="true"]')).toBeVisible()
+      await avatarCta.focus()
+      await expect(avatarCta).toBeFocused()
+      await page.keyboard.press('Enter')
+      await expect(page.locator('.avatar-reveal-showcase')).toBeVisible()
+      if (formationCount + jobFixtures.length) {
+        await expect.poll(() => savedSelections.length).toBe(formationCount ? 3 : 1)
+        const finalSelection = savedSelections.at(-1)
+        assert.equal(finalSelection.length, formationCount + jobFixtures.length)
+        const savedJobs = finalSelection.filter((entry) => entry.type === 'metier')
+        assert.deepEqual(savedJobs.map((entry) => entry.title), expectedJobCards.map((job) => job.title))
+        assert.deepEqual(savedJobs.map((entry) => entry.raw.skills), expectedJobCards.map((job) => job.skills))
+        if (formationCount) {
+          assert.deepEqual(finalSelection.filter((entry) => entry.type === 'formation'), savedSelections[0])
+        }
+        assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('orientation_final_selection'))), finalSelection)
+      } else {
+        assert.equal(savedSelections.length, 0)
+        assert.equal(await page.evaluate(() => localStorage.getItem('orientation_final_selection')), null)
       }
-      assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('orientation_final_selection'))), finalSelection)
       assert.deepEqual(errors, [])
       console.log(`${scenario.name}: partners only after national results, relevance order, shared checkboxes, saved selections without submissions, CTA visibility and navigation verified.`)
     } catch (error) {

@@ -4,6 +4,7 @@ import { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
+import { ToolProgress } from '../../components/ToolExperience'
 
 function useTypewriter(message, durationMs) {
   const [text, setText] = useState('')
@@ -173,6 +174,7 @@ export default function Niveau34() {
   const { pathname } = useLocation()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [saveError, setSaveError] = useState('')
   const [profile, setProfile] = useState(null)
   const [avatarUrl, setAvatarUrl] = useState('')
 
@@ -332,6 +334,7 @@ export default function Niveau34() {
   const finishLevel = async () => {
     if (finishing) return
     setFinishing(true)
+    setSaveError('')
     try {
       // Save stress profile to extra info
       const profileData = ADVICE_PER_PROFILE[resultProfile]
@@ -348,13 +351,13 @@ export default function Niveau34() {
             completedAt: new Date().toISOString()
           })
         }
-      ]).catch(e => console.warn('saveExtraInfo N34 failed', e))
+      ])
       
       await levelUp({ minLevel: 34, xpReward: XP_PER_LEVEL })
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau34 levelUp failed', e)
-      setError('Impossible de valider le module.')
+      setSaveError("Impossible d'enregistrer tes exercices. Réessaie.")
     } finally {
       setFinishing(false)
     }
@@ -378,14 +381,13 @@ export default function Niveau34() {
   }
 
   return (
-    <div className="p-2 md:p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        {/* Left: Avatar + Dialogue */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-            <img src={avatarUrl} alt="Avatar" className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-52 lg:h-52 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto md:mx-0" />
+    <div className="tool-stack">
+      <div className="tool-workspace">
+        {phase === 'intro' && <div className="tool-panel tool-coach">
+          <div className="tool-coach-row">
+            <img src={avatarUrl} alt="Avatar" className="tool-coach-avatar" />
             <div className="flex-1 w-full">
-              <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
+              <div className="tool-coach-bubble">
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
                   {phase === 'intro' && typed}
                   {phase === 'quiz' && "Réponds spontanément, il n'y a pas de mauvaise réponse !"}
@@ -393,58 +395,39 @@ export default function Niveau34() {
                     ? "Bien. Tu as testé un outil concret : garde-le sous la main quand la pression remonte."
                     : "Voici ton profil. Choisis au moins un exercice à tester avant de terminer.")}
                 </div>
-                <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
+
               </div>
 
               <div className="mt-4 flex flex-col gap-3">
                 {phase === 'intro' && (
-                  <button onClick={onDialogueNext} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">
+                  <button onClick={onDialogueNext} className="tool-primary w-full">
                     {dialogueIdx < dialogues.length - 1 ? 'Suivant' : "C'est parti"}
                   </button>
-                )}
-                {phase === 'result' && (
-                  <>
-                    <button onClick={finishLevel} disabled={finishing || completedExerciseIds.length === 0 || showSuccess} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto disabled:opacity-50">
-                      {showSuccess ? 'Enregistré' : completedExerciseIds.length === 0 ? 'Teste un exercice pour enregistrer' : 'Enregistrer mes exercices'}
-                    </button>
-                    {showSuccess && pathname.includes('/outils') && (
-                      <p className="text-sm text-green-700">Profil et exercices enregistrés.</p>
-                    )}
-                  </>
                 )}
               </div>
             </div>
           </div>
-        </div>
+        </div>}
 
-        {/* Right: Quiz Area */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">OK</div>
-            <h2 className="text-lg md:text-xl font-bold">Gérer son stress</h2>
-          </div>
-
+        <div className="tool-panel">
           {phase === 'intro' && (
             <div className="text-text-secondary text-center py-8">Le questionnaire apparaîtra ici.</div>
           )}
 
           {phase === 'quiz' && (
             <div className="space-y-6">
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-[#c1ff72] h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${((currentQIndex + 1) / QUESTIONS.length) * 100}%` }}
-                />
-              </div>
+              <ToolProgress current={currentQIndex + 1} total={QUESTIONS.length} />
+              <p className="tool-note">Réponds spontanément : il n'y a pas de mauvaise réponse.</p>
 
               <div>
-                <h3 className="text-lg font-semibold mb-6">{QUESTIONS[currentQIndex].text}</h3>
-                <div className="flex flex-col gap-3">
+                <h2 className="tool-question">{QUESTIONS[currentQIndex].text}</h2>
+                <div className="tool-choices" role="group" aria-label="Ta réponse">
                   {QUESTIONS[currentQIndex].options.map(opt => (
                     <button
                       key={opt.id}
+                      type="button"
                       onClick={() => handleOptionClick(opt.id)}
-                      className="text-left p-4 rounded-xl border border-gray-200 hover:border-[#c1ff72] hover:bg-[#f8fff0] transition-all"
+                      className="tool-choice"
                     >
                       {opt.text}
                     </button>
@@ -536,13 +519,13 @@ export default function Niveau34() {
                           </div>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          <button type="button" onClick={() => setBreathingRunning(prev => !prev)} disabled={completedExercises.breathing} className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                          <button type="button" onClick={() => setBreathingRunning(prev => !prev)} disabled={completedExercises.breathing} className="tool-primary">
                             {breathingRunning ? 'Pause' : 'Démarrer'}
                           </button>
-                          <button type="button" onClick={resetBreathing} className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-800">
+                          <button type="button" onClick={resetBreathing} className="tool-secondary">
                             Recommencer
                           </button>
-                          <button type="button" onClick={() => markExerciseDone('breathing')} disabled={!selectedExerciseReady} className="rounded-lg bg-[#c1ff72] px-4 py-2 text-sm font-semibold text-black disabled:opacity-50">
+                          <button type="button" onClick={() => markExerciseDone('breathing')} disabled={!selectedExerciseReady} className="tool-primary">
                             Valider
                           </button>
                         </div>
@@ -563,7 +546,7 @@ export default function Niveau34() {
                           />
                         </label>
                       ))}
-                      <button type="button" onClick={() => markExerciseDone(selectedExercise.id)} disabled={!selectedExerciseReady} className="rounded-lg bg-[#c1ff72] px-4 py-2 text-sm font-semibold text-black disabled:opacity-50">
+                      <button type="button" onClick={() => markExerciseDone(selectedExercise.id)} disabled={!selectedExerciseReady} className="tool-primary">
                         {completedExercises[selectedExercise.id] ? 'Exercice validé' : 'Valider cet exercice'}
                       </button>
                     </div>
@@ -575,6 +558,17 @@ export default function Niveau34() {
         </div>
       </div>
 
+      {phase === 'result' && <div className="tool-panel">
+        <p className="tool-note">Teste au moins un exercice avant d'enregistrer ton profil et tes réponses.</p>
+        {saveError && <p className="tool-error" role="alert">{saveError}</p>}
+        <div className="tool-actions">
+          <button type="button" onClick={finishLevel} disabled={finishing || completedExerciseIds.length === 0 || showSuccess} className="tool-primary">
+            {showSuccess ? 'Enregistré' : finishing ? 'Enregistrement…' : completedExerciseIds.length === 0 ? 'Teste un exercice pour enregistrer' : 'Enregistrer mes exercices'}
+          </button>
+        </div>
+        {showSuccess && pathname.includes('/outils') && <p className="tool-note" role="status">Profil et exercices enregistrés.</p>}
+      </div>}
+
       {/* Success Popup */}
       {showSuccess && !pathname.includes('/outils') && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -583,8 +577,8 @@ export default function Niveau34() {
             <h3 className="text-2xl font-extrabold mb-2">Exercices enregistrés !</h3>
             <p className="text-text-secondary mb-4">Prendre soin de son mental, c'est aussi important que les notes.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/35')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
+              <button onClick={() => navigate('/app/activites')} className="tool-secondary">Retour aux activités</button>
+              <button onClick={() => navigate('/app/niveau/35')} className="tool-primary">Continuer</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />

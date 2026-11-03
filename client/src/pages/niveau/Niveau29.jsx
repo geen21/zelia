@@ -184,19 +184,9 @@ export default function Niveau29() {
   }
 
   return (
-    <div className="p-2 md:p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          <div className="flex items-center gap-3">
-            <img src={avatarUrl} alt="" className="w-12 h-12 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white" />
-            <div>
-              <h1 className="text-xl md:text-2xl font-bold">Simulation d'entretien</h1>
-              <p className="text-text-secondary text-sm">Un coach d'admission exigeant va te poser des questions pointues. Réponds du mieux possible.</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-card overflow-hidden flex flex-col h-[520px]">
+    <div className="tool-stack">
+      <div className="tool-stack">
+        <div className="tool-panel tool-panel-flush tool-interview">
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center gap-4">
             <img
               src="https://api.dicebear.com/9.x/avataaars/svg?seed=CoachAdmission&backgroundColor=b6e3f4&clothing=blazerAndShirt&eyes=surprised&eyebrows=angry&mouth=serious&skinColor=f2d3b1"
@@ -245,6 +235,7 @@ export default function Niveau29() {
               <input
                 className="flex-1 border border-gray-300 rounded-xl px-4 py-3 outline-none focus:border-black focus:ring-1 focus:ring-black transition-all"
                 placeholder={interactionLimitReached ? 'Limite atteinte (5 interactions)' : 'Votre réponse...'}
+                aria-label="Ta réponse au coach"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSend() }}
@@ -253,7 +244,7 @@ export default function Niveau29() {
               />
               <button
                 disabled={aiLoading || !input.trim() || interactionLimitReached}
-                className="px-6 py-3 rounded-xl bg-black text-white font-medium disabled:opacity-50 hover:bg-gray-800 transition-colors"
+                className="tool-primary"
                 onClick={handleSend}
               >
                 Envoyer

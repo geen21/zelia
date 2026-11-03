@@ -291,7 +291,7 @@ router.get('/formations/search', optionalAuth, async (req, res) => {
       if (isStatementTimeout(fallback.error)) {
         // Ne pas mettre en cache un résultat vide dû à un timeout : cela
         // masquerait les retries pendant toute la durée du cache.
-        return res.json(makePagePayload([], page, pageSize))
+        return res.status(503).json({ error: 'La recherche de formations est temporairement indisponible. Réessaie dans un instant.' })
       }
       return res.status(400).json({ error: fallback.error.message })
     }

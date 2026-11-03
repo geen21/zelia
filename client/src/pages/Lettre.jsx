@@ -82,22 +82,17 @@ export default function Lettre(){
 	return (
 		<div className="space-y-6">
 			<style>{styles}</style>
-			<div>
-				<h1 className="text-xl md:text-2xl font-bold mb-1">Ta lettre de motivation</h1>
-				<p className="text-text-secondary">Générée à partir de ton profil, en quelques secondes.</p>
-			</div>
-
 			{/* Form */}
-			<div className="lettre-card">
-				<div className="lettre-card-bar" />
+			<div className="tool-panel lettre-card">
 				<div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
 					<div className="md:col-span-2 relative">
-						<label className="block text-sm font-semibold text-text-secondary mb-1">Ta cible</label>
+						<label htmlFor="letter-target" className="block text-sm font-semibold text-text-secondary mb-1">Ta cible</label>
 						<div className="flex gap-2 mb-2">
 							<button className={`lettre-toggle ${type==='metier' ? 'is-active' : ''}`} onClick={() => { setType('metier'); setSelected(null); }}>Métier</button>
 							<button className={`lettre-toggle ${type==='formation' ? 'is-active' : ''}`} onClick={() => { setType('formation'); setSelected(null); }}>Formation</button>
 						</div>
 						<input
+							id="letter-target"
 							className="lettre-input"
 							value={query}
 							onChange={e => { setQuery(e.target.value); setSelected(null); }}
@@ -106,17 +101,17 @@ export default function Lettre(){
 						{open && suggestions.length > 0 && (
 							<div ref={listRef} className="lettre-suggestions">
 								{suggestions.map(item => (
-									<div key={`${item.type}-${item.id}`} className="lettre-suggestion" onClick={() => onPick(item)}>
+									<button type="button" key={`${item.type}-${item.id}`} className="lettre-suggestion" onClick={() => onPick(item)}>
 										<div className="text-sm font-semibold">{item.label}</div>
 										<div className="text-xs text-text-secondary">{item.type==='metier'?'Métier':'Formation'}</div>
-									</div>
+									</button>
 								))}
 							</div>
 						)}
 					</div>
 					<div>
-						<label className="block text-sm font-semibold text-text-secondary mb-1">Ton style</label>
-						<select className="lettre-input" value={style} onChange={e => setStyle(e.target.value)}>
+						<label htmlFor="letter-style" className="block text-sm font-semibold text-text-secondary mb-1">Ton style</label>
+						<select id="letter-style" className="lettre-input" value={style} onChange={e => setStyle(e.target.value)}>
 							<option value="sobre">Sobre</option>
 							<option value="enthousiaste">Enthousiaste</option>
 							<option value="professionnel">Professionnel</option>
@@ -131,8 +126,7 @@ export default function Lettre(){
 			</div>
 
 			{/* Result */}
-			<div className="lettre-card">
-				<div className="lettre-card-bar accent-ink" />
+			<div className="tool-panel lettre-card">
 				{loading ? (
 					<div className="text-center py-6">
 						<div className="lettre-dots"><span /><span /><span /></div>
@@ -214,7 +208,7 @@ const styles = `
 	background: #fff;
 	box-shadow: 0 20px 40px -20px rgba(0,0,0,.25);
 }
-.lettre-suggestion { padding: 10px 14px; cursor: pointer; }
+.lettre-suggestion { display: block; width: 100%; padding: 10px 14px; border: 0; background: #fff; text-align: left; cursor: pointer; }
 .lettre-suggestion:hover { background: #f8fff0; }
 .lettre-generate {
 	width: 100%;

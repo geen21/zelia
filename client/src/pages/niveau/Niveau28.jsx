@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import apiClient, { usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
-import { FaMicrophone } from 'react-icons/fa6'
 
 export default function Niveau28() {
   const navigate = useNavigate()
@@ -144,28 +143,24 @@ export default function Niveau28() {
   }
 
   return (
-    <div className="p-2 md:p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaMicrophone className="w-5 h-5" /></div>
-            <h1 className="text-xl md:text-2xl font-bold">Entraînement pitch</h1>
-          </div>
+    <div className="tool-stack">
+      <div className="tool-stack">
+        <div className="tool-panel">
           <p className="text-text-secondary">
             Prépare-toi à te présenter en 1 minute. Lis (ou adapte) le texte d'exemple ci-dessous, enregistre-toi, puis note ta prestation.
           </p>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
+        <div className="tool-panel">
           <h2 className="text-lg font-bold mb-3">Texte d'exemple</h2>
           <div className="text-text-primary whitespace-pre-wrap">{pitchText}</div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
+        <div className="tool-panel">
           <h2 className="text-lg font-bold mb-4">Enregistre-toi</h2>
           <div className="flex flex-wrap items-center gap-3">
             {!recording && (
-              <button onClick={startRecording} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">S'enregistrer</button>
+              <button onClick={startRecording} className="tool-primary">S'enregistrer</button>
             )}
             {recording && (
               <button onClick={stopRecording} className="px-4 py-2 rounded-lg bg-red-500 text-white border border-red-600">Arrêter</button>
@@ -173,19 +168,21 @@ export default function Niveau28() {
             {audioUrl && !recording && (
               <>
                 <audio controls src={audioUrl} className="w-full max-w-md" />
-                <button onClick={resetPractice} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300">Réenregistrer</button>
+                <button onClick={resetPractice} className="tool-secondary">Réenregistrer</button>
               </>
             )}
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
+        <div className="tool-panel">
           <h2 className="text-lg font-bold mb-4">Note ta prestation</h2>
           <div className="flex flex-wrap justify-center gap-2 mb-3">
             {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => (
               <button
                 key={val}
                 type="button"
+                aria-label={`Note ${val} sur 10`}
+                aria-pressed={rating === val}
                 onClick={() => { setRating(val); setSaved(false) }}
                 className={`w-9 h-9 md:w-10 md:h-10 rounded-full font-bold text-sm md:text-base transition-all border ${
                   rating === val
@@ -206,7 +203,7 @@ export default function Niveau28() {
           <button
             onClick={saveRating}
             disabled={rating === null || saving}
-            className="px-4 py-2 rounded-lg bg-black text-white border border-gray-200 disabled:opacity-50"
+            className="tool-primary"
           >
             {saving ? 'Enregistrement…' : 'Enregistrer ma note'}
           </button>

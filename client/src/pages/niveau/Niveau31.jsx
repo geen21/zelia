@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { ToolResult } from '../../components/ToolExperience'
 import supabase from '../../lib/supabase'
 import apiClient, { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
@@ -320,58 +321,46 @@ export default function Niveau31() {
     )
   }
 
+  if (showSuccess && pathname.includes('/outils')) {
+    return <ToolResult title="Ton parcours est enregistré">
+      <p>Tu as exploré une piste pour ton projet. Tu peux revenir choisir un autre métier.</p>
+      <div className="tool-actions"><Link to="/app/outils" className="tool-primary">Retour aux outils</Link></div>
+    </ToolResult>
+  }
+
   return (
-    <div className="p-2 md:p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+    <div className="tool-stack">
+      <div className="tool-workspace">
+        {!started && <div className="tool-panel tool-coach">
+          <div className="tool-coach-row">
             <img
               src={avatarUrl}
               alt="Avatar"
-              className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-52 lg:h-52 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto md:mx-0"
+              className="tool-coach-avatar"
             />
             <div className="flex-1 w-full">
-              <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
+              <div className="tool-coach-bubble">
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
                   {typed}
                 </div>
-                <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
+
               </div>
 
               {!started && (
                 <button
                   type="button"
                   onClick={onNext}
-                  className="mt-4 px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200"
+                  className="tool-primary mt-4"
                 >
                   {step < dialogue.length - 1 ? 'Suivant' : 'Commencer'}
                 </button>
               )}
 
-              {started && selectedJob && studiesLines.length > 0 && (
-                <div className="mt-4 flex flex-col sm:flex-row gap-3">
-                  <button
-                    type="button"
-                    onClick={onFinish}
-                    disabled={finishing}
-                    className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto disabled:opacity-60"
-                  >
-                    Continuer
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onReset}
-                    className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-300 w-full sm:w-auto"
-                  >
-                    Sélectionner un autre métier
-                  </button>
-                </div>
-              )}
             </div>
           </div>
-        </div>
+        </div>}
 
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
+        <div className="tool-panel">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaMagnifyingGlass className="w-5 h-5" /></div>
           <h2 className="text-xl font-bold">Choisir un métier</h2>
@@ -457,7 +446,7 @@ export default function Niveau31() {
         </div>
 
         {started && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card lg:col-span-2">
+        <div className="tool-panel lg:col-span-2">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"><FaGraduationCap className="w-5 h-5" /></div>
             <h2 className="text-xl font-bold">Parcours d'études</h2>
@@ -479,6 +468,7 @@ export default function Niveau31() {
           )}
 
           {selectedJob && !aiLoading && !aiError && studiesLines.length > 0 && (
+            <>
             <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
               <div className="text-sm text-gray-500 mb-2">Métier sélectionné : <span className="font-semibold text-gray-900">{selectedJob}</span></div>
               <ul className="list-disc pl-5 text-text-secondary space-y-1">
@@ -487,6 +477,13 @@ export default function Niveau31() {
                 ))}
               </ul>
             </div>
+            <div className="tool-actions">
+              <button type="button" onClick={onFinish} disabled={finishing} className="tool-primary">
+                {finishing ? 'Enregistrement…' : 'Enregistrer ce parcours'}
+              </button>
+              <button type="button" onClick={onReset} className="tool-secondary">Sélectionner un autre métier</button>
+            </div>
+            </>
           )}
         </div>
         )}
@@ -499,8 +496,8 @@ export default function Niveau31() {
             <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
             <p className="text-text-secondary mb-4">Tu as complété ce niveau avec succès.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/32')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
+              <button onClick={() => navigate('/app/activites')} className="tool-secondary">Retour aux activités</button>
+              <button onClick={() => navigate('/app/niveau/32')} className="tool-primary">Continuer</button>
             </div>
             {/* Subtle confetti dots */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">

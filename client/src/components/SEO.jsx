@@ -32,6 +32,7 @@ export default function SEO({
   locale,
   schema,
   publishedTime,
+  modifiedTime,
   author,
   noindex
 }) {
@@ -65,6 +66,7 @@ export default function SEO({
       {imageAlt && <meta name="twitter:image:alt" content={imageAlt} />}
 
       {publishedTime && <meta property="article:published_time" content={publishedTime} />}
+      {modifiedTime && <meta property="article:modified_time" content={modifiedTime} />}
       {author && <meta property="article:author" content={author} />}
 
       {schema && (

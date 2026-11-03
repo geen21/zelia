@@ -3,7 +3,6 @@ import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
 import compression from 'compression'
-import rateLimit from 'express-rate-limit'
 import dotenv from 'dotenv'
 import paymentsRoutes, { paymentsWebhookHandler, parentTrainingWebhookHandler } from './routes/payments.js'
 
@@ -29,6 +28,7 @@ import { createPartnerDashboardRouter, createSchoolSharingRouter } from './route
 import { createSitemapRouter } from './routes/sitemap.js'
 import { createAdminRouter } from './routes/admin.js'
 import { authenticateToken } from './middleware/auth.js'
+import { createApiRateLimiters } from './middleware/rateLimit.js'
 import { requirePlatformAdmin } from './middleware/admin.js'
 import { isProtectedAdmin } from './config/backoffice.js'
 import { supabase, supabaseAdmin } from './config/supabase.js'
@@ -69,31 +69,9 @@ app.use(helmet({
   },
 }))
 
-// Rate limiting
-// Public, read-only, crawler-facing endpoints (formation pages + sitemap) are
-// exempt: with ~127k programmatic SEO pages, Googlebot/other crawlers can
-// easily exceed a per-IP cap while indexing the site, which would get them
-// throttled with 429s and stall indexing. These endpoints only ever return
-// already-public data (RLS allows anon SELECT) with no mutation, so this is safe.
-function isPublicCrawlablePath(req) {
-  if (req.method !== 'GET' && req.method !== 'HEAD') return false
-  return /^\/api\/formations(\/|$|\?)/.test(req.path) || /^\/api\/sitemap/.test(req.path)
-}
-
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: isPublicCrawlablePath,
-})
-
-app.use(limiter)
-
-// Stripe webhook (must be registered before JSON body parsing)
-app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), paymentsWebhookHandler)
-app.post('/api/payments/parent-training/webhook', express.raw({ type: 'application/json' }), parentTrainingWebhookHandler)
+// Log rejected requests too, so rate limits are visible in the API logs.
+morgan.token('url', (req) => req.originalUrl.startsWith('/api/admin') ? req.originalUrl.split('?')[0] : req.originalUrl)
+app.use(morgan('combined'))
 
 // CORS configuration
 // Allow listed dev origins; can be extended via CLIENT_URL or ADDITIONAL_CLIENT_ORIGINS env vars
@@ -131,19 +109,22 @@ const corsOptions = {
     callback(new Error('Not allowed by CORS'))
   },
   credentials: true,
+  exposedHeaders: ['Retry-After'],
   optionsSuccessStatus: 200
 }
 
 app.use(cors(corsOptions))
+app.use('/api', createApiRateLimiters())
+
+// Stripe webhook (must be registered before JSON body parsing)
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), paymentsWebhookHandler)
+app.post('/api/payments/parent-training/webhook', express.raw({ type: 'application/json' }), parentTrainingWebhookHandler)
+
 // Helpful at startup to verify CORS config
 console.log('CORS allowed origins:', allowedOrigins)
 
 // Compression middleware
 app.use(compression())
-
-// Logging middleware
-morgan.token('url', (req) => req.originalUrl.startsWith('/api/admin') ? req.originalUrl.split('?')[0] : req.originalUrl)
-app.use(morgan('combined'))
 
 // Body parsing middleware
 app.use('/api/admin', express.json({ limit: '64kb' }))

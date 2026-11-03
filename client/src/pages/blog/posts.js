@@ -1,4 +1,7 @@
+import { editorialPosts } from './editorialPosts.js'
+
 export const blogPosts = [
+  ...editorialPosts,
   {
     slug: 'etude-salaire-bon-salaire-ados',
     title: 'Étude sur le salaire : ce qu’en disent 50 jeunes de 15 à 18 ans',

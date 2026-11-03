@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { PiArrowLeft, PiArrowRight } from 'react-icons/pi'
+import { PiArrowLeft, PiArrowRight, PiBriefcase, PiSparkle } from 'react-icons/pi'
 import { orientationAPI, usersAPI, ecolesAPI } from '../lib/api.js'
 import { AI_JOB_DECK_SIZE } from '../lib/orientationJobs.js'
 import PersonaRevealCard from '../components/PersonaRevealCard.jsx'
@@ -11,14 +11,14 @@ import { mixFormationResults } from '../lib/orientationFormationResults.js'
 import { buildFormationRelevanceProfile, buildRelevanceSearchQueries, scoreFormationRelevance } from '../lib/formationRelevance.js'
 import { FORMATION_PREFERENCE_LEVELS, filterCandidatesByTargetStudyLevel, getTargetStudyLevel, inferFormationStudyLevel } from '../lib/formationLevel.js'
 import { buildLoreleiUrl, buildPersonaAvatarConfig, computePersonaFromAnswers, getPersonaBySlug } from '../lib/personas.js'
-import { getAnswerChoiceIndex, getAnswerChoices, isAgreementQuestion } from '../lib/questionScale.js'
+import { getAnswerChoiceIndex, getAnswerChoices, isAgreementQuestion, isDilemmaQuestion } from '../lib/questionScale.js'
 import { generatePersonaShareCard } from '../lib/shareImage.js'
 import { trackOrientationEvent } from '../lib/analytics.js'
 import './OrientationFlow.css'
 
 const QUESTION_LIMIT = 20
 const ANSWERS_PROGRESS_KEY = 'answers_progress'
-const ANSWERS_PROGRESS_VERSION = `orientation-flow-v3-${QUESTION_LIMIT}`
+const ANSWERS_PROGRESS_VERSION = `orientation-flow-v4-binary-${QUESTION_LIMIT}`
 const DRAG_THRESHOLD = 96
 const MAX_PROPOSAL_DECK = 24
 const MAX_FINAL_RESULTS = 14
@@ -1782,14 +1782,15 @@ export default function OrientationFlow() {
   useEffect(() => {
     const onKeyDown = (event) => {
       if (phase === 'questions') {
-        if (event.key === 'ArrowRight') answerQuestion(3)
+        const choiceCount = getQuestionChoices(currentQuestion).length
+        if (event.key === 'ArrowRight') answerQuestion(choiceCount - 1)
         if (event.key === 'ArrowLeft') answerQuestion(0)
-        if (['1', '2', '3', '4'].includes(event.key)) answerQuestion(Number(event.key) - 1)
+        if (['1', '2', '3', '4'].includes(event.key) && Number(event.key) <= choiceCount) answerQuestion(Number(event.key) - 1)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [answerQuestion, phase])
+  }, [answerQuestion, currentQuestion, phase])
 
   const onPointerDown = (event) => {
     if (phase !== 'questions') return
@@ -2345,6 +2346,7 @@ export default function OrientationFlow() {
     if (!currentQuestion) return null
     const choices = getQuestionChoices(currentQuestion)
     const agreementQuestion = isAgreementQuestion(currentQuestion)
+    const dilemmaQuestion = isDilemmaQuestion(currentQuestion)
     const selectedIndex = getAnswerChoiceIndex(currentQuestion, answers[currentQuestion.id])
     return (
       <div className="orientation-stage question-stage">
@@ -2362,9 +2364,9 @@ export default function OrientationFlow() {
         </div>
         <div className="orientation-actions answer-scale">
           <div
-            className={`scale-actions${choices.length === 2 ? ' two-choices' : ''}`}
+            className={`scale-actions${dilemmaQuestion ? ' dilemma-scale' : ''}${choices.length === 2 ? ' two-choices' : ''}`}
             role="group"
-            aria-label={agreementQuestion ? 'À quel point ça te ressemble' : 'Ta réponse'}
+            aria-label={dilemmaQuestion ? 'Ton activité préférée' : agreementQuestion ? 'À quel point ça te ressemble' : 'Ta réponse'}
           >
             {choices.map((choice) => (
               <button
@@ -2379,7 +2381,9 @@ export default function OrientationFlow() {
             ))}
           </div>
           {questionIndex === 0 && (
-            <p className="scale-hint">Pas de bonne ou de mauvaise réponse : réponds selon ce que tu ressens vraiment.</p>
+            <p className="scale-hint">{dilemmaQuestion
+              ? "Choisis l'activité que tu préfères, pas celle qui fait bonne impression."
+              : 'Pas de bonne ou de mauvaise réponse : réponds selon ce que tu ressens vraiment.'}</p>
           )}
         </div>
       </div>
@@ -2627,32 +2631,54 @@ export default function OrientationFlow() {
   const renderMetierReveal = () => (
     <div className="orientation-stage compact personality-stage">
       <div className="persona-reveal-wrap">
-        <div className="persona-card">
-          <div className="persona-card-head">
-            <div>
-              <span className="persona-kicker">Analyse métier</span>
+        <div className="persona-card metier-reveal-card">
+          <div className="persona-card-head metier-reveal-head">
+            <div className="metier-reveal-heading">
+              <span className="persona-kicker metier-reveal-kicker">
+                <PiSparkle aria-hidden="true" focusable="false" />
+                Analyse métier
+              </span>
               <h1 className="persona-name">Des métiers qui pourraient te plaire</h1>
             </div>
             {renderAvatarFace('persona-avatar')}
           </div>
           <p className="persona-tagline">
             {jobRecommendations.length
-              ? "Voilà quelques métiers cohérents avec ton profil."
+              ? "Ces idées sont basées sur tes réponses. À toi de découvrir celles qui t'attirent."
               : "On n'a pas encore assez d'infos pour te proposer des métiers précis, tu pourras les découvrir plus tard dans ton espace."}
           </p>
           {jobRecommendations.length > 0 && (
-            <div className="persona-portrait-grid">
-              {jobRecommendations.map((job) => (
-                <div key={job.id} className="persona-portrait-tile">
-                  <small>Métier</small>
-                  <i className="ph ph-briefcase persona-portrait-emoji" aria-hidden="true" />
-                  <strong>{job.title}</strong>
-                </div>
-              ))}
-            </div>
+            <section className="metier-reveal-section" aria-labelledby="metier-reveal-list-heading">
+              <div className="metier-reveal-section-head">
+                <h2 id="metier-reveal-list-heading">
+                  <PiBriefcase size={19} aria-hidden="true" focusable="false" />
+                  Tes pistes
+                </h2>
+                <span className="metier-reveal-count">
+                  {jobRecommendations.length} métier{jobRecommendations.length > 1 ? 's' : ''}
+                </span>
+              </div>
+              <ul className="metier-reveal-list">
+                {jobRecommendations.map((job) => (
+                  <li key={job.id} className="metier-reveal-item">
+                    <div className="metier-reveal-copy">
+                      <strong>{job.title}</strong>
+                      {job.raw.skills.length > 0 && (
+                        <p className="metier-reveal-skills">
+                          <span>Compétences :</span> {job.raw.skills.slice(0, 2).join(' · ')}
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
-          <div className="persona-actions">
-            <button type="button" className="persona-continue" onClick={continueFromMetierReveal}>On continue !</button>
+          <div className="persona-actions metier-reveal-actions">
+            <button type="button" className="persona-continue" onClick={continueFromMetierReveal}>
+              Découvrir mon avatar
+              <PiArrowRight size={20} aria-hidden="true" focusable="false" />
+            </button>
           </div>
         </div>
       </div>

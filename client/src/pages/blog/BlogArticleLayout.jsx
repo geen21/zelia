@@ -2,6 +2,9 @@ import React, { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import BlogHeaderNav from './BlogHeaderNav'
 import SEO from '../../components/SEO'
+import BlogCover from './BlogCover'
+import { blogImageUrl, blogPageTitle, buildBlogSchema } from './blogSeo.js'
+import './blog-editorial.css'
 
 export default function BlogArticleLayout({ post, children, aside }) {
   if (!post) return null
@@ -15,50 +18,22 @@ export default function BlogArticleLayout({ post, children, aside }) {
     return icons[post.category] || 'ph-sparkle'
   }, [post.category])
 
-  const schema = useMemo(() => {
-    const origin = 'https://zelia.io'
-    const imageUrl = post.image 
-      ? (post.image.startsWith('http') ? post.image : `${origin}${post.image}`)
-      : `${origin}/assets/images/logo-dark.png`
-
-    return {
-      "@context": "https://schema.org",
-      "@type": "BlogPosting",
-      "headline": post.title,
-      "description": post.description,
-      "image": imageUrl,
-      "datePublished": post.dateIso || new Date().toISOString(),
-      "author": {
-        "@type": "Organization",
-        "name": "Zelia",
-        "url": "https://zelia.io"
-      },
-      "publisher": {
-        "@type": "Organization",
-        "name": "Zelia",
-        "logo": {
-          "@type": "ImageObject",
-          "url": "https://zelia.io/assets/images/logo-dark.png"
-        }
-      },
-      "mainEntityOfPage": {
-        "@type": "WebPage",
-        "@id": `https://zelia.io/blog/${post.slug}`
-      }
-    }
-  }, [post])
+  const schema = useMemo(() => buildBlogSchema(post), [post])
 
   return (
-    <article className="blog-article" style={{ '--accent': post.accent, '--accent-soft': post.accentSoft }}>
+    <article className={`blog-article${post.sections ? ' blog-article--editorial' : ''}`} style={{ '--accent': post.accent, '--accent-soft': post.accentSoft }}>
       <SEO 
-        title={`${post.title} - Blog Zelia`}
+        title={blogPageTitle(post)}
         description={post.description}
         url={`https://zelia.io/blog/${post.slug}`}
         type="article"
-        image={post.image}
+        image={blogImageUrl(post)}
+        imageAlt={post.title}
         publishedTime={post.dateIso}
+        modifiedTime={post.updatedIso || post.dateIso}
         schema={schema}
       />
+      <a href="#contenu-article" className="blog-skip-link">Aller au contenu de l’article</a>
       <BlogHeaderNav />
       <header className="blog-article__hero">
         <div className="container">
@@ -83,13 +58,18 @@ export default function BlogArticleLayout({ post, children, aside }) {
               <span>{post.readingTime}</span>
             </span>
           </div>
-          <h1 className="blog-article__title">{post.title}</h1>
-          <p className="blog-article__excerpt">{post.description}</p>
-          <div className="blog-article__meta">
-            <span className="blog-article__date">
-              <i className="ph ph-calendar" aria-hidden="true"></i>
-              <span>Publié — {post.publishedAt}</span>
-            </span>
+          <div className={post.cover ? 'blog-article__intro-grid' : undefined}>
+            <div>
+              <h1 className="blog-article__title">{post.title}</h1>
+              <p className="blog-article__excerpt">{post.description}</p>
+              <div className="blog-article__meta">
+                <span className="blog-article__date">
+                  <i className="ph ph-calendar" aria-hidden="true"></i>
+                  <span>{post.updatedIso ? 'Mis à jour' : 'Publié'} — <time dateTime={post.updatedIso || post.dateIso}>{post.publishedAt}</time></span>
+                </span>
+              </div>
+            </div>
+            {post.cover && <BlogCover post={post} featured />}
           </div>
           <div className="blog-article__hero-divider" aria-hidden="true"></div>
         </div>
@@ -102,25 +82,30 @@ export default function BlogArticleLayout({ post, children, aside }) {
               {children}
             </main>
             <aside className="blog-article__aside" aria-label="Récapitulatif de l'article">
-              <div className="blog-article__card">
+              {post.sections ? (
+                <nav className="blog-article__card editorial-toc" aria-label="Sommaire de l’article">
+                  <h2>Dans cet article</h2>
+                  <ol>
+                    {post.sections.map((section) => <li key={section.id}><a href={`#${section.id}`}>{section.heading}</a></li>)}
+                    <li><a href="#faq">Questions fréquentes</a></li>
+                    <li><a href="#sources">Sources</a></li>
+                  </ol>
+                </nav>
+              ) : <div className="blog-article__card">
                 <h3>
                   <i className="ph ph-sparkle" aria-hidden="true"></i>
                   <span>En deux mots</span>
                 </h3>
                 <p>{post.description}</p>
-              </div>
+              </div>}
               {aside}
               <div className="blog-article__card blog-article__card--cta">
                 <h4>
                   <i className="ph ph-rocket-launch" aria-hidden="true"></i>
                   <span>À faire ensuite</span>
                 </h4>
-                <ul>
-                  <li>Compléter la rédaction définitive.</li>
-                  <li>Ajouter les visuels et témoignages prévus.</li>
-                  <li>Relier l'article aux outils pertinents dans l'app.</li>
-                </ul>
-                <Link to="/avatar" className="blog-article__cta">Lancer le questionnaire</Link>
+                <p>Prends le temps de découvrir tes envies et les pistes d’études qui te ressemblent, sans pression.</p>
+                <Link to="/orientation" className="blog-article__cta">Explorer mon orientation</Link>
               </div>
             </aside>
           </div>

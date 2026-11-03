@@ -545,7 +545,7 @@ export default function Niveau17() {
     return (
       <div className="n17-page">
         <style>{styles}</style>
-        <div className="n17-card n17-state">
+        <div className="tool-panel n17-card n17-state">
           <div className="n17-spinner" />
           <p>Chargement…</p>
         </div>
@@ -557,7 +557,7 @@ export default function Niveau17() {
     return (
       <div className="n17-page">
         <style>{styles}</style>
-        <div className="n17-card n17-state">
+        <div className="tool-panel n17-card n17-state">
           <i className="ph ph-warning-circle" aria-hidden="true" />
           <p>{error}</p>
         </div>
@@ -590,16 +590,11 @@ export default function Niveau17() {
     <div className="n17-page">
       <style>{styles}</style>
 
-      <div className="n17-card n17-header">
-        <h1>Création du CV</h1>
-        <p>Remplis tes informations, Zélia s'occupe de la mise en forme.</p>
-      </div>
-
-      {saveError && <div className="n17-card n17-error">{saveError}</div>}
+      {saveError && <div className="tool-panel n17-card n17-error">{saveError}</div>}
 
       {!cvData && (
         <>
-          <div className="n17-card">
+          <div className="tool-panel n17-card">
             <h2>Expérience professionnelle</h2>
             {companies.map((company, idx) => (
               <div key={`exp-${idx}`} className="n17-experience-row">
@@ -632,7 +627,7 @@ export default function Niveau17() {
             </button>
           </div>
 
-          <div className="n17-card">
+          <div className="tool-panel n17-card">
             <h2>Métier visé</h2>
             <input
               type="text"
@@ -643,7 +638,7 @@ export default function Niveau17() {
             />
           </div>
 
-          <div className="n17-card">
+          <div className="tool-panel n17-card">
             <h2>Parcours scolaire</h2>
             {education.map((item, idx) => renderRemovableInput(item, idx, setEducation, (i) => removeLine(setEducation, i), "Ex: BTS Communication, Lycée..."))}
             <button type="button" onClick={() => addLine(setEducation)} className="n17-add-btn">
@@ -651,7 +646,7 @@ export default function Niveau17() {
             </button>
           </div>
 
-          <div className="n17-card">
+          <div className="tool-panel n17-card">
             <h2>Qualités principales</h2>
             {skillSuggestions.length > 0 && (
               <div className="n17-suggestions">
@@ -688,7 +683,7 @@ export default function Niveau17() {
             </button>
           </div>
 
-          <div className="n17-card">
+          <div className="tool-panel n17-card">
             <h2>Compétences particulières</h2>
             {skills.map((item, idx) => renderRemovableInput(item, idx, setSkills, (i) => removeLine(setSkills, i), "Ex: Suite Adobe, Figma, Excel"))}
             <button type="button" onClick={() => addLine(setSkills)} className="n17-add-btn">
@@ -696,7 +691,7 @@ export default function Niveau17() {
             </button>
           </div>
 
-          <div className="n17-card">
+          <div className="tool-panel n17-card">
             <h2>Langues maîtrisées</h2>
             {languages.map((item, idx) => renderRemovableInput(item, idx, setLanguages, (i) => removeLine(setLanguages, i), "Ex: Français C2, Anglais B2"))}
             <button type="button" onClick={() => addLine(setLanguages)} className="n17-add-btn">
@@ -704,7 +699,7 @@ export default function Niveau17() {
             </button>
           </div>
 
-          <div className="n17-card">
+          <div className="tool-panel n17-card">
             <h2>Personnalisation</h2>
             <div className="n17-customize-row">
               <div>
@@ -739,7 +734,7 @@ export default function Niveau17() {
       )}
 
       {cvData && (
-        <div className="n17-card">
+        <div className="tool-panel n17-card">
           <div className="n17-cv-actions">
             <button type="button" onClick={exportPdf} className="n17-generate-btn n17-generate-btn-compact" disabled={exporting}>
               {exporting ? 'Création du PDF…' : 'Télécharger en PDF'}
@@ -1036,7 +1031,7 @@ export default function Niveau17() {
 const styles = `
 .n17-page {
   width: 100%;
-  max-width: 860px;
+  max-width: 960px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -1052,16 +1047,6 @@ const styles = `
   border-radius: 28px;
   box-shadow: 0 26px 60px -30px rgba(0,0,0,.22), 0 2px 10px rgba(0,0,0,.04);
   padding: clamp(20px, 4vw, 32px);
-}
-.n17-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 30px;
-  right: 30px;
-  height: 6px;
-  border-radius: 0 0 8px 8px;
-  background: #c1ff72;
 }
 .n17-header h1 { margin: 0; font-size: 24px; font-weight: 800; line-height: 1.1; }
 .n17-header p { margin: 4px 0 0; color: #6b7280; font-size: 14px; }

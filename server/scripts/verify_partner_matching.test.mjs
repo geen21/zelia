@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildPartnerMatchingProfile, matchPartnerFormations } from '../utils/partnerMatching.js'
+import { buildPartnerMatchingProfile, fetchActivePartnerFormations, matchPartnerFormations } from '../utils/partnerMatching.js'
 import { buildFormationRelevanceProfile, scoreFormationRelevance } from '../../client/src/lib/formationRelevance.js'
 import { FORMATION_PREFERENCE_LEVELS, filterCandidatesByTargetStudyLevel, getTargetStudyLevel, inferFormationStudyLevel } from '../../client/src/lib/formationLevel.js'
 
@@ -29,6 +29,37 @@ const match = (formations, values, analysisResult = {}, userCity = '') => matchP
   userCity
 })
 const ids = (matched) => matched.map((formation) => formation.id)
+
+test('the active partner catalogue reads every page and propagates intermediate failures', async () => {
+  const rows = Array.from({ length: 2005 }, (_, id) => ({ id, school_name: 'Same school', city: 'Paris' }))
+  const ranges = []
+  let fail = false
+  let resultsOnly = false
+  const db = { from(table) {
+    assert.equal(table, 'ecoles_partenaires')
+    const orders = []
+    return {
+      select(columns) { assert.equal(columns, '*'); return this },
+      eq(key, value) {
+        assert.equal(value, true)
+        assert.ok(key === 'is_active' || (key === 'show_in_results' && resultsOnly))
+        return this
+      },
+      order(key) { orders.push(key); return this },
+      range(start, end) {
+        assert.deepEqual(orders, ['school_name', 'city', 'id'])
+        ranges.push([start, end])
+        return Promise.resolve(fail && start === 1000 ? { error: new Error('Second page unavailable') } : { data: rows.slice(start, end + 1), error: null })
+      }
+    }
+  } }
+  assert.deepEqual(await fetchActivePartnerFormations(db), rows)
+  assert.deepEqual(ranges, [[0, 999], [1000, 1999], [2000, 2999]])
+  resultsOnly = true
+  assert.equal((await fetchActivePartnerFormations(db, { resultsOnly: true })).length, 2005)
+  fail = true
+  await assert.rejects(fetchActivePartnerFormations(db), /Second page unavailable/)
+})
 
 test('partners without a thematic match are hidden, even with a high priority or the same city', () => {
   const matched = match(partners, {

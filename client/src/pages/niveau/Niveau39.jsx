@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { ToolResult } from '../../components/ToolExperience'
 import { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
@@ -182,35 +183,41 @@ export default function Niveau39() {
     )
   }
 
+  if (showSuccess && pathname.includes('/outils')) {
+    return <ToolResult title="Merci pour ton retour !">
+      <p>Ton avis est enregistré et nous aide à améliorer Zélia.</p>
+      <div className="tool-actions"><Link to="/app/outils" className="tool-primary">Retour aux outils</Link></div>
+    </ToolResult>
+  }
+
   return (
-    <div className="p-2 md:p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-            <img src={avatarUrl} alt="Avatar" className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-52 lg:h-52 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto md:mx-0" />
+    <div className="tool-stack">
+      <div className="tool-workspace">
+        {phase === 'intro' && <div className="tool-panel tool-coach">
+          <div className="tool-coach-row">
+            <img src={avatarUrl} alt="Avatar" className="tool-coach-avatar" />
             <div className="flex-1 w-full">
-              <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
+              <div className="tool-coach-bubble">
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
                   {phase === 'intro' && typed}
                   {phase === 'form' && 'Merci pour ton retour, ça compte beaucoup.'}
                 </div>
-                <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
+
               </div>
 
               <div className="mt-4 flex flex-col gap-3">
                 {phase === 'intro' && (
-                  <button onClick={onDialogueNext} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">
+                  <button onClick={onDialogueNext} className="tool-primary w-full">
                     {dialogueIdx < dialogues.length - 1 ? 'Suivant' : 'Donner mon avis'}
                   </button>
                 )}
               </div>
             </div>
           </div>
-        </div>
+        </div>}
 
-        <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
+        <div className="tool-panel">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">OK</div>
             <h2 className="text-lg md:text-xl font-bold">Retours utilisateurs</h2>
           </div>
 
@@ -225,8 +232,9 @@ export default function Niveau39() {
               )}
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Niveau préféré *</label>
+                <label htmlFor="feedback-favorite" className="text-sm font-medium text-gray-700">Outil préféré *</label>
                 <input
+                  id="feedback-favorite"
                   value={feedback.favoriteLevel}
                   onChange={(e) => setFeedback(prev => ({ ...prev, favoriteLevel: e.target.value }))}
                   className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#c1ff72]"
@@ -235,8 +243,9 @@ export default function Niveau39() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Ce que tu as préféré</label>
+                <label htmlFor="feedback-best" className="text-sm font-medium text-gray-700">Ce que tu as préféré</label>
                 <textarea
+                  id="feedback-best"
                   value={feedback.bestPart}
                   onChange={(e) => setFeedback(prev => ({ ...prev, bestPart: e.target.value }))}
                   rows={4}
@@ -246,8 +255,9 @@ export default function Niveau39() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Ce que tu aimerais revoir *</label>
+                <label htmlFor="feedback-improve" className="text-sm font-medium text-gray-700">Ce que tu aimerais revoir *</label>
                 <textarea
+                  id="feedback-improve"
                   value={feedback.toImprove}
                   onChange={(e) => setFeedback(prev => ({ ...prev, toImprove: e.target.value }))}
                   rows={4}
@@ -257,8 +267,9 @@ export default function Niveau39() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Note globale sur 5 *</label>
+                <label htmlFor="feedback-rating" className="text-sm font-medium text-gray-700">Note globale sur 5 *</label>
                 <select
+                  id="feedback-rating"
                   value={feedback.rating}
                   onChange={(e) => setFeedback(prev => ({ ...prev, rating: e.target.value }))}
                   className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#c1ff72]"
@@ -275,7 +286,7 @@ export default function Niveau39() {
               <button
                 onClick={handleSubmit}
                 disabled={saving}
-                className="w-full px-4 py-3 rounded-lg bg-[#c1ff72] text-black border border-gray-200 font-medium disabled:opacity-50"
+                className="tool-primary w-full"
               >
                 {saving ? 'Envoi...' : 'Envoyer mon retour'}
               </button>
@@ -291,8 +302,8 @@ export default function Niveau39() {
             <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
             <p className="text-text-secondary mb-4">Merci pour ton retour, il nous aide beaucoup.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/40')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
+              <button onClick={() => navigate('/app/activites')} className="tool-secondary">Retour aux activités</button>
+              <button onClick={() => navigate('/app/niveau/40')} className="tool-primary">Continuer</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />

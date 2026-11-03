@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { ToolResult } from '../../components/ToolExperience'
 import apiClient, { usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
@@ -50,6 +51,7 @@ export default function Niveau32() {
   const { pathname } = useLocation()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [saveError, setSaveError] = useState('')
   const [profile, setProfile] = useState(null)
   const [avatarUrl, setAvatarUrl] = useState('')
 
@@ -213,6 +215,7 @@ Réponds UNIQUEMENT avec le JSON, sans texte autour.`
   const finishLevel = async () => {
     if (finishing) return
     setFinishing(true)
+    setSaveError('')
     try {
       // Save recommended skills to extra info
       await usersAPI.saveExtraInfo([
@@ -225,13 +228,14 @@ Réponds UNIQUEMENT avec le JSON, sans texte autour.`
             completedAt: new Date().toISOString()
           })
         }
-      ]).catch(e => console.warn('saveExtraInfo N32 failed', e))
+      ])
       
       await levelUp({ minLevel: 32, xpReward: XP_PER_LEVEL })
       setShowSuccess(true)
     } catch (e) {
       console.error('Niveau32 levelUp failed', e)
-      setError('Impossible de valider le module.')
+      setSaveError("Impossible d'enregistrer tes compétences. Réessaie.")
+      setPhase('skills')
     } finally {
       setFinishing(false)
     }
@@ -254,55 +258,43 @@ Réponds UNIQUEMENT avec le JSON, sans texte autour.`
     )
   }
 
+  if (showSuccess && pathname.includes('/outils')) {
+    return <ToolResult title="Tes compétences sont enregistrées">
+      <p>Choisis une ou deux compétences et cherche une occasion concrète de les pratiquer.</p>
+      <div className="tool-actions"><Link to="/app/outils" className="tool-primary">Retour aux outils</Link></div>
+    </ToolResult>
+  }
+
   return (
-    <div className="p-2 md:p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        {/* Left: Avatar + Dialogue */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-            <img src={avatarUrl} alt="Avatar" className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 lg:w-52 lg:h-52 rounded-2xl border border-gray-100 shadow-sm object-contain bg-white mx-auto md:mx-0" />
+    <div className="tool-stack">
+      <div className="tool-workspace">
+        {phase === 'intro' && <div className="tool-panel tool-coach">
+          <div className="tool-coach-row">
+            <img src={avatarUrl} alt="Avatar" className="tool-coach-avatar" />
             <div className="flex-1 w-full">
-              <div className="relative bg-black text-white rounded-2xl p-4 md:p-5 w-full">
+              <div className="tool-coach-bubble">
                 <div className="text-base md:text-lg leading-relaxed whitespace-pre-wrap min-h-[3.5rem]">
                   {phase === 'intro' && typed}
                   {phase === 'skills' && !loadingSkills && `Est-ce que ces compétences te parlent ?`}
                   {phase === 'skills' && loadingSkills && 'Je prépare une sélection de compétences pour toi...'}
                   {phase === 'finishing' && 'Super ! Continue comme ça !'}
                 </div>
-                <div className="absolute -left-2 top-6 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-black" />
+
               </div>
 
               <div className="mt-4 flex flex-col gap-3">
                 {phase === 'intro' && (
-                  <button onClick={onDialogueNext} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 w-full sm:w-auto">
+                  <button onClick={onDialogueNext} className="tool-primary w-full">
                     {dialogueIdx < dialogues.length - 1 ? 'Suivant' : 'Voir les skills'}
                   </button>
-                )}
-                {phase === 'skills' && !loadingSkills && (
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <button 
-                      onClick={() => handleAnswer(true)} 
-                      className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200 flex-1"
-                    >
-                      Oui <FaThumbsUp className="inline w-4 h-4" />
-                    </button>
-                    <button 
-                      onClick={() => handleAnswer(false)} 
-                      className="px-4 py-2 rounded-lg bg-white text-black border border-gray-200 flex-1"
-                    >
-                      Non <FaFaceMeh className="inline w-4 h-4" />
-                    </button>
-                  </div>
                 )}
               </div>
             </div>
           </div>
-        </div>
+        </div>}
 
-        {/* Right: Skill Recommendations */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-2 md:p-6 shadow-card">
+        <div className="tool-panel">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">OK</div>
             <h2 className="text-lg md:text-xl font-bold">Compétences à développer</h2>
           </div>
 
@@ -343,12 +335,20 @@ Réponds UNIQUEMENT avec le JSON, sans texte autour.`
                 </div>
               )}
 
-              {/* Tips section */}
-              <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
-                <p className="text-sm text-blue-800">
-                  <strong><FaLightbulb className="inline w-4 h-4" /> Astuce :</strong> Commence par 1 ou 2 skills prioritaires, puis cherche une expérience concrète pour les pratiquer.
+              <div className="tool-context">
+                <p>
+                  <FaLightbulb className="inline w-4 h-4" aria-hidden="true" /> Commence par une ou deux compétences prioritaires, puis cherche une expérience concrète pour les pratiquer.
                 </p>
               </div>
+              {saveError && <p className="tool-error" role="alert">{saveError}</p>}
+              {!loadingSkills && <>
+                <p className="font-semibold">Est-ce que ces compétences te parlent ?</p>
+                <div className="tool-actions">
+                  <button type="button" onClick={() => handleAnswer(true)} disabled={finishing} className="tool-primary flex-1">Oui <FaThumbsUp aria-hidden="true" /></button>
+                  <button type="button" onClick={() => handleAnswer(false)} disabled={finishing} className="tool-secondary flex-1">Non <FaFaceMeh aria-hidden="true" /></button>
+                </div>
+                {finishing && <p role="status">Enregistrement…</p>}
+              </>}
             </div>
           )}
         </div>
@@ -362,8 +362,8 @@ Réponds UNIQUEMENT avec le JSON, sans texte autour.`
             <h3 className="text-2xl font-extrabold mb-2">Module terminé !</h3>
             <p className="text-text-secondary mb-4">Tu as identifié des compétences utiles pour avancer vers ton futur métier.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => navigate('/app/activites')} className="px-4 py-2 rounded-lg bg-white text-gray-900 border border-gray-200">Retour aux activités</button>
-              <button onClick={() => navigate('/app/niveau/33')} className="px-4 py-2 rounded-lg bg-[#c1ff72] text-black border border-gray-200">Continuer</button>
+              <button onClick={() => navigate('/app/activites')} className="tool-secondary">Retour aux activités</button>
+              <button onClick={() => navigate('/app/niveau/33')} className="tool-primary">Continuer</button>
             </div>
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               <div className="absolute w-2 h-2 bg-pink-400 rounded-full left-6 top-8 animate-ping" />

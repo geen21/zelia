@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ecolesAPI } from '../lib/api'
 import { FaLocationDot, FaGraduationCap, FaPaperPlane, FaCheck, FaArrowLeft } from 'react-icons/fa6'
 import { PiGraduationCapBold } from 'react-icons/pi'
+import { externalFormationHref } from '../lib/formationExplorer'
 
 const DESCRIPTION_MARKERS = [
   'Objectif',
@@ -53,19 +54,34 @@ export default function FormationDetail() {
   const [error, setError] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [matchScore, setMatchScore] = useState(null)
+  const [matchError, setMatchError] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [submissionsReady, setSubmissionsReady] = useState(false)
+  const [retry, setRetry] = useState(0)
 
   useEffect(() => {
     let mounted = true
+    setLoading(true)
+    setError('')
+    setActionError('')
+    setSubmissionsReady(false)
+    setSubmitted(false)
     ;(async () => {
       try {
         const [formRes, myRes] = await Promise.all([
           ecolesAPI.formation(id),
-          ecolesAPI.mySubmissions().catch(() => ({ data: { submissions: [] } }))
+          ecolesAPI.mySubmissions().catch((loadError) => {
+            console.error('Formation submissions load failed', loadError)
+            if (mounted) setActionError('Impossible de vérifier tes demandes déjà envoyées.')
+            return null
+          })
         ])
         if (!mounted) return
         setFormation(formRes?.data?.formation || null)
         const subs = (myRes?.data?.submissions || []).map((s) => s.formation_id)
         setSubmitted(subs.includes(id))
+        setSubmissionsReady(Boolean(myRes))
       } catch (e) {
         console.error('FormationDetail load error', e)
         if (mounted) setError('Formation introuvable.')
@@ -74,16 +90,33 @@ export default function FormationDetail() {
       }
     })()
     return () => { mounted = false }
-  }, [id])
+  }, [id, retry])
+
+  useEffect(() => {
+    let active = true
+    setMatchScore(null)
+    setMatchError('')
+    ecolesAPI.matched().then(({ data }) => {
+      const score = data.matched?.find((entry) => String(entry.id) === String(id))?.match_score
+      if (active && typeof score === 'number' && Number.isFinite(score) && score >= 0 && score <= 100) setMatchScore(score)
+    }, (loadError) => {
+      console.error('Formation match load failed', loadError)
+      if (active) setMatchError('Impossible de charger ton pourcentage de correspondance.')
+    })
+    return () => { active = false }
+  }, [id, retry])
 
   const handleSubmit = async () => {
-    if (submitted || submitting || formation?.is_active === false) return
+    if (submitted || submitting || !submissionsReady || formation?.is_active === false) return
     setSubmitting(true)
+    setActionError('')
     try {
       await ecolesAPI.submit(id)
       setSubmitted(true)
     } catch (e) {
       console.error('Submit error', e)
+      if (e.response?.status === 409) setSubmitted(true)
+      else setActionError(e.response?.data?.message || 'Impossible d’envoyer ta demande. Réessaie dans un instant.')
     } finally {
       setSubmitting(false)
     }
@@ -119,9 +152,14 @@ export default function FormationDetail() {
   const mainDesc = prereqIdx > 0 ? raw.slice(0, prereqIdx).trim() : (raw.startsWith('Pré-requis:') ? '' : raw.trim())
   const prereqLine = prereqIdx >= 0 ? raw.slice(prereqIdx).trim() : null
   const descriptionSections = splitDescriptionIntoSections(mainDesc)
+  const schoolHref = externalFormationHref(formation.link)
 
   return (
     <div className="p-2 md:p-6">
+      {(matchError || actionError) && <div role="alert" className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-xl mb-4">
+        {matchError && <p>{matchError}</p>}{actionError && <p>{actionError}</p>}
+        <button className="underline" onClick={() => setRetry((value) => value + 1)}>Réessayer</button>
+      </div>}
       <div className="mb-6">
         <button
           onClick={() => navigate(-1)}
@@ -149,12 +187,14 @@ export default function FormationDetail() {
                 <FaLocationDot className="w-3 h-3" />
                 {formation.city}
               </span>
-              {formation.match_score != null && (
+              {matchScore != null && (
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[#c1ff72] text-black border border-black/10">
-                  {formation.match_score}% match
+                  {matchScore} % de correspondance
                 </span>
               )}
             </div>
+            {matchScore != null && <p className="text-sm text-gray-600 mb-4">Correspondance avec ton bilan et tes préférences, pas une probabilité d’admission.</p>}
+            {schoolHref && <a className="inline-flex underline mb-4" href={schoolHref} target="_blank" rel="noopener noreferrer">Explorer le site de l’établissement</a>}
           </div>
         </div>
       </div>
@@ -189,7 +229,7 @@ export default function FormationDetail() {
           </p>
           <button
             onClick={handleSubmit}
-            disabled={submitted || submitting || formation.is_active === false}
+            disabled={submitted || submitting || !submissionsReady || formation.is_active === false}
             className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors disabled:opacity-70 ${
               submitted
                 ? 'bg-green-50 text-green-700 border border-green-200'

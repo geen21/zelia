@@ -86,6 +86,15 @@ EOF
 
 > **Tip:** Additional Stripe configuration is available via `STRIPE_API_VERSION`, `STRIPE_PRICE_AMOUNT`, `STRIPE_PRICE_CURRENCY`, `STRIPE_PRODUCT_NAME`, `STRIPE_SUCCESS_URL`, and `STRIPE_CANCEL_URL` if you need to override defaults.
 
+### Payment security prerequisites
+
+- On existing databases, manually apply [security_payment_profile_columns.sql](server/database/security_payment_profile_columns.sql) after the base schema. It prevents direct user writes to payment fields, independently of Express. Do not deploy only the API fix.
+- Payment routes require `SUPABASE_SERVICE_ROLE_KEY`; never expose this key in client variables.
+- Configure a fixed, one-time `STRIPE_PRICE_ID`, or the server-side inline amount/currency/product. Client-selected alternative prices are rejected. Keep the configured price unchanged until outstanding Checkout Sessions settle.
+- Configure both Stripe webhook endpoints with their own signing secrets (`STRIPE_WEBHOOK_SECRET` and `STRIPE_PARENT_WEBHOOK_SECRET` for the separate parent account). Missing configuration returns HTTP 503; unsigned events are never accepted.
+- Subscribe both endpoints to `checkout.session.completed`, `checkout.session.async_payment_succeeded`, and `checkout.session.async_payment_failed`. Delayed payments remain pending until Stripe confirms payment; persistence failures return HTTP 500 so Stripe can retry.
+- Before release, run `npm run verify:payments` in the server directory, then exercise a successful and a delayed/failed payment in Stripe test mode. This local command does not query production or apply migrations.
+
 For the client, create `client/.env.production` (values are embedded at build time):
 
 ```bash

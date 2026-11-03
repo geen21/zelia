@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { analysisAPI, usersAPI } from '../lib/api'
 import { resolveAvatarUrl } from '../lib/avatar'
 import { generateZeliaShareImage } from '../lib/shareImage'
 import ZeliaDiploma from '../components/ZeliaDiploma'
 import SchoolSharingSettings from '../components/SchoolSharingSettings'
+import './Profile.css'
 
 const stripLegacyMbtiTokens = (text) => {
   if (!text || typeof text !== 'string') return text || ''
@@ -24,13 +26,13 @@ const normalizeZeliaAnalysis = (analysis) => {
 }
 
 const editableFields = [
-  { key: 'firstName', label: 'Prénom', type: 'text', placeholder: 'Votre prénom' },
-  { key: 'lastName', label: 'Nom', type: 'text', placeholder: 'Votre nom' },
+  { key: 'firstName', label: 'Prénom', type: 'text', placeholder: 'Ton prénom', autoComplete: 'given-name' },
+  { key: 'lastName', label: 'Nom', type: 'text', placeholder: 'Ton nom', autoComplete: 'family-name' },
   { key: 'age', label: 'Âge', type: 'number', placeholder: 'ex: 18' },
   { key: 'gender', label: 'Genre', type: 'text', placeholder: 'ex: Femme / Homme / Autre' },
   { key: 'department', label: 'Département', type: 'text', placeholder: 'ex: 75' },
-  { key: 'school', label: 'École / Formation', type: 'text', placeholder: 'Votre établissement' },
-  { key: 'phoneNumber', label: 'Téléphone', type: 'tel', placeholder: 'ex: 06 12 34 56 78' }
+  { key: 'school', label: 'École / Formation', type: 'text', placeholder: 'Ton établissement', autoComplete: 'organization' },
+  { key: 'phoneNumber', label: 'Téléphone', type: 'tel', placeholder: 'ex: 06 12 34 56 78', autoComplete: 'tel' }
 ]
 
 function mapProfileToForm(profile) {
@@ -102,6 +104,11 @@ export default function Profile() {
   const [sharing, setSharing] = useState(false)
 
   const isMountedRef = useRef(true)
+  const firstInputRef = useRef(null)
+
+  useEffect(() => {
+    if (editing) firstInputRef.current?.focus()
+  }, [editing])
 
   useEffect(() => {
     let active = true
@@ -135,7 +142,15 @@ export default function Profile() {
       } catch (err) {
         console.error('Profile load error', err)
         if (!active) return
-        setError("Impossible de charger les informations du profil.")
+        if (err?.response?.status === 429) {
+          const retryAfter = Number(err.response.headers?.['retry-after'])
+          const delay = Number.isFinite(retryAfter) && retryAfter > 0
+            ? ` dans ${Math.ceil(retryAfter / 60)} min`
+            : ' dans quelques instants'
+          setError(`Trop de requêtes ont été envoyées. Réessaie${delay}. Tes informations sont conservées.`)
+        } else {
+          setError("Impossible de charger les informations du profil.")
+        }
       } finally {
         if (active) setLoading(false)
       }
@@ -490,78 +505,79 @@ export default function Profile() {
     }
   }
 
-  if (loading) {
+  if (loading || error) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Mon Profil</h1>
-          <p className="text-text-secondary">Informations personnelles et visuel à partager</p>
-        </div>
-        <div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">
-          <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-          <p className="mt-2 text-text-secondary">Chargement…</p>
+      <div className="zelia-profile">
+        <header className="zp-intro">
+          <p className="zp-eyebrow">Mon espace Zélia</p>
+          <h1>Mon profil,<span> tout moi.</span></h1>
+          <p>Tes infos, tes documents et tes choix. Tout au même endroit.</p>
+        </header>
+        <div className="zp-card zp-state" role={error ? 'alert' : 'status'} aria-busy={loading}>
+          <i className={`ph ${error ? 'ph-warning-circle' : 'ph-spinner-gap zp-spin'}`} aria-hidden="true" />
+          <h2>{error ? 'Petit contretemps…' : 'On prépare ton espace…'}</h2>
+          <p>{error || 'Encore un instant, ton profil arrive.'}</p>
+          {error && <button type="button" className="zp-button zp-button--ink" onClick={() => window.location.reload()}>Réessayer</button>}
         </div>
       </div>
     )
   }
 
-  if (error) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Mon Profil</h1>
-          <p className="text-text-secondary">Informations personnelles et visuel à partager</p>
-        </div>
-        <div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">
-          <div className="text-red-600 text-4xl">!</div>
-          <p className="mt-2 text-text-secondary">{error}</p>
-        </div>
-      </div>
-    )
-  }
+  const savedDetails = mapProfileToForm(profile)
+  const displayName = [savedDetails.firstName, savedDetails.lastName].filter(Boolean).join(' ') || 'Ton profil Zélia'
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Mon Profil</h1>
-  <p className="text-text-secondary">Informations personnelles et visuel à partager</p>
-      </div>
-
-      <SchoolSharingSettings />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-card flex flex-col items-center text-center">
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt="Avatar utilisateur"
-              className="w-40 h-40 rounded-lg border border-gray-100 shadow-sm object-contain bg-white"
-            />
-          ) : (
-            <div className="w-40 h-40 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-sm text-gray-500">
-              Avatar indisponible
-            </div>
-          )}
-
-          <div className="mt-5 space-y-2 text-sm text-gray-700 w-full">
-            <div className="flex items-center justify-between">
-              <span className="text-text-secondary">Profil</span>
-              <span className="font-semibold">{profileTypeLabel}</span>
-            </div>
-            {email && (
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-text-secondary">Email</span>
-                <span className="font-semibold truncate">{email}</span>
-              </div>
-            )}
-          </div>
+    <div className="zelia-profile">
+      <header className="zp-intro">
+        <div>
+          <p className="zp-eyebrow">Mon espace Zélia</p>
+          <h1>Mon profil,<span> tout moi.</span></h1>
+          <p>Tes infos, tes documents et tes choix. Tout au même endroit.</p>
         </div>
+        <span className="zp-intro-sticker" aria-hidden="true"><i className="ph ph-sparkle" />100 % toi</span>
+      </header>
 
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-card">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+      <div className="zp-layout">
+        <aside className="zp-sidebar" aria-label="Ton espace personnel">
+          <section className="zp-identity" aria-labelledby="profile-name">
+            <div className="zp-identity-art">
+              <span className="zp-identity-sticker" aria-hidden="true">Unique, comme toi.</span>
+              <i className="ph ph-asterisk zp-identity-star" aria-hidden="true" />
+              {avatarUrl ? <img src={avatarUrl} alt="Ton avatar Zélia" className="zp-avatar" /> : <div className="zp-avatar zp-avatar-empty">Avatar à venir</div>}
+            </div>
+            <div className="zp-identity-body">
+              <span className="zp-pill">{profileTypeLabel}</span>
+              <h2 id="profile-name">{displayName}</h2>
+              {email && <p className="zp-identity-email">{email}</p>}
+              <div className="zp-personality">
+                <span>Mon profil Zélia</span>
+                <strong>{resolvedAnalysis?.personalityType || 'Encore plein de choses à découvrir'}</strong>
+                <Link to={resolvedAnalysis ? '/app/results' : '/app/outils/personnalite'} className="zp-text-link">
+                  {resolvedAnalysis ? 'Voir mon bilan' : 'Me découvrir'}<i className="ph ph-arrow-up-right" aria-hidden="true" />
+                </Link>
+              </div>
+            </div>
+          </section>
+          <nav className="zp-shortcuts" aria-label="Rubriques du profil">
+            <p>Dans mon espace</p>
+            <a href="#profile-infos"><i className="ph ph-user-circle" aria-hidden="true" />Mes informations<i className="ph ph-arrow-down-right" aria-hidden="true" /></a>
+            <a href="#profile-documents"><i className="ph ph-folder-simple" aria-hidden="true" />Mes documents<i className="ph ph-arrow-down-right" aria-hidden="true" /></a>
+            <a href="#profile-visuel"><i className="ph ph-sparkle" aria-hidden="true" />Mon visuel Zélia<i className="ph ph-arrow-down-right" aria-hidden="true" /></a>
+            <a href="#profile-sharing"><i className="ph ph-shield-check" aria-hidden="true" />Mes autorisations<i className="ph ph-arrow-down-right" aria-hidden="true" /></a>
+          </nav>
+          <div className="zp-sidebar-note">
+            <i className="ph ph-heart" aria-hidden="true" />
+            <p>Ton avenir se construit à ton rythme. Ton profil aussi.</p>
+          </div>
+        </aside>
+
+        <div className="zp-content">
+          <section id="profile-infos" className="zp-card" aria-labelledby="profile-infos-title">
+            <div className="zp-section-head">
               <div>
-                <h2 className="text-xl font-semibold">Informations personnelles</h2>
-                <p className="text-text-secondary text-sm">Mettez à jour vos coordonnées et préférences</p>
+                <p className="zp-eyebrow">01 / L'essentiel</p>
+                <h2 id="profile-infos-title">Mes informations</h2>
+                <p>Pour mieux te connaître et garder le contact.</p>
               </div>
               {!editing && (
                 <button
@@ -571,240 +587,152 @@ export default function Profile() {
                     setSuccessMessage('')
                     setUpdateError('')
                   }}
-                  className="px-4 py-2 rounded-lg bg-black text-white border border-black hover:opacity-90 transition"
+                  className="zp-button zp-button--ink"
                 >
-                  Modifier
+                  <i className="ph ph-pencil-simple" aria-hidden="true" />Modifier
                 </button>
               )}
             </div>
 
-            {successMessage && (
-              <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-                {successMessage}
-              </div>
-            )}
-            {updateError && (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {updateError}
-              </div>
-            )}
+            {successMessage && <div className="zp-notice zp-notice--success" role="status">{successMessage}</div>}
+            {updateError && <div className="zp-notice zp-notice--error" role="alert">{updateError}</div>}
 
-            <form onSubmit={handleSave} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleSave} aria-label="Informations personnelles" aria-busy={saving}>
+              <div className={`zp-fields${editing ? ' is-editing' : ''}`}>
                 {editableFields.map(field => (
-                  <div key={field.key}>
-                    <label className="block text-sm text-text-secondary mb-1">{field.label}</label>
+                  <div key={field.key} className="zp-field">
                     {editing ? (
-                      <input
-                        type={field.type}
-                        value={formData[field.key] || ''}
-                        onChange={handleInputChange(field.key)}
-                        placeholder={field.placeholder}
-                        className="w-full h-11 px-3 rounded-lg border border-line focus:border-black focus:outline-none"
-                      />
+                      <>
+                        <label htmlFor={`profile-${field.key}`}>{field.label}</label>
+                        <input
+                          id={`profile-${field.key}`}
+                          ref={field.key === 'firstName' ? firstInputRef : undefined}
+                          type={field.type}
+                          autoComplete={field.autoComplete}
+                          value={formData[field.key] || ''}
+                          onChange={handleInputChange(field.key)}
+                          placeholder={field.placeholder}
+                          disabled={saving}
+                        />
+                      </>
                     ) : (
-                      <p className="text-text-primary font-medium min-h-[2.75rem] flex items-center">
-                        {formData[field.key] ? formData[field.key] : 'Non spécifié'}
+                      <p>
+                        <span className="zp-field-label">{field.label}</span>
+                        <span className={`zp-field-value${formData[field.key] ? '' : ' is-empty'}`}>{formData[field.key] || 'À compléter'}</span>
                       </p>
                     )}
                   </div>
                 ))}
-
-                <div>
-                  <label className="block text-sm text-text-secondary mb-1">Adresse email</label>
-                  <p className="text-text-primary font-medium min-h-[2.75rem] flex items-center">
-                    {email || 'Non spécifié'}
+                <div className="zp-field">
+                  <p>
+                    <span className="zp-field-label">Adresse email <i className="ph ph-lock-simple" aria-hidden="true" /></span>
+                    <span className="zp-field-value">{email || 'Non renseignée'}</span>
                   </p>
-                </div>
-                <div>
-                  <label className="block text-sm text-text-secondary mb-1">Identifiant utilisateur</label>
-                  <p className="text-text-primary font-medium break-all min-h-[2.75rem] flex items-center">
-                    {authUserId || profile?.id || 'Non disponible'}
-                  </p>
+                  {editing && <small>L'email est lié à ton compte et ne se modifie pas ici.</small>}
                 </div>
               </div>
 
               {editing && (
-                <div className="flex justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={handleCancel}
-                    className="px-4 py-2 rounded-lg border border-line bg-white text-gray-700 hover:bg-gray-50"
-                    disabled={saving}
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 rounded-lg bg-black text-white border border-black hover:opacity-90 transition disabled:opacity-60"
-                    disabled={saving}
-                  >
-                    {saving ? 'Enregistrement…' : 'Enregistrer'}
+                <div className="zp-form-actions">
+                  <button type="button" onClick={handleCancel} className="zp-button" disabled={saving}>Annuler</button>
+                  <button type="submit" className="zp-button zp-button--lime" disabled={saving}>
+                    <i className={`ph ${saving ? 'ph-spinner-gap zp-spin' : 'ph-check'}`} aria-hidden="true" />{saving ? 'Enregistrement…' : 'Enregistrer'}
                   </button>
                 </div>
               )}
             </form>
-          </div>
+            <details className="zp-account-details">
+              <summary>Informations du compte</summary>
+              <p>Identifiant utilisateur : <span>{authUserId || profile?.id || 'Non disponible'}</span></p>
+            </details>
+          </section>
 
-          <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-card">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-xl font-semibold">Mon CV</h2>
-                <p className="text-text-secondary text-sm">Retrouvez ici votre CV généré et enregistré.</p>
-              </div>
+          <section id="profile-documents" aria-labelledby="profile-documents-title">
+            <div className="zp-section-head zp-section-head--outside">
+              <div><p className="zp-eyebrow">02 / Prêt pour la suite</p><h2 id="profile-documents-title">Mes documents</h2></div>
+              <i className="ph ph-folder-simple zp-section-symbol" aria-hidden="true" />
             </div>
-
-            {cvPdfUrl ? (
-              <div className="flex flex-wrap items-center gap-3">
-                <a
-                  href={cvPdfUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-4 py-2 rounded-lg bg-black text-white border border-black hover:opacity-90 transition"
-                >
-                  Ouvrir le PDF
-                </a>
-                <a
-                  href={cvPdfUrl}
-                  download
-                  className="px-4 py-2 rounded-lg border border-line bg-white text-gray-700 hover:bg-gray-50"
-                >
-                  Télécharger
-                </a>
-                <p className="text-xs text-text-secondary break-all">{cvPdfUrl}</p>
-              </div>
-            ) : cvData ? (
-              <div className="space-y-4">
-                <div className="bg-[#f8fff0] border border-[#c1ff72] rounded-xl p-4">
-                  <p className="text-sm text-gray-700">
-                    <strong>CV généré !</strong> Les données de ton CV ont été enregistrées. 
-                    Pour obtenir le PDF, ouvre l'outil CV et clique sur "Télécharger en PDF".
-                  </p>
+            <div className="zp-documents">
+              <article className="zp-card zp-document">
+                <div className="zp-document-top"><span className="zp-icon zp-icon--pink"><i className="ph ph-identification-card" aria-hidden="true" /></span><span className="zp-pill">{cvPdfUrl ? 'PDF disponible' : cvData ? 'Enregistré' : 'À créer'}</span></div>
+                <h3>Mon CV</h3>
+                <p>{cvPdfUrl ? 'Ton parcours, prêt à faire bonne impression.' : cvData ? 'Ton CV est enregistré. Ouvre l’outil pour générer ton PDF.' : 'Tes expériences et tes talents méritent leur place sur le papier.'}</p>
+                {cvData && !cvPdfUrl && <div className="zp-cv-summary"><strong>{cvData.name || 'CV'}</strong>{cvData.targetJob && <p>Poste visé : {cvData.targetJob}</p>}{cvData.summary && <p>{cvData.summary}</p>}</div>}
+                <div className="zp-document-actions">
+                  {cvPdfUrl ? <>
+                    <a href={cvPdfUrl} target="_blank" rel="noreferrer" className="zp-button zp-button--ink">Ouvrir le PDF<i className="ph ph-arrow-up-right" aria-hidden="true" /></a>
+                    <a href={cvPdfUrl} download className="zp-text-link"><i className="ph ph-download-simple" aria-hidden="true" />Télécharger le CV</a>
+                  </> : <Link to="/app/outils/cv" className="zp-button zp-button--ink">{cvData ? 'Retrouver mon CV' : 'Créer mon CV'}<i className="ph ph-arrow-right" aria-hidden="true" /></Link>}
                 </div>
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm">
-                  <p className="font-semibold mb-2">{cvData.name || 'CV'}</p>
-                  {cvData.targetJob && <p className="text-gray-600 mb-1">Poste visé : {cvData.targetJob}</p>}
-                  {cvData.summary && <p className="text-gray-600 text-xs">{cvData.summary}</p>}
+              </article>
+              <article className="zp-card zp-document">
+                <div className="zp-document-top"><span className="zp-icon zp-icon--lime"><i className="ph ph-graduation-cap" aria-hidden="true" /></span><span className="zp-pill">{hasDiploma ? 'Disponible' : 'À venir'}</span></div>
+                <h3>Mon diplôme Zélia</h3>
+                <p>{hasDiploma ? 'Un souvenir de ton parcours et de tout ce que tu as découvert sur toi.' : 'Ton diplôme t’attend à la fin de ton bilan. Chaque étape te rapproche de toi.'}</p>
+                <div className="zp-document-actions">
+                  {hasDiploma ? (
+                    <ZeliaDiploma
+                      compact
+                      firstName={savedDetails.firstName}
+                      lastName={savedDetails.lastName}
+                      personalityType={resolvedAnalysis?.personalityType || null}
+                      completionDate={diplomaDate ? new Date(diplomaDate) : new Date()}
+                      avatarUrl={avatarUrl}
+                      onDownloadComplete={handleDiplomaDownloadComplete}
+                    />
+                  ) : <Link to="/app/results" className="zp-button">Voir mon bilan<i className="ph ph-arrow-right" aria-hidden="true" /></Link>}
                 </div>
-              </div>
-            ) : (
-              <div className="bg-surface border border-line rounded-xl shadow-card p-6 text-sm text-text-secondary">
-                Aucun CV enregistré pour le moment. L'outil CV reste disponible dans la boîte à outils.
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-card">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-xl font-semibold">Mon visuel Zélia</h2>
-                <p className="text-text-secondary text-sm">Téléchargez ou partagez votre visuel de personnalité.</p>
-              </div>
-              {(resolvedAnalysis?.updatedAt || analysis?.updatedAt) && (
-                <span className="text-xs text-text-secondary">
-                  Mis à jour le {new Date((resolvedAnalysis?.updatedAt || analysis?.updatedAt)).toLocaleDateString('fr-FR')}
-                </span>
-              )}
+              </article>
             </div>
+          </section>
 
+          <section id="profile-visuel" className="zp-card zp-share" aria-labelledby="profile-visuel-title">
+            <div className="zp-section-head">
+              <div>
+                <p className="zp-eyebrow">03 / Ça, c'est moi</p>
+                <h2 id="profile-visuel-title">Mon visuel Zélia</h2>
+                <p>Une personnalité unique. Un visuel à partager.</p>
+              </div>
+              <span className="zp-icon zp-icon--pink"><i className="ph ph-sparkle" aria-hidden="true" /></span>
+            </div>
             {!shareReady ? (
-              <div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">
-                <div className="text-text-secondary text-4xl mb-2">✨</div>
-                <h3 className="text-lg font-semibold mb-2">Analyse en attente</h3>
-                <p className="text-text-secondary">
-                  Votre visuel sera disponible dès que votre analyse et votre avatar seront prêts.
-                </p>
+              <div className="zp-empty">
+                <i className="ph ph-magic-wand" aria-hidden="true" />
+                <h3>Ton visuel se prépare</h3>
+                <p>Il sera disponible dès que ton analyse et ton avatar seront prêts.</p>
+                <Link to="/app/outils/personnalite" className="zp-text-link">Découvrir mon profil<i className="ph ph-arrow-right" aria-hidden="true" /></Link>
               </div>
             ) : (
-              <div className="space-y-5">
-                {shareError && (
-                  <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-                    {shareError}
-                  </div>
-                )}
-
-                <div className="relative border border-line rounded-2xl bg-surface/70 p-4 flex items-center justify-center min-h-[320px]">
+              <div className="zp-share-layout">
+                <div className="zp-share-preview" aria-busy={shareLoading}>
                   {shareLoading ? (
-                    <div className="flex flex-col items-center gap-3 py-10">
-                      <div className="inline-block w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                      <span className="text-sm text-text-secondary">Génération de votre visuel…</span>
+                    <div className="zp-state" role="status">
+                      <i className="ph ph-spinner-gap zp-spin" aria-hidden="true" />
+                      <p>Génération de ton visuel…</p>
                     </div>
                   ) : shareImageUrl ? (
-                    <img
-                      src={shareImageUrl}
-                      alt="Aperçu du visuel Zélia"
-                      className="w-full max-w-[260px] sm:max-w-[320px] md:max-w-[360px] rounded-xl border border-gray-200 shadow-md"
-                    />
-                  ) : (
-                    <div className="text-center text-sm text-text-secondary">
-                      Cliquez sur « Régénérer » pour créer votre visuel Zélia.
-                    </div>
-                  )}
+                    <img src={shareImageUrl} alt="Aperçu du visuel Zélia" />
+                  ) : <p>Clique sur « Régénérer » pour créer ton visuel.</p>}
                 </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleRegenerateShareImage}
-                    className="px-4 py-2 rounded-lg border border-line bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-                    disabled={shareLoading}
-                  >
-                    {shareLoading ? 'Patientez…' : 'Régénérer'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDownloadShareImage}
-                    className="px-4 py-2 rounded-lg bg-black text-white border border-black hover:opacity-90 transition disabled:opacity-60"
-                    disabled={!shareImageUrl || shareLoading}
-                  >
-                    Télécharger
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleShareStory}
-                    className="px-4 py-2 rounded-lg bg-[#f68fff] text-black border border-gray-200 hover:opacity-95 transition disabled:opacity-60"
-                    disabled={!shareImageUrl || shareLoading || sharing}
-                  >
-                    {sharing ? 'Partage…' : 'Partager'}
-                  </button>
+                <div className="zp-share-copy">
+                  <span className="zp-pill zp-pill--pink">À garder ou à partager</span>
+                  <h3>Fais rayonner ta personnalité.</h3>
+                  <p>Garde ton visuel avec toi ou partage-le à tes proches. C'est toi qui choisis.</p>
+                  {shareError && <div className="zp-notice" role="status">{shareError}</div>}
+                  <div className="zp-share-actions">
+                    <button type="button" onClick={handleDownloadShareImage} className="zp-button zp-button--ink" disabled={!shareImageUrl || shareLoading}><i className="ph ph-download-simple" aria-hidden="true" />Télécharger le visuel</button>
+                    <button type="button" onClick={handleShareStory} className="zp-button zp-button--pink" disabled={!shareImageUrl || shareLoading || sharing}><i className="ph ph-share-network" aria-hidden="true" />{sharing ? 'Partage…' : 'Partager mon visuel'}</button>
+                    <button type="button" onClick={handleRegenerateShareImage} className="zp-text-link" disabled={shareLoading}><i className="ph ph-arrow-clockwise" aria-hidden="true" />{shareLoading ? 'Patiente…' : 'Régénérer'}</button>
+                  </div>
+                  <p className="zp-share-tip">Une story ? Pense à taguer <strong>@zelia</strong> pour qu'on puisse la repartager.</p>
+                  {(resolvedAnalysis?.updatedAt || analysis?.updatedAt) && <p className="zp-updated">Mis à jour le {new Date(resolvedAnalysis?.updatedAt || analysis?.updatedAt).toLocaleDateString('fr-FR')}</p>}
                 </div>
-
-                <p className="text-xs text-text-secondary">
-                  Astuce : publiez votre story et taguez <span className="font-semibold">@zelia</span> pour que nous puissions la repartager.
-                </p>
               </div>
             )}
-          </div>
+          </section>
 
-          <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-card">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-xl font-semibold">Mon diplôme Zélia</h2>
-                <p className="text-text-secondary text-sm">Téléchargez votre diplôme quand votre bilan est prêt.</p>
-              </div>
-            </div>
-
-            {hasDiploma ? (
-              <div style={{ overflowX: 'auto' }}>
-                <ZeliaDiploma
-                  firstName={formData.firstName}
-                  lastName={formData.lastName}
-                  personalityType={resolvedAnalysis?.personalityType || null}
-                  completionDate={diplomaDate ? new Date(diplomaDate) : new Date()}
-                  avatarUrl={avatarUrl}
-                  onDownloadComplete={handleDiplomaDownloadComplete}
-                />
-              </div>
-            ) : (
-              <div className="bg-surface border border-line rounded-xl shadow-card p-8 text-center">
-                <div className="text-text-secondary text-4xl mb-2">🎓</div>
-                <h3 className="text-lg font-semibold mb-2">Bilan en attente</h3>
-                <p className="text-text-secondary">
-                  Votre diplôme apparaîtra quand votre bilan final sera disponible.
-                </p>
-              </div>
-            )}
-          </div>
+          <SchoolSharingSettings />
+          <p className="zp-footer-note"><i className="ph ph-fingerprint-simple" aria-hidden="true" />Ton profil évolue avec toi. Reviens quand tu veux.</p>
         </div>
       </div>
     </div>

@@ -164,17 +164,16 @@ export default function Niveau26() {
   }
 
   return (
-    <div className="p-2 md:p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
-          <h1 className="text-xl md:text-2xl font-bold mb-1">Infos Parcoursup</h1>
+    <div className="tool-stack">
+      <div className="tool-stack">
+        <div className="tool-panel">
           <p className="text-text-secondary">
             Salut {firstName} ! Voici la fiche de synthèse Parcoursup 2026 : calendrier, structure des vœux, réponses possibles et dossier de candidature.
           </p>
         </div>
 
         {TABLES.map((table) => (
-          <div key={table.id} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-card">
+          <div key={table.id} className="tool-panel">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">
                 {table.icon}

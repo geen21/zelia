@@ -6,6 +6,7 @@ import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 import { generateZeliaShareImage } from '../../lib/shareImage'
 import { FaXmark } from 'react-icons/fa6'
+import { ToolProgress } from '../../components/ToolExperience'
 
 let jsPdfFactoryPromise = null
 async function loadJsPdf() {
@@ -161,7 +162,6 @@ export default function Niveau4() {
     const qLen = questions.length || 0
     return (qLen >= 38 && qLen <= 40) ? 40 : Math.max(qLen, 1)
   }, [questions.length])
-  const progress = questions.length ? Math.round(((qIdx + 1) / questions.length) * 100) : 0
 
   function choose(ans) {
     const qid = currentQ?.id
@@ -476,7 +476,7 @@ export default function Niveau4() {
     return (
       <div className="n4-page">
         <style>{styles}</style>
-        <div className="n4-card n4-state">
+        <div className="tool-panel n4-card n4-state">
           <div className="n4-spinner" />
           <p>Chargement…</p>
         </div>
@@ -488,7 +488,7 @@ export default function Niveau4() {
     return (
       <div className="n4-page">
         <style>{styles}</style>
-        <div className="n4-card n4-state">
+        <div className="tool-panel n4-card n4-state">
           <i className="ph ph-warning-circle" aria-hidden="true" />
           <p>{error}</p>
         </div>
@@ -500,17 +500,9 @@ export default function Niveau4() {
     <div className="n4-page">
       <style>{styles}</style>
 
-      <div className="n4-card n4-header">
-        <h1>Test de personnalité</h1>
-        <p>Réponds aux questions pour découvrir ton profil Zélia.</p>
-      </div>
-
       {phase === 'quiz' && currentQ && (
-        <div className="n4-card">
-          <div className="n4-progress">
-            <div className="n4-progress-track"><span style={{ width: `${progress}%` }} /></div>
-            <span className="n4-progress-label">{Math.min(total, qIdx + 1)} / {total}</span>
-          </div>
+        <div className="tool-panel n4-card">
+          <ToolProgress current={Math.min(total, qIdx + 1)} total={total} />
           {submitError && (
             <div className="n4-inline-error">
               <p>{submitError}</p>
@@ -524,14 +516,15 @@ export default function Niveau4() {
               </button>
             </div>
           )}
-          <p className="n4-question">{displayText}</p>
-          <div className="n4-choices">
+          <h2 className="tool-question">{displayText}</h2>
+          <div className="tool-choices" role="group" aria-label="Ta réponse">
             {choices.map((opt) => (
               <button
                 key={opt}
                 type="button"
                 onClick={() => choose(opt)}
-                className={`n4-choice${answers[currentQ?.id] === opt ? ' is-selected' : ''}`}
+                className={`tool-choice${answers[currentQ?.id] === opt ? ' is-selected' : ''}`}
+                aria-pressed={answers[currentQ?.id] === opt}
                 disabled={busy}
               >
                 {opt}
@@ -552,7 +545,7 @@ export default function Niveau4() {
       )}
 
       {phase === 'generating' && (
-        <div className="n4-card n4-state">
+        <div className="tool-panel n4-card n4-state">
           <div className="n4-dots" aria-hidden="true"><span /><span /><span /></div>
           <p>On analyse tes réponses, ça peut prendre jusqu'à une minute…</p>
         </div>
@@ -560,20 +553,20 @@ export default function Niveau4() {
 
       {phase === 'results' && (
         <>
-          <div className="n4-card">
+          <div className="tool-panel n4-card">
             <h2>Analyse de personnalité</h2>
             <div className="n4-paragraphs">{renderParagraphs(analysis?.personalityAnalysis)}</div>
           </div>
 
           {analysis?.skillsAssessment && (
-            <div className="n4-card">
+            <div className="tool-panel n4-card">
               <h2>Tes qualités</h2>
               <div className="n4-paragraphs">{renderParagraphs(analysis.skillsAssessment)}</div>
             </div>
           )}
 
           {Array.isArray(analysis?.jobRecommendations) && analysis.jobRecommendations.length > 0 && (
-            <div className="n4-card">
+            <div className="tool-panel n4-card">
               <h2>Recommandations d'emploi</h2>
               <div className="n4-jobs-grid">
                 {analysis.jobRecommendations.map((job, i) => (
@@ -588,7 +581,7 @@ export default function Niveau4() {
             </div>
           )}
 
-          <div className="n4-card n4-actions">
+          <div className="tool-panel n4-card n4-actions">
             <button type="button" className="n4-btn-outline" onClick={onPreview} disabled={previewing}>
               <i className="ph ph-eye" aria-hidden="true" />
               {previewing ? 'Préparation…' : 'Aperçu'}
@@ -641,7 +634,7 @@ export default function Niveau4() {
 const styles = `
 .n4-page {
   width: 100%;
-  max-width: 760px;
+  max-width: 960px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -657,16 +650,6 @@ const styles = `
   border-radius: 28px;
   box-shadow: 0 26px 60px -30px rgba(0,0,0,.22), 0 2px 10px rgba(0,0,0,.04);
   padding: clamp(20px, 4vw, 32px);
-}
-.n4-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 30px;
-  right: 30px;
-  height: 6px;
-  border-radius: 0 0 8px 8px;
-  background: #c1ff72;
 }
 .n4-header h1 { margin: 0; font-size: 24px; font-weight: 800; line-height: 1.1; }
 .n4-header p { margin: 4px 0 0; color: #6b7280; font-size: 14px; }
@@ -734,7 +717,7 @@ const styles = `
   text-decoration: none;
   transition: transform .15s ease;
 }
-.n4-btn-primary { border: 0; background: #111827; color: #c1ff72; }
+.n4-btn-primary { border: 1px solid #111827; background: #c1ff72; color: #111827; }
 .n4-btn-primary:hover:not(:disabled) { transform: translateY(-1px); }
 .n4-btn-primary:disabled { opacity: .6; cursor: default; }
 .n4-btn-outline { border: 1.5px solid rgba(0,0,0,.16); background: #fff; color: #111827; }

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { usersAPI } from '../lib/api'
+import { ToolProgress } from '../components/ToolExperience'
 import {
   ORIENTATION_VIDEO_COMPLETION_ID,
   ORIENTATION_VIDEO_ITEMS
@@ -26,7 +27,6 @@ export default function OrientationVideos() {
   const nextVideo = ORIENTATION_VIDEO_ITEMS[activeIndex + 1] || null
   const watchedCount = ORIENTATION_VIDEO_ITEMS.filter((video) => watchedIds.has(video.questionId.toLowerCase())).length
   const allComplete = watchedCount === ORIENTATION_VIDEO_ITEMS.length
-  const progress = Math.round((watchedCount / ORIENTATION_VIDEO_ITEMS.length) * 100)
   const currentWatched = activeVideo ? watchedIds.has(activeVideo.questionId.toLowerCase()) : false
 
   useEffect(() => {
@@ -115,30 +115,8 @@ export default function OrientationVideos() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase text-gray-500">Module vidéo</p>
-          <h1 className="text-2xl font-semibold tracking-normal text-gray-950">Vidéos orientation</h1>
-          <p className="mt-1 max-w-2xl text-sm text-gray-500">
-            Un seul parcours vidéo pour retrouver les contenus orientation, métiers, études, oral et motivation.
-          </p>
-        </div>
-        <Link
-          to="/app/outils"
-          className="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-900 hover:border-black"
-        >
-          Retour aux outils
-        </Link>
-      </div>
-
-      <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-card">
-        <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-          <span className="font-semibold text-gray-900">Progression</span>
-          <span className="text-gray-500">{watchedCount}/{ORIENTATION_VIDEO_ITEMS.length}</span>
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-          <div className="h-full rounded-full bg-[#c1ff72] transition-all" style={{ width: `${progress}%` }} />
-        </div>
+      <section className="tool-panel">
+        <ToolProgress current={watchedCount} total={ORIENTATION_VIDEO_ITEMS.length} label="Vidéos vues" />
       </section>
 
       {error && (
@@ -156,6 +134,7 @@ export default function OrientationVideos() {
               <button
                 key={video.level}
                 type="button"
+                aria-pressed={active}
                 onClick={() => setActiveLevel(video.level)}
                 className={`w-full rounded-lg border p-3 text-left transition ${active ? 'border-black bg-white' : 'border-gray-200 bg-white hover:border-gray-300'} ${watched ? 'shadow-sm' : ''}`}
               >
@@ -173,7 +152,7 @@ export default function OrientationVideos() {
           })}
         </aside>
 
-        <section className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-card">
+        <section className="tool-panel tool-panel-flush">
           <div className="aspect-video w-full bg-black">
             <iframe
               key={activeVideo.videoId}
@@ -204,7 +183,7 @@ export default function OrientationVideos() {
                   type="button"
                   onClick={() => markWatched(activeVideo)}
                   disabled={Boolean(savingId)}
-                  className="inline-flex h-11 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-900 hover:border-black disabled:opacity-60"
+                  className="tool-secondary"
                 >
                   {savingId === activeVideo.questionId ? 'Validation...' : 'Marquer comme vue'}
                 </button>
@@ -213,7 +192,7 @@ export default function OrientationVideos() {
                 type="button"
                 onClick={handlePrimaryAction}
                 disabled={Boolean(savingId)}
-                className="inline-flex h-11 items-center justify-center rounded-lg bg-black px-4 text-sm font-semibold text-white hover:bg-gray-900 disabled:opacity-60"
+                className="tool-primary"
               >
                 {savingId === activeVideo.questionId ? 'Validation...' : primaryLabel}
               </button>

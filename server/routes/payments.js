@@ -1,13 +1,68 @@
 import express from 'express'
 import stripe, { STRIPE_CONFIG, stripeParentTraining, PARENT_TRAINING_CONFIG } from '../config/stripe.js'
 import { authenticateToken } from '../middleware/auth.js'
-import { supabase, supabaseAdmin } from '../config/supabase.js'
+import { supabaseAdmin } from '../config/supabase.js'
 
 const router = express.Router()
-const db = supabaseAdmin || supabase
+const db = supabaseAdmin
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PARENT_TRAINING_ORDERS_TABLE = 'parent_training_orders'
+
+async function checkoutPrice(client, config) {
+  if (config.priceId) {
+    const price = await client.prices.retrieve(config.priceId)
+    if (price.type !== 'one_time' || !Number.isSafeInteger(price.unit_amount) || price.unit_amount <= 0) {
+      throw new Error('Configured Stripe price must be a fixed, one-time price')
+    }
+    return { amount: price.unit_amount, currency: price.currency, priceId: price.id }
+  }
+  const amount = Math.round(config.priceAmount)
+  if (!Number.isSafeInteger(amount) || amount <= 0 || !/^[a-z]{3}$/.test(config.priceCurrency)) {
+    throw new Error('Stripe price configuration is invalid')
+  }
+  return { amount, currency: config.priceCurrency }
+}
+
+async function matchesCheckoutProduct(client, config, session) {
+  const expected = await checkoutPrice(client, config)
+  if (session.mode !== 'payment' || session.amount_total !== expected.amount || session.currency !== expected.currency) {
+    return false
+  }
+  const items = await client.checkout.sessions.listLineItems(session.id, {
+    limit: 2,
+    expand: ['data.price.product']
+  })
+  if (items.has_more || items.data.length !== 1) return false
+  const item = items.data[0]
+  if (item.quantity !== 1 || item.price?.unit_amount !== expected.amount || item.price?.currency !== expected.currency) {
+    return false
+  }
+  return expected.priceId
+    ? item.price.id === expected.priceId
+    : item.price.product?.name === config.productName
+}
+
+async function persistPaidSession(session, parentTraining) {
+  const updatePayload = parentTraining
+    ? { payment_status: 'paid', amount_total: session.amount_total, currency: session.currency }
+    : {
+        has_paid: true,
+        stripe_last_checkout_id: session.id,
+        stripe_last_payment_at: new Date().toISOString()
+      }
+  updatePayload.updated_at = new Date().toISOString()
+  if (session.customer && typeof session.customer === 'string') {
+    updatePayload.stripe_customer_id = session.customer
+  }
+  const query = parentTraining
+    ? db.from(PARENT_TRAINING_ORDERS_TABLE).update(updatePayload)
+        .eq('stripe_checkout_session_id', session.id).neq('payment_status', 'paid')
+    : db.from('profiles').update(updatePayload)
+        .eq('id', session.metadata.userId).or('has_paid.is.null,has_paid.eq.false')
+  const { error } = await query
+  if (error) throw error
+}
 
 router.get('/config', (req, res) => {
   res.json({
@@ -18,26 +73,21 @@ router.get('/config', (req, res) => {
     productName: STRIPE_CONFIG.productName,
     successUrl: STRIPE_CONFIG.successUrl,
     cancelUrl: STRIPE_CONFIG.cancelUrl,
-    enabled: Boolean(stripe)
+    enabled: Boolean(stripe && db)
   })
 })
 
 router.post('/checkout', authenticateToken, async (req, res) => {
-  if (!stripe) {
-    return res.status(503).json({ error: 'Stripe is not configured on the server' })
+  if (!stripe || !db) {
+    return res.status(503).json({ error: 'Stripe and the service-role database client must be configured' })
   }
   try {
     const { priceId: requestedPriceId } = req.body || {}
-    const priceId = requestedPriceId || STRIPE_CONFIG.priceId
-
-    const useInlinePrice = !priceId
-
-    if (useInlinePrice) {
-      const amount = Math.round(STRIPE_CONFIG.priceAmount)
-      if (!Number.isFinite(amount) || amount <= 0) {
-        return res.status(400).json({ error: 'Stripe price configuration is invalid' })
-      }
+    const priceId = STRIPE_CONFIG.priceId
+    if (requestedPriceId != null && requestedPriceId !== priceId) {
+      return res.status(400).json({ error: 'priceId must match the server-configured price' })
     }
+    const expected = await checkoutPrice(stripe, STRIPE_CONFIG)
 
     const successUrl = STRIPE_CONFIG.successUrl.includes('{CHECKOUT_SESSION_ID}')
       ? STRIPE_CONFIG.successUrl
@@ -47,8 +97,8 @@ router.post('/checkout', authenticateToken, async (req, res) => {
       ? [{ price: priceId, quantity: 1 }]
       : [{
           price_data: {
-            currency: STRIPE_CONFIG.priceCurrency || 'eur',
-            unit_amount: Math.round(STRIPE_CONFIG.priceAmount),
+            currency: expected.currency,
+            unit_amount: expected.amount,
             product_data: {
               name: STRIPE_CONFIG.productName || 'Zélia+ — Accès complet'
             }
@@ -56,13 +106,14 @@ router.post('/checkout', authenticateToken, async (req, res) => {
           quantity: 1
         }]
 
-  const session = await stripe.checkout.sessions.create({
+    const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items: lineItems,
       success_url: successUrl,
       cancel_url: STRIPE_CONFIG.cancelUrl,
       customer_email: req.user.email || undefined,
       metadata: {
+        product: 'zelia_access',
         userId: req.user.id
       }
     })
@@ -78,10 +129,11 @@ router.post('/checkout', authenticateToken, async (req, res) => {
         updatePayload.stripe_customer_id = session.customer
       }
 
-      await db
+      const { error } = await db
         .from('profiles')
         .update(updatePayload)
         .eq('id', req.user.id)
+      if (error) throw error
     }
 
     res.json({
@@ -95,44 +147,30 @@ router.post('/checkout', authenticateToken, async (req, res) => {
 })
 
 router.post('/verify', authenticateToken, async (req, res) => {
-  if (!stripe) {
-    return res.status(503).json({ error: 'Stripe is not configured on the server' })
+  if (!stripe || !db) {
+    return res.status(503).json({ error: 'Stripe and the service-role database client must be configured' })
   }
   try {
     const { sessionId } = req.body || {}
 
-    if (!sessionId) {
+    if (!sessionId || typeof sessionId !== 'string') {
       return res.status(400).json({ error: 'sessionId is required' })
     }
 
     const session = await stripe.checkout.sessions.retrieve(sessionId)
 
-    if (!session || session.metadata?.userId !== req.user.id) {
+    if (!session || session.metadata?.userId !== req.user.id
+      || (session.metadata.product && session.metadata.product !== 'zelia_access')) {
       return res.status(404).json({ error: 'Session not found' })
     }
 
     const paid = session.payment_status === 'paid'
 
-    if (paid && db) {
-      const updatePayload = {
-        has_paid: true,
-        stripe_last_checkout_id: session.id,
-        stripe_last_payment_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+    if (paid) {
+      if (!await matchesCheckoutProduct(stripe, STRIPE_CONFIG, session)) {
+        return res.status(400).json({ error: 'Checkout does not match the configured product and price' })
       }
-
-      if (session.customer && typeof session.customer === 'string') {
-        updatePayload.stripe_customer_id = session.customer
-      }
-
-      const { error } = await db
-        .from('profiles')
-        .update(updatePayload)
-        .eq('id', req.user.id)
-
-      if (error) {
-        console.warn('Failed to persist payment status after verification', error)
-      }
+      await persistPaidSession(session, false)
     }
 
     res.json({
@@ -165,13 +203,13 @@ router.get('/parent-training/config', (req, res) => {
     priceAmount: PARENT_TRAINING_CONFIG.priceAmount,
     priceCurrency: PARENT_TRAINING_CONFIG.priceCurrency,
     productName: PARENT_TRAINING_CONFIG.productName,
-    enabled: Boolean(stripeParentTraining)
+    enabled: Boolean(stripeParentTraining && db)
   })
 })
 
 router.post('/parent-training/checkout', async (req, res) => {
-  if (!stripeParentTraining) {
-    return res.status(503).json({ error: 'Stripe is not configured on the server' })
+  if (!stripeParentTraining || !db) {
+    return res.status(503).json({ error: 'Stripe and the service-role database client must be configured' })
   }
 
   try {
@@ -184,10 +222,7 @@ router.post('/parent-training/checkout', async (req, res) => {
       return res.status(400).json({ error: 'Adresse email invalide' })
     }
 
-    const amount = Math.round(PARENT_TRAINING_CONFIG.priceAmount)
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return res.status(400).json({ error: 'Stripe price configuration is invalid' })
-    }
+    const expected = await checkoutPrice(stripeParentTraining, PARENT_TRAINING_CONFIG)
 
     const successUrl = PARENT_TRAINING_CONFIG.successUrl.includes('{CHECKOUT_SESSION_ID}')
       ? PARENT_TRAINING_CONFIG.successUrl
@@ -197,8 +232,8 @@ router.post('/parent-training/checkout', async (req, res) => {
       mode: 'payment',
       line_items: [{
         price_data: {
-          currency: PARENT_TRAINING_CONFIG.priceCurrency || 'eur',
-          unit_amount: amount,
+          currency: expected.currency,
+          unit_amount: expected.amount,
           product_data: {
             name: PARENT_TRAINING_CONFIG.productName
           }
@@ -228,7 +263,7 @@ router.post('/parent-training/checkout', async (req, res) => {
         })
 
       if (error) {
-        console.error('Failed to persist parent training order', error)
+        throw error
       }
     }
 
@@ -243,8 +278,8 @@ router.post('/parent-training/checkout', async (req, res) => {
 })
 
 router.post('/parent-training/verify', async (req, res) => {
-  if (!stripeParentTraining) {
-    return res.status(503).json({ error: 'Stripe is not configured on the server' })
+  if (!stripeParentTraining || !db) {
+    return res.status(503).json({ error: 'Stripe and the service-role database client must be configured' })
   }
 
   try {
@@ -262,26 +297,11 @@ router.post('/parent-training/verify', async (req, res) => {
 
     const paid = session.payment_status === 'paid'
 
-    if (paid && db) {
-      const updatePayload = {
-        payment_status: 'paid',
-        amount_total: session.amount_total || null,
-        currency: session.currency || null,
-        updated_at: new Date().toISOString()
+    if (paid) {
+      if (!await matchesCheckoutProduct(stripeParentTraining, PARENT_TRAINING_CONFIG, session)) {
+        return res.status(400).json({ error: 'Checkout does not match the configured product and price' })
       }
-
-      if (session.customer && typeof session.customer === 'string') {
-        updatePayload.stripe_customer_id = session.customer
-      }
-
-      const { error } = await db
-        .from(PARENT_TRAINING_ORDERS_TABLE)
-        .update(updatePayload)
-        .eq('stripe_checkout_session_id', session.id)
-
-      if (error) {
-        console.warn('Failed to persist parent training payment status after verification', error)
-      }
+      await persistPaidSession(session, true)
     }
 
     res.json({
@@ -300,118 +320,59 @@ router.post('/parent-training/verify', async (req, res) => {
   }
 })
 
-export const parentTrainingWebhookHandler = async (req, res) => {
-  if (!stripeParentTraining) {
-    return res.json({ received: true, disabled: true })
-  }
-  if (!PARENT_TRAINING_CONFIG.webhookSecret) {
-    console.warn('Parent training Stripe webhook secret missing; skipping signature verification')
-  }
-
-  let event
-
-  try {
-    if (PARENT_TRAINING_CONFIG.webhookSecret) {
-      const signature = req.headers['stripe-signature']
-      event = stripeParentTraining.webhooks.constructEvent(req.body, signature, PARENT_TRAINING_CONFIG.webhookSecret)
-    } else {
-      event = req.body
+function webhookHandler(client, config, parentTraining) {
+  return async (req, res) => {
+    if (!client || !config.webhookSecret || !db) {
+      console.error('Stripe webhook requires Stripe, a signing secret and the service-role database client')
+      return res.status(503).json({ error: 'Webhook is not configured' })
     }
-  } catch (err) {
-    console.error('Parent training webhook signature verification failed', err)
-    return res.status(400).send(`Webhook Error: ${err.message}`)
-  }
-
-  try {
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object
-
-      if (session.metadata?.product === 'parent_training' && db) {
-        const updatePayload = {
-          payment_status: 'paid',
-          amount_total: session.amount_total || null,
-          currency: session.currency || null,
-          updated_at: new Date().toISOString()
-        }
-
-        if (session.customer && typeof session.customer === 'string') {
-          updatePayload.stripe_customer_id = session.customer
-        }
-
-        const { error } = await db
-          .from(PARENT_TRAINING_ORDERS_TABLE)
-          .update(updatePayload)
-          .eq('stripe_checkout_session_id', session.id)
-
-        if (error) {
-          console.error('Failed to update parent training order after webhook', error)
-        }
+    let event
+    try {
+      event = client.webhooks.constructEvent(req.body, req.headers['stripe-signature'], config.webhookSecret)
+    } catch (error) {
+      console.error('Webhook signature verification failed', error)
+      return res.status(400).send('Invalid webhook signature')
+    }
+    try {
+      if (!['checkout.session.completed', 'checkout.session.async_payment_succeeded', 'checkout.session.async_payment_failed'].includes(event.type)) {
+        return res.json({ received: true })
       }
+      const session = event.data.object
+      if (parentTraining
+        ? session.metadata?.product !== 'parent_training'
+        : !session.metadata?.userId || (session.metadata.product && session.metadata.product !== 'zelia_access')) {
+        return res.json({ received: true, ignored: true })
+      }
+      if (event.type === 'checkout.session.async_payment_failed') {
+        if (parentTraining) {
+          const { error } = await db.from(PARENT_TRAINING_ORDERS_TABLE)
+            .update({ payment_status: 'failed', updated_at: new Date().toISOString() })
+            .eq('stripe_checkout_session_id', session.id).neq('payment_status', 'paid')
+          if (error) throw error
+        }
+        return res.json({ received: true })
+      }
+      if (session.payment_status !== 'paid') {
+        if (event.type === 'checkout.session.async_payment_succeeded') {
+          console.error('Stripe async success event has no settled payment', session.id)
+          return res.status(400).json({ error: 'Payment is not settled' })
+        }
+        return res.json({ received: true, pending: true })
+      }
+      if (!await matchesCheckoutProduct(client, config, session)) {
+        console.error('Stripe webhook checkout does not match the configured product and price', session.id)
+        return res.status(400).json({ error: 'Unexpected checkout product or price' })
+      }
+      await persistPaidSession(session, parentTraining)
+      return res.json({ received: true })
+    } catch (error) {
+      console.error('Stripe webhook processing error:', error)
+      return res.status(500).send('Webhook handler failed')
     }
-  } catch (error) {
-    console.error('Parent training webhook processing error:', error)
-    return res.status(500).send('Webhook handler failed')
   }
-
-  res.json({ received: true })
 }
 
-export const paymentsWebhookHandler = async (req, res) => {
-  if (!stripe) {
-    // If Stripe isn't configured, acknowledge to avoid retries in non-Stripe envs
-    return res.json({ received: true, disabled: true })
-  }
-  if (!STRIPE_CONFIG.webhookSecret) {
-    console.warn('Stripe webhook secret missing; skipping signature verification')
-  }
-
-  let event
-
-  try {
-    if (STRIPE_CONFIG.webhookSecret) {
-      const signature = req.headers['stripe-signature']
-      event = stripe.webhooks.constructEvent(req.body, signature, STRIPE_CONFIG.webhookSecret)
-    } else {
-      event = req.body
-    }
-  } catch (err) {
-    console.error('Webhook signature verification failed', err)
-    return res.status(400).send(`Webhook Error: ${err.message}`)
-  }
-
-  try {
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object
-      const userId = session.metadata?.userId
-
-      if (userId && db) {
-        const updatePayload = {
-          has_paid: true,
-          stripe_last_checkout_id: session.id,
-          stripe_last_payment_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-
-        if (session.customer && typeof session.customer === 'string') {
-          updatePayload.stripe_customer_id = session.customer
-        }
-
-        const { error } = await db
-          .from('profiles')
-          .update(updatePayload)
-          .eq('id', userId)
-
-        if (error) {
-          console.error('Failed to update profile after webhook', error)
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Stripe webhook processing error:', error)
-    return res.status(500).send('Webhook handler failed')
-  }
-
-  res.json({ received: true })
-}
+export const parentTrainingWebhookHandler = webhookHandler(stripeParentTraining, PARENT_TRAINING_CONFIG, true)
+export const paymentsWebhookHandler = webhookHandler(stripe, STRIPE_CONFIG, false)
 
 export default router

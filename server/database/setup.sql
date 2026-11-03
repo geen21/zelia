@@ -281,6 +281,21 @@ CREATE POLICY "Users can view their own profile" ON public.profiles FOR SELECT U
 CREATE POLICY "Users can insert their own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
+-- Keep in sync with security_payment_profile_columns.sql for existing databases.
+REVOKE INSERT, UPDATE ON public.profiles FROM PUBLIC, anon, authenticated;
+REVOKE INSERT (has_paid, stripe_customer_id, stripe_last_checkout_id, stripe_last_payment_at),
+       UPDATE (has_paid, stripe_customer_id, stripe_last_checkout_id, stripe_last_payment_at)
+    ON public.profiles FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.profiles TO authenticated;
+GRANT INSERT (id, first_name, last_name, age, gender, department, school,
+              phone_number, avatar, accent_color, home_preference,
+              contact_preference, institution_data, avatar_json),
+      UPDATE (id, first_name, last_name, age, gender, department, school,
+              phone_number, avatar, accent_color, home_preference,
+              contact_preference, institution_data, avatar_json)
+    ON public.profiles TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.profiles TO service_role;
+
 CREATE POLICY "Company members can view company data" ON public.companies FOR SELECT USING (
     auth.uid() = owner_id
     OR EXISTS (

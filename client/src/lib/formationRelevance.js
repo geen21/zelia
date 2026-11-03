@@ -283,3 +283,14 @@ export function buildRelevanceSearchQueries(relevanceProfile, limit = 8) {
   }
   return queries
 }
+
+export function buildRelevanceDiscoveryQueries(relevanceProfile, limit = 8) {
+  const topics = buildRelevanceSearchQueries(relevanceProfile, limit)
+  const variants = topics.map(({ query }) => {
+    const words = significantOriginalWords(query).flatMap((word) => (
+      significantOriginalWords(FORMATION_ACRONYMS[normalizeRelevanceText(word)] || word)
+    ))
+    return [...new Set(words)].slice(0, 3).join(' ')
+  })
+  return [...new Set([...variants, ...topics.map(({ query }) => query)].filter(Boolean))]
+}

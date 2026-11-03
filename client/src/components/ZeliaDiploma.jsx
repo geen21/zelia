@@ -7,7 +7,7 @@ function formatDate(date) {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-export default function ZeliaDiploma({ firstName, lastName, personalityType, completionDate, avatarUrl, onDownloadComplete }) {
+export default function ZeliaDiploma({ firstName, lastName, personalityType, completionDate, avatarUrl, onDownloadComplete, compact = false }) {
   const diplomaRef = useRef(null)
   const [downloading, setDownloading] = useState(false)
 
@@ -50,7 +50,8 @@ export default function ZeliaDiploma({ firstName, lastName, personalityType, com
 
   return (
     <div className="space-y-4">
-      {/* Diploma visual — fixed size for PDF capture */}
+      {/* Keep the full-size PDF source off-screen in compact document cards. */}
+      <div aria-hidden={compact || undefined} style={compact ? { position: 'fixed', left: -10000, top: 0 } : undefined}>
       <div
         ref={diplomaRef}
         id={DIPLOMA_ID}
@@ -211,6 +212,7 @@ export default function ZeliaDiploma({ firstName, lastName, personalityType, com
           </div>
         </div>
       </div>
+      </div>
 
       {/* Download button */}
       <div className="flex justify-center">
@@ -218,12 +220,12 @@ export default function ZeliaDiploma({ firstName, lastName, personalityType, com
           type="button"
           onClick={handleDownload}
           disabled={downloading}
-          className="px-6 py-3 rounded-xl bg-black text-[#c1ff72] font-bold text-base hover:bg-gray-900 active:scale-95 transition-all flex items-center gap-2 shadow-lg hover:shadow-xl disabled:opacity-60"
+          className={compact ? 'zp-button zp-button--ink' : 'px-6 py-3 rounded-xl bg-black text-[#c1ff72] font-bold text-base hover:bg-gray-900 active:scale-95 transition-all flex items-center gap-2 shadow-lg hover:shadow-xl disabled:opacity-60'}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v3a2 2 0 002 2h14a2 2 0 002-2v-3" />
           </svg>
-          {downloading ? 'Génération en cours…' : 'Télécharger votre diplôme'}
+          {downloading ? 'Génération en cours…' : compact ? 'Télécharger mon diplôme' : 'Télécharger votre diplôme'}
         </button>
       </div>
     </div>

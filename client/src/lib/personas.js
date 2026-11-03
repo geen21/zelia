@@ -1,6 +1,5 @@
 // Persona system for the orientation flow.
-// 5 axes, each measured by statements answered on a 4-level agreement scale
-// (questions.category = axis id, options[].value = pole the statement describes),
+// 5 axes measured by concrete dilemmas (legacy agreement answers remain supported),
 // RIASEC interests (questions.category = 'interest', see questionScale.js) passed to the LLM only,
 // + 12 curated personas with portrait-chinois attributes.
 
@@ -256,18 +255,29 @@ function getAxisLevel(score) {
 }
 
 // Scores answers on the 5 axes (-2..+2, first pole positive) and returns the closest persona
-// (same answers always give the same persona). RIASEC interests (0..1) are computed separately
+// (same answers always give the same persona). Relative RIASEC interests (0..1) are computed separately
 // for the LLM prompt and never change the persona.
 // `questions`: [{ id, category, options }], `answers`: { [questionId]: stored answer }
 export function computePersonaFromAnswers(questions, answers) {
   const questionList = Array.isArray(questions) ? questions : []
   const axisTotals = {}
   const interestTotals = {}
+  let hasInterestDilemmas = false
 
   for (const question of questionList) {
     const parsed = parseAnswer(question, answers?.[question.id])
     if (!parsed) continue
     if (isInterestQuestion(question)) {
+      if (parsed.alternative) {
+        hasInterestDilemmas = true
+        for (const [code, direction] of [[parsed.value, 1], [parsed.alternative, -1]]) {
+          const entry = interestTotals[code] || { sum: 0, count: 0 }
+          entry.sum += 0.5 + direction * parsed.signed / 4
+          entry.count += 1
+          interestTotals[code] = entry
+        }
+        continue
+      }
       const entry = interestTotals[parsed.value] || { sum: 0, count: 0 }
       entry.sum += parsed.level / MAX_LEVEL
       entry.count += 1
@@ -292,8 +302,8 @@ export function computePersonaFromAnswers(questions, answers) {
   for (const [code, entry] of Object.entries(interestTotals)) {
     interests[code] = entry.count ? entry.sum / entry.count : 0
   }
-  // Organisation (C) is not asked directly: it comes from the structured pole.
-  if (axisTotals.creative_structured?.count) {
+  // Only legacy questionnaires infer C from the structured pole.
+  if (!interestTotals.C && axisTotals.creative_structured?.count) {
     interests.C = Math.max(0, -axisScores.creative_structured) / 2
   }
 
@@ -336,12 +346,19 @@ export function computePersonaFromAnswers(questions, answers) {
   }
 
   const topInterests = Object.entries(interests)
-    .filter(([, value]) => value >= 0.5)
+    .filter(([, value]) => hasInterestDilemmas ? value > 0.5 : value >= 0.5)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
     .map(([code]) => code)
 
-  return { persona: best, profile, axisScores, axisStrength, interests, topInterests }
+  const lowerPriorityInterests = hasInterestDilemmas
+    ? Object.entries(interests)
+      .filter(([code, value]) => value < 0.5 && interestTotals[code]?.count >= 2)
+      .sort((a, b) => a[1] - b[1])
+      .map(([code]) => code)
+    : []
+
+  return { persona: best, profile, axisScores, axisStrength, interests, topInterests, lowerPriorityInterests }
 }
 
 function hexNoHash(hex) {

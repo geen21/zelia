@@ -1,61 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  DndContext,
-  PointerSensor,
-  TouchSensor,
-  closestCenter,
-  useSensor,
-  useSensors
-} from '@dnd-kit/core'
-import {
-  SortableContext,
-  arrayMove,
-  useSortable,
-  verticalListSortingStrategy
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+import ToolRanking from '../../components/ToolRanking'
 import supabase from '../../lib/supabase'
 import apiClient, { usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
-
-function SortableItem({ id, label, index }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging
-  } = useSortable({ id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm ${isDragging ? 'opacity-70' : ''}`}
-    >
-      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-black text-xs font-semibold text-white">{index + 1}</div>
-      <div className="flex-1 font-medium text-gray-900">{label}</div>
-      <button
-        type="button"
-        className="touch-none grid h-11 w-11 shrink-0 place-items-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-950 sm:h-9 sm:w-9"
-        aria-label={`Déplacer ${label}`}
-        style={{ touchAction: 'none' }}
-        onTouchStart={(event) => event.preventDefault()}
-        {...attributes}
-        {...listeners}
-      >
-        <i className="ph ph-dots-six-vertical text-lg" aria-hidden="true" />
-      </button>
-    </div>
-  )
-}
 
 function sanitizeText(raw) {
   if (!raw) return ''
@@ -94,11 +42,6 @@ export default function Niveau18() {
   const [items, setItems] = useState([])
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 0, tolerance: 5 } })
-  )
 
   useEffect(() => {
     let mounted = true
@@ -195,17 +138,6 @@ export default function Niveau18() {
     return () => { mounted = false }
   }, [navigate])
 
-  const handleDragEnd = (event) => {
-    const { active, over } = event
-    if (!over || active.id === over.id) return
-    setItems((prev) => {
-      const oldIndex = prev.findIndex((it) => it.id === active.id)
-      const newIndex = prev.findIndex((it) => it.id === over.id)
-      if (oldIndex === -1 || newIndex === -1) return prev
-      return arrayMove(prev, oldIndex, newIndex)
-    })
-  }
-
   const onValidate = async () => {
     if (saving) return
     setSaving(true)
@@ -254,40 +186,21 @@ export default function Niveau18() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 p-2 md:p-6">
-      <header className="flex items-start gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-black text-xl text-[#c1ff72]">
-          <i className="ph ph-sort-ascending" aria-hidden="true" />
-        </span>
-        <div>
-          <p className="text-xs font-semibold uppercase text-gray-500">Explorer les métiers</p>
-          <h1 className="mt-1 text-2xl font-semibold text-gray-950">Classement des métiers</h1>
-          <p className="mt-1 text-sm text-gray-500">Place les métiers du plus attirant au moins attirant.</p>
-        </div>
-      </header>
-
+    <div className="tool-stack">
       {saveError && (
         <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
           {saveError}
         </div>
       )}
 
-      <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-card md:p-6">
+      <section className="tool-panel">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-950">Ton ordre de préférence</h2>
           <span className="text-sm text-gray-500">{items.length} métiers</span>
         </div>
 
         {items.length > 0 ? (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-3">
-                {items.map((item, index) => (
-                  <SortableItem key={item.id} id={item.id} label={item.label} index={index} />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+          <ToolRanking items={items} onChange={setItems} disabled={saving} />
         ) : (
           <p className="rounded-lg bg-gray-50 px-4 py-5 text-sm text-gray-500">Aucun métier n’est disponible pour le moment.</p>
         )}
@@ -295,7 +208,7 @@ export default function Niveau18() {
         <button
           type="button"
           onClick={onValidate}
-          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-black px-4 text-sm font-semibold text-white hover:bg-gray-900 disabled:opacity-60"
+          className="tool-primary mt-5 w-full"
           disabled={saving || items.length === 0}
         >
           {saving ? 'Enregistrement...' : 'Enregistrer mon classement'}

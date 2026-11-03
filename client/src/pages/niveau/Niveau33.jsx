@@ -100,19 +100,8 @@ export default function Niveau33() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5 p-2 md:p-6">
-      <header className="flex items-start gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-black text-xl text-[#c1ff72]">
-          <i className="ph ph-envelope-simple" aria-hidden="true" />
-        </span>
-        <div>
-          <p className="text-xs font-semibold uppercase text-gray-500">Prendre du recul</p>
-          <h1 className="mt-1 text-2xl font-semibold text-gray-950">Lettre à soi-même</h1>
-          <p className="mt-1 text-sm text-gray-500">Écris à la personne que tu seras dans cinq ans.</p>
-        </div>
-      </header>
-
-      <section className="grid overflow-hidden rounded-lg border border-gray-200 bg-white shadow-card lg:grid-cols-[minmax(220px,0.7fr)_minmax(0,1.3fr)]">
+    <div className="tool-stack">
+      <section className="tool-panel tool-panel-flush grid lg:grid-cols-[minmax(220px,0.7fr)_minmax(0,1.3fr)]">
         <aside className="space-y-4 bg-black p-5 text-white">
           <div>
             <p className="text-xs font-semibold uppercase text-gray-300">Envoi prévu</p>
@@ -153,7 +142,7 @@ export default function Niveau33() {
           )}
 
           {!completed && (
-            <button type="submit" disabled={sending || !letter.trim()} className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-black px-4 text-sm font-semibold text-white hover:bg-gray-900 disabled:opacity-50">
+            <button type="submit" disabled={sending || !letter.trim()} className="tool-primary w-full">
               {sending ? 'Programmation...' : 'Programmer ma lettre'}
             </button>
           )}
@@ -169,7 +158,7 @@ export default function Niveau33() {
               <p className="mt-1 text-sm text-gray-600">Elle sera envoyée le {futureDateLabel}.</p>
             </div>
           </div>
-          <Link to="/app" className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg bg-black px-4 text-sm font-semibold text-white hover:bg-gray-900">
+          <Link to="/app" className="tool-primary shrink-0">
             Retour au parcours
           </Link>
         </section>

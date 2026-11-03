@@ -557,9 +557,9 @@ export default function Niveau19() {
     return (
       <div className="mx-auto max-w-xl p-2 md:p-6">
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-800 shadow-card">
-          <h1 className="text-xl font-bold">On n'a pas pu ouvrir cet outil</h1>
+          <h2 className="text-xl font-bold">On n'a pas pu ouvrir cet outil</h2>
           <p className="mt-2">{loadError}</p>
-          <button type="button" onClick={() => window.location.reload()} className="mt-4 rounded-lg border border-red-300 bg-white px-4 py-2 font-semibold text-red-800">
+          <button type="button" onClick={() => window.location.reload()} className="tool-secondary mt-4">
             Réessayer
           </button>
         </div>
@@ -568,8 +568,8 @@ export default function Niveau19() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-2 md:p-6">
-      <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-card">
+    <div className="tool-stack">
+      <section className="tool-panel overflow-hidden">
         <div className="h-1.5 bg-[#c1ff72]" />
         <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center md:p-7">
           <img
@@ -579,9 +579,9 @@ export default function Niveau19() {
           />
           <div className="min-w-0 flex-1">
             <p className="mb-1 text-sm font-bold uppercase tracking-normal text-gray-500">Ton plan de progression</p>
-            <h1 className="text-2xl font-extrabold text-black md:text-3xl">
+            <h2 className="text-2xl font-extrabold text-black md:text-3xl">
               {firstName ? `À toi de jouer, ${firstName}.` : 'À toi de jouer.'}
-            </h1>
+            </h2>
             <p className="mt-2 max-w-2xl text-text-secondary">
               Pas de note ni de bonne réponse ici. Choisis les sujets que tu veux travailler maintenant, puis donne-toi un premier pas concret.
             </p>
@@ -638,7 +638,7 @@ export default function Niveau19() {
       </section>
 
       {selectedAxes.length > 0 && (
-        <section aria-labelledby="plan-heading" className="rounded-2xl border border-gray-200 bg-white p-5 shadow-card md:p-7">
+        <section aria-labelledby="plan-heading" className="tool-panel">
           <div className="mb-5">
             <p className="text-sm font-bold uppercase tracking-normal text-gray-500">Étape 2</p>
             <h2 id="plan-heading" className="text-2xl font-extrabold text-black">Ton premier pas</h2>
@@ -676,7 +676,7 @@ export default function Niveau19() {
               type="button"
               onClick={savePlan}
               disabled={saving}
-              className="inline-flex min-h-11 items-center justify-center rounded-full bg-black px-5 py-2.5 font-bold text-white transition hover:bg-gray-800 disabled:cursor-wait disabled:opacity-60"
+              className="tool-primary"
             >
               {saving ? 'Enregistrement...' : 'Enregistrer mon plan'}
             </button>

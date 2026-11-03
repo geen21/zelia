@@ -8,6 +8,27 @@ import { FORMATION_PREFERENCE_LEVELS, candidateMatchesTargetStudyLevel, getTarge
 
 export const PARTNER_PRIORITY_MAX_BONUS = 5
 
+function parseAnswerList(raw) {
+  if (!raw) return []
+  let list
+  try {
+    const parsed = JSON.parse(raw)
+    list = Array.isArray(parsed) ? parsed : [parsed]
+  } catch {
+    list = String(raw).split(/[,;|\n]/)
+  }
+  return [...new Set(list.map((value) => normalizeRelevanceText(value).replace(/ /g, '_')).filter(Boolean))]
+}
+
+export function buildPartnerMatchingProfile(pickFirstValue) {
+  const formationPreferences = parseAnswerList(pickFirstValue('orientation_formation_preferences'))
+  return {
+    career_domains: parseAnswerList(pickFirstValue('orientation_career_domains')),
+    formation_preferences: formationPreferences,
+    target_level: formationPreferences.length ? '' : pickFirstValue('orientation_target_level')
+  }
+}
+
 export function getPartnerPriorityBonus(partner) {
   const priority = Math.max(0, Math.min(100, Number(partner?.results_priority) || 0))
   return (priority / 100) * PARTNER_PRIORITY_MAX_BONUS

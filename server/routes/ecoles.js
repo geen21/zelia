@@ -1,7 +1,7 @@
 import express from 'express'
 import { supabaseAdmin } from '../config/supabase.js'
 import { authenticateToken } from '../middleware/auth.js'
-import { matchPartnerFormations } from '../utils/partnerMatching.js'
+import { fetchActivePartnerFormations, matchPartnerFormations } from '../utils/partnerMatching.js'
 import { notifyPortalLeads, SHARING_VERSION } from '../utils/schoolDashboard.js'
 
 const router = express.Router()
@@ -89,15 +89,8 @@ async function fetchExtraInfoForMatching(userId) {
 // GET /api/ecoles/partenaires - List all partner school formations
 router.get('/partenaires', authenticateToken, async (req, res) => {
   try {
-    const { data, error } = await supabaseAdmin
-      .from('ecoles_partenaires')
-      .select('*')
-      .eq('is_active', true)
-      .order('school_name')
-      .order('city')
-
-    if (error) throw error
-    res.json({ formations: data || [] })
+    const formations = await fetchActivePartnerFormations(supabaseAdmin)
+    res.json({ formations })
   } catch (e) {
     console.error('GET /ecoles/partenaires error:', e)
     res.status(500).json({ error: 'Failed to fetch formations' })
@@ -165,20 +158,7 @@ router.get('/matched', authenticateToken, async (req, res) => {
       ? (storedCity || getPartnerCityForDepartment(departmentCode, departmentName))
       : ''
 
-    const formations = []
-    const pageSize = 1000
-    for (let offset = 0; ; offset += pageSize) {
-      const { data, error } = await supabaseAdmin
-        .from('ecoles_partenaires')
-        .select('*')
-        .eq('is_active', true)
-        .eq('show_in_results', true)
-        .order('id')
-        .range(offset, offset + pageSize - 1)
-      if (error) throw error
-      formations.push(...(data || []))
-      if (!data || data.length < pageSize) break
-    }
+    const formations = await fetchActivePartnerFormations(supabaseAdmin, { resultsOnly: true })
 
     if (formations.length === 0) {
       return res.json({ matched: [] })

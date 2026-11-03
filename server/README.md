@@ -52,6 +52,14 @@ npm run dev
 - `PUT /profile` - Update user profile (authenticated)
 - `GET /me` - Get current user info (authenticated)
 
+#### Quotas API et chargement du profil
+
+Les appels `/api` disposent de deux quotas independants par IP et par periode de 15 minutes : 1 000 lectures (`GET`/`HEAD`) et 100 ecritures/autres methodes. La navigation et le chargement du profil ne consomment donc plus le quota d'ecriture. Les lectures publiques des formations et sitemaps restent exemptees ; les preflights `OPTIONS`, les fichiers statiques et `/health` ne consomment aucun quota. Les limiteurs plus specifiques, notamment les invitations ecoles, restent actifs.
+
+Un depassement renvoie HTTP 429 avec `{ error, code: 'RATE_LIMIT_EXCEEDED' }`, les en-tetes `RateLimit-*` et `Retry-After` (secondes). Le profil affiche alors un message d'attente explicite, sans presenter ce blocage temporaire comme une perte de donnees. Les requetes refusees apparaissent aussi dans les logs HTTP du backend.
+
+Regression sans base de donnees : `node --test scripts/verify_profile_rate_limit.test.mjs`.
+
 ### Activities (`/api/activities`)
 - `GET /` - Get all activities (with filtering)
 - `GET /:id` - Get activity by ID
@@ -79,16 +87,30 @@ npm run dev
 - `GET /:id/responses` - Get user responses for questionnaire (authenticated)
 - `GET /user/responses` - Get all user questionnaire responses (authenticated)
 
-#### Questionnaire d'orientation v3
+#### Questionnaire d'orientation v4
 
-Appliquer [migrate_questions_v3.sql](database/migrate_questions_v3.sql) avant de deployer le nouveau client. Elle ajoute 20 phrases naturelles (ids 400-419, `questionnaire_type = 'inscription_v3'`), toutes avec les reponses affichees dans l'ordre « Carrément / Plutôt oui / Plutôt pas / Pas du tout ». Les 10 questions d'axes couvrent les deux poles de chaque axe ; les 10 questions d'interets couvrent sciences, sante et aide, arts, nature, entreprise, numerique, transmission, communication, sport et societe. Chaque option porte `value` (pole ou code RIASEC) et `level` (0-3, de « Pas du tout » a « Carrément ») : l'ordre d'affichage ne change pas le calcul.
+Appliquer [migrate_questions_v4.sql](database/migrate_questions_v4.sql) avant de deployer le nouveau client. Elle ajoute 20 dilemmes (ids 500-519, `questionnaire_type = 'inscription_v4'`) entre deux activites concretes, chacune avec ses contraintes. Deux boutons affichent directement ces activites : un seul clic repond et avance. Aucun A/B ni degre d'adhesion supplementaire. Chaque option porte `label` (activite, aussi utilisee comme reponse enregistree), `value` (pole ou code RIASEC) et `strength: 2` pour le calcul partage. Aucune interpretation ne transforme directement un choix en metier.
 
-Le parcours demande explicitement `GET /api/questionnaire/questions?type=inscription_v3&limit=20`. Les anciennes questions restent intactes et disponibles aux anciens clients : ne pas remplacer leurs libelles ou interpretations par ceux de la v3. Les reponses et resultats continuent d'utiliser le type `inscription`, avec les nouveaux identifiants de questions. Le cache de progression passe a `orientation-flow-v3-20` ; une progression anterieure ne declenche pas d'analyse automatique.
+Les 10 dilemmes d'axes couvrent les cinq axes deux fois, en inversant les positions des poles. Les 10 comparaisons d'interets couvrent directement les six familles RIASEC, chacune 3 ou 4 fois. Chaque comparaison donne 1 a la famille choisie et 0 a l'alternative ; la moyenne par famille evite de favoriser les familles davantage exposees. Un score de 0,5 ne constitue pas un interet dominant ; une famille moins choisie sur plusieurs comparaisons est depriorisee, jamais exclue definitivement.
 
-Le persona reste calcule sur les 5 axes uniquement. Les interets sont transmis au LLM avec les reponses detaillees : une envie n'est pas une aptitude mesuree, et un manque d'interet ne doit pas exclure une formation. Les anciennes reponses binaires et prefixees (`Plutôt :`, `Un peu :`) restent lisibles. Verification de la migration, de sa reexecution et de la conservation de l'historique : `node scripts/verify_orientation_questionnaire.mjs`.
+Le parcours demande `GET /api/questionnaire/questions?type=inscription_v4&limit=20`. Les questions v1/v2/v3 restent intactes et disponibles aux anciens clients : ne pas remplacer leurs libelles ou interpretations. Les reponses et resultats conservent le type `inscription`, avec les nouveaux identifiants. Le cache passe a `orientation-flow-v4-binary-20` ; une progression anterieure est invalidee et ne declenche pas d'analyse automatique. Si la premiere v4 a deja ete appliquee, rejouer la migration : les anciennes reponses prefixees et leurs interpretations sont preservees, avec leur force d'origine. Le client affiche aussi seulement deux activites avant cette reexecution.
+
+Le persona depend des cinq axes uniquement. Le backend recalcule les interets depuis les reponses enregistrees et transmet au LLM les activites choisies et les alternatives moins choisies, avec leur nuance. La transmission, l'animation et l'accompagnement ne prouvent pas un interet pour le soin ; les soins exigent un signal explicite. Ce questionnaire n'est pas un test psychometrique valide. Les anciens formats restent lisibles. Verification migration/scoring/historique/contexte LLM : `node scripts/verify_orientation_questionnaire.mjs`.
 
 ### Partage des résultats (`/api/share`)
 - `POST /results` - Envoie le PDF des résultats d’un élève aux adresses e-mail fournies (authentifié)
+
+## Paiements Stripe (`/api/payments`)
+
+Le backend choisit seul le tarif : `STRIPE_PRICE_ID` doit designer un prix ponctuel fixe. Sans identifiant, `STRIPE_PRICE_AMOUNT` (centimes), `STRIPE_PRICE_CURRENCY` et `STRIPE_PRODUCT_NAME` definissent le tarif inline. Un `priceId` client different est refuse. La verification et les webhooks comparent le total, la devise et l'unique ligne de commande au produit configure avant toute activation. Les anciennes sessions sans metadata `product` restent compatibles avec ces controles ; conserver le tarif configure jusqu'au reglement des sessions en attente.
+
+Les deux parcours, Zelia+ et formation parents, exigent le client Supabase **service-role** pour les ecritures de paiement. Les webhooks exigent leur secret de signature, sans repli non signe : `STRIPE_WEBHOOK_SECRET` et, pour le compte parents, `STRIPE_PARENT_WEBHOOK_SECRET`.
+
+Configurer les deux endpoints Stripe pour recevoir `checkout.session.completed`, `checkout.session.async_payment_succeeded` et `checkout.session.async_payment_failed`. Une session terminee mais non reglee reste en attente. Seul `payment_status = 'paid'` active les droits ; un echec differe marque la commande parents `failed` sans retrograder une commande deja payee. Les notifications repetees ne reappliquent pas l'activation. Une erreur de persistance renvoie HTTP 500 pour permettre la relivraison Stripe.
+
+Avant de deployer sur une base existante, appliquer manuellement [security_payment_profile_columns.sql](database/security_payment_profile_columns.sql), apres [setup.sql](database/setup.sql). Cette migration rejouable retire aux roles publics/utilisateurs les droits d'insertion et de modification des colonnes de paiement, y compris les anciens grants par colonne. Les champs de profil explicitement editables et la RLS de propriete restent disponibles ; les nouvelles colonnes ne deviennent pas automatiquement editables. Les nouvelles bases beneficient des memes permissions dans `setup.sql`.
+
+Regression locale, avec Stripe/Supabase simules et PostgreSQL embarque, sans secrets ni appels distants : `npm run verify:payments`.
 
 ## Back-office (`/api/admin`)
 
@@ -124,6 +146,12 @@ Dans `/admin/partenaires`, chaque fiche permet de masquer une formation des reco
 Si la sauvegarde de ces reglages est refusee, verifier que la migration partenaires ci-dessus a bien ete appliquee, et pas uniquement celle du graphique eleves. Elle peut etre rejouee dans le SQL Editor Supabase, apres toute reexecution de la migration principale : celle-ci remet l'ancienne definition de `backoffice_change`, meme si les colonnes partenaires existent encore. Une fonction SQL ancienne qui refuse les nouveaux champs renvoie maintenant un diagnostic de migration explicite ; aucune validation ni ecriture d'audit n'est contournee.
 
 L'ecran d'orientation utilise une grille commune : une insertion partenaire apres trois formations nationales, avec au plus trois partenaires, affiches seulement apres le chargement des resultats nationaux. `GET /api/ecoles/matched` classe les partenaires avec le meme algorithme de pertinence que le catalogue national (`client/src/lib/partnerRelevance.js`, importe par `server/utils/partnerMatching.js` : le serveur doit donc etre deploye depuis le depot complet). La priorite ajoute au plus 5 points au classement des partenaires pertinents, sans rendre visible un partenaire hors sujet ni modifier les scores affiches ou l'ordre du catalogue national. Les selections nationales et les demandes directes aux partenaires gardent leurs actions distinctes.
+
+Dans l'espace eleve, `/app/formations` affiche au contraire un catalogue commun sans plafond de trois partenaires ni deduplication des campus. `GET /api/ecoles/partenaires` lit tous les partenaires actifs par pages de 1000, dans l'ordre stable ecole/ville/id ; une erreur sur une page interrompt explicitement la reponse, sans renvoyer un catalogue partiel comme une reussite. Les formations masquees des recommandations restent consultables si elles sont actives.
+
+La page recalcule les correspondances a chaque visite avec le bilan et le profil courants. Les partenaires sont enrichis par `/api/ecoles/matched` ; les autres restent "A explorer" sans pourcentage. Les formations nationales utilisent les memes fonctions de pertinence et de niveau que le test. La priorite ne change jamais le pourcentage ; dans cette grille elle departage seulement des partenaires de meme score. Les cartes ouvrent les fiches existantes, sans creer de demande de contact. La preference de mobilite n'impose pas de filtre au catalogue partenaire complet. Un timeout persistant de la recherche nationale renvoie `503`, et non une liste vide de succes, pour permettre une reprise explicite.
+
+Verification ciblee : depuis `server`, `node --test scripts/verify_partner_matching.test.mjs` couvre aussi la pagination de 2005 partenaires et une panne de page intermediaire. Depuis `client`, `npm run verify:formations-ui` couvre la grille commune avec API simulees.
 
 ### Ajouter une formation sur plusieurs campus
 
@@ -259,7 +287,7 @@ CREATE TABLE questionnaire_responses (
 - `NODE_ENV` - Environment (development/production)
 - `SUPABASE_URL` - Supabase project URL
 - `SUPABASE_ANON_KEY` - Supabase anonymous key
-- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (optional)
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (required for payments and back-office)
 - `JWT_SECRET` - JWT secret for token verification
 - `CLIENT_URL` - Frontend client URL for CORS
 - `SMTP_HOST` - SMTP server hostname for outgoing e-mails

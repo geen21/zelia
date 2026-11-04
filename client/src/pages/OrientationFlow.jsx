@@ -8,9 +8,10 @@ import OrientationLoading from '../components/OrientationLoading.jsx'
 import OrientationFormationResults from '../components/OrientationFormationResults.jsx'
 import { SCHOOL_SHARING_VERSION } from '../lib/schoolSharing'
 import { mixFormationResults } from '../lib/orientationFormationResults.js'
+import { loadExplorerCatalog, nationalExplorerCards } from '../lib/formationExplorer.js'
+import { buildNationalRelevanceProfile, getNationalStudyLevels, nationalSearchNotice, resolveNationalDepartment } from '../lib/nationalFormationMatching.js'
 import { getDepartmentCity } from '../lib/departments.js'
-import { buildFormationRelevanceProfile, buildRelevanceSearchQueries, scoreFormationRelevance } from '../lib/formationRelevance.js'
-import { FORMATION_PREFERENCE_LEVELS, filterCandidatesByTargetStudyLevel, getTargetStudyLevel, inferFormationStudyLevel } from '../lib/formationLevel.js'
+import { filterCandidatesByTargetStudyLevel, getTargetStudyLevel } from '../lib/formationLevel.js'
 import { buildLoreleiUrl, buildPersonaAvatarConfig, computePersonaFromAnswers, getPersonaBySlug } from '../lib/personas.js'
 import { getAnswerChoiceIndex, getAnswerChoices, isAgreementQuestion, isDilemmaQuestion } from '../lib/questionScale.js'
 import { generatePersonaShareCard } from '../lib/shareImage.js'
@@ -1412,6 +1413,9 @@ export default function OrientationFlow() {
   const [dbFormations, setDbFormations] = useState([])
   const [dbFormationsLoading, setDbFormationsLoading] = useState(false)
   const [dbFormationsResolved, setDbFormationsResolved] = useState(false)
+  const [dbFormationsError, setDbFormationsError] = useState('')
+  const [dbFormationsNotice, setDbFormationsNotice] = useState('')
+  const [nationalRetryCount, setNationalRetryCount] = useState(0)
   const [recommendationsSaveError, setRecommendationsSaveError] = useState('')
   const [recommendationsRetryCount, setRecommendationsRetryCount] = useState(0)
   const savedRecommendationsPayload = useRef(null)
@@ -2019,123 +2023,26 @@ export default function OrientationFlow() {
   }
 
   const getInitialFormationDeckCandidates = async (profile, department, count = AI_FORMATION_DECK_SIZE) => {
-    const relevanceProfile = buildFormationRelevanceProfile({ analysis: analysisData, profile })
-    const hasRelevanceSignals = relevanceProfile.groups.length > 0
-    const preferredLevels = new Set(getSelectedFormationPreferenceOptions(profile)
-      .map((option) => FORMATION_PREFERENCE_LEVELS[option.value])
-      .filter(Boolean))
-    const targetLevel = getTargetStudyLevel(profile)
-    if (targetLevel) preferredLevels.add(targetLevel)
-
-    // Search topics come from the recommended studies/jobs and chosen domains.
-    // Format preferences (bachelor, BTS...) only qualify those topics: a bare
-    // "bachelor" query returns any bachelor in France, whatever its field.
-    const topicPlans = buildRelevanceSearchQueries(relevanceProfile, count).map((topic) => ({
-      kind: 'formation',
-      query: topic.query,
-      title: topic.label,
-      reason: topic.kind === 'study' ? 'Étude recommandée par ton bilan' : topic.kind === 'job' ? `Lié au métier ${topic.label}` : `Univers choisi : ${topic.label}`
-    }))
-    const qualifiedPreferencePlans = getSelectedFormationPreferenceOptions(profile).flatMap((option) => {
-      const qualifier = FORMATION_PREFERENCE_SEARCH_QUERIES[option.value] || option.label
-      return topicPlans
-        .filter((plan) => !normalizeDiversityText(plan.query).includes(normalizeDiversityText(qualifier)))
-        .slice(0, 2)
-        .map((plan) => ({ ...plan, query: `${qualifier} ${plan.query}`, reason: `${option.label} · ${plan.reason}` }))
+    const nearHome = profile.study_location === 'near_home'
+    const departmentName = nearHome ? resolveNationalDepartment(department) : ''
+    if (nearHome && !departmentName) throw new Error('Précise ton département pour rechercher près de chez toi.')
+    const context = { analysis: analysisData, profile: { ...profile, department: departmentName } }
+    const result = await loadExplorerCatalog(orientationAPI.searchFormations, {
+      context, department: departmentName, pageSize: Math.min(40, count * 3)
     })
-    const fallbackTopicPlans = hasRelevanceSignals
-      ? []
-      : uniquePlans([
-        ...buildCareerDomainPlans(profile),
-        ...buildStrongSubjectPlans(profile),
-        ...buildAnalysisRecommendationPlans('formations', analysisData, flattenTextParts(profile).join(' '))
-      ])
-    const primaryPlans = uniquePlans([
-      ...qualifiedPreferencePlans,
-      ...topicPlans,
-      ...fallbackTopicPlans
-    ]).slice(0, count)
-    const genericPlans = uniquePlans([
-      ...buildFormationPreferencePlans(profile),
-      ...buildGenericFormationPlans(targetLevel)
-    ])
-
-    const scoreCandidates = (candidates) => {
-      if (!hasRelevanceSignals) return candidates
-      return candidates
-        .map((candidate) => {
-          const levelMatches = preferredLevels.has(inferFormationStudyLevel(candidate))
-          const relevance = scoreFormationRelevance(candidate, relevanceProfile, { levelMatches })
-          return relevance.relevant ? { ...candidate, matchScore: relevance.score, relevance } : null
-        })
-        .filter(Boolean)
+    if (result.errors.length && !result.rows.length) throw result.errors[0]
+    const hasSignals = buildNationalRelevanceProfile(context).groups.length > 0
+    const cards = nationalExplorerCards(result.rows, context)
+      .filter((card) => !hasSignals || card.score != null)
+      .sort((a, b) => (b.score || 0) - (a.score || 0))
+    const candidates = cards.map((card, index) => ({
+      ...normalizeFormation(card.raw, index), title: card.title, matchScore: card.score
+    }))
+    return {
+      candidates: diversifyCandidates(candidates, { maxPerFormation: 1, maxPerSchool: 2 }).slice(0, count),
+      notice: nationalSearchNotice(profile, result.rows),
+      error: result.errors.length ? 'Certaines formations nationales n’ont pas pu être chargées. Réessaie pour compléter les résultats.' : ''
     }
-
-    // Progressive broadening: each wave relaxes one constraint (department
-    // scoping, then format qualifiers, then generic diploma queries). Every
-    // wave goes through the thematic filter, so off-topic rows never surface:
-    // fewer results beat unrelated ones.
-    const searchWaves = [
-      primaryPlans.length ? {
-        plans: primaryPlans,
-        context: {
-          studyLocation: profile.study_location,
-          department,
-          profile,
-          maxFormationPlans: Math.min(primaryPlans.length, count),
-          maxFormationQueryVariants: MAX_FORMATION_QUERY_VARIANTS
-        }
-      } : null,
-      primaryPlans.length ? {
-        plans: primaryPlans,
-        context: {
-          profile,
-          maxFormationPlans: Math.min(primaryPlans.length, count),
-          maxFormationQueryVariants: MAX_FORMATION_QUERY_VARIANTS
-        }
-      } : null,
-      topicPlans.length ? {
-        plans: topicPlans,
-        context: { profile: {}, maxFormationPlans: Math.min(topicPlans.length, count), maxFormationQueryVariants: 1 }
-      } : null,
-      {
-        plans: genericPlans,
-        context: {
-          studyLocation: profile.study_location,
-          department,
-          profile,
-          maxFormationQueryVariants: 1
-        }
-      },
-      {
-        // Last resort: generic diploma queries, no department, no level filter.
-        plans: genericPlans,
-        context: { profile: {}, maxFormationQueryVariants: 1 }
-      }
-    ].filter(Boolean)
-
-    let catalogCandidates = []
-    for (const wave of searchWaves) {
-      if (catalogCandidates.length >= count) break
-      const waveCandidates = await fetchTableCandidates(wave.plans, count, 'formations', wave.context)
-        .catch((catalogError) => {
-          console.warn('Formation catalog search wave failed', catalogError)
-          return []
-        })
-      catalogCandidates = mergeUniqueCandidates(catalogCandidates, scoreCandidates(waveCandidates))
-    }
-
-    if (hasRelevanceSignals) {
-      catalogCandidates = [...catalogCandidates].sort((left, right) => (right.matchScore || 0) - (left.matchScore || 0))
-    }
-
-    // Real formation_france rows first: the reveal screen only keeps concrete
-    // candidates, and merging analysis tiles first would let them consume the
-    // one-per-formation-title diversity slots of the very DB rows they describe.
-    return diversifyCandidates(
-      mergeUniqueCandidates(catalogCandidates, filterCandidatesByTargetStudyLevel(getAnalysisFormationCandidates(analysisData, count), profile)),
-      { maxPerFormation: 1, maxPerSchool: 2 }
-    ).slice(0, count)
   }
 
   const getFinalFormationSearchPlans = (profile, liked = [], count = AI_FORMATION_KEYWORD_COUNT) => {
@@ -2153,17 +2060,24 @@ export default function OrientationFlow() {
     let mounted = true
     setDbFormationsLoading(true)
     setDbFormationsResolved(false)
+    setDbFormationsError('')
+    setDbFormationsNotice('')
     ;(async () => {
       try {
         const department = await resolveUserDepartment().catch(() => userDepartment)
-        const candidates = await getInitialFormationDeckCandidates(microProfile, department, 10)
+        const result = await getInitialFormationDeckCandidates(microProfile, department, 10)
         if (!mounted) return
-        const concrete = candidates.filter(isDatabaseCandidate).slice(0, 8)
+        const concrete = result.candidates.filter(isDatabaseCandidate).slice(0, 8)
         setDbFormations(concrete)
+        setDbFormationsNotice(result.notice)
+        setDbFormationsError(result.error)
         preselectNewFormationIds(concrete.map((candidate) => candidate.id))
       } catch (matchError) {
         console.warn('Formation matching failed', matchError)
-        if (mounted) setDbFormations([])
+        if (mounted) {
+          setDbFormations([])
+          setDbFormationsError('Impossible de rechercher les formations nationales. Vérifie ton département et réessaie.')
+        }
       } finally {
         if (mounted) {
           setDbFormationsLoading(false)
@@ -2173,7 +2087,7 @@ export default function OrientationFlow() {
     })()
     return () => { mounted = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, analysisData])
+  }, [phase, analysisData, nationalRetryCount])
 
   useEffect(() => {
     if (phase !== 'formationReveal' || !formationResultsReady || partnerFormationsLoading) return
@@ -2532,7 +2446,7 @@ export default function OrientationFlow() {
               ? 'On cherche parmi 127 498 formations celles qui collent vraiment à ton profil...'
               : dbFormations.length
                 ? "Sélectionnées à partir de tes réponses, ton niveau visé et ta localisation."
-                : "On n'a pas trouvé de correspondance exacte tout de suite, mais voilà des pistes cohérentes avec ton profil."}
+                : "Aucune formation nationale ne respecte tous tes critères dans le catalogue consulté."}
           </p>
 
           {(!formationResultsReady || partnerFormationsLoading) && (
@@ -2548,6 +2462,17 @@ export default function OrientationFlow() {
                 Réessayer les formations partenaires
               </button>
             </div>
+          )}
+          {formationResultsReady && dbFormationsError && (
+            <div className="formation-lead-empty" role="alert">
+              <p>{dbFormationsError}</p>
+              <button type="button" className="secondary-action" onClick={() => setNationalRetryCount((count) => count + 1)}>
+                Réessayer les formations nationales
+              </button>
+            </div>
+          )}
+          {formationResultsReady && !dbFormationsError && dbFormationsNotice && (
+            <p className="formation-lead-empty-text">{dbFormationsNotice}</p>
           )}
 
           {recommendationsSaveError && (
@@ -2569,7 +2494,7 @@ export default function OrientationFlow() {
             />
           )}
 
-          {formationResultsReady && dbFormations.length === 0 && formationRecommendations.length > 0 && (
+          {formationResultsReady && !getNationalStudyLevels(microProfile).length && microProfile.study_location !== 'near_home' && dbFormations.length === 0 && formationRecommendations.length > 0 && (
             <div className="persona-portrait-grid">
               {formationRecommendations.map((formation) => (
                 <div key={formation.id} className="persona-portrait-tile">

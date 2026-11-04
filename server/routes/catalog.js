@@ -1,6 +1,7 @@
 import express from 'express'
 import { supabase } from '../config/supabase.js'
 import { optionalAuth } from '../middleware/auth.js'
+import { parseNationalSearch, searchNationalFormations } from '../utils/nationalFormationSearch.js'
 
 const router = express.Router()
 
@@ -65,6 +66,7 @@ const FORMATION_SEARCH_COLUMNS = [
   'code_formation'
 ].join(',')
 const formationSearchCache = new Map()
+const nationalSearchPending = new Map()
 
 function stripDiacritics(value) {
   return String(value || '')
@@ -243,6 +245,32 @@ router.get('/formations/search', optionalAuth, async (req, res) => {
     const { q, region, departement } = req.query
     const { page, pageSize, from } = getPagination(req.query)
     const normalizedQuery = typeof q === 'string' ? q.trim().replace(/\s+/g, ' ').slice(0, 120) : ''
+    if (req.query.matching === 'profile') {
+      let constraints
+      try {
+        constraints = parseNationalSearch(req.query)
+      } catch (error) {
+        return res.status(400).json({ error: error.message })
+      }
+      const key = JSON.stringify({ matching: 'profile', q: normalizedQuery, ...constraints, page, pageSize })
+      const cached = getCachedFormationSearch(key)
+      if (cached) return res.json(cached)
+      if (!nationalSearchPending.has(key)) {
+        nationalSearchPending.set(key, searchNationalFormations(supabase, {
+          q: normalizedQuery, ...constraints, pageSize, from
+        }).then((result) => {
+          const payload = { ...result, page }
+          setCachedFormationSearch(key, payload)
+          return payload
+        }).finally(() => nationalSearchPending.delete(key)))
+      }
+      try {
+        return res.json(await nationalSearchPending.get(key))
+      } catch (error) {
+        console.error('Personalized formation search error:', error.message)
+        return res.status(503).json({ error: 'La recherche de formations est temporairement indisponible. Réessaie dans un instant.' })
+      }
+    }
     const keywords = buildFormationSearchKeywords(normalizedQuery)
     const cacheKey = JSON.stringify({ q: normalizedQuery, region: region || '', departement: departement || '', page, pageSize })
     const cachedPayload = getCachedFormationSearch(cacheKey)

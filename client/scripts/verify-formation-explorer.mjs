@@ -139,8 +139,9 @@ const controller = new AbortController()
 let abortedRequests = 0
 const aborted = await loadExplorerCatalog(async (params, { signal }) => {
   abortedRequests += 1
-  assert.equal(signal, controller.signal)
+  assert.equal(signal.aborted, false)
   controller.abort()
+  assert.equal(signal.aborted, true)
   throw new Error('Cancelled transport')
 }, { context, signal: controller.signal })
 assert.equal(aborted, null, 'Expected cancellation does not become an error or partial success')

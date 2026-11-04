@@ -1,7 +1,7 @@
-import { getDiplomaFamily, getFormationSlug, getFormationTitle } from './formationDisplay.js'
-import { FORMATION_PREFERENCE_LEVELS, candidateMatchesTargetStudyLevel, getTargetStudyLevel, inferFormationStudyLevel } from './formationLevel.js'
-import { buildFormationRelevanceProfile, buildRelevanceDiscoveryQueries, normalizeRelevanceText, scoreFormationRelevance } from './formationRelevance.js'
+import { getDiplomaFamily, getFormationSlug } from './formationDisplay.js'
+import { normalizeRelevanceText } from './formationRelevance.js'
 import { buildPartnerMatchingProfile, getPartnerPriorityBonus } from './partnerRelevance.js'
+import { buildNationalDiscoveryQueries, buildNationalRelevanceProfile, getNationalFormationTitle, inferNationalStudyLevel, nationalFormationMatches, nationalSearchParameters, resolveNationalDepartment, scoreNationalFormation } from './nationalFormationMatching.js'
 
 export function buildExplorerProfile(entries = [], profile = {}) {
   const latest = [...entries].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))
@@ -10,31 +10,50 @@ export function buildExplorerProfile(entries = [], profile = {}) {
   const institution = profile.institution_data || {}
   return {
     ...buildPartnerMatchingProfile(pick),
+    strong_subjects: parseSubjectList(pick('orientation_strong_subjects')),
     study_location: pick('orientation_study_location'),
     department: pick('orientation_department_name') || institution.department_name || pick('orientation_department') || profile.department || '',
     city: pick('orientation_city') || profile.city || profile.location || institution.city || institution.ville || institution.commune || ''
   }
 }
 
+function parseSubjectList(value) {
+  if (!value) return []
+  try {
+    const subjects = JSON.parse(value)
+    if (!Array.isArray(subjects)) throw new Error('Expected a list of strong subjects')
+    return subjects
+  } catch (error) {
+    console.warn('Invalid saved orientation subjects:', error)
+    return []
+  }
+}
+
 export async function loadExplorerCatalog(searchFormations, {
   context = {}, search = '', department = '', pageSize = 24, queries, signal, isCurrent = () => true
 } = {}) {
-  const relevanceProfile = buildFormationRelevanceProfile(context)
+  const relevanceProfile = buildNationalRelevanceProfile(context)
   const personalized = !search && relevanceProfile.groups.length > 0
-  const pending = queries ? [...queries] : (search ? [search] : personalized ? buildRelevanceDiscoveryQueries(relevanceProfile) : [''])
+  const pending = queries ? [...queries] : (search ? [search] : personalized ? buildNationalDiscoveryQueries(context) : [''])
     .map((q) => ({ q, page: 1 }))
   const rows = new Map()
   const errors = []
   const active = () => isCurrent() && !signal?.aborted
+  const deadline = AbortSignal.timeout(6000)
+  const requestSignal = signal ? AbortSignal.any([signal, deadline]) : deadline
 
   // Keep each visit/click bounded; remaining topics and pages wait for the user.
   for (let request = 0; request < 3 && pending.length; request += 1) {
     if (!active()) return null
+    if (deadline.aborted) {
+      errors.push(new Error('La recherche a dépassé son délai. Réessaie pour compléter les résultats.'))
+      break
+    }
     const current = pending.shift()
     try {
       const { data } = await searchFormations({
-        q: current.q, departement: department, page: current.page, page_size: pageSize
-      }, { signal })
+        q: current.q, ...nationalSearchParameters(context.profile, department), page: current.page, page_size: pageSize
+      }, { signal: requestSignal })
       if (!active()) return null
       if (!Array.isArray(data?.items)) throw new Error('Invalid formation catalogue response')
       for (const row of data.items) {
@@ -63,23 +82,28 @@ export function externalFormationHref(value) {
 }
 
 export function nationalExplorerCards(rows, { analysis, profile = {} } = {}) {
-  const relevanceProfile = buildFormationRelevanceProfile({ analysis, profile })
-  const preferred = new Set((profile.formation_preferences || []).map((value) => FORMATION_PREFERENCE_LEVELS[value]).filter(Boolean))
-  const target = getTargetStudyLevel(profile)
-  if (target) preferred.add(target)
+  const relevanceProfile = buildNationalRelevanceProfile({ analysis, profile })
+  const department = profile.study_location === 'near_home' ? resolveNationalDepartment(profile.department) : ''
   const seen = new Set()
+  const newest = new Map()
+  for (const row of rows) {
+    if (!row.nmc || !(row.etab_uai || row.etab_nom)) continue
+    const key = `${row.etab_uai || row.etab_nom}|${row.commune}|${row.nmc}`
+    if (String(row.annee || '') > (newest.get(key) || '')) newest.set(key, String(row.annee || ''))
+  }
   return rows.filter((row) => {
     if (row.id == null || seen.has(String(row.id))) return false
     seen.add(String(row.id))
-    return true
+    const key = `${row.etab_uai || row.etab_nom}|${row.commune}|${row.nmc}`
+    if (newest.has(key) && String(row.annee || '') < newest.get(key)) return false
+    return nationalFormationMatches(row, profile, department)
   }).map((raw) => {
-    const candidate = { type: 'formation', raw }
-    const level = inferFormationStudyLevel(candidate)
-    const relevance = scoreFormationRelevance(candidate, relevanceProfile, { levelMatches: preferred.has(level) })
-    const recommended = relevance.relevant && candidateMatchesTargetStudyLevel(candidate, target)
+    const level = inferNationalStudyLevel(raw)
+    const relevance = scoreNationalFormation(raw, relevanceProfile, profile)
+    const recommended = relevance.relevant && nationalFormationMatches(raw, profile, department)
     return {
       key: `national-${raw.id}`, id: raw.id, source: 'national',
-      title: getFormationTitle(raw), school: raw.etab_nom, city: raw.commune || raw.departement,
+      title: getNationalFormationTitle(raw), school: raw.etab_nom, city: raw.commune || raw.departement,
       level: getDiplomaFamily(raw) || (level ? `Bac +${level}` : ''),
       score: recommended ? relevance.score : null, reason: recommended ? relevance.matchedGroups[0] : '',
       href: `/formations/${getFormationSlug(raw)}`, externalHref: externalFormationHref(raw.etab_url || raw.fiche),

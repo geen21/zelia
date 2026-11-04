@@ -47,11 +47,11 @@ const longJobs = [
 const formations = [
   ...Array.from({ length: 12 }, (_, index) => ({
     id: index + 1, nm: [`BTS Maintenance ${index + 1}`], nmc: `BTS-Maintenance-${index + 1}`,
-    etab_nom: `Lycée Exemple ${index + 1}`, commune: 'Paris', departement: '75', score: 0.9
+    etab_nom: `Lycée Exemple ${index + 1}`, commune: 'Paris', departement: 'Paris', score: 0.9
   })),
   // Off-topic rows a broad catalog query can return: they must never be shown.
-  { id: 101, nm: ['Bachelor in Management (BSc)'], etab_nom: 'ESCP', commune: 'Paris', departement: '75', score: 24 },
-  { id: 102, nm: ['Bachelor of Arts in Fashion Design'], etab_nom: 'IFM', commune: 'Paris', departement: '75', score: 24 }
+  { id: 101, nm: ['Bachelor in Management (BSc)'], etab_nom: 'ESCP', commune: 'Paris', departement: 'Paris', score: 24 },
+  { id: 102, nm: ['Bachelor of Arts in Fashion Design'], etab_nom: 'IFM', commune: 'Paris', departement: 'Paris', score: 24 }
 ]
 const offTopicTitles = ['Bachelor in Management', 'Fashion Design']
 const partner = {
@@ -590,6 +590,7 @@ try {
     { name: 'partners-only', viewport: { width: 390, height: 844 }, populated: false, partnersOnly: true },
     { name: 'partners-only-unselected', viewport: { width: 390, height: 844 }, populated: false, partnersOnly: true, selectPartners: false },
     { name: 'empty', viewport: { width: 390, height: 844 }, populated: false },
+    { name: 'doctorat-empty', viewport: { width: 390, height: 844 }, populated: false, formationPreferences: ['doctorat'] },
     { name: 'jobs-long-desktop', viewport: { width: 680, height: 900 }, populated: false, jobRecommendations: longJobs },
     { name: 'jobs-long-tablet', viewport: { width: 570, height: 800 }, populated: false, jobRecommendations: longJobs },
     { name: 'jobs-long-mobile', viewport: { width: 320, height: 568 }, populated: false, jobRecommendations: longJobs },
@@ -635,7 +636,7 @@ try {
     let releasePartners
     const partnersReady = new Promise((resolve) => { releasePartners = resolve })
     page.on('pageerror', (error) => errors.push(error.message))
-    await context.addInitScript(({ savedAnswers }) => {
+    await context.addInitScript(({ savedAnswers, formationPreferences }) => {
       localStorage.setItem('token', 'orientation-fixture-token')
       localStorage.setItem('orientation_resume_after_auth', 'analysis')
       localStorage.setItem('answers_progress', JSON.stringify({
@@ -643,11 +644,11 @@ try {
         answers: savedAnswers
       }))
       localStorage.setItem('orientation_micro_profile', JSON.stringify({
-        formation_preferences: ['bts'], strong_subjects: ['sciences'], study_location: 'near_home'
+        formation_preferences: formationPreferences, strong_subjects: ['sciences'], study_location: 'near_home'
       }))
       // Prevent the optional CDN Tailwind script from being needed by this test.
       window.tailwind = { config: {} }
-    }, { savedAnswers })
+    }, { savedAnswers, formationPreferences: scenario.formationPreferences || ['bts'] })
     await context.route('**/*', async (route) => {
       const url = new URL(route.request().url())
       if (url.hostname === 'api.dicebear.com') return route.fulfill({ contentType: 'image/svg+xml', body: avatarFixture })
@@ -742,6 +743,10 @@ try {
         await expect(page.getByRole('alert')).toHaveCount(0)
       }
       await expect(partnerCards).toHaveCount(partnerCount)
+      if (scenario.formationPreferences?.includes('doctorat')) {
+        await expect(page.getByText('Aucun doctorat correspondant', { exact: false })).toBeVisible()
+        await expect(page.locator('.persona-portrait-grid')).toHaveCount(0)
+      }
       await expect(page.getByRole('button', { name: /Demande d'infos|Demande envoyée/ })).toHaveCount(0)
       if (hasPartners) {
         for (const card of await partnerCards.all()) {

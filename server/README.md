@@ -2,6 +2,41 @@
 
 Backend API server for the Zelia application, built with Express.js and Supabase.
 
+## Profile-based national formation search
+
+The orientation reveal and `/app/formations` share national matching rules.
+`GET /api/catalog/formations/search?matching=profile` accepts `study_levels`
+(comma-separated 1, 2, 3, 5, 8), `formation_formats`, `departement`, `q`, and
+pagination. Department codes are resolved to exact names: `06` covers the
+Alpes-Maritimes, not only its reference city. A local search never silently
+becomes nationwide, and multiple selected diploma levels are retained.
+Selected diploma families are also respected: a BUT is not silently substituted
+for a licence, or an engineering course for a requested master. A level-only
+goal (for example `Bac+5`) still accepts equivalent diploma families.
+
+The constrained table query applies location and diploma-code filters before
+pagination; the existing `search_formations_simple` RPC complements it with
+descriptive `nm` matches. Hydration includes `fl`, `tf`, `app`, `int` and `aut`.
+National inference recognizes sparse `nmc` values such as `L1-Chimie`,
+`FI-BAC5` and `DNM-Numérique` (DN MADE, not a master). Older annual copies of a
+programme cannot displace its newest returned version. Partner matching is
+unchanged.
+
+There are at most three national API searches per visit/click, each bounded
+to a page plus a continuation sentinel and at most 50 descriptive candidates.
+Database requests share a 2.5-second deadline per search; the client batch
+has a 6-second deadline. Identical concurrent API requests are coalesced and
+successful results cached for five minutes. Errors remain visible and are
+never cached as successful empty results. No LLM call is used during search.
+
+The table currently contains predominantly multi-year post-bac catalogue
+entries; its row count is not a count of distinct diplomas or evidence of
+doctorate coverage. When no doctorate matches, the UI says so and distinguishes
+the licence/master pathway from actual doctorate proposals. It never substitutes
+unknown levels or lower diplomas for a doctorate-only request.
+
+Focused checks: `node --test scripts/verify_national_formation_matching.test.mjs scripts/verify_catalog_search.test.mjs`.
+
 ## Editorial metier pages (isolated `seo` schema)
 
 The editorial catalogue is not part of the application API. Apply

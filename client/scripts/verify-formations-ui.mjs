@@ -15,7 +15,7 @@ const tailwindScript = await tailwindResponse.text()
 const browser = await chromium.launch({ headless: true })
 const user = { id: 'formation-explorer-fixture', first_name: 'Camille', department: '75' }
 const rows = [
-  { id: 1, nm: ['BTS Services informatiques aux organisations'], nmc: 'BTS-SIO', etab_nom: 'Lycée national', commune: 'Paris', etab_url: 'https://example.com/national',
+  { id: 1, nm: ['BTS Services informatiques aux organisations'], nmc: 'BTS-SIO', etab_nom: 'Lycée national', commune: 'Paris', departement: 'Paris', etab_url: 'https://example.com/national',
     fiche: 'https://example.com/fiche?utm_source=old&utm_campaign=rentree#inscription', dataviz: 'https://example.com/stats',
     facebook: 'https://www.facebook.com/ecole', linkedin: 'https://www.linkedin.com/school/ecole', youtube: 'https://www.youtube.com/@ecole',
     email: 'contact@example.com', telephone: '0123456789' },
@@ -57,7 +57,8 @@ async function prepare(viewport, options = {}) {
     const request = route.request()
     const url = new URL(request.url())
     const path = url.pathname.replace(/^.*\/api/, '')
-    state.requests.push({ path, q: url.searchParams.get('q'), page: url.searchParams.get('page'), department: url.searchParams.get('departement') })
+    state.requests.push({ path, q: url.searchParams.get('q'), page: url.searchParams.get('page'), department: url.searchParams.get('departement'),
+      levels: url.searchParams.get('study_levels'), matching: url.searchParams.get('matching') })
     if (path === state.failure) return route.fulfill({ status: 503, json: { error: 'Fixture temporarily unavailable' } })
     if (path === state.heldPath) {
       state.heldStarted = true
@@ -69,7 +70,7 @@ async function prepare(viewport, options = {}) {
     if (path === '/users/profile') data = { profile: user }
     else if (path === '/users/me') data = { user }
     else if (path === '/users/profile/extra-info') data = { entries: state.noTest ? [] : [
-      { question_id: 'orientation_formation_preferences', answer_text: '["bts"]' },
+      { question_id: 'orientation_formation_preferences', answer_text: JSON.stringify(state.formationPreferences || ['bts']) },
       { question_id: 'orientation_study_location', answer_text: 'near_home' },
       { question_id: 'orientation_department_name', answer_text: 'Paris' }
     ] }
@@ -272,7 +273,7 @@ try {
       await expect(page.locator('#formation-partner-00 h2')).toContainText('parcours cybersécurité')
       await noOverflow(page)
       await page.getByRole('checkbox', { name: 'Élargir la recherche nationale à toute la France' }).check()
-      await expect.poll(() => state.requests.filter((r) => r.path === '/catalog/formations/search' && r.department === '').length).toBeGreaterThan(0)
+      await expect.poll(() => state.requests.filter((r) => r.path === '/catalog/formations/search' && !r.department).length).toBeGreaterThan(0)
       await expect(page.getByText('Recherche nationale élargie : vérifie la localisation avant de poursuivre.')).toBeVisible()
       const card = page.locator('#formation-partner-00')
       await card.getByRole('button', { name: 'Demander des informations' }).click()
@@ -320,7 +321,21 @@ try {
       assert.deepEqual(errors, [])
     } finally { await context.close() }
   }
-  console.log(`Formations UI verified: unified grid, all partners, scores, recalculation, links, consent, pagination, stale responses, partial failures and 320/390/1440px. Screenshots: ${output}`)
+  for (const formationPreferences of [['doctorat'], ['master', 'doctorat']]) {
+    const { context, page, state, errors } = await prepare({ width: 390, height: 844 }, { formationPreferences })
+    try {
+      await page.goto(`${base}/app/formations`)
+      await ready(page)
+      await expect(page.getByText('Aucun doctorat correspondant', { exact: false })).toBeVisible()
+      await expect(page.locator('.fe-card[data-source=national]')).toHaveCount(0)
+      const searches = state.requests.filter((request) => request.path === '/catalog/formations/search')
+      assert.ok(searches.length > 0 && searches.length <= 3)
+      assert.ok(searches.every((request) => request.department === 'Paris' && request.matching === 'profile'))
+      assert.ok(searches.every((request) => request.levels === (formationPreferences.length === 1 ? '8' : '5,8')))
+      assert.deepEqual(errors, [])
+    } finally { await context.close() }
+  }
+  console.log(`Formations UI verified: unified grid, all partners, levels, doctorate notice, exact location, scores, recalculation, links, consent, pagination, stale responses, partial failures and 320/390/1440px. Screenshots: ${output}`)
 } finally {
   await browser.close()
 }

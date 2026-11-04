@@ -5,6 +5,7 @@ import { BEST_MATCH_MIN_SCORE, buildFormationRelevanceProfile } from '../lib/for
 import { buildExplorerProfile, filterExplorerCards, loadExplorerCatalog, mixExplorerCards, nationalExplorerCards, partnerExplorerCards, sortExplorerCards } from '../lib/formationExplorer'
 import { SCHOOL_SHARING_NOTICE } from '../lib/schoolSharing'
 import { withZeliaUtm } from '../lib/outboundUrl.js'
+import { nationalSearchNotice, resolveNationalDepartment } from '../lib/nationalFormationMatching.js'
 import './FormationsEcoles.css'
 
 const EMPTY_RESOURCE = { data: null, loading: true, error: '' }
@@ -66,7 +67,7 @@ export default function FormationsEcoles() {
   const hasSignals = Boolean(context && buildFormationRelevanceProfile(context).groups.length)
   const nearHome = profile?.study_location === 'near_home' && !nationwide
   const department = nearHome
-    ? (/^\d/.test(profile.department) ? profile.city || profile.department : profile.department || profile.city)
+    ? resolveNationalDepartment(profile.department)
     : ''
   const missingLocation = nearHome && !department
   const catalogKey = JSON.stringify([context, search, department, missingLocation, retry, location.key])
@@ -86,7 +87,8 @@ export default function FormationsEcoles() {
     const append = catalogRequest.key === catalogKey && catalogRequest.queries != null
     setCatalog((prev) => ({ ...prev, key: catalogKey, rows: append ? prev.rows : [], loading: true, ready: append && prev.ready, error: '', nextQueries: [] }))
     loadExplorerCatalog(orientationAPI.searchFormations, {
-      context: context || {}, search, department, pageSize: PAGE_SIZE,
+      context: context ? { ...context, profile: nationwide ? { ...profile, study_location: 'both' } : profile } : {},
+      search, department, pageSize: PAGE_SIZE,
       queries: append ? catalogRequest.queries : undefined, signal: controller.signal, isCurrent: () => active
     }).then((result) => {
       if (!active || !result) return
@@ -108,9 +110,11 @@ export default function FormationsEcoles() {
 
   const partners = useMemo(() => partnerExplorerCards(resources.partners.data || [], resources.matched.data || []), [resources.partners.data, resources.matched.data])
   const nationals = useMemo(() => {
-    const cards = nationalExplorerCards(catalog.rows, context || {})
+    const cards = nationalExplorerCards(catalog.rows, {
+      ...context, profile: nationwide ? { ...profile, study_location: 'both' } : profile
+    })
     return search || !hasSignals ? cards : cards.filter((card) => card.score != null)
-  }, [catalog.rows, context, search, hasSignals])
+  }, [catalog.rows, context, profile, nationwide, search, hasSignals])
   const allCards = useMemo(() => sortExplorerCards([...nationals, ...partners]), [nationals, partners])
   const cities = [...new Set(allCards.map((card) => card.city).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'))
   const filtered = mixExplorerCards([
@@ -184,6 +188,7 @@ export default function FormationsEcoles() {
       {busy && <span role="status">Recherche de tes formations…</span>}
     </div>
     {catalog.error && <div role="alert" className="fe-error">{catalog.error} <button onClick={() => setRetry((prev) => prev + 1)}>Réessayer les formations</button></div>}
+    {!busy && !catalog.error && nationalSearchNotice(profile, catalog.rows) && <p className="fe-notice">{nationalSearchNotice(profile, catalog.rows)}</p>}
     {!busy && !catalog.error && !catalog.nextQueries.length && !nationals.length && nearHome && !missingLocation && <p className="fe-notice">Aucune formation nationale trouvée près de chez toi. Coche « Élargir la recherche nationale à toute la France » pour explorer d’autres établissements.</p>}
     {!busy && !catalog.error && !catalog.nextQueries.length && hasSignals && !relevantCount && !search && <p className="fe-notice">Aucune correspondance trouvée pour le moment. Explore les partenaires ci-dessous ou essaie une recherche plus large.</p>}
     {!busy && catalog.nextQueries.length > 0 && !nationals.length && <p className="fe-notice">La recherche nationale se fait par petits lots. Continue pour découvrir d’autres formations.</p>}

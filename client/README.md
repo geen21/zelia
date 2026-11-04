@@ -14,14 +14,24 @@ Performance des pages publiques
 - Apres `npm run build`, lancer `npm run verify:web-vitals`. Le controle demarre et ferme sa propre preview ; aucun serveur externe n'est requis. Il teste la landing, une fiche formation et le blog en 390/1440 px, cache froid, reseau a 1,6 Mbit/s et latence 40 ms, CPU ralenti x4 sur mobile.
 - Budgets : LCP median de trois visites <= 2,5 s, CLS <= 0,1, JavaScript charge < 180 Kio gzip. Le controle verifie aussi l'hydratation, l'absence de CDN Tailwind et de double GTM. Les API et services externes sont simules/bloques : ce test de regression ne remplace ni PageSpeed en production ni les donnees terrain CrUX.
 
+Socle UX commun
+- `src/components/ZeliaTheme.jsx` active `src/zelia-ui.css` sur les pages publiques, l'acces/orientation et l'espace eleve. `/espace-ecoles/*` (page Ambassadeur comprise) et `/admin/*` ne recoivent ni racine `.zelia-ui` ni footer public. Ne pas deplacer ces regles vers `body`, `:root` ou les controles globaux.
+- La reference est l'accueil : Bricolage Grotesque, creme, citron/rose, contours sombres, cartes arrondies et ombres decalees. Les tokens `--ui-*` centralisent couleurs, largeurs, gouttieres et echelles de titres ; les variables historiques des familles s'y rattachent.
+- Pour une nouvelle surface, reutiliser `zelia-page-intro`, `zelia-card` (ou `zelia-card--flush`), `zelia-button` et les variantes `zelia-button--lime` / `zelia-button--secondary`. Les classes existantes de cartes et d'actions sont raccordees aux memes primitives. Conserver les couleurs semantiques et les etats selectionnes, soumis, desactives ou en erreur.
+- Les champs textuels ont une taille de texte de 16 px et une hauteur minimale de 52 px ; les actions communes ont une hauteur minimale de 48 px. Les corrections `!important` des champs restent limitees au socle pour neutraliser le theme historique, sans redimensionner les toggles personnalises.
+- Les pages de contenu partagent `PublicFooter`. Le quiz et les pages d'acces restent epures ; `Layout` conserve la navigation eleve et le chat sa zone de defilement et son compositeur. Les prerendus blog/metiers utilisent le meme cadre que le rendu React.
+- Le cadre public reserve au moins une hauteur d'ecran avant le footer, y compris pendant le chargement differe ou les appels API. Conserver cette reservation pour eviter un saut de mise en page au premier affichage.
+- `scripts/fixtures/assert-shared-ux.mjs` controle les styles calcules (pas uniquement les classes), les dimensions tactiles, les cartes, la typographie, le contexte du footer et les debordements. Il est utilise par les verifications publiques, Parents, connexion, profil, formations et outils.
+- `npm run verify:tools-ui` couvre aussi les gabarits tableau de bord, resultats, discussion, emplois et fiche partenaire, avec API simulees. `npm run verify:school-portal`, `npm run verify:school-registration` et `npm run verify:admin-ui` controlent les espaces exclus.
+
 Navigation publique partagee
-- `src/components/PublicHeader.jsx` et son CSS definissent le meme menu sur la landing, la page parents, le blog et ses articles, les formations publiques et les metiers. `BlogHeaderNav` reexporte ce composant pour les pages existantes.
+- `src/components/PublicHeader.jsx` et son CSS definissent le meme menu sur la landing, la page parents, le blog et ses articles, les formations publiques, les metiers et les pages legales. `BlogHeaderNav` reexporte ce composant pour les pages existantes.
 - Les liens, le logo, le CTA et le menu mobile sont communs ; le lien Metiers reste conditionne par `VITE_METIER_PAGES_ENABLED`. Les portails connectes conservent leur navigation dediee.
 - Le bouton parents "Je m'inscris" reste disponible dans le hero, en dehors du menu commun.
-- Avec Vite sur le port 5187 : `npm run verify:public-nav`. `PUBLIC_NAV_TEST_URL` permet de choisir un autre serveur. Le controle compare les liens et les styles sur huit pages et cinq largeurs, teste le clavier et la navigation sans rechargement. Les API et services externes sont simules.
+- Avec Vite sur le port 5187 : `npm run verify:public-nav`. `PUBLIC_NAV_TEST_URL` permet de choisir un autre serveur. Le controle compare le menu et le footer sur dix pages et cinq largeurs (1440/1024/768/390/320 px), teste le clavier, la navigation sans rechargement et la sortie du theme vers Ambassadeur. Les API et services externes sont simules.
 
 Landing publique (/)
-- Contenus historiques et avatar Zelia d'origine (DiceBear Lorelei, seed `zelia`), dans une palette citron/rose vive inspiree du blog, avec aplats colores et ombres decalees. Les styles restent scopes a `.zelia-home` dans `src/pages/Home.css`.
+- Contenus historiques et avatar Zelia d'origine (DiceBear Lorelei, seed `zelia`), dans une palette citron/rose vive inspiree du blog, avec aplats colores et ombres decalees. `src/pages/Home.css` conserve les compositions propres a l'accueil ; les primitives communes sont dans `src/zelia-ui.css`.
 - Le menu, l'apercu editorial et le pied de page donnent acces au blog. Les trois derniers articles proviennent de `src/pages/blog/posts.js`, tries par date decroissante comme la liste du blog, sans modifier le catalogue. Leurs couvertures reutilisent `BlogCover`.
 - Les parcours orientation, parents, ecoles et connexion, le partage et les redirections des utilisateurs connectes sont conserves. Le lien Metiers reste conditionne par `VITE_METIER_PAGES_ENABLED`.
 
@@ -33,14 +43,18 @@ Verification de la landing (depuis client, avec Vite sur le port 5187)
 
 Pages metiers (/metiers/)
 - Catalogue editorial independant, conserve dans le schema Supabase `seo`, pas dans `public`.
+- Une page par fiche metier officielle ROME representee dans les donnees historiques ; ses appellations sont regroupees sur la meme page, sans publier les variantes d'annonces comme des metiers differents.
 - Fiches detaillees : 600–900 mots utiles, cinq sections developpees, FAQ et sources officielles ; verdict OUI/NON explique en 1–2 phrases, sommaire et CTA vers /orientation.
 - Aucun lien de candidature issu des anciennes annonces et aucun appel Gemini a la visite.
-- Depuis client, apres l'export serveur : `npm run build:metiers`. Le snapshot par defaut est `server/.generated/metiers.json` ; un autre fichier se choisit avec `-- --snapshot <chemin>`.
-- Le build inclut le HTML complet, les JSON par page, les liens d'annuaire, le SEO et les sitemaps. La navigation publique "Metiers" est activee uniquement par ce build.
+- Depuis client, apres l'export serveur : `npm run build` conserve automatiquement le catalogue. `npm run build:metiers` permet aussi d'exiger explicitement sa presence. Le snapshot par defaut est `server/.generated/metiers.json` ; `METIER_SNAPSHOT_PATH` ou `-- --snapshot <chemin>` permettent d'en choisir un autre.
+- Le build inclut le HTML complet, les JSON par page, les liens d'annuaire, le SEO et les sitemaps. La navigation publique "Metiers" est activee lorsque le catalogue est present.
 - Un export `--preview --detailed-only` produit les fiches detaillees pilotes en `noindex`, sans sitemap metier. Un catalogue de production incomplet ou contenant encore des fiches courtes fait echouer l'export.
-- `npm run build` conserve le build historique sans activer ces pages ; une installation ayant active les metiers doit deployer avec `build:metiers`, jamais remplacer son catalogue par un build ordinaire.
-- `npm run verify:metiers` construit uniquement des donnees synthetiques locales, puis teste HTML sans JS, SEO, navigation React, erreurs et largeurs 1440/768/390/320 px. Ne jamais deployer ce build de test ; reconstruire ensuite depuis l'export reel.
+- Sans snapshot ni catalogue deja construit, `npm run build` conserve le fonctionnement historique. Si des pages metiers existent mais que leur snapshot a disparu ou est invalide, le build echoue avant d'effacer la version precedente, au lieu de supprimer silencieusement les fiches.
+- En developpement, Vite sert les JSON depuis le meme snapshot valide, sans API distante ni generation IA ; les changements du fichier sont pris en compte au prochain chargement. En preview, seuls les fichiers du build sont servis : une donnee absente renvoie une vraie 404 JSON, jamais la page d'accueil HTML.
+- `npm run verify:metier-serving` teste ces garanties sur de vrais serveurs Vite et verifie la conservation du catalogue lors d'un build classique.
+- `npm run verify:metiers` construit uniquement des donnees synthetiques locales via le build classique, puis teste les vrais serveurs Vite preview/dev, HTML sans JS, SEO, navigation React, reponses HTML erronees, erreurs/reessai et largeurs 1440/768/390/320 px. Ne jamais deployer ce build de test ; reconstruire ensuite depuis l'export reel.
 - Pour verifier le vrai echantillon et conserver son build : `npm run verify:metiers -- --snapshot ..\server\.generated\metiers.json`. La previsualisation doit rester non indexable et sans sitemap metier.
+- Ajouter `--skip-build` pour verifier les fichiers deja construits contre ce meme snapshot. Les serveurs de test utilisent des ports attribues par Node, sans occuper le port 5173 d'un serveur de developpement existant.
 
 Orientation (/orientation)
 - La v5 place chaque dilemme dans une phrase comparative courte, plutot que dans de longs boutons.

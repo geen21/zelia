@@ -3,7 +3,8 @@
 ## Core Web Vitals : verification apres deploiement
 
 - Reconstruire et deployer le client complet (y compris les nouveaux chunks et CSS).
-  Utiliser `build:metiers` si le catalogue metiers est active, sinon `build`.
+  `npm run build` conserve automatiquement le catalogue metiers lorsque son
+  snapshot est present ; `build:metiers` exige explicitement ce catalogue.
   Le correctif ne demande pas de migration SQL ni de modification du backend.
 - Avant livraison, depuis `client`, executer `npm run verify:web-vitals` sur le build.
   Les mesures locales excluent les services externes et la latence reelle des API.
@@ -19,14 +20,18 @@
 
 ## Pages metiers : contenu editorial isole
 
-1. Appliquer [migration_metier_pages.sql](server/database/migration_metier_pages.sql).
+1. Appliquer [migration_metier_pages.sql](server/database/migration_metier_pages.sql),
+   puis [migration_metier_catalog_rome.sql](server/database/migration_metier_catalog_rome.sql).
    Tous les nouveaux objets sont dans `seo`, sans ecriture sur les annonces
    de `public.metiers_france`. Ajouter `seo` aux schemas exposes de la Data API
    Supabase pour les scripts serveur ; les roles `anon` et `authenticated` restent
    interdits par les permissions de schema, tables et fonctions.
-2. Depuis `server`, executer `npm run metiers -- sync`, examiner le rapport
-   prive et les regroupements, puis `npm run metiers -- sample`. Le budget
-   total persistant est de 2 USD, echantillon et reprises inclus.
+2. Telecharger le ZIP JSON officiel France Travail dans
+   `server/.generated/rome-open-data.zip`, puis executer
+   `npm run metiers -- sync-rome`. La cible est une page par fiche ROME presente
+   dans la base historique, avec regroupement de ses appellations. La migration
+   porte le budget total persistant autorise a 3 USD, appels passes et reprises
+   inclus, sans remettre le compteur a zero.
 3. Executer `npm run metiers -- export --preview --detailed-only`, puis depuis `client`
    `npm run build:metiers`. Examiner les trois fiches detaillees avec l'utilisateur :
    600–900 mots utiles, FAQ et sources, verdict explique en 1–2 phrases.
@@ -34,15 +39,20 @@
    Les metiers sans documentation verifiee restent bloques pour la generation longue.
    Une previsualisation est `noindex` et ne genere aucun sitemap metier.
 4. Seulement apres validation humaine, executer `approve-sample`, puis
-   `quote` pour le devis complet. Ne pas depasser le budget si le nombre
-   reel de metiers demande une decision supplementaire. `submit --limit 500`
-   utilise Gemini Flash-Lite Batch ; `collect` recupere les resultats sans
-   les resoumettre. Voir le [guide serveur](server/README.md#editorial-metier-pages-isolated-seo-schema).
+   `quote` pour le devis complet, puis `run-all` pour soumettre et collecter les
+   lots Gemini Flash-Lite Batch sous le plafond strict. `status` donne la
+   progression ; `collect` permet aussi une recuperation manuelle sans
+   resoumission. Ne pas augmenter automatiquement le budget en cas de blocage.
+   Voir le [guide serveur](server/README.md#editorial-metier-pages-isolated-seo-schema).
 5. Resoudre les titres ambigus et erreurs, puis exporter sans `--preview`.
    L'export final refuse les metiers manquants. Reconstruire avec
    `npm run build:metiers`, qui exige un snapshot valide et inclut les liens
    publics, HTML, JSON et sitemaps correspondants. Ne jamais deployer les
    donnees synthetiques de `verify:metiers`.
+   Les builds classiques `npm run build` conservent aussi ce catalogue.
+   Si son snapshot manque alors que des pages existent deja, le build echoue
+   avant d'effacer les fichiers en place. Ne pas contourner cette protection
+   en executant directement `vite build`.
 6. Deployer le dossier `dist` complet depuis un repertoire de release, puis
    basculer atomiquement la version servie. Ne pas lancer Vite directement
    dans le repertoire actuellement servi. Conserver la release precedente.

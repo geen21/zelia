@@ -7,6 +7,7 @@ import './landing.css'
 import './admin.css'
 import { loadLegacyStyles } from './lib/loadLegacyStyles.js'
 import Home from './pages/Home.jsx'
+import ZeliaTheme from './components/ZeliaTheme.jsx'
 import { editorialPosts } from './pages/blog/editorialPosts.js'
 import { usePageTracking } from './lib/usePageTracking.js'
 import { TOOLBOX_ITEMS } from './lib/levelMapping.js'
@@ -150,6 +151,7 @@ function App() {
     <HelmetProvider>
       <BrowserRouter>
         <PageTracker />
+        <ZeliaTheme>
         <Suspense fallback={<div className="p-6 text-center" role="status">Chargement…</div>}>
         <Routes>
     <Route path="/" element={<Home />} />
@@ -241,6 +243,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" />} />
         </Routes>
         </Suspense>
+        </ZeliaTheme>
       </BrowserRouter>
     </HelmetProvider>
   )

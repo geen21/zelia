@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { chromium, expect } from '@playwright/test'
+import { chromium, devices, expect } from '@playwright/test'
 import { getAnswerChoices } from '../src/lib/questionScale.js'
 
 const base = process.env.ORIENTATION_TEST_URL || 'http://127.0.0.1:5187'
@@ -69,8 +69,8 @@ const partners = [
 ]
 const browser = await chromium.launch({ headless: true })
 
-async function prepareJourney(viewport, { authenticated = false, answered = false, reducedMotion = 'no-preference', questionnaire = questions, progressAnswers = savedAnswers } = {}) {
-  const context = await browser.newContext({ viewport, reducedMotion })
+async function prepareJourney(viewport, { authenticated = false, answered = false, reducedMotion = 'no-preference', questionnaire = questions, progressAnswers = savedAnswers, mobile = false } = {}) {
+  const context = await browser.newContext({ ...(mobile ? devices['Pixel 7'] : {}), viewport, reducedMotion })
   const page = await context.newPage()
   page.setDefaultTimeout(15000)
   const state = { errors: [], registrations: [], profiles: [], sharing: [], submissions: [], failProfile: false, failSharing: false, invalidSharing: false, failAnalysis: false, analyses: 0 }
@@ -154,6 +154,124 @@ async function fillRegistration(page) {
 }
 
 try {
+  {
+    const { context, page, state, releaseAnalysis } = await prepareJourney({ width: 393, height: 851 }, { mobile: true })
+    try {
+      await page.goto(`${base}/orientation`)
+      await page.getByRole('button', { name: "C'est parti !", exact: true }).tap()
+      await page.clock.install()
+      await page.clock.pauseAt(new Date())
+      const stepLabel = page.locator('.flow-step-label')
+      for (let index = 0; index < questions.length; index += 1) {
+        await expect(stepLabel).toHaveText(`Question ${index + 1} / 20`)
+        const firstChoice = await page.locator('.scale-choice').first().boundingBox()
+        const lastChoice = await page.locator('.scale-choice').last().boundingBox()
+        await page.touchscreen.tap(firstChoice.x + firstChoice.width / 2, firstChoice.y + firstChoice.height / 2)
+        await expect(page.locator('.scale-choice:enabled')).toHaveCount(0)
+        await page.touchscreen.tap(lastChoice.x + lastChoice.width / 2, lastChoice.y + lastChoice.height / 2)
+        await page.keyboard.press('4')
+        await page.clock.runFor(250)
+        if (index < questions.length - 1) {
+          await expect(stepLabel).toHaveText(`Question ${index + 2} / 20`)
+        } else {
+          await expect(page.getByRole('heading', { name: "Tu es aujourd'hui en..." })).toBeVisible()
+        }
+        const progress = await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers)
+        assert.equal(Object.keys(progress).length, index + 1, 'Rapid taps must save exactly one answer per question.')
+        assert.equal(progress[questions[index].id], getAnswerChoices(questions[index])[0].answer, 'The first accepted answer must not be overwritten during the transition.')
+      }
+      assert.equal(await page.evaluate(() => window.dataLayer.filter((item) => item?.event === 'orientation_question_answered').length), 20)
+      await page.clock.resume()
+      while (await page.locator('.choice-card').count()) {
+        const previousTitle = await page.locator('.choice-card h1').textContent()
+        await page.locator('.choice-card button').first().tap()
+        const continueButton = page.getByRole('button', { name: 'Continuer', exact: true })
+        if (await continueButton.count()) await continueButton.tap()
+        await expect(page.getByRole('heading', { name: previousTitle, exact: true })).toHaveCount(0)
+      }
+      await expect(page).toHaveURL(`${base}/register?after=orientation-analysis`)
+      await fillRegistration(page)
+      await page.getByRole('checkbox').first().check()
+      await page.getByRole('button', { name: 'Voir mon profil complet', exact: true }).tap()
+      await expect(page).toHaveURL(`${base}/orientation`)
+      await expect.poll(() => state.analyses).toBe(1)
+      const expectedAnswers = questions.map((question) => ({
+        question_id: question.id, answer: getAnswerChoices(question)[0].answer
+      }))
+      assert.deepEqual(state.registrations[0].questionnaireResponses, expectedAnswers)
+      assert.deepEqual(state.submissions[0].answers, expectedAnswers)
+      releaseAnalysis()
+      await expect(page.getByRole('button', { name: 'Découvre tes formations', exact: true })).toBeVisible()
+      assert.deepEqual(state.errors, [])
+      console.log('android-rapid-taps: all 20 questions answered exactly once, registration resumes to results.')
+    } finally {
+      releaseAnalysis()
+      await context.close()
+    }
+  }
+
+  {
+    const { context, page, state, releaseAnalysis } = await prepareJourney({ width: 393, height: 851 }, { mobile: true })
+    try {
+      await page.goto(`${base}/orientation`)
+      await page.getByRole('button', { name: "C'est parti !", exact: true }).tap()
+      await page.clock.install()
+      await page.clock.pauseAt(new Date())
+      const stepLabel = page.locator('.flow-step-label')
+      const touch = await context.newCDPSession(page)
+      const card = await page.locator('.question-card').boundingBox()
+      const start = { x: card.x + card.width / 3, y: card.y + card.height / 2 }
+      const end = { ...start, x: start.x + 130 }
+      await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] })
+      await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [end] })
+      await page.clock.runFor(40)
+      await touch.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] })
+      await page.clock.runFor(250)
+      await expect(stepLabel).toHaveText('Question 1 / 20')
+      assert.equal(await page.evaluate(() => localStorage.getItem('answers_progress')), null, 'A cancelled touch must not submit an answer.')
+
+      for (let swipe = 0; swipe < 2; swipe += 1) {
+        await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] })
+        await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [end] })
+        await page.clock.runFor(40)
+        await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+      }
+      await page.clock.runFor(250)
+      await expect(stepLabel).toHaveText('Question 2 / 20')
+      assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers), { 1: 'Pas du tout' })
+
+      await page.keyboard.down('1')
+      await page.keyboard.down('1')
+      await page.clock.runFor(250)
+      await expect(stepLabel).toHaveText('Question 3 / 20')
+      await page.keyboard.down('1')
+      await page.clock.runFor(250)
+      await page.keyboard.up('1')
+      await expect(stepLabel).toHaveText('Question 3 / 20')
+
+      const choice = await page.locator('.scale-choice').first().boundingBox()
+      await page.touchscreen.tap(choice.x + choice.width / 2, choice.y + choice.height / 2)
+      await page.getByRole('button', { name: 'Revenir en arrière' }).tap()
+      await expect(stepLabel).toHaveText('Question 2 / 20')
+      await page.clock.runFor(250)
+      await expect(stepLabel).toHaveText('Question 2 / 20')
+      await expect(page.locator('.scale-choice').first()).toBeEnabled()
+      await expect(page.locator('.scale-choice').first()).toHaveAttribute('aria-pressed', 'true')
+      const changedChoice = await page.locator('.scale-choice').last().boundingBox()
+      await page.touchscreen.tap(changedChoice.x + changedChoice.width / 2, changedChoice.y + changedChoice.height / 2)
+      await page.clock.runFor(250)
+      await expect(stepLabel).toHaveText('Question 3 / 20')
+      assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers), {
+        1: 'Pas du tout', 2: 'Pas du tout', 3: 'Carrément'
+      })
+      assert.deepEqual(state.errors, [])
+      console.log('android-input-transitions: cancelled gestures, rapid swipes, held keys, back during animation and answer changes verified.')
+    } finally {
+      releaseAnalysis()
+      await context.close()
+    }
+  }
+
   for (const complete of [true, false]) {
     const questionnaire = questions.map((question, index) => {
       if (index === 4) return { ...question, options: null }

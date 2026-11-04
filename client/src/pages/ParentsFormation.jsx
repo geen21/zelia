@@ -181,7 +181,10 @@ export default function ParentsFormation() {
   }
 
   const scrollToInscription = () => {
-    document.getElementById('inscription')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    // Cancel an interrupted smooth scroll before starting the next anchor navigation.
+    window.scrollTo({ top: window.scrollY, behavior: 'instant' })
+    document.getElementById('inscription')?.scrollIntoView({ behavior: reducedMotion ? 'instant' : 'smooth', block: 'start' })
   }
 
   const handleSubmit = async (event) => {

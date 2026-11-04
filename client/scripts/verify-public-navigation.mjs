@@ -4,11 +4,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chromium, expect as baseExpect } from '@playwright/test'
 import { blogPosts } from '../src/pages/blog/posts.js'
+import { assertSharedUX } from './fixtures/assert-shared-ux.mjs'
 
 const expect = baseExpect.configure({ timeout: 15000 })
 const base = process.env.PUBLIC_NAV_TEST_URL || 'http://127.0.0.1:5187'
 const origin = new URL(base).origin
-const paths = ['/', '/parents', '/blog', `/blog/${blogPosts[0].slug}`, '/blog/choisir-ses-etudes-sans-pression', '/formations', '/formations/123-navigation-test', '/metiers/']
+const paths = ['/', '/parents', '/blog', `/blog/${blogPosts[0].slug}`, '/blog/choisir-ses-etudes-sans-pression', '/formations', '/formations/123-navigation-test', '/metiers/', '/legal/mentions-legales', '/legal/conditions']
 const output = await mkdtemp(join(tmpdir(), 'zelia-public-nav-'))
 const browser = await chromium.launch({ headless: true })
 console.log(`Navigation screenshots: ${output}`)
@@ -37,12 +38,17 @@ async function signature(page) {
       links: [...header.querySelectorAll('.public-header__links > a')].map((link) => ({
         text: link.textContent.trim(), href: link.getAttribute('href'), appearance: appearance(link)
       })),
-      toggle: appearance(header.querySelector('button'))
+      toggle: appearance(header.querySelector('button')),
+      footer: appearance(document.querySelector('.public-footer')),
+      footerLinks: [...document.querySelectorAll('.public-footer a')].map((link) => ({
+        text: link.textContent.trim(), href: link.getAttribute('href'), appearance: appearance(link)
+      }))
     }
   })
 }
 
 async function assertBounds(page) {
+  await assertSharedUX(page)
   const issues = await page.locator('.public-header').evaluate((header) => {
     const problems = []
     if (document.documentElement.scrollWidth > innerWidth + 1) problems.push('Document overflow')
@@ -58,7 +64,7 @@ async function assertBounds(page) {
 }
 
 try {
-  for (const width of [1440, 1000, 768, 390, 320]) {
+  for (const width of [1440, 1024, 768, 390, 320]) {
     const context = await browser.newContext({ viewport: { width, height: 1000 }, reducedMotion: 'reduce' })
     const page = await context.newPage()
     page.setDefaultTimeout(15000)
@@ -139,6 +145,11 @@ try {
         assert.deepEqual(await signature(page), reference, 'Client-side navigation must preserve the shared menu.')
       }
       assert.deepEqual(errors, [])
+      const nav = page.getByRole('navigation', { name: 'Navigation principale', exact: true })
+      if (width <= 900) await nav.getByRole('button', { name: 'Ouvrir le menu' }).click()
+      await nav.getByRole('link', { name: 'Ambassadeur', exact: true }).click()
+      await expect(page).toHaveURL(`${base}/espace-ecoles`)
+      await expect(page.locator('.zelia-ui, .public-footer')).toHaveCount(0)
     } finally {
       await context.close()
     }

@@ -1,6 +1,6 @@
 .formation-explorer {
-  --fe-lime: #c1ff72;
-  --fe-ink: #111827;
+  --fe-lime: var(--ui-lime, #c1ff72);
+  --fe-ink: var(--ui-ink, #15151b);
   color: var(--fe-ink);
   max-width: 1280px;
   margin: 0 auto;

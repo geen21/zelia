@@ -18,11 +18,7 @@
 .login-back:hover { color: #111827; }
 .login-card {
   padding: 30px;
-  border: 1px solid #e6e8e2;
-  border-top: 4px solid #c1ff72;
-  border-radius: 28px;
   background: #fff;
-  box-shadow: 0 20px 46px -34px rgba(0,0,0,.24);
 }
 .login-heading { margin-bottom: 24px; }
 .login-icon { display: grid; place-items: center; width: 52px; height: 52px; margin-bottom: 20px; border-radius: 16px; background: #eff8e5; color: #354d23; }
@@ -34,26 +30,9 @@
 .login-resume > svg, .login-error > svg { flex: 0 0 auto; margin-top: 1px; }
 .login-error { border-color: #e8c4bc; background: #fff3ef; color: #8d3429; }
 .login-page .login-google, .login-page .login-submit {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
   width: 100%;
-  min-height: 52px;
-  padding: 12px 18px;
-  border: 1px solid #d7dcd1;
-  border-radius: 999px;
-  background: #fff;
-  color: #111827;
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 800;
-  line-height: 1.4;
-  cursor: pointer;
-  transition: background .15s, border-color .15s, color .15s;
 }
 .login-google > svg, .login-submit > svg { flex: 0 0 auto; }
-.login-page .login-google:hover:not(:disabled) { border-color: #111827; background: #fafcf7; }
 .login-page .login-submit { margin-top: 14px; border-color: #111827; background: #c1ff72; }
 .login-page .login-submit:hover:not(:disabled) { background: #111827; color: #fff; }
 .login-page button:disabled { cursor: wait; opacity: .6; }

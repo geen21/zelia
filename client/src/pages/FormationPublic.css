@@ -45,7 +45,7 @@
 .fp-badge--dark{ background:#000; color:#fff; border-color:#000; }
 
 .fp-hero h1{
-  font-family:"GulfDisplay","Bricolage Grotesque","ClashGroteskMedium",system-ui,sans-serif;
+  font-family:inherit;
   font-size:clamp(28px, 4.4vw, 48px);
   font-weight:600; line-height:1.14; margin:0 0 16px; max-width:900px;
 }
@@ -54,18 +54,13 @@
 .fp-hero-school .dot{ opacity:.5; margin:0 2px; }
 
 .fp-hero-actions{ display:flex; flex-wrap:wrap; gap:12px; }
-.fp-btn{ display:inline-flex; align-items:center; gap:8px; padding:13px 22px; border-radius:8px; font-weight:600; font-size:15px; text-decoration:none; transition:background .15s ease, border-color .15s ease; border:1px solid transparent; cursor:pointer; }
-.fp-btn--primary{ background:#000; color:#fff; border-color:#000; }
-.fp-btn--primary:hover{ background:#1a1a1a; }
-.fp-btn--ghost{ background:#fff; color:#000; border-color:rgba(0,0,0,.12); }
-.fp-btn--ghost:hover{ background:#f9fafb; }
 
 /* ---------- Body / grid ---------- */
 .fp-body{ padding:56px 0 40px; }
 .fp-grid{ display:grid; grid-template-columns:minmax(0,2.1fr) minmax(260px,1fr); gap:32px; align-items:start; }
 .fp-main{ min-width:0; }
 
-.fp-card{ background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:28px; box-shadow:0 10px 24px rgba(15,23,42,0.04); }
+.fp-card{ background:#fff; padding:28px; }
 .fp-main .fp-card + .fp-card{ margin-top:24px; }
 .fp-card h2{ font-size:20px; font-weight:700; margin:0 0 16px; color:#000; display:flex; align-items:center; gap:10px; }
 .fp-card h2 i{ font-size:20px; color:#000; }

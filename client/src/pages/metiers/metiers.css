@@ -1,4 +1,4 @@
-.metiers-page { background: #faf9f5; color: #202a23; min-height: 100vh; font-family: "Inter", system-ui, sans-serif; }
+.metiers-page { background: var(--ui-cream, #fffbf7); color: var(--ui-ink, #15151b); min-height: 100vh; font-family: var(--ui-font, "Bricolage Grotesque", system-ui, sans-serif); }
 .metiers-page * { box-sizing: border-box; }
 .metiers-page :is(h1,h2,p) { text-transform: none; letter-spacing: normal; }
 .metiers-page h1, .metiers-page h2 { font-family: "Bricolage Grotesque", system-ui, sans-serif; color: #202a23; }
@@ -11,10 +11,11 @@
 .metier-hero h1 { font-size: clamp(32px, 4.7vw, 58px); line-height: 1.12; font-weight: 750; letter-spacing: -.035em; margin: 0 0 24px; overflow-wrap: anywhere; }
 .metier-hero h1 span { background: linear-gradient(transparent 65%, #d7ed9f 65%); }
 .metier-hero > p:last-of-type { font-size: 18px; line-height: 1.65; max-width: 670px; margin-bottom: 24px; }
-.metier-button { display: inline-flex; align-items: center; justify-content: center; gap: 12px; background: #d3ec8b; color: #202a23; padding: 16px 22px; border: 1px solid #202a23; border-radius: 999px; font-size: 14px; font-weight: 750; line-height: 1.45; text-decoration: none; text-align: center; cursor: pointer; }
-.metier-button:hover { background: #c4e470; color: #202a23; }
 .metier-button span { font-size: 22px; }
 .metier-count { font-size: 13px; color: #526055; margin-bottom: 22px; }
+.metier-appellations { margin-top: 20px; font-size: 13px; line-height: 1.7; color: #526055; }
+.metier-appellations summary { cursor: pointer; font-weight: 650; }
+.metier-appellations ul { margin: 12px 0 0; padding-left: 20px; columns: 2; column-gap: 30px; }
 .metier-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 18px; }
 .metier-card { position: relative; display: flex; flex-direction: column; min-width: 0; padding: 28px; border: 1px solid #dfe3d9; border-radius: 22px; background: #fff; text-decoration: none; transition: border-color .15s; }
 .metier-card:hover { border-color: #66764e; }
@@ -29,7 +30,6 @@
 .metier-verdict h2 span { color: #596e2f; }
 .metier-verdict--non h2 span { color: #8a3d60; }
 .metier-explanation { font-size: 19px; line-height: 1.65; }
-.metier-disclaimer { font-size: 12px; line-height: 1.7; color: #4a5746; border-top: 1px solid #202a2326; padding-top: 20px; margin: 24px 0 0; }
 .metier-orientation { position: relative; background: #fff; border: 1px solid #e1e2d9; border-radius: 28px; padding: 38px 30px 28px; display: flex; flex-direction: column; align-items: flex-start; }
 .metier-sticker { display: block; background: #f5dce7; padding: 8px 12px; border-radius: 8px; transform: rotate(-3deg); font-size: 12px; font-weight: 700; margin-bottom: 20px; }
 .metier-orientation h2 { font-size: 28px; line-height: 1.25; margin-bottom: 18px; }
@@ -75,6 +75,7 @@
   .metier-hero { padding: 26px 0; }
   .metier-grid, .metier-facts { grid-template-columns: minmax(0,1fr); }
   .metier-toc ol { grid-template-columns: minmax(0,1fr); }
+  .metier-appellations ul { columns: 1; }
   .metier-verdict, .metier-orientation { padding: 26px 22px; border-radius: 22px; }
   .metier-verdict h2 { font-size: 62px; }
   .metier-explanation { font-size: 17px; }

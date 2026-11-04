@@ -8,6 +8,10 @@ import { groupMetiers, readAllPages, METIER_MODEL, MAX_OUTPUT_TOKENS, tokenCost 
 import { MetierGemini, checked, prepareMetiers, generateSampleItem, submitMetierBatch, collectMetierBatch, applyGenerationResults } from '../utils/metierGeneration.js'
 import { validateMetierSnapshot, validateMetierContent, METIER_SCHEMA_VERSION } from '../../client/src/lib/metierContent.js'
 import { hasMetierEditorialSources } from '../utils/metierEditorialSources.js'
+import { readRomeArchive } from '../utils/romeCatalog.js'
+import { syncRomeCatalog, readCanonicalPages, needsMetierGeneration } from '../utils/metierCatalogStore.js'
+import { readFile } from 'node:fs/promises'
+import { quoteMetierCatalog, runMetierCatalog, readMetierProgress, budgetUsage } from '../utils/metierBatchWorkflow.js'
 
 const server = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 dotenv.config({ path: resolve(server, '.env') })
@@ -15,7 +19,8 @@ const { positionals, values } = parseArgs({
   allowPositionals: true, options: {
     limit: { type: 'string' }, output: { type: 'string' }, preview: { type: 'boolean' },
     'retry-errors': { type: 'boolean' }, 'detailed-only': { type: 'boolean' },
-    id: { type: 'string' }, title: { type: 'string' }, job: { type: 'string' }
+    id: { type: 'string' }, title: { type: 'string' }, job: { type: 'string' }, reference: { type: 'string' },
+    'repair-encoding': { type: 'boolean' }
   }
 })
 const command = positionals[0]
@@ -32,7 +37,22 @@ async function saveJson(path, data) {
 }
 
 async function main() {
+  if (command === 'sync-rome') {
+    const path = resolve(values.reference || resolve(server, '.generated', 'rome-open-data.zip'))
+    const bytes = await readFile(path)
+    const reference = readRomeArchive(bytes)
+    const repairFromVersion = values['repair-encoding'] ? readRomeArchive(bytes, { legacyWindows1252: true }).version : null
+    const report = await syncRomeCatalog(db, reference, new Date(), { repairFromVersion })
+    await saveJson(resolve(server, '.generated', 'rome-catalog-report.json'), report)
+    console.log(JSON.stringify(report))
+    return
+  }
   if (['inventory', 'sync'].includes(command)) {
+    if (command === 'sync') {
+      const { count, error } = await db.from('metier_pages').select('id', { count: 'exact', head: true }).eq('catalog_kind', 'canonical')
+      if (error) throw new Error(`Migration ROME nécessaire : ${error.message}`)
+      if (count) throw new Error('Catalogue officiel actif : utiliser sync-rome, pas la synchronisation des variantes d’annonces')
+    }
     const stats = await checked(db.rpc('refresh_metier_inventory'))
     const source = await all('metier_source_titles')
     const result = groupMetiers(source)
@@ -76,19 +96,19 @@ async function main() {
     const detailed = pages.filter((page) => page.content.version === 2)
     if (detailed.length < 3) throw new Error('Valider au moins trois fiches détaillées sourcées avant la génération complète')
     detailed.forEach((page) => validateMetierContent(page.content))
-    await checked(db.from('metier_generation_budget').update({ sample_approved_at: new Date().toISOString() }).eq('id', true))
-    console.log('Échantillon approuvé explicitement. Les lots Batch sont désormais autorisés, sous le plafond total de 2 USD.')
+    const [budget] = await checked(db.from('metier_generation_budget').update({ sample_approved_at: new Date().toISOString() }).eq('id', true).select('limit_usd'))
+    console.log(`Échantillon approuvé explicitement. Les lots Batch sont désormais autorisés, sous le plafond total de ${Number(budget.limit_usd)} USD.`)
     return
   }
   if (command === 'export') {
-    const { count, error } = await db.from('metier_pages').select('id', { count: 'exact', head: true })
-    if (error || !Number.isSafeInteger(count)) throw new Error(error?.message || 'Comptage catalogue invalide')
-    let ready = await all('metier_pages', 'id,title,slug,rome_codes,content,content_updated_at',
-      (query) => query.not('content', 'is', null).is('review_reason', null))
+    const { state, pages } = await readCanonicalPages(db)
+    const count = state.expected_count
+    let ready = pages.filter((page) => !needsMetierGeneration(page) && !page.review_reason)
     if (values['detailed-only']) ready = ready.filter((page) => page.content.version === 2)
     const snapshot = {
       schemaVersion: METIER_SCHEMA_VERSION, preview: Boolean(values.preview), totalCatalog: count,
       pages: ready.map((page) => ({ id: page.id, title: page.title, slug: page.slug, romeCodes: page.rome_codes,
+        appellations: page.editorial_context.officialNames,
         content: validateMetierContent(page.content), updatedAt: page.content_updated_at }))
     }
     validateMetierSnapshot(snapshot)
@@ -96,16 +116,30 @@ async function main() {
     console.log(`Export ${snapshot.preview ? 'PRÉVISUALISATION non indexable' : 'publication'} : ${ready.length}/${count} métiers vers ${output}`)
     return
   }
-  if (command === 'budget') {
+  if (command === 'budget' || command === 'status') {
     const [budget] = await all('metier_generation_budget', '*', (query) => query.eq('id', true))
-    const requests = await all('metier_generation_requests')
-    const used = requests.reduce((sum, row) => sum + Number(row.actual_usd ?? row.reserved_usd), 0)
-    console.log(JSON.stringify({ capUsd: Number(budget.limit_usd), committedUsd: used, remainingUsd: Number(budget.limit_usd) - used,
+    const requests = await all('metier_generation_requests', 'id,state,reserved_usd,actual_usd,job_name')
+    const usage = budgetUsage(requests)
+    let catalogue = {}
+    if (command === 'status') {
+      const current = await readMetierProgress(db)
+      const ready = current.pages.filter((page) => page.content_reference_version === page.reference_version).length
+      catalogue = { reference: current.state.reference_version, canonical: current.pages.length, ready,
+        pending: current.pages.length - ready, failed: current.pages.filter((page) => page.last_error).length }
+    }
+    console.log(JSON.stringify({ ...catalogue, capUsd: Number(budget.limit_usd), committedUsd: usage.committed,
+      spentUsd: usage.spent, reservedUsd: usage.reserved, remainingUsd: Number(budget.limit_usd) - usage.committed,
       unresolved: requests.filter((row) => row.state !== 'settled').map(({ id, state, job_name }) => ({ id, state, job_name })) }))
     return
   }
   const provider = new MetierGemini(process.env.GEMINI_API_KEY)
   await provider.verify()
+  if (command === 'quote' || command === 'run-all') {
+    const cache = resolve(server, '.generated', 'metier-token-counts.json')
+    if (command === 'quote') await quoteMetierCatalog(db, provider, cache)
+    else await runMetierCatalog(db, provider, cache, resolve(server, '.generated', 'metier-batch-progress.json'))
+    return
+  }
   if (command === 'attach') {
     if (!values.id || !values.job) throw new Error('attach nécessite --id et --job')
     const operation = await provider.getJob(values.job)
@@ -123,19 +157,19 @@ async function main() {
       if (row.state === 'settled' && row.results) {
         if (await applyGenerationResults(db, row)) process.exitCode = 1
       } else if (row.state !== 'settled' && row.mode === 'batch') {
-        if (await collectMetierBatch(db, provider, row)) process.exitCode = 1
+        if ((await collectMetierBatch(db, provider, row)).errors) process.exitCode = 1
       } else if (row.state !== 'settled') {
         throw new Error(`Appel standard ${row.id} incertain : coût réservé, aucun nouvel appel automatique`)
       }
     }
     return
   }
-  if (!['sample', 'quote', 'submit', 'regenerate'].includes(command)) throw new Error('Commande : inventory, sync, review, sample, regenerate, approve-sample, quote, submit, collect, attach, budget, export')
-  const allPages = await all('metier_pages', 'id,title,rome_codes,source_count,review_reason,content,last_error',
-    (query) => command === 'regenerate' ? query.eq('id', values.id || '') : query)
+  if (!['sample', 'submit', 'regenerate'].includes(command)) throw new Error('Commande : inventory, sync-rome, sample, regenerate, approve-sample, quote, run-all, submit, collect, attach, status, budget, export')
+  const { pages: allCanonical } = await readCanonicalPages(db)
+  const allPages = command === 'regenerate' ? allCanonical.filter((page) => page.id === values.id) : allCanonical
   const active = await all('metier_generation_requests', 'id,state,items', (query) => query.neq('state', 'settled'))
   const owned = new Set(active.flatMap((request) => request.items.map((item) => item.id)))
-  let pages = allPages.filter((page) => !page.content && !page.review_reason && !owned.has(page.id) && (values['retry-errors'] || !page.last_error))
+  let pages = allPages.filter((page) => needsMetierGeneration(page) && !page.review_reason && !owned.has(page.id) && (values['retry-errors'] || !page.last_error))
   const missingSources = pages.filter((page) => !hasMetierEditorialSources(page)).length
   if (['sample', 'submit'].includes(command)) pages = pages.filter(hasMetierEditorialSources)
   pages.sort((a, b) => b.source_count - a.source_count || a.id.localeCompare(b.id))
@@ -170,7 +204,7 @@ async function main() {
   const prepared = await prepareMetiers(provider, pages, mode)
   const maxCostUsd = prepared.reduce((sum, item) => sum + item.maxCost, 0)
   console.log(JSON.stringify({ model: METIER_MODEL, mode, metiers: pages.length,
-    maxCostUsd, remainingUsd, fitsBudget: maxCostUsd <= remainingUsd, capTotalUsd: 2,
+    maxCostUsd, remainingUsd, fitsBudget: maxCostUsd <= remainingUsd, capTotalUsd: Number(budget.limit_usd),
     blockedReview: allPages.filter((page) => page.review_reason).length, missingSources,
     alreadyGenerated: allPages.filter((page) => page.content).length }))
   if (command === 'quote') return

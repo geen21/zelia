@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { readFileSync } from 'node:fs'
 import { PGlite } from '@electric-sql/pglite'
 import { canonicalMetier, groupMetiers, generationRequest, MAX_OUTPUT_TOKENS, tokenCost, parseGeneration, readAllPages } from '../utils/metierPages.js'
-import { MetierGemini, prepareMetiers, responseCost, submitMetierBatch, collectMetierBatch } from '../utils/metierGeneration.js'
+import { MetierGemini, prepareMetiers, responseCost, submitMetierBatch, collectMetierBatch, applyGenerationResults } from '../utils/metierGeneration.js'
 import { validateMetierContent, validateMetierSnapshot, metierWordCount } from '../../client/src/lib/metierContent.js'
 import { buildMetierDocuments, metierDataPath } from '../../client/src/pages/metiers/metierSeo.js'
 import { metierFixture, metierSnapshot, detailedMetierFixture } from '../../client/scripts/fixtures/metiers.mjs'
@@ -54,6 +54,10 @@ test('strict short content, AI context, minimal thinking and known token prices'
   assert.equal(request.generationConfig.maxOutputTokens, MAX_OUTPUT_TOKENS)
   assert.ok(generationRequest({ title: 'Infirmier', rome_codes: [], last_error: 'Fiche détaillée : 939 mots utiles, attendu 600–900' })
     .contents[0].parts[0].text.includes('939 mots utiles'))
+  assert.ok(generationRequest({ title: 'Infirmier', rome_codes: [], last_error: 'Fiche détaillée : 939 mots utiles, attendu 600–900' })
+    .contents[0].parts[0].text.includes('640 à 720'))
+  assert.ok(generationRequest({ title: 'Infirmier', rome_codes: [], last_error: 'Le verdict ne doit pas présenter une perspective comme une certitude' })
+    .contents[0].parts[0].text.includes('supprime absolument'))
   assert.equal(tokenCost('standard', 1000000, 1000000), 1.75)
   assert.equal(tokenCost('batch', 1000000, 1000000), 0.875)
   assert.equal(responseCost('batch', { maxCost: 0.1 }, {}), 0.1)
@@ -141,13 +145,15 @@ test('database migration, restricted permissions, durable budget and atomic rese
   } finally { await db.close() }
 })
 
-function batchDb(reservation, updates) {
+function batchDb(reservation, updates, currentPages) {
   return {
     rpc: async () => ({ data: 1.9 }),
     from(table) {
-      return { update(value) { updates.push({ table, value }); return this }, eq() { return this }, or() { return this },
-        select() { return Promise.resolve({ data: [{ ...reservation, ...updates.at(-1).value }] }) },
-        then(resolve) { resolve({ data: null, error: null }) } }
+      let updating = false
+      return { update(value) { updating = true; updates.push({ table, value }); return this },
+        eq() { return this }, or() { return this }, in() { return this },
+        select() { return updating ? Promise.resolve({ data: [{ ...reservation, ...updates.at(-1).value }] }) : this },
+        then(resolve) { resolve({ data: updating ? null : currentPages || reservation.items.map((item) => ({ id: item.id, content_updated_at: null })), error: null }) } }
     }
   }
 }
@@ -197,4 +203,17 @@ test('detailed content is 600–900 useful words with complete sections, real so
   assert.deepEqual(parsed.sources, sources, 'Source URLs must come from verified request metadata, never from model output')
   assert.throws(() => metierEditorialContext({ title: 'Métier sans documentation vérifiée' }), /Sources métier/)
   assert.throws(() => validateMetierSnapshot({ schemaVersion: 1, preview: false, totalCatalog: 1, pages: [metierFixture()] }), /fiche détaillée/)
+})
+
+test('historical results cannot overwrite newer content or reintroduce older validation errors', async () => {
+  const page = metierFixture()
+  const reservation = { id: 'old-request', created_at: '2026-11-01T10:00:00Z',
+    items: [{ id: page.id, maxCost: 0.001 }],
+    results: [{ metadata: { key: page.id }, response: { candidates: [{ finishReason: 'MAX_TOKENS' }] } }] }
+  const updates = []
+  const db = batchDb(reservation, updates, [{ id: page.id, content_updated_at: '2026-11-04T10:00:00Z' }])
+  assert.equal(await applyGenerationResults(db, reservation), 0)
+  assert.ok(!updates.some((update) => update.table === 'metier_pages'))
+  assert.ok(updates.some((update) => update.table === 'metier_generation_requests' && update.value.processed_at))
+  assert.equal(await applyGenerationResults(db, { ...reservation, processed_at: '2026-11-04T11:00:00Z' }), 0)
 })

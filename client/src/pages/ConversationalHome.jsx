@@ -221,10 +221,10 @@ export default function ConversationalHome() {
 
 const styles = `
 .dash-home {
-  --dash-lime: #c1ff72;
-  --dash-pink: #f68fff;
-  --dash-ink: #111827;
-  --dash-cream: #fffbf7;
+  --dash-lime: var(--ui-lime, #c1ff72);
+  --dash-pink: var(--ui-pink, #f68fff);
+  --dash-ink: var(--ui-ink, #15151b);
+  --dash-cream: var(--ui-cream, #fffbf7);
   width: 100%;
   max-width: 900px;
   margin: 0 auto;

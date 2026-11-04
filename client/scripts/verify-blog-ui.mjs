@@ -3,6 +3,7 @@ import { chromium, expect } from '@playwright/test'
 import { blogPosts } from '../src/pages/blog/posts.js'
 import { editorialPosts } from '../src/pages/blog/editorialPosts.js'
 import { blogPageTitle, buildBlogSchema } from '../src/pages/blog/blogSeo.js'
+import { assertSharedUX } from './fixtures/assert-shared-ux.mjs'
 
 const base = process.env.BLOG_TEST_URL || 'http://127.0.0.1:5187'
 const staticBuild = process.env.BLOG_TEST_STATIC === '1'
@@ -29,6 +30,7 @@ async function prepare(viewport, javaScriptEnabled = true) {
 
 async function assertLayout(page) {
   await page.evaluate(() => document.fonts.ready)
+  await assertSharedUX(page)
   const issues = await page.evaluate(() => {
     const problems = []
     if (document.documentElement.scrollWidth > innerWidth + 1) problems.push('Document overflow')

@@ -704,9 +704,9 @@ export default function Results() {
 
 const resultsStyles = `
 .results-page {
-	--results-lime: #c1ff72;
-	--results-pink: #f68fff;
-	--results-ink: #111827;
+	--results-lime: var(--ui-lime, #c1ff72);
+	--results-pink: var(--ui-pink, #f68fff);
+	--results-ink: var(--ui-ink, #15151b);
 	width: 100%;
 	max-width: 900px;
 	margin: 0 auto;
@@ -819,4 +819,3 @@ const resultsStyles = `
 	.results-pill span { display: none; }
 }
 `
-

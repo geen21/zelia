@@ -1,7 +1,7 @@
 .zelia-home {
-  --home-ink: #15151b;
-  --home-muted: #505663;
-  --home-line: #25252c;
+  --home-ink: var(--ui-ink, #15151b);
+  --home-muted: var(--ui-muted, #505663);
+  --home-line: var(--ui-line, #25252c);
   min-height: 100vh;
   background: #fffbf7;
   color: var(--home-ink);
@@ -25,40 +25,11 @@
 .zelia-home .zelia-home-kicker { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--home-ink); font-size: 13px; font-weight: 700; }
 .zelia-home .zelia-home-section-heading > p:last-of-type:not(.zelia-home-kicker) { margin-top: 18px; max-width: 500px; }
 .zelia-home .zelia-home-section-heading { margin-bottom: 36px; }
-.zelia-home .zelia-home-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  min-height: 48px;
-  padding: 12px 22px;
-  border: 2px solid var(--home-ink);
-  border-radius: 999px;
-  background: var(--home-ink);
-  color: #fff;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.4;
-  text-align: center;
-  text-decoration: none;
-  cursor: pointer;
-  box-shadow: 3px 3px 0 var(--home-ink);
-  transition: background .18s ease, transform .18s ease;
-}
 .zelia-home .zelia-home-button svg { width: 18px; height: 18px; }
-.zelia-home .zelia-home-button:hover { transform: translate(-2px, -2px); background: #2b3547; color: #fff; }
-.zelia-home .zelia-home-button--primary { background: var(--landing-accent); color: var(--home-ink); }
-.zelia-home .zelia-home-button--primary:hover { background: #afea61; color: var(--home-ink); }
-.zelia-home .zelia-home-button--share { background: #fffbf7; color: var(--home-ink); }
-.zelia-home .zelia-home-button--share:hover { background: #fff; color: var(--home-ink); }
-.zelia-home .zelia-home-text-link { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 10px 16px; border: 2px solid var(--home-ink); border-radius: 999px; background: #fffbf7; box-shadow: 3px 3px 0 var(--home-ink); color: var(--home-ink); font-size: 14px; font-weight: 700; text-decoration: none; }
 .zelia-home .zelia-home-text-link:hover { text-decoration-thickness: 2px; }
 .zelia-home .zelia-home-text-link svg { width: 18px; height: 18px; }
 .zelia-home .zelia-home-skip { position: absolute; top: -100px; left: 20px; z-index: 20; padding: 12px 18px; border-radius: 8px; background: #fff; color: var(--home-ink); }
 .zelia-home .zelia-home-skip:focus { top: 16px; }
-
-.zelia-home .zelia-home-footer-brand img { display: block; width: 100px; height: auto; }
 
 .zelia-home .zelia-home-hero { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); align-items: center; gap: 48px; margin-top: 32px; padding: 48px; border: 2px solid var(--home-ink); border-radius: 32px; background: var(--landing-accent-2); box-shadow: 7px 7px 0 var(--home-ink); }
 .zelia-home h1 span { padding-inline: .04em; background: linear-gradient(transparent 12%, var(--landing-accent) 12%, var(--landing-accent) 94%, transparent 94%); box-decoration-break: clone; -webkit-box-decoration-break: clone; }
@@ -142,15 +113,6 @@
 .zelia-home .zelia-home-faq-item[open] summary::after { content: "\2212"; }
 .zelia-home .zelia-home-faq-item p { margin-top: 14px; font-size: 14px; }
 
-.zelia-home .zelia-home-footer { padding-block: 54px 24px; border-top: 1px solid var(--home-line); }
-.zelia-home .zelia-home-footer-top { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1.2fr; gap: 40px; }
-.zelia-home .zelia-home-footer-brand p { max-width: 290px; margin-top: 20px; font-size: 13px; }
-.zelia-home .zelia-home-footer-col { display: flex; flex-direction: column; align-items: start; gap: 6px; }
-.zelia-home .zelia-home-footer-col h3 { margin-bottom: 12px; font-size: 14px; }
-.zelia-home .zelia-home-footer-col a { padding-block: 6px; font-size: 13px; line-height: 1.5; color: var(--home-muted); text-decoration: none; }
-.zelia-home .zelia-home-footer-col a:hover { color: var(--home-ink); text-decoration: underline; text-underline-offset: 3px; }
-.zelia-home .zelia-home-footer-bottom { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-top: 22px; margin-top: 40px; border-top: 1px solid var(--home-line); font-size: 12px; color: var(--home-muted); }
-
 @media (max-width: 1050px) {
   .zelia-home .zelia-home-hero { gap: 28px; padding: 32px; }
   .zelia-home .zelia-home-steps-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -159,7 +121,6 @@
   .zelia-home .zelia-home-blog-body { padding: 20px; }
   .zelia-home .zelia-home-blog-card h3 { font-size: 19px; }
   .zelia-home .blog-cover__insight { padding: 18px; }
-  .zelia-home .zelia-home-footer-top { gap: 24px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 900px) {
@@ -203,9 +164,6 @@
   .zelia-home .zelia-home-audience-card { padding: 28px; }
   .zelia-home .zelia-home-faq-item { padding: 18px; }
   .zelia-home .zelia-home-faq-item summary { gap: 14px; font-size: 14px; }
-  .zelia-home .zelia-home-footer { padding-top: 36px; }
-  .zelia-home .zelia-home-footer-top { grid-template-columns: minmax(0, 1fr); gap: 28px; }
-  .zelia-home .zelia-home-footer-bottom { margin-top: 28px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

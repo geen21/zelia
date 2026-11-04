@@ -15,6 +15,7 @@ const aiSource = {
 
 const profiles = [
   {
+    romeCode: 'E1205',
     matches: (title) => /^infographiste$/iu.test(title),
     scope: 'Infographiste de communication visuelle : supports imprimés et numériques. Ne pas généraliser à toutes les spécialités 3D.',
     sources: [
@@ -47,6 +48,7 @@ const profiles = [
     ]
   },
   {
+    romeCode: 'M1203',
     matches: (title) => /^(?:collaborateur comptable junior|comptable(?: assistant)?)$/iu.test(title),
     scope: 'Comptable salarié ou collaborateur junior supervisé, en entreprise ou en cabinet. Ne pas confondre avec l’expert-comptable.',
     sources: [
@@ -79,6 +81,7 @@ const profiles = [
     ]
   },
   {
+    romeCode: 'J1506',
     matches: (title) => /^infirmier(?: en soins généraux)?(?: \(ide\))?$/iu.test(title),
     scope: 'Infirmier en soins généraux en France. Décrire le métier, sans conseil médical ni protocole de soins. Le diplôme d’État est le parcours initial présenté, pas une affirmation que toute autre qualification ou reconnaissance serait impossible. Éviter les questions juridiques sur le seul diplôme autorisé : les reconnaissances et autorisations particulières ne sont pas documentées ici.',
     sources: [
@@ -113,6 +116,15 @@ const profiles = [
 ]
 
 export function metierEditorialContext(page) {
+  if (page.editorial_context) {
+    const context = page.editorial_context
+    if (typeof context.scope !== 'string' || !Array.isArray(context.sources) || !context.sources.length ||
+        context.sources.some((source) => !Array.isArray(source.facts) || !source.facts.length)) {
+      throw new Error('Contexte documentaire ROME invalide')
+    }
+    const sources = [...context.sources, aiSource]
+    return { ...context, sources, publicSources: sources.map(({ facts, ...source }) => source) }
+  }
   const profile = profiles.find((candidate) => candidate.matches(page.title))
   if (!profile) throw new Error(`Sources métier à vérifier avant génération détaillée : ${page.title}`)
   const sources = [...profile.sources, aiSource]
@@ -125,5 +137,9 @@ export function metierEditorialContext(page) {
 }
 
 export function hasMetierEditorialSources(page) {
-  return profiles.some((profile) => profile.matches(page.title))
+  return Boolean(page.editorial_context) || profiles.some((profile) => profile.matches(page.title))
+}
+
+export function metierPilotRomeCode(page) {
+  return profiles.find((profile) => profile.matches(page.title))?.romeCode || null
 }

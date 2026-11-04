@@ -188,7 +188,7 @@ try {
         return blogPosts.map((post) => post.slug)
       })
       assert.deepEqual(sourceOrder, originalOrder, 'The landing must not reorder the blog catalogue.')
-      await expect(page.locator('.zelia-home-footer').getByRole('link', { name: 'Le blog', exact: true })).toHaveAttribute('href', '/blog')
+      await expect(page.locator('.public-footer').getByRole('link', { name: 'Le blog', exact: true })).toHaveAttribute('href', '/blog')
       await expect(page.locator('.zelia-home-actions').getByRole('link', { name: 'Commencer !', exact: true })).toHaveAttribute('href', '/orientation')
       await expect(page.locator('.zelia-home-pillars').getByRole('link', { name: 'Commencer !', exact: true })).toHaveAttribute('href', '/orientation')
       await expect(page.getByRole('link', { name: 'Découvrir la formation', exact: true })).toHaveAttribute('href', '/parents')

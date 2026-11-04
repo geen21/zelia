@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chromium, expect as baseExpect } from '@playwright/test'
 import { TOOLBOX_ITEMS } from '../src/lib/levelMapping.js'
+import { assertSharedUX } from './fixtures/assert-shared-ux.mjs'
 
 const expect = baseExpect.configure({ timeout: 15000 })
 
@@ -52,6 +53,7 @@ async function prepare(viewport, reducedMotion = 'no-preference') {
     if (url.hostname === 'cdn.tailwindcss.com') return route.fulfill({ contentType: 'application/javascript', body: tailwindRuntime })
     if (url.pathname.includes('/auth/v1/')) return route.fulfill({ json: user })
     if (url.pathname.includes('/rest/v1/')) {
+      if (url.pathname.endsWith('/rpc/search_metiers')) return route.fulfill({ json: [] })
       if (url.pathname.endsWith('/user_results')) {
         const row = { job_recommendations: results.jobRecommendations, skills_assessment: results.skillsAssessment, questionnaire_type: 'inscription' }
         return route.fulfill({ json: request.headers().accept?.includes('object') ? row : [row] })
@@ -76,6 +78,9 @@ async function prepare(viewport, reducedMotion = 'no-preference') {
         }
         data = { entries: state.saved }
       } else if (path === '/analysis/my-results') data = { results }
+      else if (path === '/ecoles/partenaires/ux-fixture') data = { formation: { id: 'ux-fixture', school_name: 'École des possibles', formation_name: 'BTS Communication', city: 'Paris', description: 'Objectif: Créer et communiquer. Pré-requis: Le bac.', is_active: true } }
+      else if (path === '/ecoles/my-submissions') data = { submissions: [] }
+      else if (path === '/ecoles/matched') data = { matched: [{ id: 'ux-fixture', match_score: 82 }] }
       else if (path === `/progression/${user.id}`) {
         if (request.method() !== 'GET') {
           const payload = request.postDataJSON()
@@ -117,6 +122,7 @@ async function prepare(viewport, reducedMotion = 'no-preference') {
 }
 
 async function assertLayout(page, width) {
+  await assertSharedUX(page)
   const layout = await page.evaluate(() => {
     const main = document.querySelector('.zelia-app-main main')
     const header = document.querySelector('.tool-header')
@@ -199,6 +205,27 @@ try {
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 568 }]) {
     const { context, page, state } = await prepare(viewport, viewport.width === 320 ? 'reduce' : 'no-preference')
     try {
+      for (const [path, selector] of [
+        ['/app', '.dash-greeting-text h1'],
+        ['/app/results', '.results-header h1'],
+        ['/app/discuter', '.dz-input input'],
+        ['/app/emplois', '.zelia-jobs table'],
+        ['/app/ecoles-partenaires/ux-fixture', '.formation-detail h1']
+      ]) {
+        await page.goto(`${base}${path}`)
+        await expect(page.locator(selector)).toBeVisible()
+        if (path === '/app/results') await expect(page.locator('.results-spinner')).toHaveCount(0)
+        if (path === '/app/discuter') {
+          const input = page.locator('.dz-input input')
+          await input.fill('Comment préparer mon orientation ?')
+          await input.press('Enter')
+          await expect(input).toHaveValue('')
+          await expect(page.locator('.dz-message.user')).toContainText('Comment préparer mon orientation ?')
+          const box = await input.boundingBox()
+          assert.ok(box && box.y + box.height <= viewport.height, 'Chat composer must remain visible.')
+        }
+        await assertSharedUX(page)
+      }
       await page.goto(`${base}/app/outils`)
       await expect(page.locator('.outils-tile')).toHaveCount(TOOLBOX_ITEMS.length)
       await expect(page.locator('.zelia-topbar-logo img')).toHaveCSS('height', '28px')
@@ -261,7 +288,7 @@ try {
           for (const textarea of await page.locator('.niv5-textarea').all()) await textarea.fill(text)
           await page.getByRole('button', { name: 'Évaluer mon niveau' }).click()
           await expect(page.getByRole('heading', { name: 'Ton résultat', exact: true })).toBeVisible()
-          assert.ok(state.saved.some((entry) => entry.question_id === 'niv5_english_level'))
+          await expect.poll(() => state.saved.some((entry) => entry.question_id === 'niv5_english_level')).toBe(true)
         }
         if (tool.id === 'cv') {
           const fields = page.locator('.n17-experience-row')

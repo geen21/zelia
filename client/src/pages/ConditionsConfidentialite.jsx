@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 
 export default function ConditionsConfidentialite() {
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <main className="legal-page">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
         <header className="mb-12">
           <p className="uppercase tracking-wide text-sm text-gray-500">Documents contractuels</p>
@@ -152,7 +152,7 @@ export default function ConditionsConfidentialite() {
           <Link to="/legal/mentions-legales" className="hover:underline">Mentions légales</Link>
         </footer>
       </div>
-    </div>
+    </main>
   )
 }
 

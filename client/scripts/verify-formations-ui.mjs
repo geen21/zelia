@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { assertSharedUX } from './fixtures/assert-shared-ux.mjs'
 import { mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -118,6 +119,7 @@ async function ready(page) {
 }
 
 async function noOverflow(page) {
+  await assertSharedUX(page)
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'No horizontal overflow')
 }
 

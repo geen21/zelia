@@ -115,8 +115,8 @@ Schéma obligatoire: [{"title":"Métier précis","summary":"phrase courte sur le
 
 Règles:
 - Les métiers doivent correspondre au profil, pas à une base de données.
-- Explore largement le monde professionnel sans privilégier par défaut les métiers de bureau, numériques ou créatifs.
-- Le deck doit être assez varié pour apprendre des swipes: mélange des environnements, rythmes, niveaux d'études, gestes, responsabilités et rapports aux autres.
+- Choisis librement les métiers pertinents à partir du profil et des préférences exprimées, sans quota ni priorité sectorielle prédéfinie.
+- Propose des pistes distinctes pour apprendre des swipes, en restant cohérent avec le profil.
 - N'utilise pas metier_france et ne mentionne aucune table.
 - Évite les intitulés trop vagues comme manager, consultant ou commercial sans spécialité.
 - Les métiers doivent être réalistes en France pour un élève ou étudiant.
@@ -146,7 +146,7 @@ Règles:
 - Les métiers retournés doivent être une nouvelle liste affinée: ne recopie jamais exactement les métiers swipés, même ceux gardés.
 - Utilise les métiers gardés comme signaux de famille, de compétences, d'environnement et de motivation, puis propose des métiers proches mais distincts.
 - Quand au moins un métier a été gardé, l'analyse de personnalité devient secondaire: elle sert seulement à ajuster les métiers proches du match, pas à changer de domaine.${anchorInstruction}
-- Considère vraiment tout le monde professionnel, sans privilégier par défaut les métiers de bureau, numériques ou créatifs.
+- Choisis librement les métiers pertinents à partir du profil et des swipes, sans quota ni priorité sectorielle prédéfinie.
 - Ne repropose jamais un métier refusé ni un métier trop proche d'un refus.
 - Si un seul métier a été gardé, propose ${count} métiers distincts qui ressemblent à ce match par les tâches, les compétences ou l'environnement.
 - Si l'utilisateur a tout refusé, repars du profil et propose ${count} directions nouvelles.

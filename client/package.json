@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/prerender-seo.js",
+    "build": "node scripts/build-metiers.mjs --optional",
     "build:metiers": "node scripts/build-metiers.mjs",
     "verify:metiers": "node scripts/verify-metiers.mjs",
+    "verify:metier-serving": "node --test scripts/verify-metier-serving.test.mjs",
     "preview": "vite preview",
     "verify:landing-ui": "node scripts/verify-landing-ui.mjs",
     "verify:public-nav": "node scripts/verify-public-navigation.mjs",

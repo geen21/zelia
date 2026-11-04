@@ -2,6 +2,10 @@ export const METIER_SCHEMA_VERSION = 1
 export const METIER_ORIGIN = 'https://zelia.io'
 export const METIER_SECTION_IDS = ['quotidien', 'intelligence-artificielle', 'competences', 'formation', 'perspectives']
 
+export function hasMalformedMetierWord(value) {
+  return /\p{L}[¼½]\p{L}|[¼½]\p{L}{2,}/u.test(value)
+}
+
 export function metierWordCount(content) {
   return [content.summary, content.explanation, ...content.missions, ...content.skills, ...content.access,
     ...(content.sections || []).flatMap((section) => section.paragraphs),
@@ -11,6 +15,7 @@ export function metierWordCount(content) {
 
 function plainText(value, max, field) {
   if (typeof value !== 'string' || !value.trim() || value.length > max ||
+      hasMalformedMetierWord(value) ||
       /[<>]|https?:\/\/|[\w.+-]+@[\w.-]+|\d+\s*[%€]/u.test(value)) {
     throw new Error(`Contenu métier invalide : ${field}`)
   }
@@ -46,7 +51,7 @@ export function validateMetierContent(value) {
       if (!/^[a-z0-9-]+$/.test(id) || sourceIds.has(id)) throw new Error('Source métier dupliquée ou invalide')
       sourceIds.add(id)
       const url = new URL(source.url)
-      if (url.protocol !== 'https:' || !['www.francecompetences.fr', 'www.afpa.fr', 'www.ilo.org', 'choisirleservicepublic.gouv.fr'].includes(url.hostname) ||
+      if (url.protocol !== 'https:' || !['www.francecompetences.fr', 'www.afpa.fr', 'www.ilo.org', 'choisirleservicepublic.gouv.fr', 'www.data.gouv.fr'].includes(url.hostname) ||
           /[<>\s]/.test(source.url) || url.username || url.password || !/^\d{4}-\d{2}-\d{2}$/.test(source.checkedAt) ||
           !Number.isFinite(Date.parse(source.checkedAt))) throw new Error('Référence documentaire non vérifiée')
       return { id, name: plainText(source.name, 180, 'source'), url: url.href, checkedAt: source.checkedAt }
@@ -107,6 +112,10 @@ export function validateMetierSnapshot(snapshot) {
       throw new Error('Identité métier invalide ou dupliquée')
     }
     plainText(page.title, 180, 'intitulé')
+    if (page.appellations !== undefined) {
+      if (!Array.isArray(page.appellations) || page.appellations.length > 12) throw new Error('Appellations métier invalides')
+      page.appellations.forEach((name) => plainText(name, 180, 'appellation'))
+    }
     if (!Number.isFinite(Date.parse(page.updatedAt))) throw new Error('Date métier invalide')
     if (!Array.isArray(page.romeCodes) || page.romeCodes.some((code) => !/^[A-Z]\d{4}$/.test(code))) {
       throw new Error('Classification métier invalide')

@@ -5,7 +5,8 @@ Backend API server for the Zelia application, built with Express.js and Supabase
 ## Editorial metier pages (isolated `seo` schema)
 
 The editorial catalogue is not part of the application API. Apply
-[migration_metier_pages.sql](database/migration_metier_pages.sql), then add `seo`
+[migration_metier_pages.sql](database/migration_metier_pages.sql), then
+[migration_metier_catalog_rome.sql](database/migration_metier_catalog_rome.sql), and add `seo`
 to Supabase Data API **Exposed schemas** for the server scripts. Schema usage,
 tables and functions are denied to `anon`/`authenticated`; only `service_role`
 can access them. All new objects live in `seo`; `public.metiers_france` is read
@@ -14,22 +15,38 @@ only. No old advertisement, employer, contact or application link is published.
 Run from `server`:
 
 ```powershell
-npm run metiers -- sync
-npm run metiers -- sample
+npm run metiers -- sync-rome
+npm run metiers -- status
 npm run metiers -- budget
-npm run metiers -- export --preview --detailed-only
 ```
 
-`sync` inventories the whole history, not the recent-ad search window. The
-private report is `server/.generated/metier-inventory.json`. Ambiguous titles
-remain blocked; inspect them before `review --id <id> --title "<verified title>"`.
-Do not treat locations, contracts or different specialities as new occupations.
-Invalid source titles are reported explicitly and make the inventory command
-exit nonzero, even if usable catalogue rows were synchronised.
-Inventory counts are candidate labels, not a certified number of distinct
-occupations. Resolve advertisement variants before bulk generation. A quote
-can reject the conservative output reservation before counting every input,
-avoiding thousands of unnecessary token-count requests.
+The approved publication unit is **one official ROME fiche per code represented
+in the historical database**, regrouping its appellations. In November 2026 this
+means 1,440 pages, not 92,396 advertisement-title variants. `sync-rome` inventories
+the whole history, never the recent-ad search window. Raw candidates and old
+results are retained privately but excluded from the canonical export.
+
+Download France Travail's complete JSON ZIP into
+`server/.generated/rome-open-data.zip` using a GET request:
+https://api.francetravail.fr/api-nomenclatureemploi/v1/open-data/json.
+The source dataset and Licence Ouverte are documented at
+https://www.data.gouv.fr/datasets/repertoire-operationnel-des-metiers-et-des-emplois-rome.
+The importer reads the archive's version/date, explicitly detects its
+ISO-8859-15 (Latin-9) encoding, rejects missing/duplicate codes, and imports descriptions,
+access requirements, skills, working contexts and official appellations.
+It does not publish recruitment counts, employers or application links.
+If an older import decoded ligatures as fractions (`Œ` as `¼`, `œ` as `½`),
+`sync-rome --repair-encoding` checks the legacy checksum against the same archive
+and reuses only validated articles whose title and documentary facts are
+unchanged after transcoding. It never rewrites generated text or its date;
+changed titles and malformed words require generation again.
+
+All represented codes must match the reference before synchronization is
+declared complete. `metier_catalog_state` fences interrupted imports. Source
+versions are recorded on both rows and generated contents; stale or incomplete
+contents cannot be exported as a complete catalogue. Pilot URLs are preserved
+where applicable. The comptable pilot is mapped to official M1203 rather than
+the misleading M1211 expert-comptable code found in an old advertisement.
 
 The detailed pilot covers infographiste, collaborateur comptable junior and
 infirmier en soins generaux. Each page contains 600–900 useful words, five
@@ -37,11 +54,11 @@ developed sections, three or four FAQ answers, and official sources. The
 OUI/NON explanation remains one or two sentences. Use `regenerate --id <id>`
 to replace an existing short pilot page; old contents survive a failed attempt.
 
-Verified factual notes are in [metierEditorialSources.js](utils/metierEditorialSources.js).
-The provider receives only public job labels and those paraphrased facts.
+Verified pilot notes are in [metierEditorialSources.js](utils/metierEditorialSources.js);
+generalized ROME facts are imported by [romeCatalog.js](utils/romeCatalog.js).
+The provider receives only official job labels and documentary facts.
 Source URLs are attached from server metadata, never invented by the model.
-Missing job-specific documentation blocks detailed generation; do not generate
-unverified long articles for the remaining candidate labels. The nursing
+Missing job-specific documentation blocks detailed generation. The nursing
 qualification source is RNCP42589, which replaces RNCP39923; future changes
 described there must not be presented as already applicable to every cohort.
 
@@ -60,35 +77,43 @@ After **human validation** of at least three detailed, sourced pages:
 ```powershell
 npm run metiers -- approve-sample
 npm run metiers -- quote
-npm run metiers -- submit --limit 500
-npm run metiers -- collect
+npm run metiers -- run-all
+npm run metiers -- status
 npm run metiers -- budget
 npm run metiers -- export
 ```
 
-The **USD 2 total budget includes the sample and all attempts**, persists across
-runs and is reserved atomically before paid requests. A quote counts input
-tokens and prices the maximum output; no Search grounding or provider cache is
-enabled. If the full catalogue exceeds the remaining budget, obtain a decision
-before proceeding. Estimates exclude tax, currency conversion and provider
-price changes. Successful contents are never regenerated by builds.
+The **approved USD 3 total budget includes all earlier calls and retries**,
+persists across runs and is reserved atomically before paid requests. The second
+migration raises the previous USD 2 cap without resetting accounting.
+A quote counts actual input tokens (cached by exact request hash), estimates
+output using 1,800 tokens per article and includes a 10% retry margin. This is
+not a guaranteed bill: each batch separately reserves its maximum output cost
+and stops before exceeding the stored cap. No Search grounding or provider
+cache is enabled. Estimates exclude tax, conversion and provider price changes.
 
 `collect` is safe to repeat and reconciles results by occupation ID. An uncertain
 submission keeps its reservation and is never resubmitted automatically.
 Inspect Google jobs by display name `zelia-metiers-<reservation UUID>`; recover
 with `attach --id <reservation UUID> --job batches/<job-id>`, then `collect`.
 A failed request without usable token accounting keeps its conservative maximum
-cost. Explicitly retriable content errors require `--retry-errors`; do not clear
-an uncertain reservation without checking the provider.
+cost. Do not clear an uncertain reservation without checking the provider.
+`run-all` starts at most three jobs concurrently, with at most 100 pages per
+batch and an adaptive smaller batch when less budget is available. It allows
+at most three attempts per page/reference/prompt version. Result application is
+durable and idempotent; old responses cannot overwrite newer content or errors.
+It writes `server/.generated/metier-batch-progress.json`, and exits nonzero if
+the catalogue is incomplete after the budget or attempt limit is reached.
 To revise one of the existing sample pages explicitly, use
 `regenerate --id <occupation-id>`. Its previous content is retained until a
-valid replacement is stored, and the extra attempt counts toward USD 2.
+valid replacement is stored, and the extra attempt counts toward USD 3.
 
 Export refuses an incomplete production catalogue and any remaining short-only
 content. `export --preview --detailed-only` explicitly allows the non-indexable
 detailed sample; neither mode exposes the private inventory,
 generation ledger or service key. Test with `npm run verify:metiers` (mocked
-provider and local PostgreSQL; no paid calls).
+provider and local PostgreSQL; no paid calls), plus `npm run verify:rome`
+for reference imports, canonical mapping, durable token counting and budgeted batches.
 
 ## Features
 
@@ -183,7 +208,13 @@ Chaque option porte `label` (aussi utilise comme reponse enregistree), `value` (
 
 Le parcours demande `GET /api/questionnaire/questions?type=inscription_v5&limit=20`. Les questions v1/v2/v3/v4 et leurs interpretations restent intactes pour l'historique et les anciens clients. Les reponses et resultats conservent le type `inscription`, avec les nouveaux identifiants. Le cache passe a `orientation-flow-v5-20` ; une progression anterieure est invalidee et ne declenche pas d'analyse automatique. La migration v5 peut etre appliquee directement sur une base existante avec la table `questions`, meme sans v4.
 
-Le persona depend des cinq axes uniquement. Le backend recalcule les interets depuis les reponses enregistrees et transmet au LLM les activites choisies et les alternatives moins choisies, avec leur nuance. La transmission, l'animation et l'accompagnement ne prouvent pas un interet pour le soin ; les soins exigent un signal explicite. Ce questionnaire n'est pas un test psychometrique valide. Les anciens formats restent lisibles. Verification migration/scoring/historique/contexte LLM : `node scripts/verify_orientation_questionnaire.mjs`.
+Le persona depend des cinq axes uniquement. Le backend recalcule les interets depuis les reponses enregistrees et transmet au LLM les activites choisies et les alternatives moins choisies, avec leur nuance. Les familles RIASEC et les personas ne sont pas associes automatiquement a un secteur ou a un metier. Ce questionnaire n'est pas un test psychometrique valide. Les anciens formats restent lisibles. Verification migration/scoring/historique/contexte LLM : `node scripts/verify_orientation_questionnaire.mjs`.
+
+#### Recommandations de metiers
+
+Le LLM choisit les metiers a partir de l'ensemble des reponses et des preferences exprimees, sans quota terrain/bureau, exclusion sectorielle ni liste de domaines imposee par le persona. Les prompts du bilan et des swipes suivent cette regle. Le serveur conserve l'ordre des metiers generes ; il normalise les donnees, retire les doublons et limite la liste a six, sans ajouter ni remplacer de metier ou de formation predefini. Une aspiration explicite reste transmise au LLM comme priorite, et les formats de formation demandes par l'utilisateur restent prioritaires parmi les formations generees.
+
+Les resultats deja enregistres ne sont pas modifies retroactivement : il faut regenerer le bilan pour appliquer ces regles. Regression locale sans appel au LLM : `node scripts/verify_orientation_recommendation_guard.mjs`. Verification complete de l'orientation : `npm run verify:orientation`.
 
 ### Partage des résultats (`/api/share`)
 - `POST /results` - Envoie le PDF des résultats d’un élève aux adresses e-mail fournies (authentifié)

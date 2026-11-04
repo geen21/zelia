@@ -155,7 +155,7 @@ export default function FormationDetail() {
   const schoolHref = externalFormationHref(formation.link)
 
   return (
-    <div className="p-2 md:p-6">
+    <div className="formation-detail p-2 md:p-6">
       {(matchError || actionError) && <div role="alert" className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-xl mb-4">
         {matchError && <p>{matchError}</p>}{actionError && <p>{actionError}</p>}
         <button className="underline" onClick={() => setRetry((value) => value + 1)}>Réessayer</button>
@@ -163,7 +163,7 @@ export default function FormationDetail() {
       <div className="mb-6">
         <button
           onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors mb-4"
+          className="zelia-button zelia-button--secondary mb-4"
         >
           <FaArrowLeft className="w-3.5 h-3.5" />
           Retour
@@ -202,14 +202,14 @@ export default function FormationDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
         <div className="lg:col-span-2 space-y-4">
           {descriptionSections.map((section) => (
-            <section key={section.title} className="bg-white border border-gray-200 rounded-2xl p-4 md:p-5">
+            <section key={section.title} className="zelia-card">
               <h2 className="text-sm font-semibold text-gray-900 mb-2">{section.title}</h2>
               <p className="text-sm leading-relaxed text-gray-600">{section.body}</p>
             </section>
           ))}
 
           {prereqLine && (
-            <section className="bg-white border border-gray-200 rounded-2xl p-4 md:p-5">
+            <section className="zelia-card">
               <h2 className="text-sm font-semibold text-gray-900 mb-2">Pré-requis</h2>
               <p className="text-sm leading-relaxed text-gray-600">
                 {prereqLine.replace('Pré-requis:', '').trim()}
@@ -218,7 +218,7 @@ export default function FormationDetail() {
           )}
         </div>
 
-        <aside className="bg-white border border-gray-200 rounded-2xl p-4 md:p-5 lg:sticky lg:top-6">
+        <aside className="zelia-card lg:sticky lg:top-6">
           <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mb-4">
             <FaPaperPlane className="w-5 h-5 text-gray-700" />
           </div>
@@ -230,11 +230,7 @@ export default function FormationDetail() {
           <button
             onClick={handleSubmit}
             disabled={submitted || submitting || !submissionsReady || formation.is_active === false}
-            className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors disabled:opacity-70 ${
-              submitted
-                ? 'bg-green-50 text-green-700 border border-green-200'
-                : 'bg-black text-white hover:bg-gray-800'
-            }`}
+            className={`zelia-button w-full${submitted ? ' is-success' : ''}`}
           >
             {submitted ? (
               <><FaCheck className="w-3.5 h-3.5" /> Demande envoyée</>

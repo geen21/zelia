@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 
 export default function MentionsLegales() {
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <main className="legal-page">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
         <div className="mb-10">
           <p className="uppercase tracking-wide text-sm text-gray-500">Mentions légales</p>
@@ -72,7 +72,7 @@ export default function MentionsLegales() {
           <Link to="/legal/conditions" className="hover:underline">CGU, CGV &amp; Politique de confidentialité</Link>
         </nav>
       </div>
-    </div>
+    </main>
   )
 }
 

@@ -189,42 +189,35 @@ useEffect(() => {
 	}
 
 	return (
-		<div className="space-y-6">
+		<div className="zelia-jobs space-y-6">
 			<style>{`
 			@keyframes wandTwinkle { 0%, 100% { transform: rotate(0deg) scale(1); opacity: 1 } 50% { transform: rotate(-8deg) scale(1.05); opacity: .9 } }
 			.wand-twinkle { animation: wandTwinkle 2.2s ease-in-out infinite; transform-origin: 50% 60%; }
 
-			/* Remove any input focus outlines/rings/transition animations */
-			.no-outline, .no-outline:focus, .no-outline:focus-visible { outline: none !important; box-shadow: none !important; transition: none !important; }
-			.no-outline::-moz-focus-inner { border: 0 !important; }
-			.no-outline::-webkit-search-decoration,
-			.no-outline::-webkit-search-cancel-button,
-			.no-outline::-webkit-search-results-button,
-			.no-outline::-webkit-search-results-decoration { display: none !important; }
 			`}</style>
-			<div>
+			<header className="zelia-page-intro">
 				<h1 className="text-xl md:text-2xl font-semibold mb-1">Métiers</h1>
 				<p className="text-text-secondary">Offres et fiches métiers</p>
-			</div>
+			</header>
 
 			{/* Filters */}
-			<div className="bg-surface border border-line rounded-xl shadow-card p-3">
+			<div className="zelia-card">
 				{/* 4 equal columns on md+; consistent heights (h-11) for inputs/selects/buttons */}
 				<div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
 					<div>
-						<label className="block text-xs text-text-secondary mb-1">Recherche</label>
-						<div className="flex items-center gap-2 border border-line rounded-lg h-11 px-3 transition-none focus-within:ring-0 focus-within:outline-none focus-within:shadow-none">
+						<label htmlFor="job-search" className="block text-xs text-text-secondary mb-1">Recherche</label>
+						<div className="zelia-search-field">
 							<i className="ph ph-magnifying-glass text-text-secondary"></i>
-							<input className="w-full text-sm bg-transparent outline-none border-0 ring-0 focus:outline-none focus:ring-0 focus:border-transparent appearance-none transition-none shadow-none focus:shadow-none no-outline" value={q} onChange={e=>setQ(e.target.value)} placeholder="Intitulé, secteur, code ROME..." />
+							<input id="job-search" className="w-full" value={q} onChange={e=>setQ(e.target.value)} placeholder="Intitulé, secteur, code ROME..." />
 						</div>
 					</div>
 					<div>
-						<label className="block text-xs text-text-secondary mb-1">Type de contrat</label>
-						<input className="w-full border border-line rounded-lg h-11 px-3 outline-none text-sm focus:outline-none focus:ring-0 focus:shadow-none transition-none no-outline" value={typecontrat} onChange={e=>setTypecontrat(e.target.value)} placeholder="ex: CDI" />
+						<label htmlFor="job-contract" className="block text-xs text-text-secondary mb-1">Type de contrat</label>
+						<input id="job-contract" className="w-full" value={typecontrat} onChange={e=>setTypecontrat(e.target.value)} placeholder="ex: CDI" />
 					</div>
 					<div>
-						<label className="block text-xs text-text-secondary mb-1">Alternance</label>
-						<select className="w-full border border-line rounded-lg h-11 px-3 outline-none text-sm bg-white focus:outline-none focus:ring-0 focus:shadow-none transition-none no-outline" value={alternance} onChange={e=>setAlternance(e.target.value)}>
+						<label htmlFor="job-alternance" className="block text-xs text-text-secondary mb-1">Alternance</label>
+						<select id="job-alternance" className="w-full" value={alternance} onChange={e=>setAlternance(e.target.value)}>
 							<option value="">Tous</option>
 							<option value="true">Oui</option>
 							<option value="false">Non</option>
@@ -239,7 +232,7 @@ useEffect(() => {
 						>
 							{recoLoading ? <i className="ph ph-circle-notch animate-spin"></i> : <i className="ph ph-magic-wand wand-twinkle"></i>}
 						</button>
-						<button className="inline-flex items-center justify-center h-11 px-4 bg-black text-white rounded-lg text-sm disabled:opacity-60" disabled={loading} onClick={()=>load(1)}>
+						<button className="zelia-button" disabled={loading} onClick={()=>load(1)}>
 							{loading ? (<span className="inline-flex items-center gap-2"><i className="ph ph-circle-notch animate-spin"></i>Chargement...</span>) : 'Rechercher'}
 						</button>
 					</div>
@@ -247,7 +240,7 @@ useEffect(() => {
 			</div>
 
 			{/* Table */}
-			<div className="bg-surface border border-line rounded-xl shadow-card overflow-hidden">
+			<div className="zelia-card zelia-card--flush overflow-hidden">
 				<div className="overflow-x-auto">
 					<table className="min-w-full text-sm">
 						<thead className="bg-gray-50 border-b border-line text-text-secondary">

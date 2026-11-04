@@ -1,0 +1,236 @@
+.zelia-ui {
+  --ui-font: "Bricolage Grotesque", system-ui, sans-serif;
+  --ui-ink: #15151b;
+  --ui-muted: #505663;
+  --ui-line: #25252c;
+  --ui-cream: #fffbf7;
+  --ui-lime: #c1ff72;
+  --ui-pink: #f68fff;
+  --ui-surface: #fff;
+  --ui-control-line: #777580;
+  --ui-focus: #6d28d9;
+  --ui-error: #93261c;
+  --ui-success: #345520;
+  --ui-radius: 24px;
+  --ui-shadow: 4px 4px 0 var(--ui-ink);
+  --ui-button-shadow: 3px 3px 0 var(--ui-ink);
+  --ui-gutter: 32px;
+  --ui-wide: 1200px;
+  --ui-title: clamp(34px, 3.8vw, 52px);
+  --ui-app-title: clamp(28px, 3.4vw, 42px);
+  --ui-section-title: clamp(24px, 2.8vw, 34px);
+  min-width: 0;
+  min-height: 100vh;
+  background: var(--ui-cream);
+  color: var(--ui-ink);
+  font-family: var(--ui-font);
+  line-height: 1.6;
+}
+
+.zelia-ui *, .zelia-ui *::before, .zelia-ui *::after { box-sizing: border-box; }
+.zelia-ui .zelia-ui__public-content { min-height: 100vh; min-height: 100svh; }
+.zelia-ui :is(h1, h2, h3, h4, h5, h6, button, input, select, textarea) { font-family: var(--ui-font); }
+.zelia-ui :is(h1, h2, h3, h4, h5, h6) { text-transform: none; overflow-wrap: anywhere; }
+.zelia-ui :is(button, summary) { min-height: 44px; }
+.zelia-ui :is(button, input, select, textarea):disabled { opacity: .6; cursor: not-allowed; }
+.zelia-ui :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 3px solid var(--ui-focus) !important; outline-offset: 5px; }
+
+.zelia-ui :is(.zelia-home, .parents-landing, .blog-page, .blog-article, .fp-page, .metiers-page, .login-page, .orientation-flow, .zelia-app-shell) {
+  color: var(--ui-ink);
+  background-color: var(--ui-cream);
+  font-family: var(--ui-font);
+}
+.zelia-ui :is(.zelia-home-container, .public-header__nav, .fp-page .container, .blog-page > .container, .blog-article > header > .container, .blog-article__body > .container) {
+  width: min(calc(100% - var(--ui-gutter) * 2), var(--ui-wide));
+  max-width: var(--ui-wide);
+  padding-inline: 0;
+  margin-inline: auto;
+}
+.zelia-ui .metier-container { width: min(calc(100% - var(--ui-gutter) * 2), var(--ui-wide)); max-width: var(--ui-wide); padding-inline: 0; }
+.zelia-ui :is(.parents-section, .parents-hero) { width: min(calc(100% - var(--ui-gutter) * 2), 980px); padding-inline: 0; }
+.zelia-ui .parents-hero { max-width: 760px; }
+.zelia-ui :is(.fp-hero, .blog-page__hero, .blog-article__hero) { padding-block: 48px 32px; border-bottom-color: var(--ui-line); }
+.zelia-ui :is(.fp-hero h1, .blog-page__title, .blog-article__title, .metier-hero h1, .parents-hero h1, .legal-page h1) {
+  color: var(--ui-ink);
+  font-family: var(--ui-font);
+  font-size: var(--ui-title);
+  line-height: 1.12;
+  font-weight: 800;
+  letter-spacing: -.025em;
+}
+.zelia-ui :is(.zp-intro h1, .fe-intro h1, .dash-greeting-text h1, .results-header h1, .outils-header h1, .zelia-page-intro h1, .formation-detail h1) {
+  font-size: var(--ui-app-title);
+  line-height: 1.12;
+  font-weight: 800;
+  letter-spacing: -.025em;
+}
+.zelia-ui :is(.tool-header h1, .login-heading h1, .orientation-card h1) { font-size: clamp(27px, 4vw, 34px); line-height: 1.15; letter-spacing: -.025em; }
+.zelia-ui :is(.fp-breadcrumb, .metier-breadcrumb, .blog-article__breadcrumb) { font-size: 13px; letter-spacing: 0; text-transform: none; }
+.zelia-ui :is(.parents-section-title, .legal-page h2) { font-size: var(--ui-section-title); line-height: 1.2; letter-spacing: -.025em; }
+.zelia-ui .zelia-page-intro { margin-bottom: 28px; }
+.zelia-ui .zelia-page-intro :is(h1, p) { margin: 0; }
+.zelia-ui .zelia-page-intro p { margin-top: 12px; color: var(--ui-muted); font-size: 16px; }
+
+.zelia-ui :is(
+  .zelia-card, .fp-card, .fp-result-card, .metier-card, .metier-orientation,
+  .metier-facts section, .metier-toc, .parents-module-card, .parents-pricing-card,
+  .login-card, .orientation-card:not(.question-card), .zp-card, .zp-identity,
+  .school-sharing, .tool-panel, .tool-header, .outils-tile, .fe-card, .fe-filters,
+  .formation-lead-card, .dash-card, .results-card, .blog-article__main, .blog-article__card
+) {
+  border: 2px solid var(--ui-line);
+  border-radius: var(--ui-radius);
+  box-shadow: var(--ui-shadow);
+}
+.zelia-ui :is(.outils-tile, .fp-result-card, .metier-card):hover { border-color: var(--ui-ink); box-shadow: 6px 6px 0 var(--ui-ink); }
+.zelia-ui :is(.fe-card-highlight, .formation-lead-card-partner) { box-shadow: inset 3px 0 0 var(--ui-lime), var(--ui-shadow); }
+.zelia-ui .outils-tile.is-completed { border-color: var(--ui-success); }
+.zelia-ui .zelia-card { padding: clamp(20px, 3vw, 28px); background: var(--ui-surface); min-width: 0; }
+.zelia-ui .zelia-card--flush { padding: 0; }
+.zelia-ui :is(.dz-messages, .dz-expert-panel, .persona-card) { border: 2px solid var(--ui-line); border-radius: var(--ui-radius); }
+
+.zelia-ui :is(
+  .zelia-button, .zelia-home-button, .zelia-home-text-link, .public-header__cta,
+  .primary-action, .secondary-action, .login-submit, .login-google, .fp-btn,
+  .fp-search-bar button, .fp-load-more button, .metier-button, .zp-button,
+  .tool-primary, .tool-secondary, .lettre-generate, .lettre-action-btn,
+  .formation-lead-cta, .formation-lead-check, .results-cta, .dash-step-cta,
+  .dash-chat-cta-btn, .persona-continue, .ss-school-action,
+  .niv5-submit-btn, .n17-generate-btn, .n17-add-btn
+) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  max-width: 100%;
+  padding: 12px 22px;
+  border: 2px solid var(--ui-ink);
+  border-radius: 999px;
+  background: var(--ui-button-bg, var(--ui-ink));
+  color: var(--ui-button-text, #fff);
+  box-shadow: var(--ui-button-shadow);
+  font-family: var(--ui-font);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background .18s ease, transform .18s ease;
+}
+.zelia-ui :is(
+  .zelia-button, .zelia-home-button, .zelia-home-text-link, .public-header__cta,
+  .primary-action, .secondary-action, .login-submit, .login-google, .fp-btn,
+  .fp-search-bar button, .fp-load-more button, .metier-button, .zp-button,
+  .tool-primary, .tool-secondary, .lettre-generate, .lettre-action-btn,
+  .formation-lead-cta, .formation-lead-check, .results-cta, .dash-step-cta,
+  .dash-chat-cta-btn, .persona-continue, .ss-school-action,
+  .niv5-submit-btn, .n17-generate-btn, .n17-add-btn
+):hover:not(:disabled) {
+  transform: translate(-2px, -2px);
+  background: var(--ui-button-hover, #2b3547);
+  color: var(--ui-button-text, #fff);
+}
+.zelia-ui :is(
+  .zelia-button--lime, .zelia-home-button--primary, .login-submit, .metier-button,
+  .tool-primary, .lettre-generate, .zp-button--lime, .persona-continue, .n17-generate-btn
+) { --ui-button-bg: var(--ui-lime); --ui-button-text: var(--ui-ink); --ui-button-hover: #afea61; }
+.zelia-ui :is(
+  .zelia-button--secondary, .zelia-home-text-link, .secondary-action, .login-google,
+  .fp-btn--ghost, .tool-secondary, .lettre-action-btn, .formation-lead-check,
+  .zp-button, .ss-school-action, .n17-add-btn, .fp-load-more button
+) { --ui-button-bg: #fff; --ui-button-text: var(--ui-ink); --ui-button-hover: var(--ui-cream); }
+.zelia-ui :is(.zelia-home-button--share, .zelia-home-text-link) { --ui-button-bg: var(--ui-cream); --ui-button-text: var(--ui-ink); --ui-button-hover: #fff; }
+.zelia-ui .zp-button--lime { --ui-button-bg: var(--ui-lime); --ui-button-hover: #afea61; }
+.zelia-ui .zp-button--ink { --ui-button-bg: var(--ui-ink); --ui-button-text: #fff; --ui-button-hover: #2b3547; }
+.zelia-ui .zp-button--pink { --ui-button-bg: var(--ui-pink); --ui-button-hover: #ed7af7; }
+.zelia-ui .formation-lead-check.is-checked { --ui-button-bg: var(--ui-lime); --ui-button-hover: #afea61; }
+.zelia-ui :is(.formation-lead-cta.is-submitted, .zelia-button.is-success) { --ui-button-bg: #ecfdf3; --ui-button-text: var(--ui-success); --ui-button-hover: #ecfdf3; border-color: var(--ui-success); }
+.zelia-ui :is(.zelia-button, .fp-btn, .tool-primary, .tool-secondary) > svg { flex-shrink: 0; width: 18px; height: 18px; }
+
+/* The legacy theme makes input padding and borders important. Keep the fix inside this theme. */
+.zelia-ui :is(
+  input:not([type]), input[type="text"], input[type="email"], input[type="password"],
+  input[type="search"], input[type="tel"], input[type="number"], input[type="url"],
+  select, textarea
+) {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 52px;
+  padding: 12px 16px !important;
+  border: 1px solid var(--ui-control-line) !important;
+  border-radius: 14px;
+  background-color: var(--ui-surface);
+  color: var(--ui-ink);
+  font-family: var(--ui-font);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.zelia-ui textarea { min-height: 120px; }
+.zelia-ui :is(input, select, textarea)[aria-invalid="true"] { border-color: var(--ui-error) !important; }
+.zelia-ui .login-password .login-input { padding-right: 56px !important; }
+.zelia-ui input[type="checkbox"]:not(.ss-toggle), .zelia-ui input[type="radio"] {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  padding: 0 !important;
+  margin: 0;
+  border: 1px solid var(--ui-control-line) !important;
+  accent-color: #4d6739;
+}
+.zelia-ui .zelia-search-field { display: flex; align-items: center; gap: 8px; min-height: 52px; border: 1px solid var(--ui-control-line); border-radius: 14px; padding: 0 16px; }
+.zelia-ui .zelia-search-field input { min-height: 0; height: 48px; border: 0 !important; padding: 0 !important; background: transparent; }
+.zelia-ui :is(.login-error, .fe-error, .ss-message--error, .tool-error) { color: var(--ui-error); border-color: var(--ui-error); }
+.zelia-ui :is(.login-description, .zp-intro > p, .fe-explanation, .fe-sharing, .tool-description, .fp-card p, .metier-card p) { color: var(--ui-muted); }
+
+.zelia-ui .zelia-app-topbar { border-bottom: 2px solid var(--ui-line); background: var(--ui-cream); }
+.zelia-ui .zelia-topbar-inner { max-width: calc(var(--ui-wide) + 64px); height: 76px; }
+.zelia-ui :is(.zelia-topnav-link, .zelia-topbar-profile, .zelia-topbar-logout) { min-height: 44px; height: auto; }
+.zelia-ui .zelia-topbar-logout { width: 44px; border-color: var(--ui-line); }
+.zelia-ui .zelia-topnav-link.is-active { color: var(--ui-ink); background: var(--ui-lime); }
+.zelia-ui :is(.results-pill, .dash-pill, .outils-category) { min-height: 44px; border: 1px solid var(--ui-line); color: var(--ui-ink); background: #fff; border-radius: 999px; font-size: 14px; }
+.zelia-ui :is(.results-pill, .dash-pill) i { color: inherit; }
+.zelia-ui .fp-social-btn { width: 44px; height: 44px; border: 1px solid var(--ui-line); border-radius: 14px; }
+.zelia-ui .dz-input :is(input, button) { height: 52px; min-height: 52px; }
+.zelia-ui .legal-page { color: var(--ui-ink); background: var(--ui-cream); }
+.zelia-ui .legal-page > div { max-width: 840px; }
+.zelia-ui .legal-page :is(p, li) { line-height: 1.75; }
+.zelia-ui .auth-callback { min-height: 100svh; }
+.zelia-ui .zelia-jobs :is(td, th) { overflow-wrap: anywhere; }
+
+.zelia-ui .public-footer { margin-top: 64px; padding-block: 54px 24px; border-top: 1px solid var(--ui-line); color: var(--ui-ink); background: var(--ui-cream); }
+.zelia-ui .public-footer__container { width: min(calc(100% - var(--ui-gutter) * 2), var(--ui-wide)); margin-inline: auto; }
+.zelia-ui .public-footer__grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1.2fr; gap: 40px; }
+.zelia-ui .public-footer__brand img { display: block; width: 100px; height: auto; }
+.zelia-ui .public-footer__brand p { max-width: 290px; margin: 20px 0 0; color: var(--ui-muted); font-size: 13px; line-height: 1.65; }
+.zelia-ui .public-footer__column { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.zelia-ui .public-footer__column h2 { margin: 0 0 12px; color: var(--ui-ink); font-size: 14px; font-weight: 750; line-height: 1.3; letter-spacing: -.025em; }
+.zelia-ui .public-footer__column a { display: inline-flex; align-items: center; min-height: 44px; padding-block: 6px; color: var(--ui-muted); font-size: 13px; line-height: 1.5; text-decoration: none; }
+.zelia-ui .public-footer__column a:hover { color: var(--ui-ink); text-decoration: underline; text-underline-offset: 3px; }
+.zelia-ui .public-footer__bottom { padding-top: 22px; margin-top: 40px; border-top: 1px solid var(--ui-line); color: var(--ui-muted); font-size: 12px; }
+
+@media (max-width: 1050px) {
+  .zelia-ui .public-footer__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
+}
+@media (max-width: 600px) {
+  .zelia-ui { --ui-gutter: 20px; --ui-radius: 20px; }
+  .zelia-ui :is(.fp-hero, .blog-page__hero, .blog-article__hero) { padding-block: 32px 24px; }
+  .zelia-ui .public-footer { margin-top: 40px; padding-top: 36px; }
+  .zelia-ui .public-footer__grid { grid-template-columns: 1fr; gap: 28px; }
+  .zelia-ui .public-footer__bottom { margin-top: 28px; }
+}
+@media (max-width: 360px) {
+  .zelia-ui { --ui-gutter: 16px; }
+  .zelia-ui .public-footer__grid { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .zelia-ui *, .zelia-ui *::before, .zelia-ui *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { assertSharedUX } from './fixtures/assert-shared-ux.mjs'
 import { mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -108,6 +109,7 @@ try {
     try {
       await page.goto(`${base}/login`)
       await expect(page.getByRole('heading', { name: 'Reprends ton parcours' })).toBeVisible()
+      await assertSharedUX(page)
       await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
       await expect(page.getByText('Supabase', { exact: false })).toHaveCount(0)
       await expect(page.getByRole('link', { name: 'Créer un compte' })).toHaveAttribute('href', '/register')

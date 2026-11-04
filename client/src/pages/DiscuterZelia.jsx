@@ -337,9 +337,9 @@ export default function DiscuterZelia() {
 const styles = `
 .dz-page {
   --dz-lime: #c1ff72;
-  --dz-pink: #f68fff;
-  --dz-ink: #111827;
-  --dz-cream: #fffbf7;
+  --dz-pink: var(--ui-pink, #f68fff);
+  --dz-ink: var(--ui-ink, #15151b);
+  --dz-cream: var(--ui-cream, #fffbf7);
   width: 100%;
   height: 100%;
   max-width: 900px;

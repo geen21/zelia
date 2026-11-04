@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chromium, expect as playwrightExpect } from '@playwright/test'
 import { SCHOOL_SHARING_VERSION } from '../src/lib/schoolSharing.js'
+import { assertSharedUX } from './fixtures/assert-shared-ux.mjs'
 
 const base = process.env.PROFILE_TEST_URL || 'http://127.0.0.1:5187'
 const expect = playwrightExpect.configure({ timeout: 20000 })
@@ -75,6 +76,7 @@ async function prepare(width, options = {}) {
 
 async function checkLayout(page) {
   await expect(page.getByRole('heading', { name: /Mon profil,\s*tout moi\./ })).toBeVisible()
+  await assertSharedUX(page)
   const dimensions = await page.evaluate(() => {
     const main = document.querySelector('.zelia-app-main main')
     const profile = document.querySelector('.zelia-profile')

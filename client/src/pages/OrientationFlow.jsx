@@ -1377,6 +1377,7 @@ function phaseIndex(phase) {
 export default function OrientationFlow() {
   const navigate = useNavigate()
   const dragStartRef = useRef(null)
+  const answerTransitionTimerRef = useRef(null)
   const orientationStepTrackingRef = useRef('')
   const [initialProfileIdentity] = useState(() => normalizeProfileIdentity(getStoredJson(PROFILE_IDENTITY_KEY, DEFAULT_PROFILE_IDENTITY)))
   const [phase, setPhase] = useState(() => (Object.keys(getStoredAnswersProgress()).length > 0 ? 'questions' : 'intro'))
@@ -1386,6 +1387,7 @@ export default function OrientationFlow() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [dragX, setDragX] = useState(0)
+  const [isAnswerTransitioning, setIsAnswerTransitioning] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('avatar_url') || buildLoreleiUrl({ seed: 'zelia' }))
   const [persona, setPersona] = useState(() => getPersonaBySlug(localStorage.getItem('orientation_persona') || ''))
   const [sharingPersona, setSharingPersona] = useState(false)
@@ -1716,8 +1718,15 @@ export default function OrientationFlow() {
     return nextAnswers
   }, [answers])
 
+  useEffect(() => {
+    // Keep inputs locked until the next question has rendered.
+    answerTransitionTimerRef.current = null
+    setIsAnswerTransitioning(false)
+    return () => window.clearTimeout(answerTransitionTimerRef.current)
+  }, [phase, questionIndex])
+
   const answerQuestion = useCallback((choiceIndex) => {
-    if (!currentQuestion) return
+    if (phase !== 'questions' || !currentQuestion || answerTransitionTimerRef.current !== null) return
     const choices = getAnswerChoices(currentQuestion)
     const safeIndex = Math.max(0, Math.min(Number(choiceIndex) || 0, choices.length - 1))
     const picked = choices[safeIndex]
@@ -1727,22 +1736,24 @@ export default function OrientationFlow() {
       orientation_question_category: currentQuestion.category || 'unknown',
       orientation_answer_position: safeIndex + 1
     })
-    const nextAnswers = persistAnswer(currentQuestion.id, picked.answer)
+    persistAnswer(currentQuestion.id, picked.answer)
+    dragStartRef.current = null
+    setIsAnswerTransitioning(true)
     setDragX(safeIndex >= choices.length / 2 ? 360 : -360)
-    window.setTimeout(() => {
+    answerTransitionTimerRef.current = window.setTimeout(() => {
       setDragX(0)
       if (questionIndex >= questions.length - 1) {
         setInfoIndex(0)
         setPhase('info')
       } else {
-        setQuestionIndex((index) => Math.min(index + 1, questions.length - 1))
+        setQuestionIndex(Math.min(questionIndex + 1, questions.length - 1))
       }
     }, 180)
-  }, [currentQuestion, persistAnswer, questionIndex, questions])
+  }, [currentQuestion, persistAnswer, phase, questionIndex, questions])
 
   useEffect(() => {
     const onKeyDown = (event) => {
-      if (phase === 'questions') {
+      if (phase === 'questions' && !event.repeat) {
         const choiceCount = getAnswerChoices(currentQuestion).length
         if (event.key === 'ArrowRight') answerQuestion(choiceCount - 1)
         if (event.key === 'ArrowLeft') answerQuestion(0)
@@ -1754,7 +1765,7 @@ export default function OrientationFlow() {
   }, [answerQuestion, currentQuestion, phase])
 
   const onPointerDown = (event) => {
-    if (phase !== 'questions') return
+    if (phase !== 'questions' || answerTransitionTimerRef.current !== null) return
     dragStartRef.current = { x: event.clientX }
     event.currentTarget.setPointerCapture?.(event.pointerId)
   }
@@ -1776,6 +1787,11 @@ export default function OrientationFlow() {
     if (phase === 'questions') answerQuestion(delta > 0 ? 3 : 0)
   }
 
+  const onPointerCancel = () => {
+    dragStartRef.current = null
+    if (answerTransitionTimerRef.current === null) setDragX(0)
+  }
+
   const canGoBack = !loading && !error && (
     (phase === 'questions' && questionIndex > 0) ||
     ['personality', 'info', 'formationReveal', 'metierReveal', 'avatarReveal'].includes(phase)
@@ -1784,6 +1800,10 @@ export default function OrientationFlow() {
   const goBack = () => {
     if (phase === 'questions') {
       if (questionIndex > 0) {
+        window.clearTimeout(answerTransitionTimerRef.current)
+        answerTransitionTimerRef.current = null
+        setIsAnswerTransitioning(false)
+        dragStartRef.current = null
         setDragX(0)
         setQuestionIndex((index) => index - 1)
       }
@@ -2318,7 +2338,7 @@ export default function OrientationFlow() {
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
+          onPointerCancel={onPointerCancel}
           style={{ transform: `translateX(${dragX}px) rotate(${dragX / 18}deg)` }}
         >
           <h1>{cleanQuestionText(currentQuestion.contenu)}</h1>
@@ -2335,6 +2355,7 @@ export default function OrientationFlow() {
                 key={choice.answer}
                 type="button"
                 className={`scale-choice level-${choice.level}${choice.index === selectedIndex ? ' selected' : ''}`}
+                disabled={isAnswerTransitioning}
                 onClick={() => answerQuestion(choice.index)}
                 aria-pressed={choice.index === selectedIndex}
               >

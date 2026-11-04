@@ -48,6 +48,9 @@ export default function MetierPage({ initialDocument }) {
         const response = await fetch(url, { signal: controller.signal, cache: 'no-cache' })
         if (response.status === 404) { setState({ path, missing: true }); return }
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        if (!response.headers.get('content-type')?.toLowerCase().includes('application/json')) {
+          throw new Error('Réponse métier non JSON : vérifier la présence du catalogue prérendu ou de son instantané local.')
+        }
         const result = await response.json()
         if (result.path !== path || !['directory', 'detail'].includes(result.kind)) throw new Error('Données métier invalides')
         if (result.kind === 'detail') validateMetierContent(result.page.content)
@@ -105,13 +108,16 @@ export default function MetierPage({ initialDocument }) {
             <p className="metier-eyebrow">Les métiers, version demain{data.page.content.version === 2 ? ` · ${Math.ceil(metierWordCount(data.page.content) / 200)} min de lecture` : ''}</p>
             <h1>Est-ce que le métier {jobPreposition}<span>{jobName}</span> est un métier d’avenir ?</h1>
             <p>{data.page.content.summary}</p>
+            {data.page.appellations?.length > 0 && <details className="metier-appellations">
+              <summary>Autres appellations de ce métier</summary>
+              <ul>{data.page.appellations.map((name) => <li key={name}>{name}</li>)}</ul>
+            </details>}
           </header>
           <div className="metier-detail-grid">
             <article className={`metier-verdict${data.page.content.verdict === 'NON' ? ' metier-verdict--non' : ''}`} aria-labelledby="metier-verdict-title">
               <p className="metier-eyebrow">L’éclairage Zélia · à l’heure de l’IA</p>
               <h2 id="metier-verdict-title">{data.page.content.verdict === 'OUI' ? 'Oui' : 'Non'}<span aria-hidden="true">.</span></h2>
               <p className="metier-explanation">{data.page.content.explanation}</p>
-              <p className="metier-disclaimer">Appréciation générée par IA le <time dateTime={data.page.updatedAt}>{new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris' }).format(new Date(data.page.updatedAt))}</time>. Perspectives générales en France, pas une garantie d’emploi ni une mesure des recrutements actuels.</p>
             </article>
             <aside className="metier-orientation">
               <span className="metier-sticker" aria-hidden="true">C’est toi qui choisis ✳</span>

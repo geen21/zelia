@@ -3,7 +3,7 @@ import dotenv from 'dotenv'
 import { supabase, supabaseAdmin } from '../config/supabase.js'
 import { cloudinary, isCloudinaryConfigured } from '../config/cloudinary.js'
 import { authenticateToken } from '../middleware/auth.js'
-import { enforceOrientationRecommendationQuality, JOB_TITLE_GUIDELINES } from '../utils/orientationRecommendationGuard.js'
+import { enforceOrientationRecommendationQuality, JOB_SELECTION_GUIDELINES, JOB_TITLE_GUIDELINES } from '../utils/orientationRecommendationGuard.js'
 import { buildOrientationQuestionnaireContext, QUESTIONNAIRE_NUANCE_INSTRUCTION, resolveInterpretation } from '../utils/orientationQuestionnaireContext.js'
 
 // Ensure environment variables are loaded (redundant-safe)
@@ -94,11 +94,6 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
       })
       .filter(Boolean)
       .join(', ')
-    // Balanced axes keep a pole for compatibility but must not drive the recommendation guard.
-    const guardAxes = Object.fromEntries(Object.entries(axisDefinitions)
-      .filter(([axis, allowedValues]) => allowedValues.includes(clientAxes[axis]) && rawAxisStrength[axis] !== 'equilibre')
-      .map(([axis]) => [axis, clientAxes[axis]]))
-
     console.log('Generating analysis for user ID:', userId)
 
     // Use service role if available to bypass RLS for server-side processing
@@ -197,18 +192,18 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
     // Keep this list aligned with client/src/lib/personas.js. The client calculates
     // the persona from its axis answers, while Gemini turns that profile into advice.
     const zeliaPersonaContext = `Voici les 12 personnalités affichées par Zélia :\n`
-      + `- L'Explorateur Créatif : curieux, imaginatif, ouvert aux expériences. Domaines : création, voyage, culture, environnement, terrain.\n`
-      + `- Le Bâtisseur : concret, fiable, pragmatique. Domaines : artisanat, BTP, maintenance, mécanique, production.\n`
-      + `- Le Stratège : logique, précis, anticipateur. Domaines : droit, recherche, ingénierie, gestion, analyse.\n`
-      + `- Le Connecteur : sociable, énergique, fédérateur. Domaines : animation, commerce, communication, événementiel, médiation.\n`
-      + `- Le Protecteur : bienveillant, calme, attentif. Domaines : santé, social, sécurité, éducation, environnement.\n`
-      + `- L'Observateur : curieux, indépendant, attentif aux détails. Domaines : recherche, psychologie, écriture, qualité, analyse.\n`
-      + `- Le Créateur : original, sensible, habile. Domaines : arts, design, artisanat d'art, mode, audiovisuel.\n`
-      + `- Le Compétiteur : déterminé, ambitieux, dynamique. Domaines : sport, logistique, commerce terrain, entrepreneuriat, performance.\n`
-      + `- Le Médiateur : juste, diplomate, rigoureux. Domaines : droit, médiation, service public, ressources humaines.\n`
-      + `- L'Éclaireur : méthodique, autonome, courageux. Domaines : investigation terrain, environnement, logistique, contrôle.\n`
-      + `- L'Artisan Visionnaire : manuel, créatif, indépendant. Domaines : artisanat d'art, cuisine, paysage, design.\n`
-      + `- Le Coordinateur : organisé, énergique, concret. Domaines : logistique, production, organisation, événementiel.`
+      + `- L'Explorateur créatif : curieux, imaginatif, ouvert aux expériences.\n`
+      + `- Le bâtisseur : concret, fiable, pragmatique.\n`
+      + `- Le stratège : logique, précis, anticipateur.\n`
+      + `- Le connecteur : sociable, énergique, fédérateur.\n`
+      + `- Le protecteur : bienveillant, calme, attentif.\n`
+      + `- L'Observateur : curieux, indépendant, attentif aux détails.\n`
+      + `- Le créateur : original, sensible, habile.\n`
+      + `- Le compétiteur : déterminé, ambitieux, dynamique.\n`
+      + `- Le médiateur : juste, diplomate, rigoureux.\n`
+      + `- L'Éclaireur : méthodique, autonome, courageux.\n`
+      + `- L'Artisan visionnaire : manuel, créatif, indépendant.\n`
+      + `- Le coordinateur : organisé, énergique, concret.`
     const personaInstruction = clientPersonaName
       ? `Le persona a déjà été calculé côté client : "${clientPersonaName}"${axisSummary ? ` (${axisSummary})` : ''}. Il est la source de vérité : reprends exactement ce persona dans la section Type de personalité et ne le remplace pas.`
       : `Choisis la personnalité la plus cohérente parmi la cartographie fournie.`
@@ -239,7 +234,7 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
       + `###Recommandations d'emploi###\n`
       + `OBLIGATOIRE : Fournis EXACTEMENT 6 métiers réels, distincts et réalistes. Cette section ne doit JAMAIS être vide. Pour chaque recommandation, suis le format suivant :\n`
       + `${JOB_TITLE_GUIDELINES}\n`
-      + `Les six métiers doivent couvrir des environnements compatibles mais variés. N'utilise jamais développement logiciel, data, informatique, web ou produit numérique par défaut : propose-les seulement si les réponses ou la préférence métier les rendent clairement pertinents. Évite les variantes d'un même métier. Sans demande explicite de travail de bureau, limite les métiers strictement sédentaires à deux maximum. Si les axes indiquent mains ou terrain, propose au moins trois pistes concrètes de terrain, techniques, manuelles, opérationnelles ou mobiles.\n`
+      + `${JOB_SELECTION_GUIDELINES}\n`
       + `1. [Titre du poste]\n`
       + `   - Compétences requises: [3-4 compétences principales sous forme liste, par mots clés]\n\n`
       + `###Recommandations d'études###\n`
@@ -310,9 +305,7 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
       const qualityCheckedRecommendations = enforceOrientationRecommendationQuality({
         jobRecommendations: sections.jobRecommendations,
         studyRecommendations: sections.studyRecommendations,
-        careerAspiration,
-        formationPreferences: searchProfile.formationPreferences,
-        axes: guardAxes
+        formationPreferences: searchProfile.formationPreferences
       })
       sections.jobRecommendations = qualityCheckedRecommendations.jobRecommendations
       sections.studyRecommendations = qualityCheckedRecommendations.studyRecommendations
@@ -525,18 +518,19 @@ router.post('/generate-analysis-by-type', authenticateToken, async (req, res) =>
     let prompt
     if (isMbti) {
   // NOTE: keep this list of 10 personas in sync with client/src/lib/personalities.js
-  const archetypeContext = `Voici la cartographie officielle des 10 personnalités Zélia. Choisis toujours celle qui correspond le mieux aux réponses et utilise uniquement son code officiel :\n- ZL-01 - Stratège (ex. Kylian) : voit toujours plusieurs coups à l'avance, visionnaire et concentré. Domaines : ingénierie, finance, data, jeux vidéo, conseil.\n- ZL-02 - Bâtisseur (ex. Léon) : concret, minutieux, préfère construire que théoriser. Domaines : artisanat, BTP, informatique, chirurgie.\n- ZL-03 - Connecteur (ex. David) : sociable, énergique, sait fédérer les gens. Domaines : communication, RH, événementiel, commerce.\n- ZL-04 - Protecteur (ex. Louanne) : empathique, rassurant, prend soin des autres naturellement. Domaines : social, santé, éducation, justice.\n- ZL-05 - Observateur (ex. Ines) : curieuse, analytique, remarque ce que les autres ne voient pas. Domaines : recherche, psychologie, data, écriture.\n- ZL-06 - Loyal (ex. Antoine) : constant, rigoureux, fiable en toutes circonstances. Domaines : santé, enseignement, fonction publique, RH.\n- ZL-07 - Insoumis (ex. Aya) : libre, convaincue, préfère questionner les règles que les suivre. Domaines : entrepreneuriat, droit, journalisme, art engagé.\n- ZL-08 - Compétiteur (ex. Karim) : déterminé, ambitieux, n'aime pas perdre. Domaines : sport, business, sciences, droit.\n- ZL-09 - Créateur (ex. Angèle) : original, sensible, imagination débordante. Domaines : design, architecture, audiovisuel, mode.\n- ZL-10 - Explorateur (ex. Véro) : aventureuse, ouverte, jamais rassasiée de nouveauté. Domaines : voyage/tourisme, sciences, journalisme, start-up.`
+  const archetypeContext = `Voici la cartographie officielle des 10 personnalités Zélia. Choisis toujours celle qui correspond le mieux aux réponses et utilise uniquement son code officiel :\n- ZL-01 - Stratège (ex. Kylian) : voit toujours plusieurs coups à l'avance, visionnaire et concentré.\n- ZL-02 - Bâtisseur (ex. Léon) : concret, minutieux, préfère construire que théoriser.\n- ZL-03 - Connecteur (ex. David) : sociable, énergique, sait fédérer les gens.\n- ZL-04 - Protecteur (ex. Louanne) : empathique, rassurant, prend soin des autres naturellement.\n- ZL-05 - Observateur (ex. Ines) : curieuse, analytique, remarque ce que les autres ne voient pas.\n- ZL-06 - Loyal (ex. Antoine) : constant, rigoureux, fiable en toutes circonstances.\n- ZL-07 - Insoumis (ex. Aya) : libre, convaincue, préfère questionner les règles que les suivre.\n- ZL-08 - Compétiteur (ex. Karim) : déterminé, ambitieux, n'aime pas perdre.\n- ZL-09 - Créateur (ex. Angèle) : original, sensible, imagination débordante.\n- ZL-10 - Explorateur (ex. Véro) : aventureuse, ouverte, jamais rassasiée de nouveauté.`
 
       prompt = `${opening}\n\n${archetypeContext}\n\nTa réponse doit IMPÉRATIVEMENT suivre EXACTEMENT ces sections et titres :\n\n` +
         `###Type de personalité###\n` +
   `[Format obligatoire : "ZL-0X - Titre (ex. Prénom)" suivi d'une phrase d'accroche (max 25 mots) qui relie le profil à ses forces clés. N'utilise jamais de codes MBTI ou de suites de quatre lettres.]\n\n` +
         `###Analyse de personnalité###\n` +
-        `[Analyse approfondie structurée en 3 à 4 paragraphes, maximum 300 mots. Fais explicitement le lien entre l'archétype Zélia retenu et des environnements de travail/métiers d'avenir adaptés. Cite au moins deux titres de métiers précis (identiques ou très proches de ceux listés ensuite) et explique en quoi ils valorisent les forces du profil.]\n\n` +
+        `[Analyse approfondie structurée en 3 à 4 paragraphes, maximum 300 mots. Fais explicitement le lien entre les réponses de l'utilisateur, ses forces et des environnements de travail/métiers adaptés. Cite au moins deux titres de métiers précis (identiques ou très proches de ceux listés ensuite) et explique en quoi ils valorisent les forces du profil.]\n\n` +
         `###Tes qualités###\n` +
         `[Rédige un texte inspirant d'environ 100 mots qui met en valeur les qualités humaines et professionnelles de ce profil. Adopte un ton valorisant et bienveillant.]\n\n` +
         `###Recommandations d'emploi###\n` +
-        `OBLIGATOIRE : Fournis EXACTEMENT 6 recommandations d'emploi cohérentes avec l'archétype et tournées vers l'avenir. Cette section ne doit JAMAIS être vide. Pour chaque recommandation, suis le format suivant :\n` +
+        `OBLIGATOIRE : Fournis EXACTEMENT 6 recommandations d'emploi cohérentes avec les réponses de l'utilisateur. Cette section ne doit JAMAIS être vide. Pour chaque recommandation, suis le format suivant :\n` +
         `${JOB_TITLE_GUIDELINES}\n` +
+        `${JOB_SELECTION_GUIDELINES}\n` +
         `1. [Titre du poste]\n` +
         `   - Compétences requises: [3-4 compétences principales sous forme liste, par mots clés]\n\n` +
         `1. Utilisez EXACTEMENT les titres de section indiqués ci-dessus avec trois dièses (###).\n` +
@@ -559,6 +553,7 @@ router.post('/generate-analysis-by-type', authenticateToken, async (req, res) =>
         `###Recommandations d'emploi###\n` +
         `OBLIGATOIRE : Fournis EXACTEMENT 6 recommandations d'emploi. Cette section ne doit JAMAIS être vide. Pour chaque recommandation, suis le format suivant :\n` +
         `${JOB_TITLE_GUIDELINES}\n` +
+        `${JOB_SELECTION_GUIDELINES}\n` +
         `1. [Titre du poste]\n` +
         `   - Compétences requises: [3-4 compétences principales sous forme liste, par mots clés]\n\n` +
         `###Recommandations d'études###\n` +

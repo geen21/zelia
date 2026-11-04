@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { chromium, expect } from '@playwright/test'
+import { assertSharedUX } from './fixtures/assert-shared-ux.mjs'
 
 const base = process.env.PARENTS_TEST_URL || 'http://127.0.0.1:5191'
 const browser = await chromium.launch({ headless: true })
@@ -65,6 +66,7 @@ async function prepare(viewport, options = {}) {
 }
 
 async function verifyLayout(page) {
+  await assertSharedUX(page)
   const problems = await page.evaluate(() => {
     const root = document.querySelector('.parents-landing')
     const issues = root.scrollWidth > root.clientWidth + 1 ? ['Landing overflow'] : []
@@ -88,7 +90,8 @@ async function verifyInscriptionScroll(page) {
     await expect.poll(() => page.evaluate(() => {
       const top = document.getElementById('inscription').getBoundingClientRect().top
       const headerBottom = document.querySelector('.public-header').getBoundingClientRect().bottom
-      return top >= headerBottom - 1 && top < headerBottom + 100
+      const target = parseFloat(getComputedStyle(document.getElementById('inscription')).scrollMarginTop)
+      return top >= headerBottom - 1 && Math.abs(top - target) < 1
     })).toBe(true)
   } catch (error) {
     console.error('Inscription scroll position:', await page.evaluate(() => ({

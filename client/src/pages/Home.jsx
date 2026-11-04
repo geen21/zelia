@@ -225,35 +225,6 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="zelia-home-footer">
-        <div className="zelia-home-container">
-          <div className="zelia-home-footer-top">
-            <div className="zelia-home-footer-brand">
-              <Link to="/" aria-label="Accueil Zélia"><img src="/static/images/logo-dark.png" alt="Zélia" width="100" height="40" /></Link>
-              <p>Zélia t'aide à trouver les formations qui te correspondent et te met en relation directe avec les écoles adaptées à ton projet.</p>
-            </div>
-            <div className="zelia-home-footer-col">
-              <h3>Produit</h3>
-              <Link to="/orientation">Commencer le parcours</Link>
-              <Link to="/formations">Formations</Link>
-              <Link to="/blog">Le blog</Link>
-              <Link to="/parents">Espace parents</Link>
-            </div>
-            <div className="zelia-home-footer-col">
-              <h3>Établissements</h3>
-              <Link to="/espace-ecoles">Devenir partenaire</Link>
-              <Link to="/espace-ecoles/connexion">Connexion école</Link>
-            </div>
-            <div className="zelia-home-footer-col">
-              <h3>Légal</h3>
-              <Link to="/legal/mentions-legales">Mentions légales</Link>
-              <Link to="/legal/conditions">CGU, CGV &amp; confidentialité</Link>
-              <a href="mailto:nicolas.wiegele@zelia.io">Nous contacter</a>
-            </div>
-          </div>
-          <div className="zelia-home-footer-bottom"><span>© {new Date().getFullYear()} Zélia. Tous droits réservés.</span></div>
-        </div>
-      </footer>
     </main>
   )
 }

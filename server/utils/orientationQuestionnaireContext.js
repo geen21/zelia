@@ -26,7 +26,7 @@ export function buildOrientationQuestionnaireContext(responses) {
     lowerPrioritySummary
       ? `Familles moins choisies sur plusieurs comparaisons : ${lowerPrioritySummary}. Dépriorise-les progressivement, sans exclusion définitive ni veto sur une préférence métier explicite.`
       : '',
-    `Les familles RIASEC regroupent des activités différentes : retiens seulement celles effectivement choisies dans les réponses détaillées. Préférer transmettre, animer ou accompagner des démarches ne signifie pas vouloir soigner. Ni la famille S, ni un persona comme « Le Protecteur », ni l'envie d'être utile ne justifient un métier infirmier ou de soin sans intérêt explicite pour les soins. Une activité présente seulement dans une alternative moins choisie n'est pas une envie déclarée. Un choix de nature ne prouve pas un goût du sport, ni un choix scientifique un goût de la programmation.`,
+    `Les familles RIASEC regroupent des activités différentes : retiens seulement celles effectivement choisies dans les réponses détaillées. Croise l'ensemble des réponses et des préférences sans associer automatiquement une famille ou un persona à un secteur ou à un métier. Une activité présente seulement dans une alternative moins choisie n'est pas une envie déclarée.`,
     hasDilemmas
       ? `Le classement provient des réponses enregistrées, normalisées par le nombre de comparaisons de chaque famille. Ce n'est ni un niveau absolu d'intérêt ni une probabilité de réussite. En cas de choix contradictoires, explique l'hésitation plutôt que d'inventer une préférence nette.`
       : ''

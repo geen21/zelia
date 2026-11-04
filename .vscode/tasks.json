@@ -135,6 +135,18 @@
 				"install"
 			],
 			"group": "build"
+		},
+		{
+			"label": "Verify Zelia Metier Nginx Routes SSH",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-File",
+				"C:\\Users\\jgeerdes\\.copilot\\session-state\\8b86b715-066b-42dd-b7a5-998bc7598957\\files\\fix-zelia-nginx-ssh.ps1"
+			],
+			"isBackground": false,
+			"problemMatcher": []
 		}
 	]
 }

@@ -9,7 +9,7 @@ const bookingNote = "Le choix du créneau d'une heure se fait juste après le r�
 const checkoutPath = '/__parent-checkout-test'
 
 async function prepare(viewport, options = {}) {
-  const context = await browser.newContext({ viewport })
+  const context = await browser.newContext({ viewport, reducedMotion: options.reducedMotion || 'no-preference' })
   const page = await context.newPage()
   page.setDefaultTimeout(15000)
   const state = {
@@ -31,6 +31,7 @@ async function prepare(viewport, options = {}) {
       status, contentType: 'application/json', body: JSON.stringify(data)
     })
     if (url.pathname.endsWith('/payments/parent-training/config')) {
+      if (state.configDelay) await new Promise((resolve) => setTimeout(resolve, state.configDelay))
       return reply({ enabled: state.enabled, priceAmount: state.priceAmount, priceCurrency: 'eur' })
     }
     if (url.pathname.endsWith('/payments/parent-training/checkout')) {
@@ -71,7 +72,7 @@ async function verifyLayout(page) {
     const root = document.querySelector('.parents-landing')
     const issues = root.scrollWidth > root.clientWidth + 1 ? ['Landing overflow'] : []
     for (const element of document.querySelectorAll(
-      '.public-header, .parents-hero-cta, .parents-video iframe, .parents-module-card, ' +
+      '.public-header, .parents-hero, .parents-hero-cta, .parents-video iframe, .parents-module-card, .parents-situation-card, ' +
       '.parents-cta-block .primary-action, .parents-pricing-card, .identity-form-grid input, ' +
       '.parents-confirmation, .calendly-inline-widget'
     )) {
@@ -83,6 +84,34 @@ async function verifyLayout(page) {
   assert.deepEqual(problems, [])
   const bounds = await page.locator('.parents-video iframe').boundingBox()
   assert.ok(bounds && Math.abs(bounds.width / bounds.height - 16 / 9) < 0.01)
+  // Read every box in one frame, including during the post-payment smooth scroll.
+  const { heroCopy, heroMedia, boxes, details, form } = await page.evaluate(() => {
+    const box = (element) => {
+      if (!element) return null
+      const rect = element.getBoundingClientRect()
+      return { x: rect.left, y: rect.top + scrollY, width: rect.width, height: rect.height }
+    }
+    return {
+      heroCopy: box(document.querySelector('.parents-hero-copy')),
+      heroMedia: box(document.querySelector('.parents-hero-media')),
+      boxes: [...document.querySelectorAll('.parents-module-card')].map(box),
+      details: box(document.querySelector('.parents-registration-details')),
+      form: box(document.querySelector('.parents-pricing-card'))
+    }
+  })
+  assert.ok(heroCopy && heroMedia)
+  if (page.viewportSize().width > 1000) {
+    assert.ok(heroMedia.x >= heroCopy.x + heroCopy.width, 'Desktop video must sit beside the introduction')
+    assert.ok(heroMedia.y < page.viewportSize().height, 'Desktop video must be visible in the first viewport')
+    assert.ok(boxes.every((box) => box && Math.abs(box.y - boxes[0].y) < 1), 'Desktop modules must share a row')
+    if (form) {
+      assert.ok(details && form && form.x >= details.x + details.width, 'Desktop registration must have a separate form column')
+    }
+  } else {
+    assert.ok(heroMedia.y >= heroCopy.y + heroCopy.height, 'Mobile/tablet video must follow the introduction')
+    assert.ok(boxes.every((box, index) => box && (!index || box.y >= boxes[index - 1].y + boxes[index - 1].height)),
+      'Mobile/tablet modules must stack without overlap')
+  }
 }
 
 async function verifyInscriptionScroll(page) {
@@ -95,33 +124,41 @@ async function verifyInscriptionScroll(page) {
     })).toBe(true)
   } catch (error) {
     console.error('Inscription scroll position:', await page.evaluate(() => ({
-      width: innerWidth, height: innerHeight, scrollY,
+      url: location.href, width: innerWidth, height: innerHeight, scrollY,
       top: document.getElementById('inscription').getBoundingClientRect().top,
       headerBottom: document.querySelector('.public-header').getBoundingClientRect().bottom,
       margin: getComputedStyle(document.getElementById('inscription')).scrollMarginTop,
-      focused: document.activeElement?.textContent
+      focused: document.activeElement?.tagName
     })))
     throw error
   }
 }
 
 try {
-  for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }, { width: 320, height: 740 }]) {
+  for (const viewport of [
+    { width: 1920, height: 1080 }, { width: 1440, height: 1000 }, { width: 1024, height: 900 },
+    { width: 1000, height: 900 }, { width: 768, height: 1024 }, { width: 390, height: 844 }, { width: 320, height: 740 }
+  ]) {
     const { context, page, state } = await prepare(viewport)
     await page.goto(`${base}/parents`)
     await expect(page.locator('.parents-price-value')).toHaveText(/25,00\s*€/)
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('link', { name: 'Aller au contenu', exact: true })).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page.locator('#parents-content')).toBeFocused()
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
       'La méthode pas-à-pas pour les parents de lycéens (Seconde, Première, Terminale)'
     )
-    await expect(page.locator('.parents-hero p')).toHaveText(
+    await expect(page.locator('.parents-hero-lead')).toHaveText(
       'Devenez un allié orientation pour votre enfant et retrouvez le dialogue avec lui.'
     )
     await expect(page.locator('.parents-stat-value')).toHaveText(['48%', '70%', '20%'])
-    await expect(page.locator('.parents-situations-grid h3')).toHaveText([
+    await expect(page.locator('.parents-situations-grid h4')).toHaveText([
       'Le mur du silence', 'Le sentiment de désarroi', 'La jungle administrative'
     ])
     await expect(page.locator('.parents-modules-grid h3')).toHaveText(['Décoder', 'Briser la glace', 'Les outils'])
-    await expect(page.locator('.parents-modules-grid li')).toHaveCount(9)
+    await expect(page.locator('.parents-modules-grid ul li')).toHaveCount(9)
+    await expect(page.locator('.parents-modules-grid > li')).toHaveCount(3)
     await expect(page.locator('.parents-section-copy').last()).toContainText('WhatsApp')
     const video = page.locator('.parents-video iframe')
     await expect(video).toHaveAttribute('src', videoUrl)
@@ -135,12 +172,21 @@ try {
       await expect(ctas.nth(index)).toHaveText(/Obtenir mon accès immédiat à la formation.*25,00\s*€/)
       await expect(block).toContainText('100% satisfait ou remboursé sous 14 jours.')
       await expect(block.locator('.parents-booking-note')).toHaveText(bookingNote)
-      if (index > 0) await expect(block.getByRole('link')).toHaveAttribute('href', 'mailto:nicolas.wiegele@zelia.io')
       await ctas.nth(index).click()
       await verifyInscriptionScroll(page)
     }
     await page.getByRole('button', { name: "Je m'inscris", exact: true }).click()
     await verifyInscriptionScroll(page)
+    await page.getByRole('link', { name: 'Découvrir le programme', exact: true }).click()
+    await expect.poll(() => page.locator('#programme').evaluate((element) => {
+      const top = element.getBoundingClientRect().top
+      return Math.abs(top - parseFloat(getComputedStyle(element).scrollMarginTop)) < 1
+    })).toBe(true)
+    for (const target of ['#constat', '#programme', '#plan-action', '#inscription']) {
+      await expect(page.locator(`.parents-page-nav a[href="${target}"]`)).toHaveCount(1)
+      await expect(page.locator(target)).toHaveCount(1)
+    }
+    await expect(page.locator('.parents-footer a')).toHaveAttribute('href', 'mailto:nicolas.wiegele@zelia.io')
     await verifyLayout(page)
     assert.deepEqual(state.scriptErrors, [])
     assert.equal(state.checkoutRequests.length, 0)
@@ -174,7 +220,8 @@ try {
   for (const scenario of [
     { query: '?checkout=cancelled', banner: 'Paiement annulé.', calendar: false },
     { query: '?checkout=success&session_id=cs_test', banner: 'Paiement confirmé !', calendar: true },
-    { query: '?checkout=success&session_id=cs_test', viewport: { width: 320, height: 740 }, banner: 'Paiement confirmé !', calendar: true },
+    { query: '?checkout=success&session_id=cs_test', viewport: { width: 320, height: 740 }, configDelay: 500, banner: 'Paiement confirmé !', calendar: true },
+    { query: '?checkout=cancelled', reducedMotion: 'reduce', banner: 'Paiement annulé.', calendar: false },
     { query: '?checkout=success&session_id=cs_test', paid: false, banner: 'Paiement en attente ou incomplet.', calendar: false },
     { query: '?checkout=success&session_id=cs_test', verificationError: 'Verification fixture error', banner: 'Impossible de vérifier le paiement.', calendar: false },
     { query: '', enabled: false, banner: "Le paiement n'est pas encore configuré.", calendar: false },
@@ -183,6 +230,8 @@ try {
     const prepared = await prepare(scenario.viewport || { width: 390, height: 844 }, scenario)
     await prepared.page.goto(`${base}/parents${scenario.query}`)
     if (scenario.banner) await expect(prepared.page.locator('.parents-banner')).toContainText(scenario.banner)
+    if (scenario.configDelay) await expect(prepared.page.locator('.parents-cta-block .primary-action').first()).toHaveText(/25,00\s*€/)
+    if (scenario.query) await verifyInscriptionScroll(prepared.page)
     if (scenario.calendar) {
       await expect(prepared.page.locator('.parents-confirmation')).toContainText("Choisissez votre créneau d'une heure")
       await expect(prepared.page.locator('.calendly-inline-widget')).toHaveAttribute(
@@ -208,7 +257,7 @@ try {
     await verifyLayout(prepared.page)
     await prepared.context.close()
   }
-  console.log('Parents page verified: content, responsive video/layout (1440/390/320px), three CTAs, pricing, checkout and post-payment booking states.')
+  console.log('Parents page verified: editorial layout (1920/1440/1024/1000/768/390/320px), anchors, content, three CTAs, pricing, checkout and post-payment booking states.')
 } finally {
   await browser.close()
 }

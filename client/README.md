@@ -87,9 +87,12 @@ Orientation (/orientation)
 
 Page parents (/parents)
 - Presentation de la formation d'une heure, situations du quotidien, programme et groupe WhatsApp.
+- Mise en page editoriale inspiree du blog et de l'accueil : introduction et video cote a cote sur desktop, navigation par ancres, programme en trois etapes et inscription avec recapitulatif du parcours. Les blocs s'empilent sur mobile.
+- Les styles de la page sont limites a `ParentsFormation.css`, sans dependance au gabarit du questionnaire. Les cartes, boutons et champs reutilisent le socle UX commun.
 - Video YouTube responsive : https://www.youtube.com/watch?v=__cJzw_RYnM.
 - Trois appels a l'inscription affichent le tarif fourni par l'API de paiement, comme le formulaire Stripe.
 - Garantie affichee : 100% satisfait ou rembourse sous 14 jours. Le choix du creneau Calendly reste accessible uniquement apres confirmation du paiement.
+- Au retour du paiement, l'inscription est affichee directement sous le menu, apres chargement des polices et mise a jour du tarif. Les CTA conservent leur defilement doux, sauf si l'utilisateur prefere les mouvements reduits.
 
 Verification locale (depuis le dossier client, dans deux terminaux)
 Prerequis : dependances installees et Chromium disponible via `node node_modules\@playwright\test\cli.js install chromium`.
@@ -98,7 +101,7 @@ Prerequis : dependances installees et Chromium disponible via `node node_modules
 2. npm run verify:parents-ui
 
 Le controle Playwright simule les API, Stripe, YouTube et Calendly : aucun paiement ni rendez-vous reel n'est cree.
-Il couvre les textes, les trois CTA, les largeurs 1440/390/320 px, le formulaire et les retours de paiement.
+Il couvre les textes, les trois CTA, les ancres, les colonnes desktop et l'empilement mobile aux largeurs 1920/1440/1024/1000/768/390/320 px, le formulaire et les retours de paiement.
 Pour tester un autre serveur local, definir PARENTS_TEST_URL. La lecture reelle de la video et la reservation Calendly restent a verifier manuellement.
 
 Page profil (/app/profile)

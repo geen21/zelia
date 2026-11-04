@@ -5,6 +5,7 @@ import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
 import { generateZeliaShareImage } from '../../lib/shareImage'
+import { withZeliaUtm } from '../../lib/outboundUrl.js'
 import { FaXmark } from 'react-icons/fa6'
 import { ToolProgress } from '../../components/ToolExperience'
 
@@ -220,7 +221,7 @@ export default function Niveau4() {
     } catch (e) {
       console.warn('Progression update failed (non-blocking):', e)
     } finally {
-      navigate('/app/results')
+      navigate('/app')
     }
   }
 
@@ -620,7 +621,7 @@ export default function Niveau4() {
                 </button>
               )}
               {shareImgUrl && (
-                <a href={shareImgUrl} download="zelia-profil.png" className="n4-btn-outline">Enregistrer l'image</a>
+                <a href={withZeliaUtm(shareImgUrl)} download="zelia-profil.png" className="n4-btn-outline">Enregistrer l'image</a>
               )}
               <button type="button" className="n4-btn-primary" onClick={() => setShareOpen(false)}>Fermer</button>
             </div>

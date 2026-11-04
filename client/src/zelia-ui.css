@@ -40,12 +40,12 @@
   background-color: var(--ui-cream);
   font-family: var(--ui-font);
 }
-.zelia-ui :is(.zelia-home-container, .public-header__nav, .fp-page .container, .blog-page > .container, .blog-article > header > .container, .blog-article__body > .container) {
+.zelia-ui :is(.zelia-home-container, .public-header__nav, .fp-page .container, .blog-page .container, .blog-article > header > .container, .blog-article__body > .container) {
   width: min(calc(100% - var(--ui-gutter) * 2), var(--ui-wide));
   max-width: var(--ui-wide);
-  padding-inline: 0;
   margin-inline: auto;
 }
+.zelia-ui :is(.public-header__nav, .fp-page .container, .blog-page .container, .blog-article > header > .container, .blog-article__body > .container) { padding-inline: 0; }
 .zelia-ui .metier-container { width: min(calc(100% - var(--ui-gutter) * 2), var(--ui-wide)); max-width: var(--ui-wide); padding-inline: 0; }
 .zelia-ui :is(.parents-section, .parents-hero) { width: min(calc(100% - var(--ui-gutter) * 2), 980px); padding-inline: 0; }
 .zelia-ui .parents-hero { max-width: 760px; }
@@ -187,11 +187,13 @@
 .zelia-ui :is(.login-description, .zp-intro > p, .fe-explanation, .fe-sharing, .tool-description, .fp-card p, .metier-card p) { color: var(--ui-muted); }
 
 .zelia-ui .zelia-app-topbar { border-bottom: 2px solid var(--ui-line); background: var(--ui-cream); }
+.zelia-ui .zelia-app-content { padding-inline: 16px; }
 .zelia-ui .zelia-topbar-inner { max-width: calc(var(--ui-wide) + 64px); height: 76px; }
 .zelia-ui :is(.zelia-topnav-link, .zelia-topbar-profile, .zelia-topbar-logout) { min-height: 44px; height: auto; }
 .zelia-ui .zelia-topbar-logout { width: 44px; border-color: var(--ui-line); }
 .zelia-ui .zelia-topnav-link.is-active { color: var(--ui-ink); background: var(--ui-lime); }
-.zelia-ui :is(.results-pill, .dash-pill, .outils-category) { min-height: 44px; border: 1px solid var(--ui-line); color: var(--ui-ink); background: #fff; border-radius: 999px; font-size: 14px; }
+.zelia-ui :is(.results-pill, .dash-pill, .outils-category) { border: 1px solid var(--ui-line); color: var(--ui-ink); background: #fff; border-radius: 999px; }
+.zelia-ui :is(.results-pill, .outils-category) { min-height: 44px; font-size: 14px; }
 .zelia-ui :is(.results-pill, .dash-pill) i { color: inherit; }
 .zelia-ui .fp-social-btn { width: 44px; height: 44px; border: 1px solid var(--ui-line); border-radius: 14px; }
 .zelia-ui .dz-input :is(input, button) { height: 52px; min-height: 52px; }
@@ -212,6 +214,14 @@
 .zelia-ui .public-footer__column a:hover { color: var(--ui-ink); text-decoration: underline; text-underline-offset: 3px; }
 .zelia-ui .public-footer__bottom { padding-top: 22px; margin-top: 40px; border-top: 1px solid var(--ui-line); color: var(--ui-muted); font-size: 12px; }
 
+@media (min-width: 1024px) {
+  .zelia-ui { --ui-wide: 100%; }
+  .zelia-ui .parents-section { max-width: none; width: calc(100% - var(--ui-gutter) * 2); }
+  .zelia-ui .zelia-topbar-inner { max-width: none; padding-inline: var(--ui-gutter); }
+  .zelia-ui .zelia-app-content { max-width: none; padding-inline: var(--ui-gutter); }
+  .zelia-ui :is(.dash-home, .dz-page, .results-page, .formation-explorer, .tool-experience, .outils-page, .n4-page, .n17-page) { width: 100%; max-width: none; }
+  .zelia-ui .blog-article__main :is(p, ul, ol), .zelia-ui .fp-card p { max-width: 78ch; }
+}
 @media (max-width: 1050px) {
   .zelia-ui .public-footer__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
 }

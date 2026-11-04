@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { letterAPI, usersAPI } from '../lib/api'
 
 export default function Lettre(){
@@ -10,6 +11,7 @@ export default function Lettre(){
 	const [style, setStyle] = useState('sobre')
 	const [letter, setLetter] = useState('')
 	const [loading, setLoading] = useState(false)
+	const [error, setError] = useState('')
 	const debounceRef = useRef(null)
 	const listRef = useRef(null)
 
@@ -40,6 +42,7 @@ export default function Lettre(){
 	async function generate(){
 		setLoading(true)
 		setLetter('')
+		setError('')
 		try {
 			const payload = selected ? { selection: selected, style } : { style }
 			// backward compatibility if user typed without picking
@@ -49,15 +52,16 @@ export default function Lettre(){
 			}
 			const { data } = await letterAPI.generate(payload)
 			setLetter(data.letter)
-			usersAPI.saveExtraInfo([
+			await usersAPI.saveExtraInfo([
 				{
 					question_id: 'lettre_generated',
 					question_text: 'Lettre de motivation générée',
 					answer_text: JSON.stringify({ target: selected?.label || query || '', type, generatedAt: new Date().toISOString() })
 				}
-			]).catch(() => null)
+			])
 		} catch (e) {
-			setLetter('Erreur de génération. Réessayez.')
+			console.error('Letter generation or completion save failed', e)
+			setError("Impossible de générer ou d'enregistrer ta lettre. Réessaie.")
 		} finally {
 			setLoading(false)
 		}
@@ -122,6 +126,7 @@ export default function Lettre(){
 							{loading ? 'On génère...' : 'Générer'}
 						</button>
 					</div>
+					{error && <p className="tool-error mt-3" role="alert">{error}</p>}
 				</div>
 			</div>
 
@@ -138,9 +143,10 @@ export default function Lettre(){
 						<div className="lettre-result">
 							{letter}
 						</div>
-						<div className="mt-3 flex gap-2">
+						<div className="mt-3 flex flex-wrap gap-2">
 							<button className="lettre-action-btn" onClick={copyToClipboard}>Copier</button>
 							<button className="lettre-action-btn" onClick={downloadPDF}>Télécharger PDF</button>
+							{!error && <Link to="/app" className="tool-primary">Retour à l'accueil</Link>}
 						</div>
 					</div>
 				) : (

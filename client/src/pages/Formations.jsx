@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import apiClient from '../lib/api'
+import { withZeliaUtm } from '../lib/outboundUrl.js'
 
 const FORMATION_LOADING_MESSAGE = 'Ne quitte pas la page, on cherche parmi 127 498 formations rien que pour toi ;)'
 
@@ -384,7 +385,7 @@ useEffect(() => {
 									<td className="px-4 py-3">{sanitizeValue(it.departement) || 'Département non renseigné'}</td>
 									<td className="px-4 py-3">
 										{it.etab_url ? (
-											<a href={it.etab_url} target="_blank" className="inline-flex items-center px-3 py-1.5 border border-line rounded-lg text-sm hover:bg-gray-50">Voir</a>
+											<a href={withZeliaUtm(it.etab_url)} target="_blank" className="inline-flex items-center px-3 py-1.5 border border-line rounded-lg text-sm hover:bg-gray-50">Voir</a>
 										) : 'Lien non disponible'}
 									</td>
 									<td className="px-4 py-3 text-right relative">
@@ -396,7 +397,7 @@ useEffect(() => {
 												<ul className="py-1 text-sm">
 													{it.facebook && (
 														<li>
-															<a href={it.facebook} target="_blank" className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50">
+															<a href={withZeliaUtm(it.facebook)} target="_blank" className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50">
 																<i className="ph ph-facebook-logo"></i>
 																<span>Facebook</span>
 															</a>
@@ -404,7 +405,7 @@ useEffect(() => {
 													)}
 													{it.linkedin && (
 														<li>
-															<a href={it.linkedin} target="_blank" className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50">
+															<a href={withZeliaUtm(it.linkedin)} target="_blank" className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50">
 																<i className="ph ph-linkedin-logo"></i>
 																<span>LinkedIn</span>
 															</a>
@@ -412,7 +413,7 @@ useEffect(() => {
 													)}
 													{it.youtube && (
 														<li>
-															<a href={it.youtube} target="_blank" className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50">
+															<a href={withZeliaUtm(it.youtube)} target="_blank" className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50">
 																<i className="ph ph-youtube-logo"></i>
 																<span>YouTube</span>
 															</a>

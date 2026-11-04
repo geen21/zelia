@@ -4,6 +4,7 @@ import { ecolesAPI } from '../lib/api'
 import { FaLocationDot, FaGraduationCap, FaPaperPlane, FaCheck, FaArrowLeft } from 'react-icons/fa6'
 import { PiGraduationCapBold } from 'react-icons/pi'
 import { externalFormationHref } from '../lib/formationExplorer'
+import { withZeliaUtm } from '../lib/outboundUrl.js'
 
 const DESCRIPTION_MARKERS = [
   'Objectif',
@@ -194,7 +195,7 @@ export default function FormationDetail() {
               )}
             </div>
             {matchScore != null && <p className="text-sm text-gray-600 mb-4">Correspondance avec ton bilan et tes préférences, pas une probabilité d’admission.</p>}
-            {schoolHref && <a className="inline-flex underline mb-4" href={schoolHref} target="_blank" rel="noopener noreferrer">Explorer le site de l’établissement</a>}
+            {schoolHref && <a className="inline-flex underline mb-4" href={withZeliaUtm(schoolHref)} target="_blank" rel="noopener noreferrer">Explorer le site de l’établissement</a>}
           </div>
         </div>
       </div>

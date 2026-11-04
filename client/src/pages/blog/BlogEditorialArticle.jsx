@@ -2,6 +2,7 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import BlogArticleLayout from './BlogArticleLayout'
 import { findBlogPost } from './posts.js'
+import { withZeliaUtm } from '../../lib/outboundUrl.js'
 
 const formatNumber = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 })
 
@@ -98,7 +99,7 @@ export default function BlogEditorialArticle({ slug }) {
       {post.videoUrl && (
         <section className="editorial-video">
           <h2>Tu préfères le format vidéo ?</h2>
-          <a href={post.videoUrl} target="_blank" rel="noopener noreferrer">{post.videoTitle} <span aria-hidden="true">↗</span></a>
+          <a href={withZeliaUtm(post.videoUrl)} target="_blank" rel="noopener noreferrer">{post.videoTitle} <span aria-hidden="true">↗</span></a>
         </section>
       )}
 
@@ -107,7 +108,7 @@ export default function BlogEditorialArticle({ slug }) {
         <p>Les repères de cet article sont datés du {post.publishedAt}. Les calendriers et mesures annoncées peuvent évoluer : consulte les sources officielles pour les mises à jour.</p>
         <ul>
           {post.sources.map((source) => (
-            <li key={source.label}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.label}<span className="sr-only"> (nouvel onglet)</span></a></li>
+            <li key={source.label}><a href={withZeliaUtm(source.url)} target="_blank" rel="noopener noreferrer">{source.label}<span className="sr-only"> (nouvel onglet)</span></a></li>
           ))}
         </ul>
       </section>

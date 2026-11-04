@@ -11,6 +11,18 @@ export async function assertSharedUX(page) {
     const style = getComputedStyle(root)
     if (style.backgroundColor !== 'rgb(255, 251, 247)') problems.push('Theme background')
     if (!style.fontFamily.startsWith('"Bricolage Grotesque"')) problems.push('Theme font')
+    if (innerWidth >= 1024) {
+      for (const container of root.querySelectorAll(
+        '.public-header__nav, .public-footer__container, .zelia-home-container, .metier-container, ' +
+        '.fp-page .container, .blog-page .container, .parents-section, .dash-home, .dz-page, ' +
+        '.results-page, .formation-explorer, .tool-experience, .outils-page, .n4-page, .n17-page'
+      )) {
+        const box = container.getBoundingClientRect()
+        const viewportWidth = container.closest('.zelia-app-main') ? appMain.clientWidth : document.documentElement.clientWidth
+        const availableWidth = viewportWidth - 64
+        if (box.width && Math.abs(box.width - availableWidth) > 1) problems.push(`Desktop content must use available width: ${container.className} (${box.width}px, expected ${availableWidth}px)`)
+      }
+    }
     for (const heading of root.querySelectorAll('h1, h2, h3')) {
       if (getComputedStyle(heading).textTransform !== 'none') problems.push(`Heading case: ${heading.className}`)
     }

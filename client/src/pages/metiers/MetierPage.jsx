@@ -4,6 +4,7 @@ import SEO from '../../components/SEO'
 import BlogHeaderNav from '../blog/BlogHeaderNav'
 import { directoryPath, metierPath, validateMetierContent, metierWordCount } from '../../lib/metierContent.js'
 import { metierDataPath, metierDocumentSeo } from './metierSeo.js'
+import { withZeliaUtm } from '../../lib/outboundUrl.js'
 import './metiers.css'
 
 const initialData = typeof document === 'undefined' ? null :
@@ -158,7 +159,7 @@ export default function MetierPage({ initialDocument }) {
               <h2>Sur quoi s’appuie cette fiche ?</h2>
               <p>Les repères factuels s’appuient sur les documents ci-dessous. Le verdict et les perspectives restent une analyse générée par IA, pas une conclusion officielle de ces organismes. L’étude de l’OIT porte sur l’exposition des tâches à l’échelle internationale : elle ne mesure pas les recrutements français actuels.</p>
               <ol>{data.page.content.sources.map((source) => <li key={source.id} id={`source-${source.id}`}>
-                <a href={source.url} target="_blank" rel="noopener noreferrer">{source.name}<span className="sr-only"> (nouvel onglet)</span></a>
+                <a href={withZeliaUtm(source.url)} target="_blank" rel="noopener noreferrer">{source.name}<span className="sr-only"> (nouvel onglet)</span></a>
                 <span>Consultée le <time dateTime={source.checkedAt}>{new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris' }).format(new Date(source.checkedAt))}</time></span>
               </li>)}</ol>
             </section>

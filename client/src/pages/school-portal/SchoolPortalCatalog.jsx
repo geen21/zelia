@@ -4,6 +4,7 @@ import { PiArrowClockwise, PiArrowUpRight } from 'react-icons/pi'
 import { schoolPortalAPI } from '../../lib/schoolPortalApi'
 import { adminApi } from '../../lib/adminApi'
 import { formationHref } from '../../lib/adminSelections'
+import { withZeliaUtm } from '../../lib/outboundUrl.js'
 
 export default function SchoolPortalCatalog({ api: suppliedApi, companyId, managing = false }) {
   const context = useOutletContext() || {}
@@ -50,7 +51,7 @@ export default function SchoolPortalCatalog({ api: suppliedApi, companyId, manag
             <p className="sp-row-title" style={{ marginTop: 8 }}>{item.title}</p><p className="sp-row-meta">{item.school} · {item.campus || 'Campus non renseigné'}</p>
             <p className="sp-row-meta">{item.linked ? item.source === 'ecoles_partenaires' ? 'Rattachée à l’espace partenaire' : 'Rattachement validé' : 'Correspondance à vérifier'}{!item.active ? ' · Archivée' : !item.recommended ? ' · Hors recommandations' : ''}</p>
           </div>
-          <div className="sp-actions">{formationHref({ link: item.url }) ? <a className="sp-btn sp-btn-sm" href={formationHref({ link: item.url })} target="_blank" rel="noopener noreferrer">Voir la fiche<PiArrowUpRight aria-hidden="true" /></a> : <small className="sp-muted">Lien indisponible</small>}
+          <div className="sp-actions">{formationHref({ link: item.url }) ? <a className="sp-btn sp-btn-sm" href={withZeliaUtm(formationHref({ link: item.url }))} target="_blank" rel="noopener noreferrer">Voir la fiche<PiArrowUpRight aria-hidden="true" /></a> : <small className="sp-muted">Lien indisponible</small>}
             {managing && (item.source === 'ecoles_partenaires' && item.linked ? <span className="sp-badge">Rattachement automatique</span> : <button className="sp-btn sp-btn-sm" disabled={busy || Boolean(item.linkedCompanyId && !item.linked)} onClick={() => attach(item)}>{item.linked ? 'Retirer le rattachement' : item.linkedCompanyId ? 'Autre école' : 'Valider le rattachement'}</button>)}
           </div>
         </li>)}</ul>)}

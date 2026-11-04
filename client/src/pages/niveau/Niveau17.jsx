@@ -4,6 +4,7 @@ import apiClient, { analysisAPI, usersAPI } from '../../lib/api'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
+import { withZeliaUtm } from '../../lib/outboundUrl.js'
 import html2canvas from 'html2canvas'
 import { FaXmark } from 'react-icons/fa6'
 
@@ -537,7 +538,7 @@ export default function Niveau17() {
       console.warn('Progression update failed (non-blocking):', err)
     } finally {
       setFinishing(false)
-      navigate('/app/results')
+      navigate('/app')
     }
   }
 
@@ -743,7 +744,7 @@ export default function Niveau17() {
               {finishing ? 'Validation…' : 'Terminer'}
             </button>
             {uploadingPdf && <span className="n17-hint">Upload en cours…</span>}
-            {pdfUrl && <a href={pdfUrl} target="_blank" rel="noreferrer" className="n17-hint-link">Voir le PDF en ligne</a>}
+            {pdfUrl && <a href={withZeliaUtm(pdfUrl)} target="_blank" rel="noreferrer" className="n17-hint-link">Voir le PDF en ligne</a>}
           </div>
 
           <div ref={cvWrapperRef} className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm" style={{ height: 1123 * cvScale }}>

@@ -159,7 +159,7 @@ export default function Niveau33() {
             </div>
           </div>
           <Link to="/app" className="tool-primary shrink-0">
-            Retour au parcours
+            Retour à l'accueil
           </Link>
         </section>
       )}

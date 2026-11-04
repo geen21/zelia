@@ -5,6 +5,7 @@ import BlogHeaderNav from './blog/BlogHeaderNav'
 import { formationsAPI } from '../lib/api'
 import { SCHOOL_SHARING_VERSION } from '../lib/schoolSharing'
 import { supabase } from '../lib/supabase'
+import { withZeliaUtm } from '../lib/outboundUrl.js'
 import './FormationPublic.css'
 import {
   getFormationTitle,
@@ -343,7 +344,7 @@ export default function FormationPublicPage() {
 
           <div className="fp-hero-actions">
             {formation.fiche && (
-              <a href={formation.fiche} target="_blank" rel="noopener noreferrer" className="fp-btn fp-btn--primary">
+              <a href={withZeliaUtm(formation.fiche)} target="_blank" rel="noopener noreferrer" className="fp-btn fp-btn--primary">
                 <i className="ph ph-file-text" aria-hidden="true"></i>Voir la fiche Parcoursup
               </a>
             )}
@@ -419,22 +420,22 @@ export default function FormationPublicPage() {
                 </p>
                 <div className="fp-links-list">
                   {formation.etab_url && (
-                    <a href={formation.etab_url} target="_blank" rel="noopener noreferrer" className="fp-link-row">
+                    <a href={withZeliaUtm(formation.etab_url)} target="_blank" rel="noopener noreferrer" className="fp-link-row">
                       <i className="ph ph-globe" aria-hidden="true"></i>Site de l&apos;établissement<i className="ph ph-arrow-up-right ext" aria-hidden="true"></i>
                     </a>
                   )}
                   {formation.fiche && (
-                    <a href={formation.fiche} target="_blank" rel="noopener noreferrer" className="fp-link-row">
+                    <a href={withZeliaUtm(formation.fiche)} target="_blank" rel="noopener noreferrer" className="fp-link-row">
                       <i className="ph ph-file-text" aria-hidden="true"></i>Fiche officielle Parcoursup<i className="ph ph-arrow-up-right ext" aria-hidden="true"></i>
                     </a>
                   )}
                   {formation.dataviz && (
-                    <a href={formation.dataviz} target="_blank" rel="noopener noreferrer" className="fp-link-row">
+                    <a href={withZeliaUtm(formation.dataviz)} target="_blank" rel="noopener noreferrer" className="fp-link-row">
                       <i className="ph ph-chart-bar" aria-hidden="true"></i>Statistiques d&apos;admission<i className="ph ph-arrow-up-right ext" aria-hidden="true"></i>
                     </a>
                   )}
                   {mapsUrl && (
-                    <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="fp-link-row">
+                    <a href={withZeliaUtm(mapsUrl)} target="_blank" rel="noopener noreferrer" className="fp-link-row">
                       <i className="ph ph-map-trifold" aria-hidden="true"></i>Voir sur la carte<i className="ph ph-arrow-up-right ext" aria-hidden="true"></i>
                     </a>
                   )}
@@ -479,17 +480,17 @@ export default function FormationPublicPage() {
                   {(formation.facebook || formation.linkedin || formation.youtube) && (
                     <div className="fp-social-row">
                       {formation.facebook && (
-                        <a href={formation.facebook} target="_blank" rel="noopener noreferrer" className="fp-social-btn" aria-label="Facebook">
+                        <a href={withZeliaUtm(formation.facebook)} target="_blank" rel="noopener noreferrer" className="fp-social-btn" aria-label="Facebook">
                           <i className="ph ph-facebook-logo" aria-hidden="true"></i>
                         </a>
                       )}
                       {formation.linkedin && (
-                        <a href={formation.linkedin} target="_blank" rel="noopener noreferrer" className="fp-social-btn" aria-label="LinkedIn">
+                        <a href={withZeliaUtm(formation.linkedin)} target="_blank" rel="noopener noreferrer" className="fp-social-btn" aria-label="LinkedIn">
                           <i className="ph ph-linkedin-logo" aria-hidden="true"></i>
                         </a>
                       )}
                       {formation.youtube && (
-                        <a href={formation.youtube} target="_blank" rel="noopener noreferrer" className="fp-social-btn" aria-label="YouTube">
+                        <a href={withZeliaUtm(formation.youtube)} target="_blank" rel="noopener noreferrer" className="fp-social-btn" aria-label="YouTube">
                           <i className="ph ph-youtube-logo" aria-hidden="true"></i>
                         </a>
                       )}
@@ -502,7 +503,7 @@ export default function FormationPublicPage() {
                 <h2><i className="ph ph-map-pin" aria-hidden="true"></i>Localisation</h2>
                 <p>{[formation.commune, formation.departement, formation.region].filter(Boolean).join(' · ')}</p>
                 {mapsUrl && (
-                  <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="fp-btn fp-btn--ghost" style={{ width: '100%', justifyContent: 'center' }}>
+                  <a href={withZeliaUtm(mapsUrl)} target="_blank" rel="noopener noreferrer" className="fp-btn fp-btn--ghost" style={{ width: '100%', justifyContent: 'center' }}>
                     <i className="ph ph-map-trifold" aria-hidden="true"></i>Ouvrir dans Maps
                   </a>
                 )}

@@ -226,6 +226,7 @@ const styles = `
   --dash-ink: var(--ui-ink, #15151b);
   --dash-cream: var(--ui-cream, #fffbf7);
   width: 100%;
+  min-width: 0;
   max-width: 900px;
   margin: 0 auto;
   display: flex;
@@ -238,6 +239,7 @@ const styles = `
 
 .dash-card {
   position: relative;
+  min-width: 0;
   background: #fff;
   border: 1px solid rgba(0,0,0,.06);
   border-radius: 28px;
@@ -257,7 +259,8 @@ const styles = `
 
 /* ---------- Greeting card ---------- */
 .dash-greeting { display: grid; gap: 20px; }
-.dash-greeting-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; }
+.dash-greeting-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; }
+.dash-greeting-text { min-width: 0; }
 .dash-avatar {
   width: 64px;
   height: 64px;
@@ -285,13 +288,14 @@ const styles = `
 .dash-progress-labels { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 700; color: var(--dash-ink); }
 .dash-progress-track { height: 10px; border-radius: 999px; background: rgba(0,0,0,.08); overflow: hidden; }
 .dash-progress-track span { display: block; height: 100%; background: var(--dash-lime); border-radius: inherit; transition: width .3s ease; }
-.dash-pill-nav { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.dash-pill-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; min-width: 0; }
 .dash-pill {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  min-width: 0;
   min-height: 72px;
   border-radius: 18px;
   background: #000;
@@ -379,7 +383,7 @@ const styles = `
 /* ---------- Chat CTA card ---------- */
 .dash-chat-cta {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
   text-decoration: none;
@@ -388,8 +392,9 @@ const styles = `
 }
 .dash-chat-cta:hover { transform: translateY(-2px); }
 .dash-chat-cta img { width: 48px; height: 48px; border-radius: 14px; object-fit: contain; background: var(--dash-cream); border: 1px solid rgba(0,0,0,.08); }
+.dash-chat-cta-text { min-width: 0; }
 .dash-chat-cta-text p { margin: 0; color: #6b7280; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .01em; }
-.dash-chat-cta-text h2 { margin: 2px 0 0; font-size: 17px; font-weight: 800; }
+.dash-chat-cta-text h2 { margin: 2px 0 0; font-size: 17px; font-weight: 800; line-height: 1.4; letter-spacing: -.01em; }
 .dash-chat-cta-btn {
   display: inline-flex;
   align-items: center;
@@ -416,7 +421,7 @@ const styles = `
   .dash-step-marker { width: 34px; height: 34px; font-size: 15px; }
   .dash-step.is-next .dash-step-marker { width: 40px; height: 40px; font-size: 17px; }
   .dash-step:not(:last-child)::after { left: 16px; }
-  .dash-chat-cta { grid-template-columns: auto 1fr; }
-  .dash-chat-cta-btn { display: none; }
+  .dash-chat-cta { grid-template-columns: 48px minmax(0, 1fr); }
+  .dash-home .dash-chat-cta .dash-chat-cta-btn { display: none; }
 }
 `

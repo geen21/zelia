@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { usersAPI } from '../../lib/api'
 import apiClient from '../../lib/api'
 import { supabase } from '../../lib/supabase'
@@ -254,6 +254,11 @@ export default function Niveau29() {
               Interactions : {userInteractions}/{MAX_INTERACTIONS}
               {interactionLimitReached && ' — bien joué, ta simulation a été enregistrée automatiquement.'}
             </p>
+            {interactionLimitReached && !aiLoading && (
+              <div className="tool-actions">
+                <Link to="/app" className="tool-primary">Retour à l'accueil</Link>
+              </div>
+            )}
           </div>
         </div>
       </div>

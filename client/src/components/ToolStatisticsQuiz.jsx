@@ -63,7 +63,7 @@ export default function ToolStatisticsQuiz({ questions, onSave }) {
       <button type="button" className="tool-secondary" onClick={() => {
         setIndex(0); setSelected(null); setAnswers([]); setRevealed(false); setCompleted(false)
       }}>Refaire le quiz</button>
-      <Link to="/app/outils" className="tool-primary">Retour aux outils</Link>
+      <Link to="/app" className="tool-primary">Retour à l'accueil</Link>
     </div>
   </ToolResult>
 

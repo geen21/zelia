@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import supabase from '../../lib/supabase'
 import apiClient, { usersAPI } from '../../lib/api'
+import { withZeliaUtm } from '../../lib/outboundUrl.js'
 import { buildAvatarFromProfile } from '../../lib/avatar'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { FaSchool, FaTrophy } from 'react-icons/fa6'
@@ -478,7 +479,7 @@ Rien d'autre.`
                         )}
                         {school.fiche && (
                           <a
-                            href={school.fiche}
+                            href={withZeliaUtm(school.fiche)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-xs text-blue-600 hover:underline"

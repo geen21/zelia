@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import apiClient, { usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
@@ -18,6 +18,7 @@ export default function Niveau28() {
   const [rating, setRating] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   useEffect(() => {
     let mounted = true
@@ -107,6 +108,7 @@ export default function Niveau28() {
   async function saveRating() {
     if (rating === null || saving) return
     setSaving(true)
+    setSaveError('')
     try {
       await usersAPI.saveExtraInfo([
         {
@@ -118,8 +120,8 @@ export default function Niveau28() {
       await levelUp({ minLevel: 28, xpReward: XP_PER_LEVEL })
       setSaved(true)
     } catch (e) {
-      console.warn('Progression update failed (non-blocking):', e)
-      setSaved(true)
+      console.error('Pitch rating save failed:', e)
+      setSaveError("Impossible d'enregistrer ta note. Réessaie.")
     } finally {
       setSaving(false)
     }
@@ -208,12 +210,18 @@ export default function Niveau28() {
             {saving ? 'Enregistrement…' : 'Enregistrer ma note'}
           </button>
 
+          {saveError && <p className="tool-error mt-4" role="alert">{saveError}</p>}
           {saved && rating !== null && (
-            <p className="mt-4 text-sm text-text-secondary">
-              {rating >= 8
-                ? 'Belle prestation ! Ta note a été enregistrée.'
-                : "Note enregistrée. N'hésite pas à te réenregistrer et à retenter jusqu'à ce que tu sois vraiment fier·ère de toi."}
-            </p>
+            <div className="mt-4 tool-stack">
+              <p className="text-sm text-text-secondary">
+                {rating >= 8
+                  ? 'Belle prestation ! Ta note a été enregistrée.'
+                  : "Note enregistrée. N'hésite pas à te réenregistrer et à retenter jusqu'à ce que tu sois vraiment fier·ère de toi."}
+              </p>
+              <div className="tool-actions">
+                <Link to="/app" className="tool-primary">Retour à l'accueil</Link>
+              </div>
+            </div>
           )}
         </div>
       </div>

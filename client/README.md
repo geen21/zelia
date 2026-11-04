@@ -7,6 +7,12 @@ Run
 1. Install: npm install
 2. Dev server: npm run dev (proxy /api to http://localhost:8000)
 
+Liens sortants
+- Toutes les navigations HTTP(S) externes utilisent `src/lib/outboundUrl.js` : `withZeliaUtm(href)` ajoute `utm_source=zelia` et, en l'absence de medium, `utm_medium=referral`. Une source existante est remplacee ; les autres parametres de campagne, la requete et le fragment sont conserves.
+- Appliquer ce helper au rendu des `href`, aux `window.open` et aux redirections externes, pas aux donnees stockees ni aux appels API, images, scripts ou lecteurs integres. Il est partage par le rendu React et les prerendus blog/metiers.
+- Les routes relatives, l'origine courante, `zelia.io` et ses sous-domaines, `mailto:`, `tel:`, `blob:` et `data:` restent inchanges, notamment les liens de partage Zelia.
+- `npm run verify:outbound-urls` verifie l'attribution et la conservation des destinations ; les controles formations, backoffice et SEO couvrent aussi les liens rendus.
+
 Performance des pages publiques
 - Tailwind est compile par PostCSS, sans script CDN ni compilation dans le navigateur. La version 3 conserve les regles du Play CDN historique ; le theme est dans `tailwind.config.js`. Les classes doivent etre ecrites en entier dans les sources pour etre detectees au build.
 - Les routes autres que la landing sont chargees a la demande : les graphiques, outils et ecrans connectes ne font plus partie du JavaScript initial des pages publiques. La verification de session de la landing charge aussi Supabase a la demande.
@@ -17,18 +23,21 @@ Performance des pages publiques
 Socle UX commun
 - `src/components/ZeliaTheme.jsx` active `src/zelia-ui.css` sur les pages publiques, l'acces/orientation et l'espace eleve. `/espace-ecoles/*` (page Ambassadeur comprise) et `/admin/*` ne recoivent ni racine `.zelia-ui` ni footer public. Ne pas deplacer ces regles vers `body`, `:root` ou les controles globaux.
 - La reference est l'accueil : Bricolage Grotesque, creme, citron/rose, contours sombres, cartes arrondies et ombres decalees. Les tokens `--ui-*` centralisent couleurs, largeurs, gouttieres et echelles de titres ; les variables historiques des familles s'y rattachent.
+- A partir de 1024 px, les conteneurs publics et l'espace eleve utilisent toute la largeur disponible, avec 32 px de marge laterale. Les textes longs, formulaires, questionnaires et documents gardent leurs largeurs de lecture. Les regles communes de conteneur ne doivent pas annuler le padding propre des blocs, notamment le hero de l'accueil (48/32/20 px selon la largeur). Son illustration reste limitee a 520 px pour ne pas devenir disproportionnee sur grand ecran.
 - Pour une nouvelle surface, reutiliser `zelia-page-intro`, `zelia-card` (ou `zelia-card--flush`), `zelia-button` et les variantes `zelia-button--lime` / `zelia-button--secondary`. Les classes existantes de cartes et d'actions sont raccordees aux memes primitives. Conserver les couleurs semantiques et les etats selectionnes, soumis, desactives ou en erreur.
 - Les champs textuels ont une taille de texte de 16 px et une hauteur minimale de 52 px ; les actions communes ont une hauteur minimale de 48 px. Les corrections `!important` des champs restent limitees au socle pour neutraliser le theme historique, sans redimensionner les toggles personnalises.
 - Les pages de contenu partagent `PublicFooter`. Le quiz et les pages d'acces restent epures ; `Layout` conserve la navigation eleve et le chat sa zone de defilement et son compositeur. Les prerendus blog/metiers utilisent le meme cadre que le rendu React.
 - Le cadre public reserve au moins une hauteur d'ecran avant le footer, y compris pendant le chargement differe ou les appels API. Conserver cette reservation pour eviter un saut de mise en page au premier affichage.
 - `scripts/fixtures/assert-shared-ux.mjs` controle les styles calcules (pas uniquement les classes), les dimensions tactiles, les cartes, la typographie, le contexte du footer et les debordements. Il est utilise par les verifications publiques, Parents, connexion, profil, formations et outils.
 - `npm run verify:tools-ui` couvre aussi les gabarits tableau de bord, resultats, discussion, emplois et fiche partenaire, avec API simulees. `npm run verify:school-portal`, `npm run verify:school-registration` et `npm run verify:admin-ui` controlent les espaces exclus.
+- `npm run verify:dashboard-ui` controle l'accueil connecte apres le test a 320/360/390/439/640/641/768/1440/1920 px : raccourcis lisibles, absence de debordement dans les cartes et bouton de discussion masque jusqu'a 640 px. `DASHBOARD_TEST_URL` permet de viser Vite ou la preview de production. Les regles communes ne doivent pas ecraser les dimensions propres aux raccourcis ni le masquage responsive du CTA decoratif.
+- Les 11 activites de l'accueil apres le test se terminent par un retour vers `/app`, jamais vers les resultats ou la boite a outils. Les scores et documents restent consultables avant l'action finale ; le guide Parcoursup propose aussi un retour en bas de page. Avec Vite sur le port 5187, `node scripts/verify-tools-ui.mjs --dashboard-games` verifie ces parcours depuis l'accueil sur desktop et mobile, avec sauvegardes simulees.
 
 Navigation publique partagee
 - `src/components/PublicHeader.jsx` et son CSS definissent le meme menu sur la landing, la page parents, le blog et ses articles, les formations publiques, les metiers et les pages legales. `BlogHeaderNav` reexporte ce composant pour les pages existantes.
 - Les liens, le logo, le CTA et le menu mobile sont communs ; le lien Metiers reste conditionne par `VITE_METIER_PAGES_ENABLED`. Les portails connectes conservent leur navigation dediee.
 - Le bouton parents "Je m'inscris" reste disponible dans le hero, en dehors du menu commun.
-- Avec Vite sur le port 5187 : `npm run verify:public-nav`. `PUBLIC_NAV_TEST_URL` permet de choisir un autre serveur. Le controle compare le menu et le footer sur dix pages et cinq largeurs (1440/1024/768/390/320 px), teste le clavier, la navigation sans rechargement et la sortie du theme vers Ambassadeur. Les API et services externes sont simules.
+- Avec Vite sur le port 5187 : `npm run verify:public-nav`. `PUBLIC_NAV_TEST_URL` permet de choisir un autre serveur. Le controle compare le menu et le footer sur dix pages et sept largeurs (2560/1920/1440/1024/768/390/320 px), teste le clavier, la navigation sans rechargement et la sortie du theme vers Ambassadeur. Les API et services externes sont simules.
 
 Landing publique (/)
 - Contenus historiques et avatar Zelia d'origine (DiceBear Lorelei, seed `zelia`), dans une palette citron/rose vive inspiree du blog, avec aplats colores et ombres decalees. `src/pages/Home.css` conserve les compositions propres a l'accueil ; les primitives communes sont dans `src/zelia-ui.css`.
@@ -39,7 +48,7 @@ Verification de la landing (depuis client, avec Vite sur le port 5187)
 1. `npm run dev -- --host 127.0.0.1 --port 5187 --strictPort`
 2. `npm run verify:landing-ui`
 
-`LANDING_TEST_URL` permet de choisir un autre serveur Vite. Le controle couvre les largeurs 1440/1000/768/390/320 px, les articles et leur ordre, les liens, le menu mobile, le clavier, la FAQ, le partage et les redirections de connexion. Les destinations hors blog et les services externes sont simules : aucun partage, paiement ou contact reel n'est effectue. Les captures sont enregistrees dans un dossier temporaire indique en sortie.
+`LANDING_TEST_URL` permet de choisir un autre serveur Vite. Le controle couvre les largeurs 2560/1920/1440/1000/768/390/320 px, la largeur desktop, le padding du hero, les articles et leur ordre, les liens, le menu mobile, le clavier, la FAQ, le partage et les redirections de connexion. Les destinations hors blog et les services externes sont simules : aucun partage, paiement ou contact reel n'est effectue. Les captures sont enregistrees dans un dossier temporaire indique en sortie.
 
 Pages metiers (/metiers/)
 - Catalogue editorial independant, conserve dans le schema Supabase `seo`, pas dans `public`.

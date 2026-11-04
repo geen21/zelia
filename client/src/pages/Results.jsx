@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import apiClient, { usersAPI } from '../lib/api.js'
 import PersonaRevealCard from '../components/PersonaRevealCard.jsx'
 import { getPersonaBySlug } from '../lib/personas.js'
+import { withZeliaUtm } from '../lib/outboundUrl.js'
 
 export default function Results() {
 	const navigate = useNavigate()
@@ -630,7 +631,7 @@ export default function Results() {
 								<div className="results-selection-top">
 									<span className="results-selection-type">{selection.typeLabel}</span>
 									{selection.link && (
-										<a href={selection.link} target="_blank" rel="noreferrer" className="results-selection-link">{selection.linkLabel}</a>
+										<a href={withZeliaUtm(selection.link)} target="_blank" rel="noreferrer" className="results-selection-link">{selection.linkLabel}</a>
 									)}
 								</div>
 								<h3>{selection.title}</h3>

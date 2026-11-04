@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { blogPosts } from '../src/pages/blog/posts.js'
 import { editorialPosts } from '../src/pages/blog/editorialPosts.js'
 import { articleText, blogPageTitle, buildBlogSchema } from '../src/pages/blog/blogSeo.js'
+import { withZeliaUtm } from '../src/lib/outboundUrl.js'
 
 const client = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const origin = 'https://zelia.io'
@@ -61,7 +62,7 @@ for (const post of blogPosts) {
   }
   for (const source of post.sources) {
     assert.equal(new URL(source.url).protocol, 'https:')
-    assert.ok(html.includes(`href="${escapeHtml(source.url)}"`))
+    assert.ok(html.includes(`href="${escapeHtml(withZeliaUtm(source.url))}"`))
   }
   for (const { question, answer } of post.faq) {
     assert.ok(html.includes(`<summary>${escapeHtml(question)}</summary>`), `${post.slug}: FAQ question`)

@@ -64,7 +64,7 @@ async function assertBounds(page) {
 }
 
 try {
-  for (const width of [1440, 1024, 768, 390, 320]) {
+  for (const width of [2560, 1920, 1440, 1024, 768, 390, 320]) {
     const context = await browser.newContext({ viewport: { width, height: 1000 }, reducedMotion: 'reduce' })
     const page = await context.newPage()
     page.setDefaultTimeout(15000)

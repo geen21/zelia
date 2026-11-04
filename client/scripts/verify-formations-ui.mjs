@@ -15,7 +15,10 @@ const tailwindScript = await tailwindResponse.text()
 const browser = await chromium.launch({ headless: true })
 const user = { id: 'formation-explorer-fixture', first_name: 'Camille', department: '75' }
 const rows = [
-  { id: 1, nm: ['BTS Services informatiques aux organisations'], nmc: 'BTS-SIO', etab_nom: 'Lycée national', commune: 'Paris', etab_url: 'https://example.com/national' },
+  { id: 1, nm: ['BTS Services informatiques aux organisations'], nmc: 'BTS-SIO', etab_nom: 'Lycée national', commune: 'Paris', etab_url: 'https://example.com/national',
+    fiche: 'https://example.com/fiche?utm_source=old&utm_campaign=rentree#inscription', dataviz: 'https://example.com/stats',
+    facebook: 'https://www.facebook.com/ecole', linkedin: 'https://www.linkedin.com/school/ecole', youtube: 'https://www.youtube.com/@ecole',
+    email: 'contact@example.com', telephone: '0123456789' },
   { id: 2, nm: ['BTS Tourisme'], etab_nom: 'Lycée des voyages', commune: 'Lyon' }
 ]
 const discoveredRows = Array.from({ length: 36 }, (_, i) => ({
@@ -74,6 +77,8 @@ async function prepare(viewport, options = {}) {
       if (state.noTest) assert.equal(url.searchParams.get('optional'), 'true', 'No analysis is an expected state, not an API error')
       data = { results: analysis }
     }
+    else if (path === '/formations/1') data = { formation: rows[0] }
+    else if (path === '/formations') data = { formations: [] }
     else if (path === '/ecoles/partenaires') data = { formations: state.longTitle
       ? partners.map((p, index) => index ? p : { ...p, formation_name: `${p.formation_name} ${'parcours cybersécurité et administration des infrastructures '.repeat(8)}` })
       : partners }
@@ -167,6 +172,18 @@ try {
   ]) {
     const { context, page, state, errors } = await prepare(viewport, { discovery: true })
     try {
+      await page.goto(`${base}/formations/1`)
+      await expect(page.locator('a.fp-btn--primary[href^="https://example.com/fiche"]')).toHaveAttribute('href',
+        'https://example.com/fiche?utm_source=zelia&utm_campaign=rentree&utm_medium=referral#inscription')
+      const outbound = page.locator('a[target="_blank"]')
+      await expect(outbound).toHaveCount(9)
+      for (const href of await outbound.evaluateAll((links) => links.map((link) => link.href))) {
+        const url = new URL(href)
+        assert.deepEqual(url.searchParams.getAll('utm_source'), ['zelia'])
+        assert.equal(url.searchParams.get('utm_medium'), 'referral')
+      }
+      await expect(page.locator('a[href="mailto:contact@example.com"]')).toHaveCount(1)
+      await expect(page.locator('a[href="tel:0123456789"]')).toHaveCount(1)
       await page.goto(`${base}/app/formations?tab=formations`)
       await ready(page)
       await expect(page.getByRole('tablist')).toHaveCount(0)
@@ -206,10 +223,13 @@ try {
       await page.getByRole('button', { name: 'Réinitialiser les filtres' }).click()
       await ready(page)
       const partner = page.locator('#formation-partner-00')
+      await expect(partner.getByRole('link', { name: 'Site de l’établissement' })).toHaveAttribute('href', 'https://example.com/school?utm_source=zelia&utm_medium=referral')
+      await expect(page.locator('.fe-card[data-source=national]').first().getByRole('link', { name: 'Site de l’établissement' })).toHaveAttribute('href', 'https://example.com/national?utm_source=zelia&utm_medium=referral')
       await expect(partner.getByRole('link', { name: 'Explorer la formation' })).toHaveAttribute('href', '/app/ecoles-partenaires/partner-00')
       await expect(page.locator('.fe-card[data-source=national]').first().getByRole('link', { name: 'Explorer la formation' })).toHaveAttribute('href', /\/formations\/.*-10$/)
       await partner.getByRole('link', { name: 'Explorer la formation' }).click()
       await expect(page.getByRole('heading', { name: partners[0].formation_name })).toBeVisible({ timeout: 15000 })
+      await expect(page.getByRole('link', { name: 'Explorer le site de l’établissement' })).toHaveAttribute('href', 'https://example.com/school?utm_source=zelia&utm_medium=referral')
       await expect(page.getByText('92 % de correspondance', { exact: true })).toBeVisible()
       assert.equal(state.mutations.length, 0, 'Exploration never sends data')
       await page.getByRole('button', { name: 'Retour', exact: true }).click()

@@ -137,7 +137,7 @@ export default function Layout() {
       <div className="zelia-app-main flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden">
 
       <main className={isChatSurface ? 'flex-1 min-h-0 overflow-hidden' : 'flex-1 min-h-0 overflow-y-auto'}>
-        <div className={isChatSurface ? 'w-full h-full min-h-0 max-w-none overflow-hidden px-3 sm:px-5 lg:px-8 py-3 sm:py-4' : 'w-full max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-6'}>
+        <div className={isChatSurface ? 'zelia-app-content w-full h-full min-h-0 max-w-none overflow-hidden py-3 sm:py-4' : 'zelia-app-content w-full max-w-7xl mx-auto py-3 sm:py-6'}>
           {currentTool ? <ToolExperience key={currentTool.id} tool={currentTool}><Outlet /></ToolExperience> : <Outlet />}
         </div>
       </main>

@@ -94,6 +94,17 @@ async function assertLayout(page) {
     const content = document.querySelector('.zelia-home-hero-content').getBoundingClientRect()
     const art = document.querySelector('.zelia-home-avatar-scene').getBoundingClientRect()
     if (content.right > art.left && art.right > content.left && content.bottom > art.top && art.bottom > content.top) problems.push('Hero overlap')
+    const hero = document.querySelector('.zelia-home-hero')
+    const heroStyle = getComputedStyle(hero)
+    const expectedPadding = innerWidth <= 600 ? 20 : innerWidth <= 1050 ? 32 : 48
+    if (parseFloat(heroStyle.paddingLeft) !== expectedPadding || parseFloat(heroStyle.paddingRight) !== expectedPadding) problems.push(`Hero padding must be ${expectedPadding}px`)
+    const heroBounds = hero.getBoundingClientRect()
+    if (content.left < heroBounds.left + expectedPadding || content.right > heroBounds.right - expectedPadding) problems.push('Hero text must stay inside its padding')
+    if (innerWidth >= 1024) {
+      const availableWidth = document.documentElement.clientWidth - 64
+      if (Math.abs(heroBounds.width - availableWidth) > 1) problems.push('Hero must use the available desktop width')
+      if (art.width > 520) problems.push('Hero illustration must stay proportional on wide screens')
+    }
     return problems
   })
   assert.deepEqual(issues, [])
@@ -137,7 +148,7 @@ async function verifySharing(page) {
 }
 
 try {
-  for (const width of [1440, 1000, 768, 390, 320]) {
+  for (const width of [2560, 1920, 1440, 1000, 768, 390, 320]) {
     const { context, page, errors } = await prepare(width)
     try {
       await page.goto(`${base}/`, { waitUntil: 'domcontentloaded' })

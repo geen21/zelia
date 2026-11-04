@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import apiClient from '../lib/api'
+import { withZeliaUtm } from '../lib/outboundUrl.js'
 
 export default function Emplois(){
 	const [q, setQ] = useState('')
@@ -301,7 +302,7 @@ useEffect(() => {
 													<ul className="py-1 text-sm">
 														{urlOrigine && (
 															<li>
-																<a href={urlOrigine} target="_blank" className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50">
+																<a href={withZeliaUtm(urlOrigine)} target="_blank" className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50">
 																	<i className="ph ph-arrow-up-right"></i>
 																	<span>Postuler (site d'origine)</span>
 																</a>
@@ -309,7 +310,7 @@ useEffect(() => {
 														)}
 														{urlPostulation && (
 															<li>
-																<a href={urlPostulation} target="_blank" className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50">
+																<a href={withZeliaUtm(urlPostulation)} target="_blank" className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50">
 																	<i className="ph ph-paper-plane-tilt"></i>
 																	<span>Contacter</span>
 																</a>
@@ -359,7 +360,7 @@ useEffect(() => {
 							allowFullScreen
 						></iframe>
 						<div className="p-3 text-right">
-							<a className="inline-flex items-center gap-2 px-3 py-2 border border-line rounded-lg text-sm hover:bg-gray-50" target="_blank" href={`https://www.openstreetmap.org/?mlat=${mapPoint.lat}&mlon=${mapPoint.lon}#map=12/${mapPoint.lat}/${mapPoint.lon}`}>
+							<a className="inline-flex items-center gap-2 px-3 py-2 border border-line rounded-lg text-sm hover:bg-gray-50" target="_blank" href={withZeliaUtm(`https://www.openstreetmap.org/?mlat=${mapPoint.lat}&mlon=${mapPoint.lon}#map=12/${mapPoint.lat}/${mapPoint.lon}`)}>
 								<i className="ph ph-arrow-up-right"></i>
 								<span>Ouvrir dans OpenStreetMap</span>
 							</a>

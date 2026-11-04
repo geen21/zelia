@@ -5,6 +5,7 @@ import { resolveAvatarUrl } from '../lib/avatar'
 import { generateZeliaShareImage } from '../lib/shareImage'
 import ZeliaDiploma from '../components/ZeliaDiploma'
 import SchoolSharingSettings from '../components/SchoolSharingSettings'
+import { withZeliaUtm } from '../lib/outboundUrl.js'
 import './Profile.css'
 
 const stripLegacyMbtiTokens = (text) => {
@@ -412,7 +413,7 @@ export default function Profile() {
     if (!url) return
     try {
   const link = document.createElement('a')
-  link.href = url
+  link.href = withZeliaUtm(url)
   link.download = 'zelia-story.png'
       link.rel = 'noopener'
       document.body.appendChild(link)
@@ -660,7 +661,7 @@ export default function Profile() {
                 {cvData && !cvPdfUrl && <div className="zp-cv-summary"><strong>{cvData.name || 'CV'}</strong>{cvData.targetJob && <p>Poste visé : {cvData.targetJob}</p>}{cvData.summary && <p>{cvData.summary}</p>}</div>}
                 <div className="zp-document-actions">
                   {cvPdfUrl ? <>
-                    <a href={cvPdfUrl} target="_blank" rel="noreferrer" className="zp-button zp-button--ink">Ouvrir le PDF<i className="ph ph-arrow-up-right" aria-hidden="true" /></a>
+                    <a href={withZeliaUtm(cvPdfUrl)} target="_blank" rel="noreferrer" className="zp-button zp-button--ink">Ouvrir le PDF<i className="ph ph-arrow-up-right" aria-hidden="true" /></a>
                     <a href={cvPdfUrl} download className="zp-text-link"><i className="ph ph-download-simple" aria-hidden="true" />Télécharger le CV</a>
                   </> : <Link to="/app/outils/cv" className="zp-button zp-button--ink">{cvData ? 'Retrouver mon CV' : 'Créer mon CV'}<i className="ph ph-arrow-right" aria-hidden="true" /></Link>}
                 </div>

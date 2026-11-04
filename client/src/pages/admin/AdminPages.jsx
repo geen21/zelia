@@ -4,6 +4,7 @@ import { PiArrowClockwise, PiArrowSquareOut, PiMagnifyingGlass, PiCaretLeft, PiC
 import { adminApi, adminError } from '../../lib/adminApi'
 import { RecordPanel, EditForm, ConfirmAction } from './AdminControls'
 import { formationHref, isPartnerFormation, recommendedFormations, selectedFormations } from '../../lib/adminSelections'
+import { withZeliaUtm } from '../../lib/outboundUrl.js'
 import Chart from 'react-apexcharts'
 import chartLocale from 'apexcharts/dist/locales/fr.json'
 import AdminSchoolAccess, { PartnerDashboardLink, SchoolDashboardActions } from './AdminSchoolAccess'
@@ -280,11 +281,11 @@ function Recommendations({ title,items }) {
   return <><h2>{title}</h2>{entries.length ? <ul className="bo-record-list">{entries.map((item,index) => <li key={index}><span>{recommendationTitle(item)}<small>{item.description || item.detail?.description || ''}</small></span></li>)}</ul> : <p className="bo-muted">Non enregistré</p>}</>
 }
 function ExternalLink({ href,children }) {
-  return /^https?:\/\//i.test(href || '') ? <a className="bo-button" href={href} target="_blank" rel="noopener noreferrer">{children}</a> : null
+  return /^https?:\/\//i.test(href || '') ? <a className="bo-button" href={withZeliaUtm(href)} target="_blank" rel="noopener noreferrer">{children}</a> : null
 }
 function FormationLink({ formation,children }) {
   const href = formationHref(formation)
-  return href ? <a className="bo-formation-link" href={href} target="_blank" rel="noopener noreferrer" title="Ouvrir la formation dans un nouvel onglet">{children}<PiArrowSquareOut aria-hidden="true" /></a> : <span>{children}<small className="bo-cell-detail">Lien indisponible</small></span>
+  return href ? <a className="bo-formation-link" href={withZeliaUtm(href)} target="_blank" rel="noopener noreferrer" title="Ouvrir la formation dans un nouvel onglet">{children}<PiArrowSquareOut aria-hidden="true" /></a> : <span>{children}<small className="bo-cell-detail">Lien indisponible</small></span>
 }
 function PartnerCampusActions({ row,onDone }) {
   const [total,setTotal] = useState(null)

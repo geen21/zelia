@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import SEO from '../components/SEO.jsx'
 import PublicHeader from '../components/PublicHeader.jsx'
 import { parentTrainingAPI } from '../lib/api.js'
+import { withZeliaUtm } from '../lib/outboundUrl.js'
 import './OrientationFlow.css'
 import './ParentsFormation.css'
 
@@ -204,7 +205,7 @@ export default function ParentsFormation() {
     try {
       const { data } = await parentTrainingAPI.checkout({ firstName, lastName, email })
       if (data?.url) {
-        window.location.href = data.url
+        window.location.href = withZeliaUtm(data.url)
         return
       }
       throw new Error('Missing checkout url')

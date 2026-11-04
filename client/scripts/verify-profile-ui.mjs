@@ -95,7 +95,7 @@ async function checkLayout(page) {
 }
 
 try {
-  for (const width of [1440, 1000, 768, 390, 320]) {
+  for (const width of [1920, 1440, 1000, 768, 390, 320]) {
     const { context, page, state } = await prepare(width, { longEmail: width === 320 })
     await expect(page.getByRole('checkbox', { name: /Autoriser les écoles/ })).toBeChecked()
     await expect(page.getByRole('img', { name: 'Aperçu du visuel Zélia' })).toBeVisible()
@@ -238,7 +238,7 @@ try {
     await context.close()
   }
 
-  console.log(`Profile verified: Zelia palette, 1440/1000/768/390/320px, accessible editing, persistence, consent independence, failures, retries, CV states and diploma/story downloads. Screenshots: ${output}`)
+  console.log(`Profile verified: Zelia palette, 1920/1440/1000/768/390/320px, accessible editing, persistence, consent independence, failures, retries, CV states and diploma/story downloads. Screenshots: ${output}`)
 } finally {
   await browser.close()
 }

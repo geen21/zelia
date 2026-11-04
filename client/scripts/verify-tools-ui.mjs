@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chromium, expect as baseExpect } from '@playwright/test'
 import { TOOLBOX_ITEMS } from '../src/lib/levelMapping.js'
+import { ORIENTATION_VIDEO_ITEMS } from '../src/lib/videoToolSequence.js'
 import { assertSharedUX } from './fixtures/assert-shared-ux.mjs'
 
 const expect = baseExpect.configure({ timeout: 15000 })
@@ -28,7 +29,12 @@ const results = {
   studyRecommendations: [{ degree: 'BTS Communication', type: 'Formation pratique.' }]
 }
 const avatar = '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" rx="20" fill="#fbe7ef"/><circle cx="50" cy="45" r="25" fill="#f1c8a4"/><path d="M25 100q0-40 25-35 25-5 25 35" fill="#c1ff72"/></svg>'
-const tools = TOOLBOX_ITEMS.filter((tool) => tool.id !== 'formations')
+const dashboardGamesOnly = process.argv.includes('--dashboard-games')
+const dashboardToolIds = [
+  'classement-metiers', 'videos-orientation', 'quiz-orientation', 'personnalite',
+  'lettre-futur', 'anglais', 'cv', 'lettre', 'parcoursup', 'pitch', 'entretien'
+]
+const tools = TOOLBOX_ITEMS.filter((tool) => dashboardGamesOnly ? dashboardToolIds.includes(tool.id) : tool.id !== 'formations')
 const browser = await chromium.launch({ headless: true })
 
 async function prepare(viewport, reducedMotion = 'no-preference') {
@@ -97,7 +103,9 @@ async function prepare(viewport, reducedMotion = 'no-preference') {
       } else if (path === '/analysis/generate-analysis-by-type') data = { analysis: { ...results, shareImageUrl: 'data:image/svg+xml,' + encodeURIComponent(avatar) } }
       else if (path === '/chat/ai') {
         const payload = request.postDataJSON()
-        data = { reply: payload.advisorType === 'projects-generator'
+        data = { reply: payload.advisorType === 'cv-builder'
+          ? JSON.stringify({ fullName: 'Camille', title: 'UX designer', summary: 'Un profil créatif et attentif.', experiences: [], education: [], skills: ['Créativité'], qualities: ['Écoute'], languages: ['Anglais B2'], interests: [] })
+          : payload.advisorType === 'projects-generator'
           ? '["Communication","Organisation","Créativité","Écoute","Travail en équipe"]'
           : payload.advisorType === 'recruteur-impitoyable'
             ? 'Peux-tu me donner un exemple de projet concret ?'
@@ -161,8 +169,12 @@ async function answerStatistics(page, state, slug, correctAnswers) {
       await expect(page.getByRole('heading', { name: 'Score enregistré : 3/3' })).toBeVisible()
       const entry = state.saved.findLast((item) => item.question_id === (slug === 'quiz-orientation' ? 'niveau24_quiz_score' : 'niveau37_skills_quiz_score'))
       assert.equal(entry.answer_text, '3/3 bonnes réponses', 'The last answer must not be counted twice.')
-      await page.getByRole('button', { name: 'Refaire le quiz' }).click()
-      await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1')
+      if (dashboardGamesOnly) {
+        await page.getByRole('link', { name: "Retour à l'accueil", exact: true }).click()
+      } else {
+        await page.getByRole('button', { name: 'Refaire le quiz' }).click()
+        await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1')
+      }
     }
   }
 }
@@ -172,6 +184,7 @@ async function finishScenario(page, state, slug) {
   for (let index = 0; index < 5; index += 1) {
     await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', String(index + 1))
     if (await page.locator('.tool-ranking').count()) {
+      await expect(page.locator('.tool-rank-label')).toHaveCount(order.length)
       const initialLabels = await page.locator('.tool-rank-label').allTextContents()
       for (let position = 0; position < order.length; position += 1) {
         const target = initialLabels[order[position]]
@@ -202,46 +215,58 @@ async function finishScenario(page, state, slug) {
 }
 
 try {
-  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 568 }]) {
+  const viewports = dashboardGamesOnly
+    ? [{ width: 1440, height: 900 }, { width: 390, height: 844 }]
+    : [{ width: 1920, height: 1080 }, { width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 568 }]
+  for (const viewport of viewports) {
     const { context, page, state } = await prepare(viewport, viewport.width === 320 ? 'reduce' : 'no-preference')
     try {
-      for (const [path, selector] of [
-        ['/app', '.dash-greeting-text h1'],
-        ['/app/results', '.results-header h1'],
-        ['/app/discuter', '.dz-input input'],
-        ['/app/emplois', '.zelia-jobs table'],
-        ['/app/ecoles-partenaires/ux-fixture', '.formation-detail h1']
-      ]) {
-        await page.goto(`${base}${path}`)
-        await expect(page.locator(selector)).toBeVisible()
-        if (path === '/app/results') await expect(page.locator('.results-spinner')).toHaveCount(0)
-        if (path === '/app/discuter') {
-          const input = page.locator('.dz-input input')
-          await input.fill('Comment préparer mon orientation ?')
-          await input.press('Enter')
-          await expect(input).toHaveValue('')
-          await expect(page.locator('.dz-message.user')).toContainText('Comment préparer mon orientation ?')
-          const box = await input.boundingBox()
-          assert.ok(box && box.y + box.height <= viewport.height, 'Chat composer must remain visible.')
+      if (!dashboardGamesOnly) {
+        for (const [path, selector] of [
+          ['/app', '.dash-greeting-text h1'],
+          ['/app/results', '.results-header h1'],
+          ['/app/discuter', '.dz-input input'],
+          ['/app/emplois', '.zelia-jobs table'],
+          ['/app/ecoles-partenaires/ux-fixture', '.formation-detail h1']
+        ]) {
+          await page.goto(`${base}${path}`)
+          await expect(page.locator(selector)).toBeVisible()
+          if (path === '/app/results') await expect(page.locator('.results-spinner')).toHaveCount(0)
+          if (path === '/app/discuter') {
+            const input = page.locator('.dz-input input')
+            await input.fill('Comment préparer mon orientation ?')
+            await input.press('Enter')
+            await expect(input).toHaveValue('')
+            await expect(page.locator('.dz-message.user')).toContainText('Comment préparer mon orientation ?')
+            const box = await input.boundingBox()
+            assert.ok(box && box.y + box.height <= viewport.height, 'Chat composer must remain visible.')
+          }
+          await assertSharedUX(page)
         }
-        await assertSharedUX(page)
+        await page.goto(`${base}/app/outils`)
+        await expect(page.locator('.outils-tile')).toHaveCount(TOOLBOX_ITEMS.length)
+        await expect(page.locator('.zelia-topbar-logo img')).toHaveCSS('height', '28px')
+        assert.deepEqual(new Set(await page.locator('.outils-tile').evaluateAll((links) => links.map((link) => link.getAttribute('href')))), new Set(TOOLBOX_ITEMS.map((tool) => tool.path)))
+        await page.screenshot({ path: join(output, `toolbox-${viewport.width}.png`), fullPage: true })
       }
-      await page.goto(`${base}/app/outils`)
-      await expect(page.locator('.outils-tile')).toHaveCount(TOOLBOX_ITEMS.length)
-      await expect(page.locator('.zelia-topbar-logo img')).toHaveCSS('height', '28px')
-      assert.deepEqual(new Set(await page.locator('.outils-tile').evaluateAll((links) => links.map((link) => link.getAttribute('href')))), new Set(TOOLBOX_ITEMS.map((tool) => tool.path)))
-      await page.screenshot({ path: join(output, `toolbox-${viewport.width}.png`), fullPage: true })
 
       for (const tool of tools) {
-        if (page.url() !== `${base}/app/outils`) {
-          await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Outils', exact: true }).click()
+        if (dashboardGamesOnly) {
+          if (page.url() !== `${base}/app`) await page.goto(`${base}/app`)
+          await expect(page.locator('.dash-step-marker')).toHaveCount(dashboardToolIds.length)
+          await page.locator('.dash-step-marker').nth(dashboardToolIds.indexOf(tool.id)).click()
+          await expect(page).toHaveURL(`${base}${tool.path}`)
+        } else {
+          if (page.url() !== `${base}/app/outils`) {
+            await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Outils', exact: true }).click()
+          }
+          await page.locator(`.outils-tile[href="${tool.path}"]`).click()
         }
-        await page.locator(`.outils-tile[href="${tool.path}"]`).click()
         await expect(page.getByRole('heading', { level: 1, name: tool.title, exact: true })).toBeVisible()
         await expect(page.locator('.tool-header')).toBeInViewport()
         await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
         await expect(page.locator('.tool-body').locator('button, textarea, table, iframe').first()).toBeVisible()
-        await assertLayout(page, viewport.width)
+        if (!dashboardGamesOnly) await assertLayout(page, viewport.width)
         assert.equal(await page.locator('.tool-header-icon svg').count(), 1)
         await expect(page.locator('.tool-back')).toHaveAttribute('href', '/app/outils')
         await expect(page.locator('.tool-header').getByRole('button')).toHaveCount(0)
@@ -255,17 +280,28 @@ try {
           await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
           await page.getByRole('button', { name: 'Valider et continuer', exact: true }).click()
           await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1')
+          if (dashboardGamesOnly) {
+            for (let index = 1; index < ORIENTATION_VIDEO_ITEMS.length; index += 1) {
+              await page.getByRole('button', { name: index < ORIENTATION_VIDEO_ITEMS.length - 1 ? 'Valider et continuer' : 'Valider et terminer', exact: true }).click()
+            }
+          }
         }
         if (tool.id === 'classement-metiers') {
           const firstTitle = await page.locator('.tool-rank-label').first().textContent()
           await page.locator('.tool-rank-item').first().getByRole('button', { name: 'Descendre', exact: false }).click()
           await expect(page.locator('.tool-rank-label').nth(1)).toHaveText(firstTitle)
+          const firstRow = await page.locator('.tool-rank-item').first().boundingBox()
+          const nextRow = await page.locator('.tool-rank-item').nth(1).boundingBox()
+          assert.ok(firstRow && nextRow)
+          const nextSlotDistance = nextRow.y - firstRow.y
           const handle = page.locator('.tool-rank-item').first().getByRole('button', { name: 'Déplacer', exact: false })
           await handle.focus()
           await page.keyboard.press('Space')
           await expect(handle).toHaveAttribute('aria-pressed', 'true')
+          await page.evaluate(() => new Promise(requestAnimationFrame))
           await page.keyboard.press('ArrowDown')
-          await expect.poll(() => page.locator('.tool-rank-item.is-dragging').evaluate((item) => new DOMMatrix(getComputedStyle(item).transform).m42)).toBeGreaterThan(0)
+          await expect.poll(() => page.locator('.tool-rank-item.is-dragging').evaluate((item) => new DOMMatrix(getComputedStyle(item).transform).m42)).toBeGreaterThanOrEqual(nextSlotDistance - 1)
+          await page.evaluate(() => new Promise(requestAnimationFrame))
           await page.keyboard.press('Space')
           await expect(page.locator('.tool-rank-label').first()).toHaveText(firstTitle)
           const first = await page.locator('.tool-rank-label').first().textContent()
@@ -280,6 +316,7 @@ try {
           }
           await expect(page.getByRole('heading', { name: 'Analyse de personnalité', exact: true })).toBeVisible()
           await expect.poll(() => state.saved.some((entry) => entry.question_id === 'niveau4_personality_completed')).toBe(true)
+          if (dashboardGamesOnly) await page.getByRole('button', { name: 'Terminer', exact: true }).click()
         }
         if (tool.id === 'anglais') {
           await page.getByRole('button', { name: 'Évaluer mon niveau' }).click()
@@ -289,6 +326,7 @@ try {
           await page.getByRole('button', { name: 'Évaluer mon niveau' }).click()
           await expect(page.getByRole('heading', { name: 'Ton résultat', exact: true })).toBeVisible()
           await expect.poll(() => state.saved.some((entry) => entry.question_id === 'niv5_english_level')).toBe(true)
+          if (dashboardGamesOnly) await page.getByRole('link', { name: "Retour à l'accueil", exact: true }).click()
         }
         if (tool.id === 'cv') {
           const fields = page.locator('.n17-experience-row')
@@ -296,6 +334,13 @@ try {
           await expect(fields).toHaveCount(2)
           await fields.last().getByRole('button', { name: 'Supprimer cette expérience' }).click()
           await expect(fields).toHaveCount(1)
+          if (dashboardGamesOnly) {
+            await page.getByRole('button', { name: 'Générer mon CV', exact: true }).click()
+            await expect(page.getByRole('button', { name: 'Télécharger en PDF', exact: true })).toBeVisible()
+            await page.getByRole('button', { name: 'Terminer', exact: true }).click()
+            await expect.poll(() => state.saved.some((entry) => entry.question_id === 'niveau17_cv_data')).toBe(true)
+            assert.equal(JSON.parse(state.saved.findLast((entry) => entry.question_id === 'niveau17_cv_data').answer_text).title, 'UX designer')
+          }
         }
         if (tool.id === 'axes-amelioration') {
           await page.locator('#axes-heading').locator('..').locator('..').locator('..').getByRole('button').first().click()
@@ -304,23 +349,53 @@ try {
         }
         if (tool.id === 'lettre') {
           await page.getByLabel('Ta cible').fill('UX designer')
+          if (dashboardGamesOnly) {
+            state.failNextSave = true
+            await page.getByRole('button', { name: 'Générer', exact: true }).click()
+            await expect(page.getByRole('alert')).toContainText("Impossible de générer ou d'enregistrer")
+            await expect(page.getByRole('link', { name: "Retour à l'accueil", exact: true })).toHaveCount(0)
+          }
           await page.getByRole('button', { name: 'Générer', exact: true }).click()
           await expect(page.locator('.lettre-result')).toContainText('Madame, Monsieur')
+          if (dashboardGamesOnly) {
+            await expect.poll(() => state.saved.some((entry) => entry.question_id === 'lettre_generated')).toBe(true)
+            await page.getByRole('link', { name: "Retour à l'accueil", exact: true }).click()
+          }
         }
         if (tool.id === 'lettre-futur') {
           await page.getByLabel('Ta lettre', { exact: true }).fill('Continue à explorer tes envies et à apprendre de nouvelles choses.')
           await page.getByRole('button', { name: 'Programmer ma lettre' }).click()
           await expect(page.getByRole('heading', { name: 'Ta lettre est programmée' })).toBeVisible()
+          if (dashboardGamesOnly) await page.getByRole('link', { name: "Retour à l'accueil", exact: true }).click()
         }
         if (tool.id === 'pitch') {
           await page.getByRole('button', { name: 'Note 8 sur 10', exact: true }).click()
+          if (dashboardGamesOnly) {
+            state.failNextSave = true
+            await page.getByRole('button', { name: 'Enregistrer ma note' }).click()
+            await expect(page.getByRole('alert')).toContainText("Impossible d'enregistrer ta note")
+            await expect(page.getByRole('link', { name: "Retour à l'accueil", exact: true })).toHaveCount(0)
+          }
           await page.getByRole('button', { name: 'Enregistrer ma note' }).click()
           await expect.poll(() => state.saved.findLast((entry) => entry.question_id === 'niveau28_pitch_rating')?.answer_text).toBe('8/10')
+          if (dashboardGamesOnly) await page.getByRole('link', { name: "Retour à l'accueil", exact: true }).click()
         }
         if (tool.id === 'entretien') {
           await page.getByLabel('Ta réponse au coach').fill('Mon dernier projet était un site pour mon association.')
           await page.getByRole('button', { name: 'Envoyer', exact: true }).click()
           await expect(page.getByText('Peux-tu me donner un exemple de projet concret ?', { exact: true })).toBeVisible()
+          if (dashboardGamesOnly) {
+            for (let index = 1; index < 5; index += 1) {
+              await page.getByLabel('Ta réponse au coach').fill(`Je souhaite développer mes compétences en communication, exemple ${index}.`)
+              await page.getByRole('button', { name: 'Envoyer', exact: true }).click()
+            }
+            await expect.poll(() => state.saved.findLast((entry) => entry.question_id === 'niveau29_messages_exchanged')?.answer_text).toBe('5 réponse(s) donnée(s)')
+            await page.getByRole('link', { name: "Retour à l'accueil", exact: true }).click()
+          }
+        }
+        if (dashboardGamesOnly && tool.id === 'parcoursup') {
+          await expect.poll(() => state.saved.some((entry) => entry.question_id === 'niveau26_parcoursup_read')).toBe(true)
+          await page.getByRole('link', { name: "Retour à l'accueil", exact: true }).click()
         }
         if (tool.id === 'parcours-etudes') {
           await page.getByRole('button', { name: 'UX designer', exact: true }).click()
@@ -360,22 +435,32 @@ try {
           await page.getByRole('button', { name: 'Envoyer mon retour' }).click()
           await expect(page.getByRole('heading', { name: 'Merci pour ton retour !' })).toBeVisible()
         }
+        if (dashboardGamesOnly) {
+          await expect(page).toHaveURL(`${base}/app`)
+          await expect(page.locator('.dash-step').nth(dashboardToolIds.indexOf(tool.id))).toHaveClass(/is-done/)
+          assert.deepEqual(state.quests, [], 'Dashboard games must not advance legacy levels.')
+        }
         assert.deepEqual(state.errors, [], `${tool.id}: browser errors`)
-        console.log(`${viewport.width}px ${tool.id}: shared header, aligned content and responsive layout verified.`)
+        console.log(`${viewport.width}px ${tool.id}: ${dashboardGamesOnly ? 'dashboard launch, completion saved and return home' : 'shared header, aligned content and responsive layout'} verified.`)
       }
-      await page.goto(`${base}/app/niveau/38`)
-      await expect(page).toHaveURL(`${base}/app/outils/resolution-problemes`)
-      await page.locator('.tool-back').click()
-      await expect(page).toHaveURL(`${base}/app/outils`)
-      await expect(page.locator('.outils-completed').first()).toBeVisible()
+      if (dashboardGamesOnly) {
+        await expect(page.locator('.dash-step.is-done')).toHaveCount(dashboardToolIds.length)
+      } else {
+        await page.goto(`${base}/app/niveau/38`)
+        await expect(page).toHaveURL(`${base}/app/outils/resolution-problemes`)
+        await page.locator('.tool-back').click()
+        await expect(page).toHaveURL(`${base}/app/outils`)
+        await expect(page.locator('.outils-completed').first()).toBeVisible()
+      }
     } catch (error) {
+      console.error(`Verification failed on ${page.url()}`, state.errors)
       await page.screenshot({ path: join(output, `failure-${viewport.width}.png`), fullPage: true })
       throw error
     } finally {
       await context.close()
     }
   }
-  console.log(`All ${tools.length} tool pages, games, persistence/retries and legacy routing verified. Screenshots: ${output}`)
+  console.log(`All ${tools.length} ${dashboardGamesOnly ? 'dashboard games, persistence/retries and returns home' : 'tool pages, games, persistence/retries and legacy routing'} verified. Screenshots: ${output}`)
 } finally {
   await browser.close()
 }

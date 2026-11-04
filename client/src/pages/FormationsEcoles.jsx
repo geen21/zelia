@@ -4,6 +4,7 @@ import { ecolesAPI, orientationAPI, usersAPI } from '../lib/api'
 import { BEST_MATCH_MIN_SCORE, buildFormationRelevanceProfile } from '../lib/formationRelevance'
 import { buildExplorerProfile, filterExplorerCards, loadExplorerCatalog, mixExplorerCards, nationalExplorerCards, partnerExplorerCards, sortExplorerCards } from '../lib/formationExplorer'
 import { SCHOOL_SHARING_NOTICE } from '../lib/schoolSharing'
+import { withZeliaUtm } from '../lib/outboundUrl.js'
 import './FormationsEcoles.css'
 
 const EMPTY_RESOURCE = { data: null, loading: true, error: '' }
@@ -204,7 +205,7 @@ export default function FormationsEcoles() {
           {card.reason && <p className="fe-reason">En lien avec : {card.reason}</p>}
           <div className="fe-card-actions">
             <Link className="fe-primary" to={card.href}>Explorer la formation <i className="ph ph-arrow-up-right" aria-hidden="true" /></Link>
-            {card.externalHref && <a className="fe-site" href={card.externalHref} target="_blank" rel="noopener noreferrer">Site de l’établissement</a>}
+            {card.externalHref && <a className="fe-site" href={withZeliaUtm(card.externalHref)} target="_blank" rel="noopener noreferrer">Site de l’établissement</a>}
             {partner && <button className="fe-secondary" disabled={sent || submitting.has(String(card.id)) || resources.submissions.loading || Boolean(resources.submissions.error)} onClick={() => submit(card.id)}>{sent ? 'Demande envoyée' : submitting.has(String(card.id)) ? 'Envoi en cours…' : 'Demander des informations'}</button>}
           </div>
         </article>

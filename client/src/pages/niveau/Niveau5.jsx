@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import supabase from '../../lib/supabase'
 import { usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
@@ -390,6 +390,9 @@ export default function Niveau5() {
                 </div>
               ))}
             </div>
+            {!saving && <div className="tool-actions">
+              <Link to="/app" className="tool-primary">Retour à l'accueil</Link>
+            </div>}
           </div>
         )}
       </div>

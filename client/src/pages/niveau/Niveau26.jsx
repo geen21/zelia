@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { usersAPI } from '../../lib/api'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { supabase } from '../../lib/supabase'
@@ -183,6 +183,9 @@ export default function Niveau26() {
             <InfoTable table={table} />
           </div>
         ))}
+        <div className="tool-actions">
+          <Link to="/app" className="tool-primary">Retour à l'accueil</Link>
+        </div>
       </div>
     </div>
   )

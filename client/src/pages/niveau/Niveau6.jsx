@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import supabase from '../../lib/supabase'
 import { usersAPI } from '../../lib/api'
+import { withZeliaUtm } from '../../lib/outboundUrl.js'
 import { XP_PER_LEVEL, levelUp } from '../../lib/progression'
 import { FaCheck, FaBullseye, FaTrophy } from 'react-icons/fa6'
 
@@ -393,7 +394,7 @@ export default function Niveau6() {
     setSelectedFormation(formation)
     const targetUrl = formation?.fiche || formation?.etabUrl
     if (targetUrl) {
-      window.open(targetUrl, '_blank', 'noopener,noreferrer')
+      window.open(withZeliaUtm(targetUrl), '_blank', 'noopener,noreferrer')
     }
   }
 

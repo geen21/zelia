@@ -13,6 +13,7 @@ import { metierPagesPlugin } from './metier-vite.mjs'
 import { metierSnapshot } from './fixtures/metiers.mjs'
 import { buildMetierDocuments, metierDataPath } from '../src/pages/metiers/metierSeo.js'
 import { metierWordCount } from '../src/lib/metierContent.js'
+import { withZeliaUtm } from '../src/lib/outboundUrl.js'
 
 const client = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const dist = resolve(client, 'dist')
@@ -61,7 +62,7 @@ try {
           assert.ok(html.includes(`id="${section.id}"`))
           for (const text of section.paragraphs) assert.ok(renderedHtml.includes(text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;')))
         }
-        for (const source of doc.page.content.sources) assert.ok(html.includes(`href="${source.url}"`))
+        for (const source of doc.page.content.sources) assert.ok(html.includes(`href="${withZeliaUtm(source.url).replace(/&/g, '&amp;')}"`))
       }
     }
     const json = JSON.parse(await readFile(resolve(dist, ...metierDataPath(doc.path).split('/').filter(Boolean)), 'utf8'))

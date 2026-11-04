@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { chromium, expect } from '@playwright/test'
 import { getBestFormationResultKey, mixFormationResults } from '../src/lib/orientationFormationResults.js'
 import { formationHref, isPartnerFormation, recommendedFormations, selectedFormations } from '../src/lib/adminSelections.js'
+import { withZeliaUtm } from '../src/lib/outboundUrl.js'
 
 const nationalFixtures = Array.from({ length: 7 }, (_, index) => ({ id: index + 1 }))
 const partnerFixtures = [
@@ -216,7 +217,7 @@ const noOverflow = async (page) => {
   assert.equal(layout.scroll <= layout.width + 1,true,JSON.stringify(layout))
 }
 const expectFormationLink = async (link,href) => {
-  await expect(link).toHaveAttribute('href',href)
+  await expect(link).toHaveAttribute('href',withZeliaUtm(href))
   await expect(link).toHaveAttribute('target','_blank')
   await expect(link).toHaveAttribute('rel','noopener noreferrer')
   await expect(link).toHaveAttribute('title','Ouvrir la formation dans un nouvel onglet')
@@ -241,7 +242,7 @@ try {
     const popupPromise = page.waitForEvent('popup')
     await link.click()
     const popup = await popupPromise
-    await expect(popup).toHaveURL(href)
+    await expect(popup).toHaveURL(withZeliaUtm(href))
     assert.equal(await popup.evaluate(() => window.opener === null),true)
     await popup.close()
     await expect(page.getByRole('heading',{ name:'Vue d’ensemble',exact:true })).toBeVisible()
@@ -361,7 +362,7 @@ try {
   await page.screenshot({ path:join(output,'selections-desktop.png'),fullPage:true })
   await page.getByRole('button',{ name:`Ouvrir la fiche ${user.email}`,exact:true }).click()
   await expect(page.getByRole('dialog',{ name:'BTS Informatique',exact:true })).toBeVisible()
-  await expect(page.getByRole('dialog').getByRole('link',{ name:'Fiche de la formation',exact:true })).toHaveAttribute('href','https://example.com/formation')
+  await expect(page.getByRole('dialog').getByRole('link',{ name:'Fiche de la formation',exact:true })).toHaveAttribute('href','https://example.com/formation?utm_source=zelia&utm_medium=referral')
   assert.equal(await page.getByRole('dialog').getByRole('button',{ name:/Enregistrer|Générer/ }).count(),0)
   await page.getByRole('link',{ name:'Analyses de cet utilisateur',exact:true }).click()
   await expect(page.getByRole('heading',{ name:'Analyses',exact:true })).toBeVisible()

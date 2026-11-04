@@ -55,7 +55,7 @@ async function assertDashboardLayout(page, width) {
 }
 
 try {
-  for (const width of [320, 360, 390, 439, 640, 641, 768, 1440, 1920]) {
+  for (const width of [320, 360, 390, 439, 640, 641, 768, 1023, 1024, 1440, 1920, 2560]) {
     const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: 'reduce' })
     const page = await context.newPage()
     const errors = []

@@ -215,7 +215,7 @@
 .zelia-ui .public-footer__bottom { padding-top: 22px; margin-top: 40px; border-top: 1px solid var(--ui-line); color: var(--ui-muted); font-size: 12px; }
 
 @media (min-width: 1024px) {
-  .zelia-ui { --ui-wide: 100%; }
+  .zelia-ui { --ui-wide: 100%; --ui-gutter: 5%; }
   .zelia-ui .parents-section { max-width: none; width: calc(100% - var(--ui-gutter) * 2); }
   .zelia-ui .zelia-topbar-inner { max-width: none; padding-inline: var(--ui-gutter); }
   .zelia-ui .zelia-app-content { max-width: none; padding-inline: var(--ui-gutter); }

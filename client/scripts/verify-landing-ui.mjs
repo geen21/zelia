@@ -101,8 +101,9 @@ async function assertLayout(page) {
     const heroBounds = hero.getBoundingClientRect()
     if (content.left < heroBounds.left + expectedPadding || content.right > heroBounds.right - expectedPadding) problems.push('Hero text must stay inside its padding')
     if (innerWidth >= 1024) {
-      const availableWidth = document.documentElement.clientWidth - 64
-      if (Math.abs(heroBounds.width - availableWidth) > 1) problems.push('Hero must use the available desktop width')
+      const viewportWidth = document.documentElement.clientWidth
+      if (Math.abs(heroBounds.width - viewportWidth * .9) > 1 ||
+          Math.abs(heroBounds.left - viewportWidth * .05) > 1) problems.push('Hero must be 90% wide and centered on desktop')
       if (art.width > 520) problems.push('Hero illustration must stay proportional on wide screens')
     }
     return problems

@@ -19,8 +19,20 @@ export async function assertSharedUX(page) {
       )) {
         const box = container.getBoundingClientRect()
         const viewportWidth = container.closest('.zelia-app-main') ? appMain.clientWidth : document.documentElement.clientWidth
-        const availableWidth = viewportWidth - 64
-        if (box.width && Math.abs(box.width - availableWidth) > 1) problems.push(`Desktop content must use available width: ${container.className} (${box.width}px, expected ${availableWidth}px)`)
+        const viewportLeft = container.closest('.zelia-app-main') ? appMain.getBoundingClientRect().left : 0
+        const expectedWidth = viewportWidth * .9
+        const expectedLeft = viewportLeft + viewportWidth * .05
+        if (box.width && (Math.abs(box.width - expectedWidth) > 1 || Math.abs(box.left - expectedLeft) > 1)) {
+          problems.push(`Desktop content must be 90% wide and centered: ${container.className} (${box.width}px at ${box.left}px, expected ${expectedWidth}px at ${expectedLeft}px)`)
+        }
+      }
+      for (const wrapper of root.querySelectorAll('.zelia-topbar-inner, .zelia-app-content')) {
+        const appearance = getComputedStyle(wrapper)
+        const expectedPadding = wrapper.parentElement.clientWidth * .05
+        if (Math.abs(parseFloat(appearance.paddingLeft) - expectedPadding) > 1 ||
+            Math.abs(parseFloat(appearance.paddingRight) - expectedPadding) > 1) {
+          problems.push(`Desktop app gutters must be 5% on each side: ${wrapper.className}`)
+        }
       }
     }
     for (const heading of root.querySelectorAll('h1, h2, h3')) {

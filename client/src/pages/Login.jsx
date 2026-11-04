@@ -11,6 +11,7 @@ import {
   rememberAuthAfter
 } from '../lib/authFlow'
 import './Login.css'
+import { queueAuthAnalyticsEvent, trackSiteEvent } from '../lib/analytics.js'
 
 function getLoginErrorMessage(error) {
   if (error?.code === 'invalid_credentials' || error?.message === 'Invalid login credentials') {
@@ -45,6 +46,7 @@ export default function Login() {
     if (loading) return
     setError('')
     setLoading('google')
+    trackSiteEvent('login_started', { method: 'google', auth_context: after === 'orientation-analysis' || hasOrientationCache ? 'orientation' : 'standalone' })
     rememberAuthAfter(after)
 
     try {
@@ -58,6 +60,7 @@ export default function Login() {
       if (oauthError) throw oauthError
 
     } catch (oauthError) {
+      trackSiteEvent('login_failed', { method: 'google', error_stage: 'oauth_redirect' })
       setError(getLoginErrorMessage(oauthError))
       setLoading('')
     }
@@ -68,6 +71,8 @@ export default function Login() {
     if (loading) return
     setError('')
     setLoading('email')
+    const analyticsContext = { method: 'email', auth_context: after === 'orientation-analysis' || hasOrientationCache ? 'orientation' : 'standalone' }
+    trackSiteEvent('login_started', analyticsContext)
 
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
@@ -77,8 +82,10 @@ export default function Login() {
         after,
         profileData: buildProfileFromSupabaseUser(data.user)
       })
+      queueAuthAnalyticsEvent('login', analyticsContext)
       navigate(target, { replace: true })
     } catch (loginError) {
+      trackSiteEvent('login_failed', { ...analyticsContext, error_stage: 'login' })
       setError(getLoginErrorMessage(loginError))
     } finally {
       setLoading('')

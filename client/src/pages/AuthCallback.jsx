@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { buildProfileFromSupabaseUser, persistAuthSessionAndOnboarding, resolveAuthAfter } from '../lib/authFlow'
+import { queueAuthAnalyticsEvent } from '../lib/analytics.js'
 
 export default function AuthCallback() {
   const navigate = useNavigate()
@@ -42,7 +43,13 @@ export default function AuthCallback() {
           profileData: buildProfileFromSupabaseUser(user)
         })
 
-        if (active) navigate(target, { replace: true })
+        if (active) {
+          queueAuthAnalyticsEvent('login', {
+            method: user.app_metadata?.provider === 'google' ? 'google' : 'email',
+            auth_context: after === 'orientation-analysis' ? 'orientation' : 'standalone'
+          })
+          navigate(target, { replace: true })
+        }
       } catch (callbackError) {
         console.error('Auth callback error:', callbackError)
         if (!active) return

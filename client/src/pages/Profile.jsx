@@ -6,6 +6,7 @@ import { generateZeliaShareImage } from '../lib/shareImage'
 import ZeliaDiploma from '../components/ZeliaDiploma'
 import SchoolSharingSettings from '../components/SchoolSharingSettings'
 import { withZeliaUtm } from '../lib/outboundUrl.js'
+import { trackSiteEvent } from '../lib/analytics.js'
 import './Profile.css'
 
 const stripLegacyMbtiTokens = (text) => {
@@ -495,9 +496,11 @@ export default function Profile() {
       const { data } = await usersAPI.updateProfile(payload)
       const updatedProfile = data?.profile || data || {}
       setProfile(prev => ({ ...(prev || {}), ...updatedProfile }))
+      trackSiteEvent('profile_updated')
       setSuccessMessage('Profil mis à jour avec succès.')
       setEditing(false)
     } catch (updateErr) {
+      trackSiteEvent('profile_update_failed', { error_stage: 'save' })
       console.error('Profile update error', updateErr)
       const message = updateErr?.response?.data?.error || "Impossible de mettre à jour le profil."
       setUpdateError(message)

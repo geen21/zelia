@@ -4,6 +4,7 @@ import SEO from '../components/SEO.jsx'
 import PublicHeader from '../components/PublicHeader.jsx'
 import { parentTrainingAPI } from '../lib/api.js'
 import { withZeliaUtm } from '../lib/outboundUrl.js'
+import { trackSiteEvent } from '../lib/analytics.js'
 import './OrientationFlow.css'
 import './ParentsFormation.css'
 
@@ -127,6 +128,7 @@ export default function ParentsFormation() {
     const sessionId = searchParams.get('session_id')
 
     if (checkout === 'cancelled') {
+      trackSiteEvent('parent_training_checkout_cancelled')
       setBanner({ tone: 'info', text: 'Paiement annulé. Vous pouvez réessayer quand vous le souhaitez.' })
       scrollToInscription()
       return
@@ -141,12 +143,18 @@ export default function ParentsFormation() {
       try {
         const { data } = await parentTrainingAPI.verifySession(sessionId)
         if (data?.paid) {
+          if (sessionStorage.getItem('parent_training_tracked_payment') !== sessionId) {
+            trackSiteEvent('parent_training_payment_confirmed')
+            sessionStorage.setItem('parent_training_tracked_payment', sessionId)
+          }
           setPaid(true)
           setBanner({ tone: 'success', text: 'Paiement confirmé ! Bienvenue dans la formation Zélia.' })
         } else {
+          trackSiteEvent('parent_training_payment_pending')
           setBanner({ tone: 'warning', text: 'Paiement en attente ou incomplet. Si le débit apparaît sur votre compte, contactez-nous.' })
         }
       } catch (err) {
+        trackSiteEvent('parent_training_payment_failed', { error_stage: 'verify' })
         console.error('Parent training payment verification failed', err)
         setBanner({ tone: 'error', text: 'Impossible de vérifier le paiement. Contactez-nous si besoin : nicolas.wiegele@zelia.io' })
       }
@@ -162,6 +170,18 @@ export default function ParentsFormation() {
     script.src = CALENDLY_SCRIPT_SRC
     script.async = true
     document.body.appendChild(script)
+  }, [paid])
+
+  useEffect(() => {
+    if (!paid) return
+    let booked = false
+    const onMessage = (event) => {
+      if (event.origin !== 'https://calendly.com' || event.data?.event !== 'calendly.event_scheduled' || booked) return
+      booked = true
+      trackSiteEvent('parent_training_booking_completed')
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
   }, [paid])
 
   const formattedPrice = useMemo(() => {
@@ -190,6 +210,7 @@ export default function ParentsFormation() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    if (submitting) return
     setFormError('')
 
     const firstName = form.firstName.trim()
@@ -202,19 +223,27 @@ export default function ParentsFormation() {
     }
 
     setSubmitting(true)
+    trackSiteEvent('parent_training_checkout_started')
     try {
       const { data } = await parentTrainingAPI.checkout({ firstName, lastName, email })
       if (data?.url) {
+        trackSiteEvent('parent_training_checkout_redirected')
         window.location.href = withZeliaUtm(data.url)
         return
       }
       throw new Error('Missing checkout url')
     } catch (err) {
+      trackSiteEvent('parent_training_checkout_failed', { error_stage: 'checkout' })
       console.error('Parent training checkout failed', err)
       const message = err.response?.data?.error || 'Impossible de lancer le paiement. Merci de réessayer dans quelques instants.'
       setFormError(message)
       setSubmitting(false)
     }
+  }
+
+  const openRegistration = () => {
+    trackSiteEvent('parent_training_cta_clicked')
+    scrollToInscription()
   }
 
   return (
@@ -232,7 +261,7 @@ export default function ParentsFormation() {
         <span className="orientation-pill">Formation pour les parents</span>
         <h1>La méthode pas-à-pas pour les parents de lycéens (Seconde, Première, Terminale)</h1>
         <p>Devenez un allié orientation pour votre enfant et retrouvez le dialogue avec lui.</p>
-        <button type="button" className="secondary-action parents-hero-cta" onClick={scrollToInscription}>
+        <button type="button" className="secondary-action parents-hero-cta" onClick={openRegistration}>
           Je m'inscris
         </button>
       </section>
@@ -268,7 +297,7 @@ export default function ParentsFormation() {
             loading="lazy"
           />
         </div>
-        <TrainingCallToAction formattedPrice={formattedPrice} onClick={scrollToInscription}>
+        <TrainingCallToAction formattedPrice={formattedPrice} onClick={openRegistration}>
           Un bilan d'orientation privé classique coûte entre 300 et 800 €. Nous vous proposons
           une formation d'une heure, selon vos disponibilités, pour avoir les bonnes clefs de lecture
           et pouvoir l'accompagner au mieux. 100% satisfait ou remboursé sous 14 jours.
@@ -290,7 +319,7 @@ export default function ParentsFormation() {
           vous êtes la personne la mieux placée pour révéler le potentiel de votre enfant.
           Il lui faut juste la bonne méthode.
         </p>
-        <TrainingCallToAction formattedPrice={formattedPrice} onClick={scrollToInscription} showContact>
+        <TrainingCallToAction formattedPrice={formattedPrice} onClick={openRegistration} showContact>
           Une formation d'une heure selon vos disponibilités pour avoir les clefs afin de
           l'accompagner au mieux, 100% satisfait ou remboursé sous 14 jours.
         </TrainingCallToAction>
@@ -323,7 +352,7 @@ export default function ParentsFormation() {
           WhatsApp avec d'autres parents, pour échanger sur vos craintes et obtenir des conseils
           pratiques entre pairs.
         </p>
-        <TrainingCallToAction formattedPrice={formattedPrice} onClick={scrollToInscription} showContact>
+        <TrainingCallToAction formattedPrice={formattedPrice} onClick={openRegistration} showContact>
           Vous repartez motivés en sachant quelles actions concrètes mettre en place et où trouver
           les bonnes informations. 100% satisfait ou remboursé sous 14 jours.
         </TrainingCallToAction>

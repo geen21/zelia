@@ -1,6 +1,7 @@
 import express from 'express'
 import { identifier, pagination, searchText, validatePatch, mutationReason, invalid } from '../utils/adminInput.js'
 import { withFormationDisplayFields } from '../utils/slug.js'
+import { canonicalFormationColumns } from '../utils/formationCanonical.js'
 import { createPartnerDashboardRouter, createPartnerManagementRouter } from './partnerDashboard.js'
 import { partnerPortalMessages } from '../utils/schoolDashboard.js'
 
@@ -161,7 +162,7 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
     const search = searchText(req.query.q)
     let builder
     if (source === 'national') {
-      builder = db.from('formation_france').select('id,nm,fl,nmc,etab_nom,commune,departement,region,fiche,etab_url', { count: 'exact' }).order('id')
+      builder = db.from('formation_france').select(canonicalFormationColumns('id,nm,fl,nmc,etab_nom,commune,departement,region,fiche,etab_url'), { count: 'exact' }).order('id')
       if (search) builder = builder.or(`nmc.ilike.%${search}%,etab_nom.ilike.%${search}%,commune.ilike.%${search}%`)
     } else if (source === 'custom') {
       builder = db.from('custom_school_formations').select('*', { count: 'exact' }).order('created_at', { ascending: false }).order('id')

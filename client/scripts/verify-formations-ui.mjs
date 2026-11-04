@@ -66,7 +66,9 @@ async function prepare(viewport, options = {}) {
       state.heldPath = ''
     }
     let data
-    const analysis = state.noTest ? null : { studyRecommendations: [{ degree: state.degree }] }
+    const analysis = state.noTest ? null : { studyRecommendations: state.masterCoverage
+      ? [{ degree: 'Master sciences politiques' }, { degree: 'Master informatique' }]
+      : [{ degree: state.degree }] }
     if (path === '/users/profile') data = { profile: user }
     else if (path === '/users/me') data = { user }
     else if (path === '/users/profile/extra-info') data = { entries: state.noTest ? [] : [
@@ -78,7 +80,7 @@ async function prepare(viewport, options = {}) {
       if (state.noTest) assert.equal(url.searchParams.get('optional'), 'true', 'No analysis is an expected state, not an API error')
       data = { results: analysis }
     }
-    else if (path === '/formations/1') data = { formation: rows[0] }
+    else if (path === '/formations/1') data = { formation: state.canonicalSlug ? { ...rows[0], canonical_slug: state.canonicalSlug } : rows[0] }
     else if (path === '/formations') data = { formations: [] }
     else if (path === '/ecoles/partenaires') data = { formations: state.longTitle
       ? partners.map((p, index) => index ? p : { ...p, formation_name: `${p.formation_name} ${'parcours cybersécurité et administration des infrastructures '.repeat(8)}` })
@@ -92,6 +94,13 @@ async function prepare(viewport, options = {}) {
       state.mutations.push(request.postDataJSON().formation_id)
       data = { success: true }
     } else if (path === '/catalog/formations/search') {
+      if (state.masterCoverage) {
+        return route.fulfill({ json: {
+          items: [{ id: 5604, nmc: 'ScPo', nm: ['Sciences Po - Instituts d’études politiques - Grade Master'], fl: ['Grade Master'], etab_nom: 'Établissement exemple', commune: 'Paris', departement: 'Paris' }],
+          pathways: [{ id: 3661, nmc: 'CMI-Info', nm: ['Cursus Master en Ingénierie - Informatique'], etab_nom: 'Université exemple', commune: 'Paris', departement: 'Paris' }],
+          has_more: false
+        } })
+      }
       if (url.searchParams.get('q') === 'retard') {
         state.delayedStarted = true
         await new Promise((resolve) => { state.releaseDelayed = resolve })
@@ -135,6 +144,22 @@ async function showAllLoaded(page) {
 }
 
 try {
+  {
+    const historicalSlug = 'ancienne-formation-informatique-1'
+    const { context, page, errors } = await prepare({ width: 390, height: 844 }, { canonicalSlug: historicalSlug })
+    try {
+      for (const slug of [historicalSlug, 'nouveau-libelle-enrichi-1']) {
+        await page.goto(`${base}/formations/${slug}`)
+        await expect(page.getByRole('heading', { name: rows[0].nm[0], exact: true, level: 1 })).toBeVisible()
+        await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `https://zelia.io/formations/${historicalSlug}`)
+        await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', `https://zelia.io/formations/${historicalSlug}`)
+        const graph = JSON.parse(await page.locator('script[type="application/ld+json"]').textContent())['@graph']
+        assert.equal(graph.find((item) => item['@type'] === 'Course').url, `https://zelia.io/formations/${historicalSlug}`)
+      }
+      assert.deepEqual(errors, [])
+    } finally { await context.close() }
+  }
+
   for (const heldPath of ['/catalog/formations/search', '/ecoles/partenaires', '/ecoles/matched']) {
     const { context, page, state, errors } = await prepare({ width: 390, height: 844 }, { discovery: true, heldPath })
     try {
@@ -335,7 +360,25 @@ try {
       assert.deepEqual(errors, [])
     } finally { await context.close() }
   }
-  console.log(`Formations UI verified: unified grid, all partners, levels, doctorate notice, exact location, scores, recalculation, links, consent, pagination, stale responses, partial failures and 320/390/1440px. Screenshots: ${output}`)
+  {
+    const { context, page, errors } = await prepare({ width: 390, height: 844 }, { formationPreferences: ['master'], masterCoverage: true })
+    try {
+      await page.goto(`${base}/app/formations`)
+      await ready(page)
+      await expect(page.locator('.fe-card[data-source=national]')).toHaveCount(1)
+      await expect(page.locator('.fe-card[data-source=national] .fe-meta')).toContainText('Grade master')
+      const pathways = page.getByRole('region', { name: 'Parcours vers un master' })
+      await expect(pathways).toBeVisible()
+      await expect(pathways.getByText('Cursus Master en Ingénierie - Informatique', { exact: true })).toBeVisible()
+      await expect(pathways).toContainText('ne sont pas des propositions d’entrée directe')
+      await expect(pathways.getByRole('link', { name: 'Explorer le parcours' })).toHaveAttribute('href', /\/formations\/.*-3661$/)
+      await expect(pathways.locator('.fe-score')).toHaveCount(0)
+      await noOverflow(page)
+      await page.screenshot({ path: join(output, 'master-grade-and-pathways.png'), fullPage: true })
+      assert.deepEqual(errors, [])
+    } finally { await context.close() }
+  }
+  console.log(`Formations UI verified: unified grid, all partners, master grades and separate CMI pathways, levels, doctorate notice, exact location, scores, recalculation, links, consent, pagination, stale responses, partial failures and 320/390/1440px. Screenshots: ${output}`)
 } finally {
   await browser.close()
 }

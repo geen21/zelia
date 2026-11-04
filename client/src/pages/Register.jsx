@@ -12,6 +12,7 @@ import {
 import './OrientationFlow.css'
 import { SCHOOL_SHARING_VERSION } from '../lib/schoolSharing'
 import { DEPARTMENTS } from '../lib/departments.js'
+import { queueAuthAnalyticsEvent, trackSiteEvent } from '../lib/analytics.js'
 
 const GENDER_OPTIONS = ['Femme', 'Homme', 'Non-binaire', 'Autre', 'Préfère ne pas répondre']
 const ORIENTATION_PROFILE_IDENTITY_KEY = 'orientation_profile_identity'
@@ -112,6 +113,8 @@ export default function Register() {
 
     setError('')
     setLoading('email')
+    const analyticsContext = { method: 'email', auth_context: after === 'orientation-analysis' || hasOrientationCache ? 'orientation' : 'standalone' }
+    trackSiteEvent('registration_started', analyticsContext)
 
     try {
       const onboardingCache = getOnboardingCache()
@@ -171,8 +174,10 @@ export default function Register() {
         localStorage.setItem(ORIENTATION_PROFILE_IDENTITY_COMPLETE_KEY, 'true')
       }
       localStorage.removeItem('pending_registration_email')
+      queueAuthAnalyticsEvent('sign_up', analyticsContext)
       navigate(target, { replace: true })
     } catch (registerError) {
+      trackSiteEvent('registration_failed', { ...analyticsContext, error_stage: 'registration' })
       const message = registerError?.response?.data?.error || registerError?.message || "Échec de l'inscription"
       const accountCreated = localStorage.getItem('pending_registration_email') === email.trim().toLowerCase()
       setError(accountCreated ? `Ton compte est créé, mais l'enregistrement n'est pas terminé : ${message} Tu peux réessayer sans recréer ton compte.` : message)

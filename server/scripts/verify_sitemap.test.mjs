@@ -28,7 +28,7 @@ function createDatabase(source = rows) {
       const call = { fields: null, options: null, cursor: null, offset: 0, limit: null }
       return {
         select(fields, options) {
-          assert.ok(fields === 'id' || fields === columns)
+          assert.ok(fields === 'id' || fields === columns || fields === columns.replace(/^id\b/, 'id,canonical_slug'))
           call.fields = fields
           call.options = options
           return this
@@ -46,7 +46,7 @@ function createDatabase(source = rows) {
           return this
         },
         limit(limit) {
-          assert.equal(call.fields, columns)
+          assert.ok(call.fields === columns || call.fields === columns.replace(/^id\b/, 'id,canonical_slug'))
           assert.ok(limit > 0 && limit <= 1000)
           call.limit = limit
           return this
@@ -204,6 +204,25 @@ test('concurrent requests share count and chunk work', async (t) => {
   assert.equal(db.calls.filter((call) => call.options?.head).length, 1)
   assert.equal(db.calls.filter((call) => call.fields === 'id' && !call.options?.head).length, 1)
   assert.equal(db.calls.filter((call) => call.fields === columns).length, 2)
+})
+
+test('activated sitemap uses frozen historical URLs, not enriched titles', async (t) => {
+  const previous = process.env.FORMATION_CANONICAL_URLS_ENABLED
+  process.env.FORMATION_CANONICAL_URLS_ENABLED = 'true'
+  t.after(() => {
+    if (previous === undefined) delete process.env.FORMATION_CANONICAL_URLS_ENABLED
+    else process.env.FORMATION_CANONICAL_URLS_ENABLED = previous
+  })
+  const pinned = [{
+    id: '12', canonical_slug: 'ancienne-formation-12',
+    nm: ['Libellé enrichi et entièrement différent'], etab_nom: 'École', commune: 'Paris'
+  }]
+  const db = createDatabase(pinned)
+  const { request } = await startServer(t, db)
+  const xml = await readXml(await request('sitemap-formations-1.xml'))
+  assert.ok(xml.includes('<loc>https://zelia.io/formations/ancienne-formation-12</loc>'))
+  assert.ok(!xml.includes('libelle-enrichi'))
+  assert.ok(db.calls.some((call) => call.fields.includes('canonical_slug')))
 })
 
 test('a transient page timeout retries the same cursor without missing URLs', async (t) => {

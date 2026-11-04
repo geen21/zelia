@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { analysisAPI, chatAPI, usersAPI } from '../lib/api'
 import { resolveAvatarUrl } from '../lib/avatar'
 import { buildContextualAdvisorMessage, buildUserContextSummary, normalizeExtraInfoEntries } from '../lib/userContext'
+import { trackSiteEvent } from '../lib/analytics.js'
 
 const DEFAULT_EXPERT_BUBBLES = [
   { id: 'default-developpeur-web', title: 'Développeur web', skills: ['code', 'produit', 'projets'] },
@@ -220,6 +221,8 @@ export default function DiscuterZelia() {
     if (!text || loading || expertLimitReached) return
     setInput('')
     const nextMessages = [...messages, { role: 'user', content: text }]
+    const analyticsContext = { chat_mode: selectedExpert ? 'expert' : 'advisor' }
+    trackSiteEvent('chat_message_sent', analyticsContext)
     setMessages(nextMessages)
     setLoading(true)
     try {
@@ -236,7 +239,13 @@ export default function DiscuterZelia() {
         expertTitle: selectedExpert?.title || '',
         content: response?.data?.reply || "Je n'ai pas pu répondre pour le moment."
       }])
+      trackSiteEvent(response?.data?.reply ? 'chat_reply_received' : 'chat_reply_failed', {
+        ...analyticsContext, status: response?.data?.reply ? 'success' : 'empty'
+      })
     } catch (error) {
+      trackSiteEvent('chat_reply_failed', {
+        ...analyticsContext, status: error?.response?.status === 429 ? 'rate_limited' : 'error'
+      })
       if (selectedExpert && error?.response?.status === 429) setExpertLimitReached(true)
       const content = error?.response?.status === 429
         ? `Tu as atteint la limite de questions pour ${selectedExpert?.title}. Choisis un autre métier pour continuer.`

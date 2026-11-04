@@ -5,6 +5,7 @@ import { FaLocationDot, FaGraduationCap, FaPaperPlane, FaCheck, FaArrowLeft } fr
 import { PiGraduationCapBold } from 'react-icons/pi'
 import { externalFormationHref } from '../lib/formationExplorer'
 import { withZeliaUtm } from '../lib/outboundUrl.js'
+import { trackSiteEvent } from '../lib/analytics.js'
 
 const DESCRIPTION_MARKERS = [
   'Objectif',
@@ -80,6 +81,7 @@ export default function FormationDetail() {
         ])
         if (!mounted) return
         setFormation(formRes?.data?.formation || null)
+        if (formRes?.data?.formation) trackSiteEvent('formation_detail_viewed', { formation_source: 'partner' })
         const subs = (myRes?.data?.submissions || []).map((s) => s.formation_id)
         setSubmitted(subs.includes(id))
         setSubmissionsReady(Boolean(myRes))
@@ -111,13 +113,18 @@ export default function FormationDetail() {
     if (submitted || submitting || !submissionsReady || formation?.is_active === false) return
     setSubmitting(true)
     setActionError('')
+    trackSiteEvent('formation_info_requested', { formation_source: 'partner' })
     try {
       await ecolesAPI.submit(id)
+      trackSiteEvent('generate_lead', { formation_source: 'partner' })
       setSubmitted(true)
     } catch (e) {
       console.error('Submit error', e)
       if (e.response?.status === 409) setSubmitted(true)
-      else setActionError(e.response?.data?.message || 'Impossible d’envoyer ta demande. Réessaie dans un instant.')
+      else {
+        trackSiteEvent('formation_info_failed', { formation_source: 'partner', error_stage: 'request_info' })
+        setActionError(e.response?.data?.message || 'Impossible d’envoyer ta demande. Réessaie dans un instant.')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -195,7 +202,7 @@ export default function FormationDetail() {
               )}
             </div>
             {matchScore != null && <p className="text-sm text-gray-600 mb-4">Correspondance avec ton bilan et tes préférences, pas une probabilité d’admission.</p>}
-            {schoolHref && <a className="inline-flex underline mb-4" href={withZeliaUtm(schoolHref)} target="_blank" rel="noopener noreferrer">Explorer le site de l’établissement</a>}
+            {schoolHref && <a className="inline-flex underline mb-4" href={withZeliaUtm(schoolHref)} target="_blank" rel="noopener noreferrer" onClick={() => trackSiteEvent('formation_outbound_clicked', { formation_source: 'partner', action: 'school_website' })}>Explorer le site de l’établissement</a>}
           </div>
         </div>
       </div>

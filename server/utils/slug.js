@@ -5,6 +5,9 @@
 // the URL even if the descriptive part of the slug drifts from the data
 // (school renamed, title tweaked, etc.).
 
+import { getPinnedFormationSlug } from '../../client/src/lib/formationCanonical.js'
+import { requireFormationCanonicals } from './formationCanonical.js'
+
 function stripDiacritics(value) {
   return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }
@@ -30,6 +33,8 @@ export function buildFormationTitle(row = {}) {
 }
 
 export function buildFormationSlug(row = {}) {
+  const pinned = getPinnedFormationSlug(row)
+  if (pinned) return pinned
   const title = buildFormationTitle(row)
   const parts = [title, row.etab_nom, row.commune].filter(Boolean).join(' ')
   const base = slugifyText(parts) || 'formation'
@@ -40,6 +45,7 @@ export function buildFormationSlug(row = {}) {
 // mutating the original object.
 export function withFormationDisplayFields(row) {
   if (!row) return row
+  requireFormationCanonicals([row])
   return {
     ...row,
     title: buildFormationTitle(row),

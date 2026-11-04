@@ -2,6 +2,7 @@ import express from 'express'
 import { supabaseAdmin } from '../config/supabase.js'
 import { authenticateToken } from '../middleware/auth.js'
 import { withFormationDisplayFields } from '../utils/slug.js'
+import { canonicalFormationColumns } from '../utils/formationCanonical.js'
 import { findKnownSchoolName } from '../utils/schoolNames.js'
 import { createSchoolRegistrationHandler } from './schoolRegistration.js'
 import { accessibleCompany, portalHandler, requireVerifiedMfa } from '../utils/schoolDashboard.js'
@@ -545,7 +546,7 @@ router.get('/formations', authenticateToken, async (req, res) => {
     const [nationalResult, partnerResult, customResult] = await Promise.all([
       db
         .from('formation_france')
-        .select('id, nm, fl, nmc, etab_nom, commune, departement, region, etab_url, fiche')
+        .select(canonicalFormationColumns('id, nm, fl, nmc, etab_nom, commune, departement, region, etab_url, fiche'))
         .eq('etab_nom', company.name)
         .limit(300),
       db

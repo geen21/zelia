@@ -6,6 +6,7 @@ import { formationsAPI } from '../lib/api'
 import { SCHOOL_SHARING_VERSION } from '../lib/schoolSharing'
 import { supabase } from '../lib/supabase'
 import { withZeliaUtm } from '../lib/outboundUrl.js'
+import { trackSiteEvent } from '../lib/analytics.js'
 import './FormationPublic.css'
 import {
   getFormationTitle,
@@ -199,6 +200,7 @@ export default function FormationPublicPage() {
           setNotFound(true)
         } else {
           setFormation(data.formation)
+          trackSiteEvent('formation_detail_viewed', { formation_source: 'national' })
         }
       })
       .catch(() => {
@@ -344,7 +346,7 @@ export default function FormationPublicPage() {
 
           <div className="fp-hero-actions">
             {formation.fiche && (
-              <a href={withZeliaUtm(formation.fiche)} target="_blank" rel="noopener noreferrer" className="fp-btn fp-btn--primary">
+              <a href={withZeliaUtm(formation.fiche)} target="_blank" rel="noopener noreferrer" className="fp-btn fp-btn--primary" onClick={() => trackSiteEvent('formation_outbound_clicked', { formation_source: 'national', action: 'parcoursup' })}>
                 <i className="ph ph-file-text" aria-hidden="true"></i>Voir la fiche Parcoursup
               </a>
             )}
@@ -420,12 +422,12 @@ export default function FormationPublicPage() {
                 </p>
                 <div className="fp-links-list">
                   {formation.etab_url && (
-                    <a href={withZeliaUtm(formation.etab_url)} target="_blank" rel="noopener noreferrer" className="fp-link-row">
+                    <a href={withZeliaUtm(formation.etab_url)} target="_blank" rel="noopener noreferrer" className="fp-link-row" onClick={() => trackSiteEvent('formation_outbound_clicked', { formation_source: 'national', action: 'school_website' })}>
                       <i className="ph ph-globe" aria-hidden="true"></i>Site de l&apos;établissement<i className="ph ph-arrow-up-right ext" aria-hidden="true"></i>
                     </a>
                   )}
                   {formation.fiche && (
-                    <a href={withZeliaUtm(formation.fiche)} target="_blank" rel="noopener noreferrer" className="fp-link-row">
+                    <a href={withZeliaUtm(formation.fiche)} target="_blank" rel="noopener noreferrer" className="fp-link-row" onClick={() => trackSiteEvent('formation_outbound_clicked', { formation_source: 'national', action: 'parcoursup' })}>
                       <i className="ph ph-file-text" aria-hidden="true"></i>Fiche officielle Parcoursup<i className="ph ph-arrow-up-right ext" aria-hidden="true"></i>
                     </a>
                   )}

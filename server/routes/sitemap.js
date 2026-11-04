@@ -1,5 +1,6 @@
 import express from 'express'
 import { buildFormationSlug } from '../utils/slug.js'
+import { canonicalFormationColumns, requireFormationCanonicals } from '../utils/formationCanonical.js'
 
 // Public sitemap generation for the ~130k formation_france rows.
 // Mounted at `/api` (see server.js) and additionally exposed at the site
@@ -85,7 +86,7 @@ export function createSitemapRouter({ db, now = Date.now }) {
       const { data, error } = await queryWithTimeoutRetry(() => {
         let query = db
           .from('formation_france')
-          .select(FORMATION_COLUMNS)
+          .select(canonicalFormationColumns(FORMATION_COLUMNS))
           .order('id', { ascending: true })
           .limit(pageSize)
         if (cursor != null) query = query.gt('id', cursor)
@@ -107,6 +108,7 @@ export function createSitemapRouter({ db, now = Date.now }) {
       const request = (async () => {
         const data = await fetchFormationChunk((chunk - 1) * CHUNK_SIZE)
         if (!data.length) return null
+        requireFormationCanonicals(data)
 
         const urls = data.map((row) => {
           const slug = buildFormationSlug(row)

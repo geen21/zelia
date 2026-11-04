@@ -4,6 +4,7 @@ import { analysisAPI, usersAPI } from '../lib/api'
 import { resolveAvatarUrl } from '../lib/avatar'
 import { normalizeExtraInfoEntries } from '../lib/userContext'
 import { ORIENTATION_VIDEO_COMPLETION_ID, ORIENTATION_VIDEO_ITEMS, ORIENTATION_VIDEO_TOOL_PATH } from '../lib/videoToolSequence'
+import { trackSiteEvent } from '../lib/analytics.js'
 
 const ORIENTATION_VIDEO_DONE_IDS = ORIENTATION_VIDEO_ITEMS.map((video) => video.questionId)
 
@@ -125,6 +126,7 @@ export default function ConversationalHome() {
     : 0
 
   const handleAction = (action) => {
+    trackSiteEvent('app_activity_selected', { tool_id: action.to.split('/').at(-1), navigation_area: 'dashboard' })
     navigate(action.to)
   }
 

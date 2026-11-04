@@ -2,6 +2,7 @@ import express from 'express'
 import { supabase, supabaseAdmin } from '../config/supabase.js'
 import { authenticateToken, optionalAuth } from '../middleware/auth.js'
 import { withFormationDisplayFields } from '../utils/slug.js'
+import { canonicalFormationColumns } from '../utils/formationCanonical.js'
 import { notifyPortalLeads, SHARING_VERSION } from '../utils/schoolDashboard.js'
 
 const router = express.Router()
@@ -45,7 +46,7 @@ function isStatementTimeout(error) {
 function buildFormationsListQuery({ region, department, type, etabNom, q, parsedOffset, parsedLimit }) {
   let query = supabase
     .from('formation_france')
-    .select(PUBLIC_FORMATION_COLUMNS, { count: 'exact' })
+    .select(canonicalFormationColumns(PUBLIC_FORMATION_COLUMNS), { count: 'exact' })
     .range(parsedOffset, parsedOffset + parsedLimit - 1)
     .order('annee', { ascending: false })
     .order('id', { ascending: true })
@@ -113,7 +114,7 @@ function buildFormationsListQuery({ region, department, type, etabNom, q, parsed
 function fetchFormationById(id) {
   return supabase
     .from('formation_france')
-    .select(PUBLIC_FORMATION_COLUMNS)
+    .select(canonicalFormationColumns(PUBLIC_FORMATION_COLUMNS))
     .eq('id', id)
     .single()
 }

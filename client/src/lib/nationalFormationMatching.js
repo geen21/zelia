@@ -1,6 +1,6 @@
 import { DEPARTMENTS } from './departments.js'
 import { getFormationTitle } from './formationDisplay.js'
-import { FORMATION_PREFERENCE_LEVELS, inferFormationStudyLevel } from './formationLevel.js'
+import { FORMATION_PREFERENCE_LEVELS } from './formationLevel.js'
 import { buildFormationRelevanceProfile, buildRelevanceDiscoveryQueries, normalizeRelevanceText, scoreFormationRelevance } from './formationRelevance.js'
 
 export const NATIONAL_CODE_SUBJECTS = {
@@ -17,22 +17,50 @@ export const NATIONAL_CODE_SUBJECTS = {
 
 export const NATIONAL_FORMAT_PATTERNS = {
   bts: ['BTS*'], but: ['BUT*'], licence: ['L1-*', 'L2-*', 'L3-*', 'Licence*'],
-  bachelor: ['Bachelor*', '*BAC3*'], master: ['M1-*', 'M2-*', 'Master*', 'Mastère*', 'MBA*', 'MSC*'],
+  bachelor: ['Bachelor*', '*BAC3*'], master: ['M1-*', 'M2-*', 'Master*', 'ScPo*', '*BAC5*', 'DSCG*', 'DNSEP*'],
   doctorat: ['*doctorat*', '*PhD*', '*thèse*'], voie_pro: ['CAP*', '*Bac*pro*'],
   prepa: ['CPGE*', '*prépa*']
 }
 
-function getNationalDiplomaFormat(row) {
+export function getNationalAcademicGrade(row = {}) {
+  const raw = row.raw || row
+  const title = normalizeRelevanceText(raw.nm?.[0])
+  // Some Parcoursup headers say "Grade Master" even on a specific Bachelor campus.
+  if (/\bbachelor\b/.test(title) && !/^(?:diplome national de )?master\b/.test(title)
+    && !/^M[12](?:[-\s]|$)/i.test(String(raw.nmc || ''))) return null
+  const text = normalizeRelevanceText([raw.nm?.[0], ...(Array.isArray(raw.fl) ? raw.fl : [])].filter(Boolean).join(' '))
+  return text.match(/\bgrade (?:de )?(licence|master)\b/)?.[1] || null
+}
+
+export function isNationalMasterPathway(row = {}) {
+  const raw = row.raw || row
+  return /^CMI(?:[-/\s]|$)/i.test(String(raw.nmc || ''))
+    || /\bcursus master (?:en )?ingenierie\b/.test(normalizeRelevanceText(raw.nm?.[0]))
+}
+
+export function nationalMasterPathwayMatches(row, profile = {}, department = '') {
+  return getNationalStudyLevels(profile).includes(5) && isNationalMasterPathway(row)
+    && (!department || normalizeRelevanceText(row.departement) === normalizeRelevanceText(department))
+}
+
+export function getNationalDiplomaFormat(row) {
   const code = String(row.nmc || '').trim()
+  if (/^BTS[AM]?(?:[-/\s]|$)/i.test(code)) return 'bts'
+  if (/^BUT(?:[-/\s]|$)/i.test(code)) return 'but'
   if (/^L[123](?:[-\s]|$)/i.test(code)) return 'licence'
   if (/^M[12](?:[-\s]|$)/i.test(code)) return 'master'
   if (/^FI[-\s]/i.test(code)) return 'ecole_specialisee'
   if (/^DNM-/i.test(code)) return 'ecole_specialisee'
-  const text = normalizeRelevanceText([row.nm?.[0], row.fl?.[0], code].filter(Boolean).join(' '))
+  const text = normalizeRelevanceText(row.nm?.[0] || code)
+  if (/^(mise a niveau|classe de mise a niveau|annee preparatoire|insertion a la licence)\b/.test(text)
+    || /^(MAN-|AnP$)/i.test(code)) return 'preparation'
+  if (/^(du|diu|diplome d universite|diplome universitaire|diplome interuniversitaire|diplome inter universitaire)\b/.test(text)) return 'du'
+  if (/^(mastere|mba|msc)\b/.test(text)) return 'postgraduate'
+  if (/docteur en (medecine|pharmacie|chirurgie dentaire)|doctorat d exercice/.test(text)) return 'doctorat_exercice'
   for (const [format, pattern] of [
-    ['doctorat', /\b(doctorat|phd|these)\b/],
-    ['bts', /\bbtsa?\b/], ['but', /\bbut\b/], ['licence', /\blicence\b/],
-    ['bachelor', /\bbachelor\b/], ['master', /\b(master|mastere|mba|msc)\b/],
+    ['doctorat', /^(?:diplome national de )?(doctorat|phd)\b/],
+    ['bts', /^bts[am]?\b/], ['but', /^but\b/], ['licence', /^(?:double )?licence\b/],
+    ['bachelor', /\bbachelor\b/], ['master', /^(?:diplome national de )?master\b/],
     ['prepa', /\b(cpge|prepa|preparatoire)\b/], ['voie_pro', /\b(cap|bac pro|bac professionnel)\b/]
   ]) {
     if (pattern.test(text)) return format
@@ -61,9 +89,21 @@ export function inferNationalStudyLevel(row = {}) {
   if (/^M[12](?:[-\s]|$)/i.test(code)) return 5
   if (/^(?:DNM-|DN\s*MADE)/i.test(code)) return 3
   if (/^FI[-\s]*BAC5/i.test(code)) return 5
-  return inferFormationStudyLevel({
-    raw: { nm: raw.nm, nmc: raw.nmc, fl: raw.fl, diploma_level: raw.diploma_level }
-  })
+  if (/^BTS[AM]?(?:[-/\s]|$)|^(DUT|DEUST)(?:[-/\s]|$)/i.test(code)) return 2
+  if (/^(BUT|DCG|DNA)(?:[-/\s]|$)/i.test(code)) return 3
+  if (/^(DSCG|DNSEP)(?:[-/\s]|$)/i.test(code)) return 5
+  const family = getNationalDiplomaFormat(raw)
+  if (['du', 'doctorat_exercice', 'prepa', 'preparation'].includes(family) || /^(PASS|CMI|CUPGE|CPES)(?:[-/\s]|$)/i.test(code)) return null
+  if (family === 'doctorat') return 8
+  if (family === 'master') return 5
+  if (['licence', 'but'].includes(family)) return 3
+  if (family === 'bts') return 2
+  if (family === 'voie_pro') return 1
+  const title = normalizeRelevanceText(raw.nm?.[0] || code)
+  const explicit = title.match(/\bbac\s*([234568])\b/)
+  if (explicit && !/\b(admission|acces|recrutement|apres)\b.{0,30}\bbac\b/.test(title)) return Number(explicit[1])
+  const grade = getNationalAcademicGrade(raw)
+  return grade ? grade === 'master' ? 5 : 3 : null
 }
 
 // Only a department actually supplied by the student scopes the national search.
@@ -93,7 +133,9 @@ export function nationalFormationMatches(row, profile = {}, department = '') {
   if (levels.length && !levels.includes(inferNationalStudyLevel(row))) return false
   const preferences = profile.formation_preferences || []
   const diplomaFormats = preferences.filter((preference) => Object.hasOwn(NATIONAL_FORMAT_PATTERNS, preference))
-  if (diplomaFormats.length && !preferences.includes('ecole_specialisee') && !diplomaFormats.includes(getNationalDiplomaFormat(row))) return false
+  const matchesMasterGrade = diplomaFormats.includes('master') && getNationalAcademicGrade(row) === 'master'
+  if (diplomaFormats.length && !preferences.includes('ecole_specialisee')
+    && !diplomaFormats.includes(getNationalDiplomaFormat(row)) && !matchesMasterGrade) return false
   if (preferences.length === 1 && preferences[0] === 'alternance') {
     return /apprentissage|alternance|(?:^|[-/])app(?:$|[-/])/i.test([row.app, row.nmc, row.nm].join(' '))
   }

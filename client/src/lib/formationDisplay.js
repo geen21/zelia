@@ -2,6 +2,8 @@
 // Keep this in sync with server/utils/slug.js — the slugging algorithm must
 // match so links built on the client resolve consistently with the sitemap.
 
+import { getPinnedFormationSlug } from './formationCanonical.js'
+
 function stripDiacritics(value) {
   return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }
@@ -25,6 +27,8 @@ export function getFormationTitle(formation = {}) {
 }
 
 export function getFormationSlug(formation = {}) {
+  const pinned = getPinnedFormationSlug(formation)
+  if (pinned) return pinned
   if (formation.slug) return formation.slug
   const title = getFormationTitle(formation)
   const parts = [title, formation.etab_nom, formation.commune].filter(Boolean).join(' ')

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import SEO from '../components/SEO'
 import BlogHeaderNav from './blog/BlogHeaderNav'
 import { formationsAPI } from '../lib/api'
+import { trackSiteEvent } from '../lib/analytics.js'
 import './FormationPublic.css'
 import {
   getFormationTitle,
@@ -22,7 +23,7 @@ function FormationCard({ formation }) {
   const location = [formation.commune, formation.departement].filter(Boolean).join(', ')
 
   return (
-    <Link to={`/formations/${getFormationSlug(formation)}`} className="fp-result-card">
+    <Link to={`/formations/${getFormationSlug(formation)}`} className="fp-result-card" onClick={() => trackSiteEvent('formation_selected', { formation_source: 'national' })}>
       <div className="fp-result-top">
         <div className="fp-result-monogram">
           {getInitials(formation.etab_nom || title)}
@@ -70,12 +71,18 @@ export default function FormationsDirectory() {
       .then(({ data }) => {
         if (currentRequest !== requestId.current) return
         const newItems = data?.formations || []
+        trackSiteEvent('formation_results_viewed', {
+          formation_source: 'national', result_count: newItems.length,
+          has_query: Boolean(q.trim()), has_location: Boolean(region.trim() || department.trim()),
+          action: append ? 'load_more' : 'search'
+        })
         setItems((prev) => (append ? [...prev, ...newItems] : newItems))
         setTotal(typeof data?.total === 'number' ? data.total : null)
         setOffset(nextOffset + newItems.length)
       })
       .catch(() => {
         if (currentRequest !== requestId.current) return
+        trackSiteEvent('formation_search_failed', { formation_source: 'national', error_stage: 'search' })
         setError("La recherche n'a pas abouti. Réessaie avec d'autres critères.")
         if (!append) setItems([])
       })

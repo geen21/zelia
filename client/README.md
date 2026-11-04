@@ -3,9 +3,20 @@ ZeliaV2 Client (Vite + React)
 - Uses existing Aximo assets via /static served by backend.
 - Pages: /login, /register, /questionnaire
 
+Choix de formations dans l'orientation
+- La question 4/6 propose BTS, BUT, Licence, Bachelor, Master, Ecole specialisee, Alternance et Prepa.
+- Ces huit categories ont chacune une precision visible : variantes de BTS, BUT en IUT, licences generales/professionnelles, bachelors bac+3, masters/grade master, domaines des ecoles specialisees et familles de CPGE. L'alternance reste presentee comme une modalite, pas comme un diplome.
+- Doctorat et CAP ou bac pro sont masques dans ce selecteur, faute de correspondances dans le catalogue national actuel. Les libelles et traitements historiques restent disponibles pour relire les anciens profils ; aucune donnee existante n'est supprimee.
+- Lorsqu'un eleve repasse par cette question, les choix masques d'un ancien brouillon ne comptent plus dans la limite de trois et sont retires du brouillon a la validation de cette etape.
+
 Run
 1. Install: npm install
 2. Dev server: npm run dev (proxy /api to http://localhost:8000)
+
+Analytics
+- Le suivi conserve le conteneur GTM existant et couvre les pages vues, l'orientation v5, l'authentification, les formations, l'espace eleve et l'offre parents.
+- Le contrat des evenements et le parametrage GTM/GA4 a publier sont decrits dans [ANALYTICS_ORIENTATION.md](./ANALYTICS_ORIENTATION.md). Les changements de code ne publient pas le conteneur distant.
+- `npm run verify:analytics` teste les charges utiles et les parcours avec son propre serveur Vite et des services simules, sans envoyer d'evenements a Google.
 
 Liens sortants
 - Toutes les navigations HTTP(S) externes utilisent `src/lib/outboundUrl.js` : `withZeliaUtm(href)` ajoute `utm_source=zelia` et, en l'absence de medium, `utm_medium=referral`. Une source existante est remplacee ; les autres parametres de campagne, la requete et le fragment sont conserves.
@@ -68,6 +79,7 @@ Pages metiers (/metiers/)
 Orientation (/orientation)
 - La v5 place chaque dilemme dans une phrase comparative courte, plutot que dans de longs boutons.
 - Quatre boutons colores : Carrement / Plutot oui / Plutot pas / Pas du tout. Un clic repond et avance, sans A/B ni second choix ; les touches 1-4 permettent de nuancer et les fleches/swipes choisissent les extremes.
+- Les six etapes de preferences apres le test gardent le meme alignement en haut et le meme espacement sous l'en-tete que les questions, sans centrage vertical variable. L'en-tete conserve sa hauteur quand le bouton retour apparait ; `verify:orientation-ui` controle ces dimensions sur desktop et mobile.
 - L'accord favorise la premiere activite ; le desaccord favorise l'alternative, pas un rejet des deux activites.
 - Les pistes moins choisies sont depriorisees progressivement, sans elimination d'un secteur sur une seule reponse. Les preferences ne mesurent pas les aptitudes.
 - Appliquer `server/database/migrate_questions_v5.sql` avant de deployer ; les questions et reponses v1/v2/v3/v4 sont preservees. Une progression ancienne est invalidee.

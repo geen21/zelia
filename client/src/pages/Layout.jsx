@@ -5,6 +5,7 @@ import { buildAvatarFromProfile } from '../lib/avatar'
 import { supabase } from '../lib/supabase'
 import { TOOLBOX_ITEMS } from '../lib/levelMapping'
 import ToolExperience, { ToolIcon } from '../components/ToolExperience'
+import { trackSiteEvent } from '../lib/analytics.js'
 
 const HOME_NAV_ITEM = { to: '/app', label: "Conseiller d'orientation", icon: 'ph-compass', end: true }
 
@@ -76,6 +77,7 @@ export default function Layout() {
       console.warn('Supabase logout failed', error)
     } finally {
       clearLocalAuthState()
+      trackSiteEvent('logout')
       navigate('/login', { replace: true })
     }
   }

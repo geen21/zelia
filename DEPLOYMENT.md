@@ -1,5 +1,75 @@
 # Zelia Deployment Guide
 
+## Stabilisation des URL canoniques des formations apres enrichissement
+
+L'enrichissement des titres ne doit pas migrer les URL deja publiees. La colonne
+`formation_france.canonical_slug` fige l'ancienne URL, independamment de `nm`,
+`fl`, du nom de l'etablissement et de la ville. Les fiches restent enrichies ;
+les anciennes et nouvelles variantes avec le meme id restent accessibles,
+mais partagent une seule canonical historique. Aucune suppression d'URL
+Search Console, aucun `noindex` et aucun blocage robots ne sont requis.
+
+### Ordre obligatoire : preparation, base, puis activation
+
+1. Sauvegarder la base et conserver le snapshot **avant enrichissement**.
+   Le manifeste prepare le 4 novembre contient 127498 anciennes URL et provient
+   de la sauvegarde SHA-256
+   `6e8790dd053dc54aa8b2e74279fd355bf51915933e0000b1036d7e4987bcb677`.
+   Copier uniquement le manifeste dans `server/.generated` sur l'environnement
+   qui dispose de la cle de service ; ne pas exposer cette cle au navigateur.
+2. Executer [migration_formation_canonical_urls.sql](server/database/migration_formation_canonical_urls.sql)
+   dans Supabase, d'abord en staging. Elle ajoute la colonne et une RPC reservee
+   au role de service. Les anciennes lignes restent nulles jusqu'au backfill :
+   ne pas les figer avec les nouveaux titres. Les nouvelles insertions obtiennent
+   ensuite une URL persistante, protegee contre les changements ulterieurs.
+3. Depuis `server`, verifier puis appliquer le manifeste historique :
+
+   ```powershell
+   node scripts\pin_formation_urls.mjs --input .generated\formation-historical-canonicals-20261104.json
+   node scripts\pin_formation_urls.mjs --input .generated\formation-historical-canonicals-20261104.json --expected-sha256 905181e0fad7e35df9432ac5043f331a4b816d50c48e0e23f87a4d8f892eebc7 --journal .generated\formation-canonical-publication.jsonl --apply
+   ```
+
+   Le manifeste a le SHA-256 ci-dessus. Il est refuse s'il a change. Chaque lot
+   atomique verifie les identifiants source et les URL relues dans la base.
+   Une reprise avec un nouveau journal accepte les URL deja correctement figees,
+   mais refuse toute autre valeur existante. Ne pas supprimer la protection
+   d'immutabilite pour forcer un conflit : examiner sa provenance.
+4. Verifier que toutes les lignes historiques ont une canonical. Deployer le
+   backend et le client avec `FORMATION_CANONICAL_URLS_ENABLED=true` **uniquement
+   apres le backfill complet** ; reconstruire avec `npm run build`.
+   Le flag est desactive par defaut pour ne pas casser les serveurs qui n'ont
+   pas encore la migration. Actif, une canonical manquante produit une erreur
+   explicite plutot qu'un retour silencieux aux nouvelles URL.
+5. Redemarrer l'API pour vider son cache de sitemaps et de recherches. Verifier
+   les caches proxy/CDN : les sitemaps sont caches pendant une heure.
+   Tester une ancienne URL et son alias enrichi : meme contenu enrichi,
+   `rel=canonical`, `og:url` et JSON-LD vers l'ancienne URL. Les liens internes
+   et `/sitemap-formations-1.xml` doivent utiliser cette meme URL.
+
+### Search Console : seulement apres verification en production
+
+1. Ouvrir la propriete `sc-domain:zelia.io` dans un compte autorise.
+2. Inspecter une ancienne URL representative, puis **Tester l'URL en direct** :
+   acces Google autorise, reponse exploitable et canonical declaree historique.
+3. Verifier les sitemaps existants `https://zelia.io/sitemap.xml` et
+   `https://zelia.io/sitemap-index.xml`. Soumettre de nouveau l'index des
+   formations apres avoir confirme que ses sous-sitemaps listent les canonicales.
+   Ne pas supprimer les sitemaps de metiers ou de blog.
+4. Demander l'indexation de quelques URL representatives, pas de 127498 pages
+   individuellement. Suivre la canonical choisie par Google dans les inspections
+   ulterieures ; sa prise en compte depend d'une nouvelle exploration et n'est
+   ni immediate ni garantie par une soumission de sitemap.
+5. **Valider la correction** uniquement dans le groupe d'erreurs correspondant
+   si Search Console en signale un. Le rapport Core Web Vitals traite d'autres
+   problemes : ne pas confondre sa validation avec celle des canonicales.
+
+Verification locale : `cd server; npm run verify:sitemap`, puis
+`cd client; npm run verify:formations-ui`.
+Apres deploiement, depuis `client`, executer
+`node scripts\verify-formation-seo-live.mjs` : ce controle refuse la validation
+si l'API, le sitemap et les canonicales rendues ne correspondent pas aux URL
+historiques du manifeste. Il ne soumet rien a Search Console.
+
 ## Core Web Vitals : verification apres deploiement
 
 - Reconstruire et deployer le client complet (y compris les nouveaux chunks et CSS).

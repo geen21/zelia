@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { createClient } from '@supabase/supabase-js'
 import { parseNationalSearch, searchNationalFormations } from '../utils/nationalFormationSearch.js'
-import { getNationalStudyLevels, inferNationalStudyLevel, nationalFormationMatches, nationalSearchNotice, resolveNationalDepartment } from '../../client/src/lib/nationalFormationMatching.js'
-import { buildExplorerProfile, nationalExplorerCards, loadExplorerCatalog } from '../../client/src/lib/formationExplorer.js'
+import { getNationalAcademicGrade, getNationalStudyLevels, inferNationalStudyLevel, nationalFormationMatches, nationalSearchNotice, resolveNationalDepartment } from '../../client/src/lib/nationalFormationMatching.js'
+import { buildExplorerProfile, nationalExplorerCards, relevantMasterPathways, loadExplorerCatalog } from '../../client/src/lib/formationExplorer.js'
 
 function fixture({ rows = [], titles = [], error = null } = {}) {
   const calls = []
@@ -32,8 +32,70 @@ test('national level inference reads actual catalogue codes without changing par
   assert.equal(nationalFormationMatches({ nmc: 'Master biologie' }, { formation_preferences: ['doctorat'] }), false)
   assert.equal(nationalFormationMatches({ nmc: 'Formation inconnue' }, { formation_preferences: ['doctorat'] }), false)
   assert.equal(nationalFormationMatches({ nmc: 'BUT-Informatique' }, { formation_preferences: ['licence'] }), false, 'A BUT is not silently substituted for a licence')
-  assert.equal(nationalFormationMatches({ nmc: 'FI-BAC5', nm: ['Formation ingénieur grade master'] }, { formation_preferences: ['master', 'doctorat'] }), false, 'An engineering degree is not a master proposal')
+  assert.equal(nationalFormationMatches({ nmc: 'FI-BAC5', nm: ['Formation ingénieur grade master'] }, { formation_preferences: ['master', 'doctorat'] }), true, 'An explicitly established master grade is included without renaming the diploma')
+  assert.equal(nationalFormationMatches({ nmc: 'FI-BAC5', nm: ['Formation ingénieur Bac+5'] }, { formation_preferences: ['master'] }), false, 'Bac+5 alone does not establish an academic grade')
   assert.equal(nationalFormationMatches({ nmc: 'FI-BAC5' }, { target_level: 'Bac+5' }), true, 'A level-only goal still accepts equivalent diplomas')
+})
+
+test('real grade-master labels and CMI are returned in distinct, correctly labelled groups', async () => {
+  const grade = {
+    id: 5604, nmc: 'ScPo',
+    nm: ["Sciences Po / Instituts d'études politiques - Sciences Humaines et Sociales - Grade Master - Cursus général"],
+    fl: ["Sciences Po / Instituts d'études politiques - Sciences Humaines et Sociales - Grade Master"],
+    departement: 'Paris', commune: 'Paris', annee: '2025'
+  }
+  const cmi = { id: 3661, nmc: 'CMI-Info', nm: ["C.M.I - Cursus Master en Ingénierie - Informatique"], departement: 'Paris', commune: 'Paris', annee: '2025' }
+  const profile = { formation_preferences: ['master'] }
+  assert.equal(getNationalAcademicGrade(grade), 'master')
+  assert.equal(inferNationalStudyLevel(grade), 5)
+  assert.equal(inferNationalStudyLevel(cmi), null)
+  assert.equal(nationalFormationMatches(grade, profile), true)
+  assert.equal(nationalFormationMatches(grade, { formation_preferences: ['doctorat'] }), false)
+  const contradictory = {
+    ...grade, id: 40359,
+    nm: ['Sciences Po / Instituts d’études politiques - Grade Master - Campus de Paris, Bachelor de Sciences Po']
+  }
+  assert.equal(getNationalAcademicGrade(contradictory), null, 'A generic Grade Master header must not override a specific Bachelor programme')
+  assert.equal(nationalFormationMatches(contradictory, profile), false)
+  assert.equal(nationalFormationMatches(cmi, profile), false)
+  const { db, calls } = fixture({ rows: [grade, cmi], titles: [grade, cmi] })
+  const result = await searchNationalFormations(db, { q: 'politique', ...parseNationalSearch({ departement: '75', study_levels: '5', formation_formats: 'master' }) })
+  assert.deepEqual(result.items.map((row) => row.id), [5604])
+  assert.deepEqual(result.pathways.map((row) => row.id), [3661])
+  assert.ok(calls.some((call) => call.body?.p_keyword === 'master'))
+  assert.ok(calls[0].url.searchParams.getAll('or').filter((filter) => filter.includes('ScPo*')).length >= 2, 'Both SQL level and format filters must allow explicit grade-master sources')
+  const context = { profile, analysis: { studyRecommendations: [{ degree: 'Master sciences politiques' }, { degree: 'Master informatique' }] } }
+  assert.equal(nationalExplorerCards(result.items, context)[0].level, 'Grade master')
+  assert.equal(relevantMasterPathways(result.pathways, context, 'Paris').length, 1)
+  assert.equal(relevantMasterPathways(result.pathways, context, 'Alpes-Maritimes').length, 0)
+  const loaded = await loadExplorerCatalog(async () => ({ data: result }), { context })
+  assert.equal(loaded.pathways.length, 1)
+  assert.equal(loaded.rows.length, 1)
+})
+
+test('enriched diploma labels do not turn a DU, health pathway, mastère or description into a doctorate/master', () => {
+  for (const row of [
+    { nmc: 'DU', nm: ["Diplôme d'Université - Bachelor Business Data Science"] },
+    { nmc: 'DU-Nutrition', nm: ['DU Nutrition : préparation au doctorat'] },
+    { nmc: 'PASS', nm: ['Licence - Parcours accès santé'] },
+    { nmc: 'CMI-SV', nm: ['Cursus Master en Ingénierie Biologie-Santé'] },
+    { nmc: 'MAN-MPGEM', nm: ['Mise à niveau - Classe de mise à niveau au BTS Maritime'] },
+    { nmc: 'Doctorat-exercice', nm: ["Diplôme d'État de docteur en médecine"] }
+  ]) {
+    assert.equal(inferNationalStudyLevel(row), null, JSON.stringify(row))
+    assert.equal(nationalFormationMatches(row, { formation_preferences: ['doctorat'] }), false)
+  }
+  const bts = { nmc: 'BTS-SIO', nm: ['BTS Informatique - poursuite en master et doctorat'] }
+  assert.equal(inferNationalStudyLevel(bts), 2)
+  assert.equal(nationalFormationMatches({ nmc: 'Mastère-Marketing', nm: ['Mastère spécialisé Marketing'] }, { formation_preferences: ['master'] }), false)
+  assert.equal(nationalFormationMatches({ nmc: 'MBA-Marketing', nm: ['MBA Marketing'] }, { formation_preferences: ['master'] }), false)
+  assert.equal(inferNationalStudyLevel({ nmc: 'PhD', nm: ['PhD Informatique'] }), 8)
+  assert.equal(inferNationalStudyLevel({ nm: ['MBA Marketing - Admission après Bac+5'] }), null)
+  assert.equal(inferNationalStudyLevel({ nmc: 'FECM-B4', nm: ['Formation des écoles de commerce Bac +4'] }), 4)
+  assert.equal(nationalFormationMatches({
+    nmc: 'FECM-BAC3',
+    nm: ['Formation des écoles de commerce et de management Bac +3 - Bachelor Management']
+  }, { formation_preferences: ['bachelor'] }), true)
 })
 
 test('department codes resolve to names, never a reference city or substring', () => {
@@ -51,6 +113,16 @@ test('a sparse L1-Info licence is still relevant to informatique', () => {
   const cards = nationalExplorerCards([{ id: 4785, nmc: 'L1-Info', departement: 'Paris' }], {
     analysis: { studyRecommendations: [{ degree: 'Licence informatique' }] },
     profile: { formation_preferences: ['licence'], study_location: 'near_home', department: '75' }
+  })
+
+  test('historical duplicate database ids do not show the same exact source record twice', () => {
+    const row = { nmc: 'BTS-SIO', nm: ['BTS Informatique'], annee: '2021', gta: '29815', etab_uai: 'TEST', departement: 'Paris' }
+    const cards = nationalExplorerCards([{ ...row, id: 84993 }, { ...row, id: 106246 }], {
+      analysis: { studyRecommendations: [{ degree: 'BTS Informatique' }] },
+      profile: { formation_preferences: ['bts'] }
+    })
+    assert.equal(cards.length, 1)
+    assert.equal(cards[0].id, 84993, 'Existing database ids and their links are not rewritten')
   })
   assert.equal(cards.length, 1)
   assert.ok(cards[0].score >= 80)

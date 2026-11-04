@@ -10,6 +10,7 @@
     "verify:metiers": "node scripts/verify-metiers.mjs",
     "verify:metier-serving": "node --test scripts/verify-metier-serving.test.mjs",
     "verify:outbound-urls": "node --test scripts/verify-outbound-urls.test.mjs",
+    "verify:analytics": "node --test scripts/verify-analytics.test.mjs && node scripts/verify-analytics-ui.mjs",
     "preview": "vite preview",
     "verify:landing-ui": "node scripts/verify-landing-ui.mjs",
     "verify:public-nav": "node scripts/verify-public-navigation.mjs",

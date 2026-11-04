@@ -153,7 +153,83 @@ async function fillRegistration(page) {
   await page.getByLabel('Mot de passe', { exact: true }).fill('fixture-password')
 }
 
+async function getStageLayout(page) {
+  const stageCard = page.locator('.orientation-stage > .orientation-card')
+  await expect(stageCard).toHaveCSS('transform', /^(none|matrix\(1, 0, 0, 1, 0, 0\))$/)
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
+  const [header, card] = await Promise.all([
+    page.locator('.orientation-topbar').boundingBox(),
+    stageCard.boundingBox()
+  ])
+  assert.ok(header && card, 'The orientation header and card must be visible.')
+  return { headerHeight: header.height, gap: card.y - header.y - header.height, x: card.x, width: card.width }
+}
+
+async function assertStageLayout(page, reference) {
+  const layout = await getStageLayout(page)
+  for (const key of Object.keys(reference)) {
+    assert.ok(Math.abs(layout[key] - reference[key]) <= 1, `Orientation ${key} must stay stable: expected ${reference[key]}, received ${layout[key]}.`)
+  }
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Orientation step overflow.')
+}
+
 try {
+  for (const draft of [['doctorat', 'voie_pro', 'master'], ['doctorat', 'voie_pro']]) {
+    const { context, page, state, releaseAnalysis } = await prepareJourney({ width: 390, height: 844 }, { answered: true })
+    try {
+      await context.addInitScript(({ draft }) => {
+        localStorage.setItem('orientation_micro_profile', JSON.stringify({ formation_preferences: draft }))
+      }, { draft })
+      await page.goto(`${base}/orientation`)
+      await expect(page.getByRole('heading', { name: "Tu es aujourd'hui en..." })).toBeVisible()
+      assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('orientation_micro_profile')).formation_preferences), draft)
+      for (let step = 0; step < 3; step += 1) {
+        const previousTitle = await page.locator('.choice-card h1').textContent()
+        await page.locator('.choice-card button').first().click()
+        const next = page.getByRole('button', { name: 'Continuer', exact: true })
+        if (await next.count()) await next.click()
+        await expect(page.getByRole('heading', { name: previousTitle, exact: true })).toHaveCount(0)
+      }
+      await expect(page.getByRole('heading', { name: 'Quelles formations veux-tu voir en priorité ?' })).toBeVisible()
+      await expect(page.locator('.choice-card .orientation-pill')).toHaveText('4 / 6')
+      await expect(page.locator('.formation-preference-option')).toHaveCount(8)
+      await expect(page.locator('.formation-preference-label')).toHaveText([
+        'BTS', 'BUT', 'Licence', 'Bachelor', 'Master', 'École spécialisée', 'Alternance', 'Prépa'
+      ])
+      await expect(page.locator('.formation-preference-description')).toHaveText([
+        'BTS, BTSA et BTS maritimes', 'Formations en IUT, en 3 ans',
+        'Licences générales et professionnelles', 'Bachelors d’écoles à bac +3',
+        'Masters et diplômes de grade master', 'Ingénieur, commerce, santé, social, arts…',
+        'Apprentissage selon le diplôme choisi', 'CPGE scientifiques, économiques ou littéraires'
+      ])
+      for (const button of await page.locator('.formation-preference-option').all()) {
+        const descriptionId = await button.getAttribute('aria-describedby')
+        await expect(page.locator(`[id="${descriptionId}"]`)).toBeVisible()
+      }
+      await expect(page.locator('.formation-preference-hint')).toHaveText(`${draft.includes('master') ? 1 : 0}/3 formats sélectionnés`)
+      if (draft.includes('master')) {
+        await page.getByRole('button', { name: 'BTS', exact: true }).click()
+        await page.getByRole('button', { name: 'BUT', exact: true }).click()
+        await expect(page.locator('.formation-preference-hint')).toHaveText('3/3 formats sélectionnés')
+        await page.getByRole('button', { name: 'Licence', exact: true }).click()
+        await expect(page.getByRole('button', { name: 'Licence', exact: true })).toHaveAttribute('aria-pressed', 'false')
+        await page.getByRole('button', { name: 'Master', exact: true }).click()
+        await page.getByRole('button', { name: 'Licence', exact: true }).click()
+        await page.locator('.formation-preference-card').screenshot({ path: join(output, 'available-formation-preferences-mobile.png') })
+      }
+      await page.getByRole('button', { name: 'Continuer', exact: true }).click()
+      await expect(page.getByRole('heading', { name: 'Pour tes études, tu préfères...' })).toBeVisible()
+      assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('orientation_micro_profile')).formation_preferences),
+        draft.includes('master') ? ['bts', 'but', 'licence'] : [])
+      assert.equal(state.analyses, 0)
+      assert.equal(state.registrations.length, 0)
+      assert.deepEqual(state.errors, [])
+    } finally {
+      releaseAnalysis()
+      await context.close()
+    }
+  }
+
   {
     const { context, page, state, releaseAnalysis } = await prepareJourney({ width: 393, height: 851 }, { mobile: true })
     try {
@@ -184,6 +260,14 @@ try {
       await page.clock.resume()
       while (await page.locator('.choice-card').count()) {
         const previousTitle = await page.locator('.choice-card h1').textContent()
+        if (previousTitle === 'Quelles formations veux-tu voir en priorité ?') {
+          await expect(page.locator('.formation-preference-option')).toHaveCount(8)
+          await expect(page.locator('.formation-preference-label')).toHaveText([
+            'BTS', 'BUT', 'Licence', 'Bachelor', 'Master', 'École spécialisée', 'Alternance', 'Prépa'
+          ])
+          await expect(page.getByRole('button', { name: 'Doctorat', exact: true })).toHaveCount(0)
+          await expect(page.getByRole('button', { name: 'CAP ou bac pro', exact: true })).toHaveCount(0)
+        }
         await page.locator('.choice-card button').first().tap()
         const continueButton = page.getByRole('button', { name: 'Continuer', exact: true })
         if (await continueButton.count()) await continueButton.tap()
@@ -338,7 +422,7 @@ try {
     }
   }
 
-  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 568 }]) {
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 713, height: 357 }, { width: 693, height: 695 }, { width: 390, height: 844 }, { width: 320, height: 568 }]) {
     const { context, page, state, releaseAnalysis } = await prepareJourney(viewport)
     try {
       await page.goto(`${base}/orientation`)
@@ -348,8 +432,10 @@ try {
       await expect(progress).toHaveAttribute('aria-valuenow', '0')
       await expect(page.locator('.question-icon-badge')).toHaveCount(0)
       await expect(page.getByRole('heading', { name: firstStatement, exact: true })).toBeVisible()
+      const questionLayout = await getStageLayout(page)
       await page.keyboard.press('ArrowRight')
       await expect(progress).toHaveAttribute('aria-valuenow', '5')
+      await assertStageLayout(page, questionLayout)
       assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('answers_progress')).answers['1']), 'Pas du tout')
       assert.equal(await page.evaluate(() => window.dataLayer.filter((item) => item?.event === 'orientation_question_answered').at(-1).orientation_answer_position), 4)
       await page.getByRole('button', { name: 'Revenir en arrière' }).click()
@@ -433,22 +519,28 @@ try {
       }
       await expect(progress).toHaveAttribute('aria-valuenow', '100')
       await expect(page.getByRole('heading', { name: "Tu es aujourd'hui en..." })).toBeVisible()
+      await assertStageLayout(page, questionLayout)
       await page.getByRole('button', { name: 'Revenir en arrière' }).click()
       await expect(page.getByRole('button', { name: 'Revenir en arrière' }).locator('svg')).toBeVisible()
       await expect(progress).toHaveAttribute('aria-valuenow', '95')
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Questionnaire overflow.')
       await page.screenshot({ path: join(output, `questions-${viewport.width}.png`) })
+      await page.locator('.scale-choice.level-3').click()
+      await expect(progress).toHaveAttribute('aria-valuenow', '100')
+      let infoStep = 0
+      while (await page.locator('.choice-card').count()) {
+        infoStep += 1
+        await assertStageLayout(page, questionLayout)
+        const previousTitle = await page.locator('.choice-card h1').textContent()
+        await page.screenshot({ path: join(output, `info-${infoStep}-${viewport.width}.png`) })
+        await page.locator('.choice-card button').first().click()
+        const continueButton = page.getByRole('button', { name: 'Continuer', exact: true })
+        if (await continueButton.count()) await continueButton.click()
+        await expect(page.getByRole('heading', { name: previousTitle, exact: true })).toHaveCount(0)
+      }
+      assert.equal(infoStep, 6, 'All six follow-up steps must preserve the questionnaire spacing.')
+      await expect(page).toHaveURL(`${base}/register?after=orientation-analysis`)
       if (viewport.width === 390) {
-        await page.locator('.scale-choice.level-3').click()
-        await expect(progress).toHaveAttribute('aria-valuenow', '100')
-        while (await page.locator('.choice-card').count()) {
-          const previousTitle = await page.locator('.choice-card h1').textContent()
-          await page.locator('.choice-card button').first().click()
-          const continueButton = page.getByRole('button', { name: 'Continuer', exact: true })
-          if (await continueButton.count()) await continueButton.click()
-          await expect(page.getByRole('heading', { name: previousTitle, exact: true })).toHaveCount(0)
-        }
-        await expect(page).toHaveURL(`${base}/register?after=orientation-analysis`)
         await expect(page.getByRole('heading', { name: 'Découvre ton profil complet' })).toBeVisible()
         await fillRegistration(page)
         await page.getByRole('checkbox').first().check()
@@ -470,7 +562,7 @@ try {
         await expect(page.getByRole('button', { name: 'Découvre tes formations', exact: true })).toBeVisible()
       }
       assert.deepEqual(state.errors, [])
-      console.log(`questions-${viewport.width}: progress, keyboard, swipe, back and resume verified.`)
+      console.log(`questions-${viewport.width}: stable header and follow-up spacing, progress, keyboard, swipe, back and resume verified.`)
     } finally {
       releaseAnalysis()
       await context.close()
@@ -591,6 +683,7 @@ try {
     { name: 'partners-only-unselected', viewport: { width: 390, height: 844 }, populated: false, partnersOnly: true, selectPartners: false },
     { name: 'empty', viewport: { width: 390, height: 844 }, populated: false },
     { name: 'doctorat-empty', viewport: { width: 390, height: 844 }, populated: false, formationPreferences: ['doctorat'] },
+    { name: 'master-grade-and-pathway', viewport: { width: 390, height: 844 }, populated: true, noPartners: true, formationPreferences: ['master'], masterCoverage: true },
     { name: 'jobs-long-desktop', viewport: { width: 680, height: 900 }, populated: false, jobRecommendations: longJobs },
     { name: 'jobs-long-tablet', viewport: { width: 570, height: 800 }, populated: false, jobRecommendations: longJobs },
     { name: 'jobs-long-mobile', viewport: { width: 320, height: 568 }, populated: false, jobRecommendations: longJobs },
@@ -679,7 +772,9 @@ try {
           personalityAnalysis: 'Tu apprécies les activités concrètes.',
           skillsAssessment: 'Précision et écoute.',
           jobRecommendations: jobFixtures,
-          studyRecommendations: scenario.populated ? [{ degree: 'BTS Maintenance', type: 'Formation pratique.' }] : []
+          studyRecommendations: scenario.masterCoverage
+            ? [{ degree: 'Master sciences politiques' }, { degree: 'Master informatique' }]
+            : scenario.populated ? [{ degree: 'BTS Maintenance', type: 'Formation pratique.' }] : []
         }
       }
       else if (path === '/ecoles/matched') {
@@ -692,7 +787,10 @@ try {
       }
       else if (path === '/catalog/formations/search') {
         await catalogReady
-        data = { items: scenario.populated ? formations : [] }
+        data = scenario.masterCoverage ? {
+          items: [{ id: 5604, nmc: 'ScPo', nm: ['Sciences Po - Instituts d’études politiques - Grade Master'], fl: ['Grade Master'], etab_nom: 'Établissement exemple', commune: 'Paris', departement: 'Paris' }],
+          pathways: [{ id: 3661, nmc: 'CMI-Info', nm: ['Cursus Master en Ingénierie - Informatique'], etab_nom: 'Université exemple', commune: 'Paris', departement: 'Paris' }]
+        } : { items: scenario.populated ? formations : [] }
       } else {
         errors.push(`Unexpected API request: ${request.method()} ${path}`)
         return route.fulfill({ status: 404, json: { error: 'Unexpected fixture request' } })
@@ -734,6 +832,21 @@ try {
       releaseCatalog()
       releasePartners()
       await (await firstPartnerResponse).finished()
+
+      if (scenario.masterCoverage) {
+        await expect(page.locator('.formation-lead-card[data-source="national"]')).toHaveCount(1)
+        await expect(page.locator('.formation-lead-meta')).toContainText('Grade master')
+        const pathways = page.getByRole('region', { name: 'Parcours vers un master' })
+        await expect(pathways).toBeVisible()
+        await expect(pathways).toContainText('Cursus Master en Ingénierie - Informatique')
+        await expect(pathways).toContainText('ne sont pas des propositions d’entrée directe')
+        await expect(pathways.getByRole('checkbox')).toHaveCount(0)
+        await expect(jobsCta).toBeEnabled()
+        await page.screenshot({ path: join(output, 'master-grade-and-pathway.png'), fullPage: true })
+        assert.deepEqual(errors, [])
+        console.log('master-grade-and-pathway: established master grade and separately labelled CMI verified.')
+        continue
+      }
 
       if (scenario.partnerFailure) {
         await expect(page.getByRole('alert')).toContainText('Impossible de charger les formations partenaires')

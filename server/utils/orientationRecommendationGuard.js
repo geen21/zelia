@@ -9,12 +9,12 @@ N'impose ni quota par environnement de travail, ni priorité ou exclusion sector
 Le persona décrit des tendances générales, pas des domaines professionnels imposés. Évite les variantes d'un même métier.`
 
 const FORMATION_PREFERENCE_PATTERNS = {
-  bts: /\bbts\b/i,
+  bts: /^(?:bts|btsa|btsm)\b/i,
   but: /\bbut\b/i,
-  licence: /\blicence\b/i,
+  licence: /^(?:double )?licence\b/i,
   bachelor: /\bbachelor\b/i,
-  master: /\bmaster(?:e|es)?\b|\bmba\b|\bmsc\b/i,
-  doctorat: /\bdoctorat\b|\bthese\b|\bphd\b/i,
+  master: /^(?:diplome national de )?master\b|\bgrade (?:de )?master\b/i,
+  doctorat: /^(?:diplome national de )?(?:doctorat(?! d exercice)|phd)\b/i,
   'ecole specialisee': /\b(e|é)cole\b/i,
   alternance: /\balternance\b|\bapprentissage\b/i,
   prepa: /\bpr[eé]pa\b|\bclasse pr[eé]paratoire\b/i,
@@ -68,7 +68,7 @@ function prioritizeStudiesByFormationPreferences(studies, formationPreferences) 
   if (!patterns.length) return studies
 
   const preferredStudies = patterns.flatMap((pattern) => studies.filter((study) => {
-    const text = normalizedText(`${study?.degree || ''} ${study?.type || ''}`)
+    const text = normalizedText(study?.degree)
     return pattern.test(text)
   }))
 

@@ -7,6 +7,7 @@ import BlogCover from './blog/BlogCover'
 import { blogPosts } from './blog/posts'
 import './blog/blog-editorial.css'
 import './Home.css'
+import { trackSiteEvent } from '../lib/analytics.js'
 
 export default function Home() {
   const navigate = useNavigate()
@@ -27,9 +28,11 @@ export default function Home() {
     try {
       if (typeof navigator.share === 'function') {
         await navigator.share(shareData)
+        trackSiteEvent('share', { content_type: 'home', method: 'native' })
         setShareStatus('Merci de faire découvrir Zélia !')
       } else if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`)
+        trackSiteEvent('share', { content_type: 'home', method: 'clipboard' })
         setShareStatus('Lien copié ! À toi de le partager.')
       } else {
         window.prompt('Copie ce lien pour le partager :', shareData.url)

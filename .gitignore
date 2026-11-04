@@ -11,3 +11,7 @@ client/dist/assets/
 # Private generated editorial snapshots and inventory reports
 client/.generated/
 server/.generated/
+
+# Local Python/notebook runtime caches
+__pycache__/
+.ipynb_checkpoints/

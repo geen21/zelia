@@ -2,11 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { ecolesAPI, orientationAPI, usersAPI } from '../lib/api'
 import { BEST_MATCH_MIN_SCORE, buildFormationRelevanceProfile } from '../lib/formationRelevance'
-import { buildExplorerProfile, filterExplorerCards, loadExplorerCatalog, mixExplorerCards, nationalExplorerCards, partnerExplorerCards, sortExplorerCards } from '../lib/formationExplorer'
+import { buildExplorerProfile, filterExplorerCards, loadExplorerCatalog, mixExplorerCards, nationalExplorerCards, partnerExplorerCards, relevantMasterPathways, sortExplorerCards } from '../lib/formationExplorer'
 import { SCHOOL_SHARING_NOTICE } from '../lib/schoolSharing'
 import { withZeliaUtm } from '../lib/outboundUrl.js'
 import { nationalSearchNotice, resolveNationalDepartment } from '../lib/nationalFormationMatching.js'
+import MasterPathways from '../components/MasterPathways.jsx'
 import './FormationsEcoles.css'
+import { trackSiteEvent } from '../lib/analytics.js'
 
 const EMPTY_RESOURCE = { data: null, loading: true, error: '' }
 const PAGE_SIZE = 24
@@ -27,7 +29,7 @@ export default function FormationsEcoles() {
   const [city, setCity] = useState('')
   const [nationwide, setNationwide] = useState(false)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
-  const [catalog, setCatalog] = useState({ key: '', rows: [], loading: true, ready: false, error: '', nextQueries: [] })
+  const [catalog, setCatalog] = useState({ key: '', rows: [], pathways: [], loading: true, ready: false, error: '', nextQueries: [] })
   const [catalogRequest, setCatalogRequest] = useState({ key: '', queries: null })
   const [submitting, setSubmitting] = useState(new Set())
   const [submissionError, setSubmissionError] = useState('')
@@ -81,11 +83,11 @@ export default function FormationsEcoles() {
     let active = true
     const controller = new AbortController()
     if (missingLocation) {
-      setCatalog({ key: catalogKey, rows: [], loading: false, ready: true, error: '', nextQueries: [] })
+      setCatalog({ key: catalogKey, rows: [], pathways: [], loading: false, ready: true, error: '', nextQueries: [] })
       return
     }
     const append = catalogRequest.key === catalogKey && catalogRequest.queries != null
-    setCatalog((prev) => ({ ...prev, key: catalogKey, rows: append ? prev.rows : [], loading: true, ready: append && prev.ready, error: '', nextQueries: [] }))
+    setCatalog((prev) => ({ ...prev, key: catalogKey, rows: append ? prev.rows : [], pathways: append ? prev.pathways : [], loading: true, ready: append && prev.ready, error: '', nextQueries: [] }))
     loadExplorerCatalog(orientationAPI.searchFormations, {
       context: context ? { ...context, profile: nationwide ? { ...profile, study_location: 'both' } : profile } : {},
       search, department, pageSize: PAGE_SIZE,
@@ -96,6 +98,7 @@ export default function FormationsEcoles() {
       setCatalog((prev) => ({
         key: catalogKey,
         rows: [...(append ? prev.rows : []), ...result.rows],
+        pathways: [...(append ? prev.pathways : []), ...result.pathways],
         loading: false,
         ready: true,
         error: result.errors.length ? 'Certaines formations n’ont pas pu être chargées. Réessaie pour compléter les résultats.' : '',
@@ -109,6 +112,8 @@ export default function FormationsEcoles() {
   }, [context, resources.context.loading, search, department, missingLocation, catalogKey, catalogRequest])
 
   const partners = useMemo(() => partnerExplorerCards(resources.partners.data || [], resources.matched.data || []), [resources.partners.data, resources.matched.data])
+  const masterPathways = useMemo(() => relevantMasterPathways(catalog.pathways || [], context || {}, department)
+    .filter((row) => !city || row.commune === city), [catalog.pathways, context, department, city])
   const nationals = useMemo(() => {
     const cards = nationalExplorerCards(catalog.rows, {
       ...context, profile: nationwide ? { ...profile, study_location: 'both' } : profile
@@ -132,6 +137,15 @@ export default function FormationsEcoles() {
   const busy = initialLoading || catalog.loading
 
   useEffect(() => {
+    if (busy) return
+    trackSiteEvent('formation_results_viewed', {
+      formation_source: 'mixed', result_count: displayed.length,
+      has_query: Boolean(search), has_location: Boolean(city || department),
+      status: catalog.error ? 'partial_or_error' : 'success'
+    })
+  }, [busy, catalogKey, city, visibleCount, filtered.length])
+
+  useEffect(() => {
     if (initialLoading || !anchorId || anchorIndex < 0) return
     document.getElementById(`formation-${anchorId}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
   }, [anchorId, anchorIndex, initialLoading])
@@ -141,14 +155,17 @@ export default function FormationsEcoles() {
     if (submitting.has(key) || submitted.has(key) || resources.submissions.loading || resources.submissions.error) return
     setSubmitting((prev) => new Set([...prev, key]))
     setSubmissionError('')
+    trackSiteEvent('formation_info_requested', { formation_source: 'partner' })
     try {
       await ecolesAPI.submit(id)
+      trackSiteEvent('generate_lead', { formation_source: 'partner' })
       setResources((prev) => ({ ...prev, submissions: { ...prev.submissions, data: [...(prev.submissions.data || []), { formation_id: id }] } }))
     } catch (error) {
       console.error('Partner information request failed', error)
       if (error.response?.status === 409) {
         setResources((prev) => ({ ...prev, submissions: { ...prev.submissions, data: [...(prev.submissions.data || []), { formation_id: id }] } }))
       } else {
+        trackSiteEvent('formation_info_failed', { formation_source: 'partner', error_stage: 'request_info' })
         setSubmissionError(error.response?.data?.message || 'Impossible d’envoyer ta demande. Réessaie dans un instant.')
       }
     } finally {
@@ -209,14 +226,15 @@ export default function FormationsEcoles() {
           <div className="fe-meta">{card.level && <span>{card.level}</span>}{card.city && <span><i className="ph ph-map-pin" aria-hidden="true" /> {card.city}</span>}</div>
           {card.reason && <p className="fe-reason">En lien avec : {card.reason}</p>}
           <div className="fe-card-actions">
-            <Link className="fe-primary" to={card.href}>Explorer la formation <i className="ph ph-arrow-up-right" aria-hidden="true" /></Link>
-            {card.externalHref && <a className="fe-site" href={withZeliaUtm(card.externalHref)} target="_blank" rel="noopener noreferrer">Site de l’établissement</a>}
+            <Link className="fe-primary" to={card.href} onClick={() => trackSiteEvent('formation_selected', { formation_source: card.source })}>Explorer la formation <i className="ph ph-arrow-up-right" aria-hidden="true" /></Link>
+            {card.externalHref && <a className="fe-site" href={withZeliaUtm(card.externalHref)} target="_blank" rel="noopener noreferrer" onClick={() => trackSiteEvent('formation_outbound_clicked', { formation_source: card.source, action: 'school_website' })}>Site de l’établissement</a>}
             {partner && <button className="fe-secondary" disabled={sent || submitting.has(String(card.id)) || resources.submissions.loading || Boolean(resources.submissions.error)} onClick={() => submit(card.id)}>{sent ? 'Demande envoyée' : submitting.has(String(card.id)) ? 'Envoi en cours…' : 'Demander des informations'}</button>}
           </div>
         </article>
       })}
     </div>
-    {!busy && !filtered.length && <p className="fe-notice">Aucune formation affichée. Essaie un autre mot-clé ou réinitialise les filtres.</p>}
+    {!busy && <MasterPathways formations={masterPathways} />}
+    {!busy && !filtered.length && !masterPathways.length && <p className="fe-notice">Aucune formation affichée. Essaie un autre mot-clé ou réinitialise les filtres.</p>}
     <div className="fe-more">
       {displayed.length < filtered.length && <button className="fe-secondary" onClick={() => setVisibleCount((prev) => Math.max(prev, anchorIndex + 1) + PAGE_SIZE)}>Afficher plus de formations ({filtered.length - displayed.length})</button>}
       {!initialLoading && catalog.nextQueries.length > 0 && <button className="fe-secondary" disabled={catalog.loading} onClick={() => { setCatalogRequest({ key: catalogKey, queries: catalog.nextQueries }); setVisibleCount((prev) => prev + PAGE_SIZE) }}>Chercher d’autres formations nationales</button>}

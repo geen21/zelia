@@ -2,6 +2,96 @@
 
 Backend API server for the Zelia application, built with Express.js and Supabase.
 
+## Formation URL stability and Search Console
+
+Historical formation URLs can be restored and frozen in `canonical_slug`
+without reverting enriched titles. Follow the [deployment sequence](../DEPLOYMENT.md#stabilisation-des-url-canoniques-des-formations-apres-enrichissement):
+SQL migration, guarded historical manifest backfill, then enable
+`FORMATION_CANONICAL_URLS_ENABLED=true` and deploy client/API. The flag defaults
+to false so an undeployed migration does not break existing catalogue reads.
+Do not activate it until every historical row has its pinned URL.
+`npm run verify:sitemap` covers the migration, immutable URLs and sitemap
+agreement. The client live checker must pass in production before any Search
+Console sitemap resubmission or correction validation. An inaccessible Search
+Console account or deployment host is not a successful correction.
+
+## Formation catalogue audit notebook
+
+Open [formation_catalog_quality.ipynb](notebooks/formation_catalog_quality.ipynb).
+It replaces the historical ten-chunk import with a source-backed audit and repair
+preview followed by an explicitly enabled, guarded publication. The original notebook is not modified. Python 3.10+ and the existing
+Node server dependencies are used; no additional Python packages are needed.
+
+The notebook reuses the server's Supabase configuration through
+[export_formation_catalog.mjs](scripts/export_formation_catalog.mjs). No database
+credentials belong in notebook cells or outputs. All network/export flags are
+off by default. Start with 200 rows, inspect the exact source matches, then
+explicitly request a full audit. A paginated read is not an atomic database
+snapshot; future publication must check the original values again.
+
+[formation_catalog.py](scripts/formation_catalog.py) matches existing rows to
+Parcoursup by session, `gta` and UAI. Only missing `nm`, `tf`, `fl`, `amg`, `app`,
+`int` and `aut` are proposed for enrichment; array/text types, ids and location
+remain unchanged. Existing conflicting values and ambiguous matches are
+reported instead of silently overwritten. No missing title is invented from
+a short code. Reports include source identity, retrieval time and content hash.
+
+Diploma family, qualification level, academic grade and study year are separate
+audit fields. A DU is not a PhD, a DN MADE is not a master, CPGE is not a degree,
+and RNCP level 7 or a marketing label does not automatically confer master grade.
+Uncertain cases remain `needs_review`. Classification metadata stays in the
+preview until a compatible publication schema has been validated.
+
+Mon Master previews keep their own source identifiers and unresolved campus
+information. Doctoral-school directory entries are not converted into courses
+or thesis vacancies. Annual datasets/accreditation dates do not prove current
+availability. All complementary rows remain ineligible for automatic publication.
+
+From the repository root:
+
+```powershell
+python -m unittest discover -s server\scripts -p test_formation_catalog.py -v
+```
+
+For a reproducible offline comparison, first export from `server`:
+
+```powershell
+node scripts\export_formation_catalog.mjs --limit 200 --output .generated\formation-snapshot.json
+python scripts\formation_catalog.py --snapshot .generated\formation-snapshot.json --source <official-export.json> --output .generated\formation-preview.json
+```
+
+The export directory must already exist for the Node command. Both commands
+refuse to overwrite an existing output file. Omit `--source` to fetch exact
+matching public source records. `--all` on the Node exporter explicitly reads
+the whole catalogue. Reports are published atomically so an incomplete JSON file
+cannot be mistaken for a validated plan.
+
+After reviewing the **full** plan and backing up every row, the notebook's last
+cell may be enabled explicitly, or run the same publisher from `server`:
+
+```powershell
+node --max-old-space-size=3072 scripts\publish_formation_repairs.mjs --plan .generated\formation-preview.json --backup .generated\formation-snapshot.json
+node --max-old-space-size=3072 scripts\publish_formation_repairs.mjs --plan .generated\formation-preview.json --backup .generated\formation-snapshot.json --journal .generated\formation-publication.jsonl --apply
+```
+
+The first command validates only. Publication requires a service-role client,
+preserves every id and source key, checks expected original values in each atomic
+PATCH, and verifies persisted values. Four workers process small batches and stop
+on the first detected error. The whole catalogue is **not** a single transaction:
+the journal records partial progress, and rerunning with a new journal checks
+already-applied rows before continuing. Keep the complete backup, exact plan
+and journals. `--rollback --apply` restores only repaired fields whose published
+values and source identities have not changed since; concurrent edits stop it.
+No insert, delete, truncate or table recreation is used. A full post-publication
+export must verify unchanged ids/other columns and every expected repaired value.
+
+The classification sidecar is an audit, not a new database schema. Conflicting
+families, absent sources and unsupported names remain quarantined, rather than
+being assigned a guessed level. Existing duplicated ids for the same source
+record remain intact so application references do not break. The national
+display deduplicates exact session/`gta`/UAI matches across pages without
+deleting those historical rows.
+
 ## Profile-based national formation search
 
 The orientation reveal and `/app/formations` share national matching rules.
@@ -11,8 +101,13 @@ pagination. Department codes are resolved to exact names: `06` covers the
 Alpes-Maritimes, not only its reference city. A local search never silently
 becomes nationwide, and multiple selected diploma levels are retained.
 Selected diploma families are also respected: a BUT is not silently substituted
-for a licence, or an engineering course for a requested master. A level-only
-goal (for example `Bac+5`) still accepts equivalent diploma families.
+for a licence. The Master choice includes national masters and other diplomas
+with an explicit academic master grade in `nm`/`fl`; `Bac+5` or RNCP 7 alone
+does not establish that grade. Original diploma names are retained.
+A level-only goal (for example `Bac+5`) still accepts equivalent diploma families.
+CMI records are returned separately as `pathways` and displayed under
+“Parcours vers un master”, not mixed with direct master recommendations.
+Both SQL candidate filters and client validation use these distinctions.
 
 The constrained table query applies location and diploma-code filters before
 pagination; the existing `search_formations_simple` RPC complements it with
@@ -24,10 +119,23 @@ unchanged.
 
 There are at most three national API searches per visit/click, each bounded
 to a page plus a continuation sentinel and at most 50 descriptive candidates.
+For Master profiles one additional, bounded title lookup finds grade-master
+and CMI labels whose short codes do not contain “master”.
 Database requests share a 2.5-second deadline per search; the client batch
 has a 6-second deadline. Identical concurrent API requests are coalesced and
 successful results cached for five minutes. Errors remain visible and are
 never cached as successful empty results. No LLM call is used during search.
+
+`analysis.js` recovers the latest persisted orientation preferences when the
+request omits them, includes the reference department and human-readable mobility
+in the prompt, and persists the resolved preferences with its result. A failure
+to read them is explicit instead of producing an unrelated result. Study
+prioritisation matches diploma titles, not future qualifications mentioned only
+in a description. DU/DIU, PhD, mastère, RNCP, PASS and DN MADE are not silently
+interchanged. Model study suggestions remain separate from real catalogue offers;
+no extra model calls are added to the national search.
+The three model attempts share a 45-second deadline, with a bounded thinking
+and output budget; timeouts are retryable errors rather than partial results.
 
 The table currently contains predominantly multi-year post-bac catalogue
 entries; its row count is not a count of distinct diplomas or evidence of

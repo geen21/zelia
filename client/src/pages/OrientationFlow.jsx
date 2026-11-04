@@ -6,16 +6,17 @@ import { AI_JOB_DECK_SIZE } from '../lib/orientationJobs.js'
 import PersonaRevealCard from '../components/PersonaRevealCard.jsx'
 import OrientationLoading from '../components/OrientationLoading.jsx'
 import OrientationFormationResults from '../components/OrientationFormationResults.jsx'
+import MasterPathways from '../components/MasterPathways.jsx'
 import { SCHOOL_SHARING_VERSION } from '../lib/schoolSharing'
 import { mixFormationResults } from '../lib/orientationFormationResults.js'
-import { loadExplorerCatalog, nationalExplorerCards } from '../lib/formationExplorer.js'
+import { loadExplorerCatalog, nationalExplorerCards, relevantMasterPathways } from '../lib/formationExplorer.js'
 import { buildNationalRelevanceProfile, getNationalStudyLevels, nationalSearchNotice, resolveNationalDepartment } from '../lib/nationalFormationMatching.js'
 import { getDepartmentCity } from '../lib/departments.js'
 import { filterCandidatesByTargetStudyLevel, getTargetStudyLevel } from '../lib/formationLevel.js'
 import { buildLoreleiUrl, buildPersonaAvatarConfig, computePersonaFromAnswers, getPersonaBySlug } from '../lib/personas.js'
 import { getAnswerChoiceIndex, getAnswerChoices, isAgreementQuestion, isDilemmaQuestion } from '../lib/questionScale.js'
 import { generatePersonaShareCard } from '../lib/shareImage.js'
-import { trackOrientationEvent } from '../lib/analytics.js'
+import { trackOrientationEvent, trackSiteEvent } from '../lib/analytics.js'
 import './OrientationFlow.css'
 
 const QUESTION_LIMIT = 20
@@ -46,17 +47,27 @@ const FALLBACK_QUESTION_OPTIONS = [
 ]
 
 const FORMATION_PREFERENCE_OPTIONS = [
-  { label: 'BTS', value: 'bts', icon: 'ph-certificate' },
-  { label: 'BUT', value: 'but', icon: 'ph-buildings' },
-  { label: 'Licence', value: 'licence', icon: 'ph-books' },
-  { label: 'Bachelor', value: 'bachelor', icon: 'ph-graduation-cap' },
-  { label: 'Master', value: 'master', icon: 'ph-graduation-cap' },
+  { label: 'BTS', value: 'bts', icon: 'ph-certificate', description: 'BTS, BTSA et BTS maritimes' },
+  { label: 'BUT', value: 'but', icon: 'ph-buildings', description: 'Formations en IUT, en 3 ans' },
+  { label: 'Licence', value: 'licence', icon: 'ph-books', description: 'Licences générales et professionnelles' },
+  { label: 'Bachelor', value: 'bachelor', icon: 'ph-graduation-cap', description: 'Bachelors d’écoles à bac +3' },
+  { label: 'Master', value: 'master', icon: 'ph-graduation-cap', description: 'Masters et diplômes de grade master' },
+  { label: 'École spécialisée', value: 'ecole_specialisee', icon: 'ph-buildings', description: 'Ingénieur, commerce, santé, social, arts…' },
+  { label: 'Alternance', value: 'alternance', icon: 'ph-briefcase', description: 'Apprentissage selon le diplôme choisi' },
+  { label: 'Prépa', value: 'prepa', icon: 'ph-path', description: 'CPGE scientifiques, économiques ou littéraires' }
+]
+
+// Labels kept only for reading previously saved profiles, never as new choices.
+const LEGACY_FORMATION_PREFERENCE_OPTIONS = [
   { label: 'Doctorat', value: 'doctorat', icon: 'ph-flask' },
-  { label: 'École spécialisée', value: 'ecole_specialisee', icon: 'ph-buildings' },
-  { label: 'Alternance', value: 'alternance', icon: 'ph-briefcase' },
-  { label: 'Prépa', value: 'prepa', icon: 'ph-path' },
   { label: 'CAP ou bac pro', value: 'voie_pro', icon: 'ph-toolbox' }
 ]
+
+function getVisibleFormationPreferences(values) {
+  return Array.isArray(values)
+    ? values.filter((value) => FORMATION_PREFERENCE_OPTIONS.some((option) => option.value === value))
+    : []
+}
 
 const CAREER_DOMAIN_OPTIONS = [
   { label: 'Soigner et aider', value: 'sante_soin', icon: 'ph-heart' },
@@ -186,7 +197,8 @@ function getSelectedOptionLabels(options, selectedValues) {
 
 function getSelectedFormationPreferenceOptions(profile = {}) {
   const selectedPreferences = Array.isArray(profile.formation_preferences) ? profile.formation_preferences : []
-  return FORMATION_PREFERENCE_OPTIONS.filter((option) => selectedPreferences.includes(option.value))
+  return [...FORMATION_PREFERENCE_OPTIONS, ...LEGACY_FORMATION_PREFERENCE_OPTIONS]
+    .filter((option) => selectedPreferences.includes(option.value))
 }
 
 function getSelectedCareerDomainOptions(profile = {}) {
@@ -195,7 +207,7 @@ function getSelectedCareerDomainOptions(profile = {}) {
 }
 
 function buildFormationPreferenceSignal(profile = {}) {
-  const preferenceLabels = getSelectedOptionLabels(FORMATION_PREFERENCE_OPTIONS, profile.formation_preferences)
+  const preferenceLabels = getSelectedFormationPreferenceOptions(profile).map((option) => option.label)
 
   return preferenceLabels.join(', ').slice(0, 160)
 }
@@ -213,7 +225,7 @@ function buildOrientationSearchProfile(profile = {}) {
     targetLevel: String(profile.target_level || '').trim(),
     studyLocation: String(profile.study_location || '').trim(),
     strongSubjects: getSelectedOptionLabels(STRONG_SUBJECT_OPTIONS, profile.strong_subjects),
-    formationPreferences: getSelectedOptionLabels(FORMATION_PREFERENCE_OPTIONS, profile.formation_preferences),
+    formationPreferences: getSelectedFormationPreferenceOptions(profile).map((option) => option.label),
     careerDomains: getSelectedOptionLabels(CAREER_DOMAIN_OPTIONS, profile.career_domains)
   }
 }
@@ -1379,6 +1391,7 @@ export default function OrientationFlow() {
   const navigate = useNavigate()
   const dragStartRef = useRef(null)
   const answerTransitionTimerRef = useRef(null)
+  const microTransitionTimerRef = useRef(null)
   const orientationStepTrackingRef = useRef('')
   const [initialProfileIdentity] = useState(() => normalizeProfileIdentity(getStoredJson(PROFILE_IDENTITY_KEY, DEFAULT_PROFILE_IDENTITY)))
   const [phase, setPhase] = useState(() => (Object.keys(getStoredAnswersProgress()).length > 0 ? 'questions' : 'intro'))
@@ -1411,6 +1424,7 @@ export default function OrientationFlow() {
   const [partnerFormationsError, setPartnerFormationsError] = useState('')
   const [partnerRetryCount, setPartnerRetryCount] = useState(0)
   const [dbFormations, setDbFormations] = useState([])
+  const [dbMasterPathways, setDbMasterPathways] = useState([])
   const [dbFormationsLoading, setDbFormationsLoading] = useState(false)
   const [dbFormationsResolved, setDbFormationsResolved] = useState(false)
   const [dbFormationsError, setDbFormationsError] = useState('')
@@ -1512,7 +1526,8 @@ export default function OrientationFlow() {
   }, [phase, questionIndex, questions.length, infoIndex, activeMicroSteps.length])
 
   useEffect(() => {
-    if (loading || !phase) return
+    if (loading || error || !phase) return
+    if (phase === 'formationReveal' && (!formationResultsReady || partnerFormationsLoading)) return
 
     const orientationStep = {
       intro: 'intro',
@@ -1535,6 +1550,8 @@ export default function OrientationFlow() {
       tracking.orientation_total_steps = questions.length
       tracking.orientation_question_number = questionIndex + 1
       tracking.orientation_question_category = currentQuestion?.category || 'unknown'
+      tracking.orientation_answer_count = getAnswerChoices(currentQuestion).length
+      tracking.orientation_question_format = isAgreementQuestion(currentQuestion) ? 'agreement' : isDilemmaQuestion(currentQuestion) ? 'dilemma' : 'legacy'
     }
 
     if (phase === 'info') {
@@ -1543,12 +1560,14 @@ export default function OrientationFlow() {
       tracking.orientation_total_steps = activeMicroSteps.length
       tracking.orientation_micro_step = microStep?.id || 'unknown'
     }
+    if (phase === 'formationReveal') tracking.orientation_item_count = dbFormations.length + visiblePartnerCandidates.length
+    if (phase === 'metierReveal') tracking.orientation_item_count = jobRecommendations.length
 
     const trackingKey = [orientationStep, tracking.orientation_step_index, tracking.orientation_micro_step || ''].join(':')
     if (orientationStepTrackingRef.current === trackingKey) return
     orientationStepTrackingRef.current = trackingKey
     trackOrientationEvent('orientation_step_viewed', tracking)
-  }, [activeMicroSteps, currentQuestion?.category, infoIndex, loading, phase, questionIndex, questions.length])
+  }, [activeMicroSteps, currentQuestion, infoIndex, loading, error, phase, questionIndex, questions.length, formationResultsReady, partnerFormationsLoading, dbFormations.length, visiblePartnerCandidates.length, jobRecommendations.length])
 
   const isAuthenticated = useCallback(async () => {
     const token = localStorage.getItem('supabase_auth_token') || localStorage.getItem('token')
@@ -1614,6 +1633,7 @@ export default function OrientationFlow() {
     localStorage.setItem('avatar_url', personaAvatarUrl)
     localStorage.setItem('orientation_persona', computedPersona.slug)
 
+    let analysisStage = 'submit_answers'
     try {
       await savePersonaToProfile(computedPersona, personaAvatarUrl)
       const profileResponse = await usersAPI.getProfile().catch(() => null)
@@ -1626,6 +1646,7 @@ export default function OrientationFlow() {
       const department = await resolveUserDepartment().catch(() => userDepartment)
       await saveMicroProfile(finalMicroProfile, department).catch(() => null)
       await orientationAPI.submitInitialAnswers(payload.answers)
+      analysisStage = 'generate'
       await orientationAPI.generateInitialAnalysis({
         orientationProfile: {
           personaSlug: computedPersona.slug,
@@ -1638,8 +1659,10 @@ export default function OrientationFlow() {
           searchProfile: buildOrientationSearchProfile(finalMicroProfile)
         }
       })
+      analysisStage = 'results'
       const { data } = await orientationAPI.getResults()
-      setAnalysisData(data?.results || null)
+      if (!data?.results || typeof data.results !== 'object') throw new Error('Missing orientation analysis results')
+      setAnalysisData(data.results)
       localStorage.removeItem('orientation_resume_after_auth')
       trackOrientationEvent('orientation_analysis_completed', {
         orientation_step: 'analysis'
@@ -1649,7 +1672,7 @@ export default function OrientationFlow() {
       console.error('Orientation analysis error', analysisError)
       trackOrientationEvent('orientation_analysis_failed', {
         orientation_step: 'analysis',
-        orientation_error_stage: 'generate'
+        orientation_error_stage: analysisStage
       })
       setError("L'analyse n'a pas pu être générée. Réessaie dans quelques secondes.")
     } finally {
@@ -1686,6 +1709,11 @@ export default function OrientationFlow() {
         setQuestions(compactQuestions)
 
         const firstMissing = compactQuestions.findIndex((question) => getAnswerChoiceIndex(question, answers[question.id]) === -1)
+        if (Object.keys(answers).length) {
+          trackOrientationEvent('orientation_flow_resumed', {
+            orientation_source: localStorage.getItem('orientation_resume_after_auth') === 'analysis' ? 'after_auth' : 'saved_progress'
+          })
+        }
         if (firstMissing === -1 && localStorage.getItem('orientation_resume_after_auth') === 'analysis') {
           setLoading(false)
           window.setTimeout(() => advanceFromInfo(compactQuestions), 0)
@@ -1704,7 +1732,10 @@ export default function OrientationFlow() {
         }
       } catch (loadError) {
         console.error('Orientation questions load error', loadError)
-        if (!cancelled) setError('Impossible de charger le parcours pour le moment.')
+        if (!cancelled) {
+          trackOrientationEvent('orientation_load_failed', { orientation_error_stage: 'questions' })
+          setError('Impossible de charger le parcours pour le moment.')
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -1738,7 +1769,9 @@ export default function OrientationFlow() {
       orientation_step: 'questions',
       orientation_question_number: questionIndex + 1,
       orientation_question_category: currentQuestion.category || 'unknown',
-      orientation_answer_position: safeIndex + 1
+      orientation_answer_position: safeIndex + 1,
+      orientation_answer_count: choices.length,
+      orientation_question_format: isAgreementQuestion(currentQuestion) ? 'agreement' : isDilemmaQuestion(currentQuestion) ? 'dilemma' : 'legacy'
     })
     persistAnswer(currentQuestion.id, picked.answer)
     dragStartRef.current = null
@@ -1850,15 +1883,17 @@ export default function OrientationFlow() {
       const blob = await (await fetch(dataUrl)).blob()
       const file = new File([blob], 'mon-portrait-zelia.png', { type: 'image/png' })
       if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'Mon portrait Zélia' }).catch(() => null)
+        await navigator.share({ files: [file], title: 'Mon portrait Zélia' })
+        trackSiteEvent('share', { content_type: 'persona', method: 'native' })
       } else {
         const link = document.createElement('a')
         link.href = dataUrl
         link.download = 'mon-portrait-zelia.png'
         link.click()
+        trackSiteEvent('share', { content_type: 'persona', method: 'download' })
       }
     } catch (shareError) {
-      console.warn('Persona share failed', shareError)
+      if (shareError?.name !== 'AbortError') console.warn('Persona share failed', shareError)
     } finally {
       setSharingPersona(false)
     }
@@ -1875,8 +1910,10 @@ export default function OrientationFlow() {
       }
       if (typeof navigator.share === 'function') {
         await navigator.share(shareData)
+        trackSiteEvent('share', { content_type: 'orientation', method: 'native' })
       } else if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(`${shareData.text}\n${ORIENTATION_SHARE_URL}`)
+        trackSiteEvent('share', { content_type: 'orientation', method: 'clipboard' })
       } else {
         window.prompt('Copie ce lien pour le partager :', ORIENTATION_SHARE_URL)
       }
@@ -2040,6 +2077,7 @@ export default function OrientationFlow() {
     }))
     return {
       candidates: diversifyCandidates(candidates, { maxPerFormation: 1, maxPerSchool: 2 }).slice(0, count),
+      pathways: relevantMasterPathways(result.pathways, context, departmentName).slice(0, 6),
       notice: nationalSearchNotice(profile, result.rows),
       error: result.errors.length ? 'Certaines formations nationales n’ont pas pu être chargées. Réessaie pour compléter les résultats.' : ''
     }
@@ -2062,6 +2100,7 @@ export default function OrientationFlow() {
     setDbFormationsResolved(false)
     setDbFormationsError('')
     setDbFormationsNotice('')
+    setDbMasterPathways([])
     ;(async () => {
       try {
         const department = await resolveUserDepartment().catch(() => userDepartment)
@@ -2069,6 +2108,7 @@ export default function OrientationFlow() {
         if (!mounted) return
         const concrete = result.candidates.filter(isDatabaseCandidate).slice(0, 8)
         setDbFormations(concrete)
+        setDbMasterPathways(result.pathways)
         setDbFormationsNotice(result.notice)
         setDbFormationsError(result.error)
         preselectNewFormationIds(concrete.map((candidate) => candidate.id))
@@ -2076,6 +2116,7 @@ export default function OrientationFlow() {
         console.warn('Formation matching failed', matchError)
         if (mounted) {
           setDbFormations([])
+          setDbMasterPathways([])
           setDbFormationsError('Impossible de rechercher les formations nationales. Vérifie ton département et réessaie.')
         }
       } finally {
@@ -2118,6 +2159,10 @@ export default function OrientationFlow() {
   }, [phase, formationResultsReady, partnerFormationsLoading, dbFormations, visiblePartnerCandidates, recommendationsRetryCount])
 
   const toggleRequestInfoSelection = (candidateId) => {
+    trackOrientationEvent('orientation_formation_selection_changed', {
+      orientation_step: 'formations',
+      orientation_action: requestInfoSelections.has(candidateId) ? 'deselect' : 'select'
+    })
     setRequestInfoSelections((prev) => {
       const next = new Set(prev)
       if (next.has(candidateId)) next.delete(candidateId)
@@ -2161,7 +2206,8 @@ export default function OrientationFlow() {
   const continueFromFormationReveal = () => {
     trackOrientationEvent('orientation_step_completed', {
       orientation_step: 'formations',
-      orientation_item_count: dbFormations.length + visiblePartnerCandidates.length || formationRecommendations.length,
+      orientation_item_count: dbFormations.length + visiblePartnerCandidates.length,
+      orientation_selected_count: [...dbFormations, ...visiblePartnerCandidates].filter((candidate) => requestInfoSelections.has(candidate.id)).length,
       orientation_action: 'discover_jobs'
     })
     persistFormationSelection()
@@ -2179,21 +2225,40 @@ export default function OrientationFlow() {
   }
 
   const advanceMicroStep = (nextProfile) => {
+    if (microTransitionTimerRef.current !== null) return
     const completedStep = activeMicroSteps[infoIndex]
+    const selection = nextProfile[completedStep.id]
+    const selectionCount = Array.isArray(selection) ? selection.length : selection ? 1 : 0
+    const submittedProfile = completedStep?.id === 'formation_preferences'
+      ? { ...nextProfile, formation_preferences: getVisibleFormationPreferences(nextProfile.formation_preferences) }
+      : nextProfile
+    if (completedStep?.id === 'formation_preferences') {
+      setMicroProfile(submittedProfile)
+      localStorage.setItem('orientation_micro_profile', JSON.stringify(submittedProfile))
+    }
     trackOrientationEvent('orientation_micro_step_completed', {
       orientation_step: 'micro_profile',
       orientation_step_index: infoIndex + 1,
       orientation_total_steps: activeMicroSteps.length,
-      orientation_micro_step: completedStep?.id || 'unknown'
+      orientation_micro_step: completedStep.id,
+      orientation_selected_count: selectionCount,
+      orientation_action: selectionCount ? 'answer' : 'skip'
     })
-    window.setTimeout(() => {
-      if (infoIndex >= activeMicroSteps.length - 1) advanceFromInfo(null, nextProfile)
+    microTransitionTimerRef.current = window.setTimeout(() => {
+      if (infoIndex >= activeMicroSteps.length - 1) advanceFromInfo(null, submittedProfile)
       else setInfoIndex((index) => index + 1)
     }, 200)
   }
 
+  useEffect(() => {
+    microTransitionTimerRef.current = null
+    return () => window.clearTimeout(microTransitionTimerRef.current)
+  }, [phase, infoIndex])
+
   const chooseMicroOption = (step, option) => {
-    const currentValue = microProfile[step.id]
+    const currentValue = step.id === 'formation_preferences'
+      ? getVisibleFormationPreferences(microProfile[step.id])
+      : microProfile[step.id]
     if (step.multi && Array.isArray(currentValue) && currentValue.includes(option.value)) {
       const reduced = currentValue.filter((value) => value !== option.value)
       const nextProfile = { ...microProfile, [step.id]: reduced }
@@ -2359,10 +2424,10 @@ export default function OrientationFlow() {
     const step = activeMicroSteps[infoIndex]
     if (!step) return null
     const selected = microProfile[step.id]
-    const selectedFormationPreferences = Array.isArray(selected) ? selected : []
+    const selectedFormationPreferences = getVisibleFormationPreferences(selected)
     const selectedCareerDomains = Array.isArray(selected) ? selected : []
     return (
-      <div className="orientation-stage compact">
+      <div className="orientation-stage info-stage">
         <div className={`orientation-card choice-card${step.type === 'formation_preferences' ? ' formation-preference-card' : step.type === 'career_domains' ? ' career-domain-card' : ''}`}>
           {renderAvatarFace()}
           <span className="orientation-pill">{infoIndex + 1} / {activeMicroSteps.length}</span>
@@ -2380,9 +2445,12 @@ export default function OrientationFlow() {
                       className={`formation-preference-option${active ? ' active' : ''}`}
                       onClick={() => chooseMicroOption(step, option)}
                       aria-pressed={active}
+                      aria-label={option.label}
+                      aria-describedby={`formation-preference-description-${option.value}`}
                     >
                       <i className={`ph ${option.icon}`} aria-hidden="true" />
-                      <span>{option.label}</span>
+                      <span className="formation-preference-label">{option.label}</span>
+                      <small className="formation-preference-description" id={`formation-preference-description-${option.value}`}>{option.description}</small>
                     </button>
                   )
                 })}
@@ -2493,6 +2561,7 @@ export default function OrientationFlow() {
               getTitle={(formation) => cleanDetailText(getCandidateFormationTitle(formation), 220)}
             />
           )}
+          {formationResultsReady && <MasterPathways formations={dbMasterPathways} />}
 
           {formationResultsReady && !getNationalStudyLevels(microProfile).length && microProfile.study_location !== 'near_home' && dbFormations.length === 0 && formationRecommendations.length > 0 && (
             <div className="persona-portrait-grid">

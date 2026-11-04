@@ -5,6 +5,7 @@ import { test } from 'node:test'
 import express from 'express'
 import { createClient } from '@supabase/supabase-js'
 import { parseNationalSearch, searchNationalFormations } from '../utils/nationalFormationSearch.js'
+import { attachFormationCanonicals, canonicalFormationColumns } from '../utils/formationCanonical.js'
 
 let fixtureNumber = 0
 
@@ -41,14 +42,14 @@ async function fixture(t) {
   const source = await readFile(new URL('../routes/catalog.js', import.meta.url), 'utf8')
   const offset = source.indexOf('const router =')
   const imports = source.slice(0, offset).trim().split(/\r?\n/).filter(Boolean)
-  assert.equal(imports.length, 4)
+  assert.equal(imports.length, 5)
   assert.ok(imports.every((line) => line.startsWith('import ')))
   const key = `catalogSearchFixture${fixtureNumber++}`
-  globalThis[key] = { express, supabase: db, optionalAuth: (req, res, next) => next(), parseNationalSearch, searchNationalFormations }
+  globalThis[key] = { express, supabase: db, optionalAuth: (req, res, next) => next(), parseNationalSearch, searchNationalFormations, attachFormationCanonicals, canonicalFormationColumns }
   let router
   try {
     const module = await import(`data:text/javascript;base64,${Buffer.from(
-      `const { express, supabase, optionalAuth, parseNationalSearch, searchNationalFormations } = globalThis.${key};\n${source.slice(offset)}`
+      `const { express, supabase, optionalAuth, parseNationalSearch, searchNationalFormations, attachFormationCanonicals, canonicalFormationColumns } = globalThis.${key};\n${source.slice(offset)}`
     ).toString('base64')}`)
     router = module.default
   } finally {
@@ -116,7 +117,7 @@ test('formation fallback accepts long titles, punctuation and literal wildcard c
 test('successful RPC pages stay bounded and cached', async (t) => {
   const { state, call } = await fixture(t)
   state.rpcError = null
-  state.rows = Array.from({ length: 25 }, (_, id) => ({ id }))
+  state.rows = Array.from({ length: 25 }, (_, id) => ({ id, canonical_slug: null }))
   const response = await call({ q: 'informatique', page_size: 24 })
   assert.equal(response.status, 200)
   assert.equal(response.body.items.length, 24)

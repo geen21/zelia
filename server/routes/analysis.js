@@ -5,26 +5,12 @@ import { cloudinary, isCloudinaryConfigured } from '../config/cloudinary.js'
 import { authenticateToken } from '../middleware/auth.js'
 import { enforceOrientationRecommendationQuality, JOB_SELECTION_GUIDELINES, JOB_TITLE_GUIDELINES } from '../utils/orientationRecommendationGuard.js'
 import { buildOrientationQuestionnaireContext, QUESTIONNAIRE_NUANCE_INSTRUCTION, resolveInterpretation } from '../utils/orientationQuestionnaireContext.js'
+import { buildOrientationSearchContext, FORMATION_RECOMMENDATION_GUIDELINES } from '../utils/orientationSearchContext.js'
 
 // Ensure environment variables are loaded (redundant-safe)
 dotenv.config()
 
 const router = express.Router()
-
-function cleanOrientationProfileText(value, maxLength = 100) {
-  const text = typeof value === 'string' || typeof value === 'number'
-    ? String(value).replace(/\s+/g, ' ').trim()
-    : ''
-  return text.slice(0, maxLength)
-}
-
-function cleanOrientationProfileList(value, maxItems = 8) {
-  if (!Array.isArray(value)) return []
-  return [...new Set(value
-    .map((item) => cleanOrientationProfileText(item, 80))
-    .filter(Boolean))]
-    .slice(0, maxItems)
-}
 
 // Generate analysis using Gemini API for the authenticated user only
 router.post('/generate-analysis', authenticateToken, async (req, res) => {
@@ -36,22 +22,6 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
       : {}
     const clientPersonaName = String(orientationProfile.personaName || '').trim().slice(0, 80)
     const careerAspiration = String(orientationProfile.careerAspiration || '').replace(/\s+/g, ' ').trim().slice(0, 160)
-    const rawSearchProfile = orientationProfile.searchProfile && typeof orientationProfile.searchProfile === 'object' && !Array.isArray(orientationProfile.searchProfile)
-      ? orientationProfile.searchProfile
-      : {}
-    const searchProfile = {
-      gradeConfidence: cleanOrientationProfileText(rawSearchProfile.gradeConfidence, 40),
-      schoolLevel: cleanOrientationProfileText(rawSearchProfile.schoolLevel, 40),
-      targetLevel: cleanOrientationProfileText(rawSearchProfile.targetLevel, 40),
-      studyLocation: cleanOrientationProfileText(rawSearchProfile.studyLocation, 40),
-      strongSubjects: cleanOrientationProfileList(rawSearchProfile.strongSubjects, 7),
-      formationPreferences: cleanOrientationProfileList(rawSearchProfile.formationPreferences, 3),
-      careerDomains: cleanOrientationProfileList(rawSearchProfile.careerDomains, 3)
-    }
-    const formationPreference = cleanOrientationProfileText(orientationProfile.formationPreference, 160)
-      || searchProfile.formationPreferences.join(', ')
-    const careerDomains = cleanOrientationProfileText(orientationProfile.careerDomains, 160)
-      || searchProfile.careerDomains.join(', ')
     const clientAxes = orientationProfile.axes && typeof orientationProfile.axes === 'object' && !Array.isArray(orientationProfile.axes)
       ? orientationProfile.axes
       : {}
@@ -98,6 +68,23 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
 
     // Use service role if available to bypass RLS for server-side processing
     const db = supabaseAdmin || supabase
+    const { data: savedPreferences, error: preferencesError } = await db
+      .from('informations_complementaires')
+      .select('id,question_id,answer_text,created_at')
+      .eq('user_id', userId)
+      .in('question_id', [
+        'orientation_grade_confidence', 'orientation_school_level', 'orientation_target_level',
+        'orientation_study_location', 'orientation_department', 'orientation_department_name',
+        'orientation_strong_subjects', 'orientation_formation_preferences', 'orientation_career_domains'
+      ])
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(100)
+    if (preferencesError) {
+      console.error('Orientation preferences fetch error:', preferencesError)
+      return res.status(503).json({ error: 'Impossible de charger tes préférences d’orientation. Réessaie dans un instant.' })
+    }
+    const { searchProfile, formationPreference, careerDomains, locationLabel } = buildOrientationSearchContext(orientationProfile, savedPreferences || [])
 
     // Get user profile information
     const { data: profile, error: profileError } = await db
@@ -160,7 +147,8 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
       searchProfile.schoolLevel && `- Classe actuelle : ${searchProfile.schoolLevel}`,
       searchProfile.gradeConfidence && `- Moyenne dans les matières fortes : ${searchProfile.gradeConfidence}`,
       searchProfile.targetLevel && `- Niveau d'études visé : ${searchProfile.targetLevel}`,
-      searchProfile.studyLocation && `- Mobilité pour les études : ${searchProfile.studyLocation}`,
+      searchProfile.studyLocation && `- Mobilité pour les études : ${locationLabel}`,
+      (searchProfile.departmentName || searchProfile.department) && `- Département de référence : ${searchProfile.departmentName || searchProfile.department}`,
       searchProfile.strongSubjects.length && `- Matières fortes : ${searchProfile.strongSubjects.join(', ')}`,
       formationPreference && `- Formats de formation à privilégier : ${formationPreference}`,
       careerDomains && `- Univers professionnels attirants : ${careerDomains}`
@@ -224,7 +212,7 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
       + `INTERDICTION ABSOLUE d'écrire des références comme Q2, Q14, question 3, réponse 8, item 12, ou toute mention similaire. `
       + `Votre tâche est de générer une réponse structurée qui DOIT IMPÉRATIVEMENT contenir EXACTEMENT les sections suivantes:\n\n`
       + `${zeliaPersonaContext}\n\n`
-      + `${personaInstruction}\n${aspirationInstruction}\n${formationPreferenceInstruction}\n${careerDomainInstruction}\n${searchProfileInstruction}\n${nuanceInstruction}\n${interestInstruction}\n\n`
+      + `${personaInstruction}\n${aspirationInstruction}\n${formationPreferenceInstruction}\n${careerDomainInstruction}\n${searchProfileInstruction}\n${FORMATION_RECOMMENDATION_GUIDELINES}\n${nuanceInstruction}\n${interestInstruction}\n\n`
       + `###Type de personalité###\n`
       + `[Utilise exactement le persona calculé côté client quand il est fourni ; sinon choisis uniquement l'un des 12 personas ci-dessus. N'invente jamais un autre persona.]\n\n`
       + `###Analyse de personnalité###\n`
@@ -259,16 +247,19 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
     // Retry loop: relancer Gemini si les recommandations sont vides (max 3 tentatives)
     const MAX_RETRIES = 3
     let sections = null
+    const generationSignal = AbortSignal.timeout(45000)
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       console.log(`Gemini inscription analysis attempt ${attempt}/${MAX_RETRIES} for user ${userId}`)
 
       const geminiResponse = await fetch(geminiUrl, {
         method: 'POST',
+        signal: generationSignal,
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          generationConfig: { maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 512 } },
           contents: [{
             parts: [{
               text: prompt
@@ -287,7 +278,10 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
       }
 
       const geminiData = await geminiResponse.json()
-      const generatedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+      const generatedText = geminiData.candidates?.[0]?.content?.parts
+        ?.filter((part) => !part.thought)
+        .map((part) => part.text || '')
+        .join('\n')
 
       if (!generatedText) {
         console.error(`No response from Gemini API (attempt ${attempt})`)
@@ -404,6 +398,9 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('Generate analysis error:', error)
+    if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+      return res.status(503).json({ error: 'L’analyse prend trop de temps. Réessaie dans un instant.' })
+    }
     res.status(500).json({ error: 'Internal server error' })
   }
 })

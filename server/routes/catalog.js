@@ -2,6 +2,7 @@ import express from 'express'
 import { supabase } from '../config/supabase.js'
 import { optionalAuth } from '../middleware/auth.js'
 import { parseNationalSearch, searchNationalFormations } from '../utils/nationalFormationSearch.js'
+import { attachFormationCanonicals, canonicalFormationColumns } from '../utils/formationCanonical.js'
 
 const router = express.Router()
 
@@ -173,7 +174,7 @@ function buildFormationFallbackTerms(normalizedQuery) {
 async function runFormationFallbackSearch({ normalizedQuery, region, departement, from, pageSize }) {
   let query = supabase
     .from('formation_france')
-    .select(FORMATION_SEARCH_COLUMNS, { count: 'none' })
+    .select(canonicalFormationColumns(FORMATION_SEARCH_COLUMNS), { count: 'none' })
 
   if (region) query = query.ilike('region', `%${escapePostgrestFilterValue(region)}%`)
   if (departement) {
@@ -308,7 +309,7 @@ router.get('/formations/search', optionalAuth, async (req, res) => {
     }
 
     if (!rpcError) {
-      const payload = makePagePayload(rpcData || [], page, pageSize)
+      const payload = makePagePayload(await attachFormationCanonicals(supabase, rpcData || []), page, pageSize)
       setCachedFormationSearch(cacheKey, payload)
       return res.json(payload)
     }

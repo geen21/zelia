@@ -2,6 +2,7 @@ import React from 'react'
 import { getDiplomaFamily, getFormationTitle } from '../lib/formationDisplay.js'
 import { getBestFormationResultKey, mixFormationResults } from '../lib/orientationFormationResults.js'
 import { SCHOOL_SHARING_NOTICE } from '../lib/schoolSharing'
+import { getNationalAcademicGrade } from '../lib/nationalFormationMatching.js'
 
 export default function OrientationFormationResults({ formations, partners, selectedIds, onToggleInfo, getTitle = (formation) => formation.title || getFormationTitle(formation.raw) }) {
   const results = mixFormationResults(formations, partners)
@@ -13,7 +14,8 @@ export default function OrientationFormationResults({ formations, partners, sele
       const title = partner ? formation.formation_name : getTitle(formation)
       const school = partner ? formation.school_name : raw.etab_nom
       const city = partner ? formation.city : raw.commune || raw.departement
-      const level = partner ? formation.diploma_level : getDiplomaFamily(raw) || raw.tc
+      const level = partner ? formation.diploma_level
+        : getNationalAcademicGrade(raw) === 'master' ? 'Grade master' : getDiplomaFamily(raw) || raw.tc
       const score = partner ? formation.match_score : formation.matchScore
       const selectionId = partner ? key : formation.id
       const checked = selectedIds.has(selectionId)

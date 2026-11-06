@@ -8,6 +8,7 @@ import { withZeliaUtm } from '../../lib/outboundUrl.js'
 import Chart from 'react-apexcharts'
 import chartLocale from 'apexcharts/dist/locales/fr.json'
 import AdminSchoolAccess, { PartnerDashboardLink, SchoolDashboardActions } from './AdminSchoolAccess'
+import { DEPARTMENTS } from '../../lib/departments.js'
 
 export const dateLabel = (value) => value ? new Date(value).toLocaleDateString('fr-FR') : '—'
 export const nameLabel = (row) => [row.first_name,row.last_name].filter(Boolean).join(' ') || row.email || 'Sans nom'
@@ -185,10 +186,10 @@ export function AdminPartners() {
   const [selected,setSelected] = useState(null)
   const [creating,setCreating] = useState(null)
   const [revision,setRevision] = useState(0)
-  const fields = [['formation_name','Intitulé','text',true],['city','Ville','text',true],['domain','Domaine'],['diploma_level','Niveau de diplôme'],['description','Description','textarea'],['link','Lien','url'],['contact_email','Email de contact','email'],['show_in_results','Afficher dans les recommandations','checkbox'],['highlight_in_results','Accentuer la carte partenaire','checkbox'],['results_priority','Priorité d’affichage','number',true]]
-  const createFields = [['school_name','École','text',true],...fields.map((field) => field[0] === 'city' ? ['cities','Villes des campus (une ville par ligne)','textarea',true] : field)]
+  const fields = [['formation_name','Intitulé','text',true],['city','Ville','text',true],['department','Département','department',true],['domain','Domaine'],['diploma_level','Niveau de diplôme'],['description','Description','textarea'],['link','Lien','url'],['contact_email','Email de contact','email'],['show_in_results','Afficher dans les recommandations','checkbox'],['highlight_in_results','Accentuer la carte partenaire','checkbox'],['results_priority','Priorité d’affichage','number',true]]
+  const createFields = [['school_name','École','text',true],...fields.filter(([key]) => key !== 'department').map((field) => field[0] === 'city' ? ['campuses','Campus : ville et département','campuses',true] : field)]
   return <><p className="bo-muted">Chaque partenaire possède son dashboard automatiquement, sans recréer son école. Les formations et campus d’une même école partagent le même espace. Utilisez directement « Voir le dashboard » ou « Gérer les accès ».</p>
-    <DataTable key={revision} title="Partenaires" resource="/partners" params={{ status }} filters={<StatusFilter value={status} onChange={setStatus} options={[['active','Actifs'],['inactive','Archivés']]} />} actions={<button className="bo-button bo-primary" onClick={() => setCreating({})}><PiPlus aria-hidden="true" />Ajouter</button>} onView={(row,reload) => setSelected({ row,reload })} columns={[{ key:'school_name',label:'École' },{ key:'formation_name',label:'Formation',render:(row) => <FormationLink formation={row}>{row.formation_name}</FormationLink> },{ key:'city',label:'Ville' },{ key:'diploma_level',label:'Niveau' },{ key:'is_active',label:'Statut',render:(row) => <Badge active={row.is_active}>{row.is_active ? 'Actif' : 'Archivé'}</Badge> },{ key:'dashboard',label:'Espace partenaire',render:(row) => <SchoolDashboardActions companyId={row.portal_company_id} schoolName={row.school_name} /> }]} />
+    <DataTable key={revision} title="Partenaires" resource="/partners" params={{ status }} filters={<StatusFilter value={status} onChange={setStatus} options={[['active','Actifs'],['inactive','Archivés']]} />} actions={<button className="bo-button bo-primary" onClick={() => setCreating({})}><PiPlus aria-hidden="true" />Ajouter</button>} onView={(row,reload) => setSelected({ row,reload })} columns={[{ key:'school_name',label:'École' },{ key:'formation_name',label:'Formation',render:(row) => <FormationLink formation={row}>{row.formation_name}</FormationLink> },{ key:'city',label:'Ville' },{ key:'department',label:'Département',render:(row) => DEPARTMENTS.find(([code]) => code === row.department)?.slice(0,2).join(' — ') || 'À renseigner' },{ key:'diploma_level',label:'Niveau' },{ key:'is_active',label:'Statut',render:(row) => <Badge active={row.is_active}>{row.is_active ? 'Actif' : 'Archivé'}</Badge> },{ key:'dashboard',label:'Espace partenaire',render:(row) => <SchoolDashboardActions companyId={row.portal_company_id} schoolName={row.school_name} /> }]} />
     {selected && <RecordPanel title={selected.row.school_name} path={`/partners/${selected.row.id}`} onClose={() => setSelected(null)}>{(data,refresh) => <>
       <div className="bo-actions"><Badge active={data.item.is_active}>{data.item.is_active ? 'Actif' : 'Archivé'}</Badge><ConfirmAction label={data.item.is_active ? 'Désactiver la formation' : 'Réactiver la formation'} danger={data.item.is_active} description={data.item.formation_name} action={(reason) => adminApi.patch(`/partners/${data.item.id}`,{ is_active: !data.item.is_active,reason })} onDone={() => { selected.reload(); refresh() }} /></div>
       <h2>{data.item.formation_name}</h2><EditForm fields={fields} values={data.item} submit={(payload) => adminApi.patch(`/partners/${data.item.id}`,payload)} onSaved={() => { selected.reload(); refresh() }} />
@@ -197,9 +198,9 @@ export function AdminPartners() {
       <button className="bo-button" onClick={() => { setCreating(data.item); setSelected(null) }}><PiPlus aria-hidden="true" />Ajouter des campus à cette formation</button>
     </>}</RecordPanel>}
     {creating && <RecordPanel title="Ajouter une formation partenaire" onClose={() => setCreating(null)}>{() => <>
-      <p className="bo-muted">Renseigne l’école et la formation une seule fois, puis une ville par ligne (20 maximum). Ajoute uniquement les campus qui proposent cette formation. Une fiche sera créée pour chaque campus, avec les mêmes informations, puis pourra être adaptée séparément.</p>
+      <p className="bo-muted">Renseigne l’école et la formation une seule fois, puis la ville et le département de chaque campus (20 maximum). Le département sert aux recommandations « Près de chez moi ». Une fiche sera créée par campus, avec les mêmes informations de formation.</p>
       {creating.city && <p className="bo-muted">Campus existant : {creating.city}. Saisis uniquement les nouvelles villes.</p>}
-      <EditForm fields={createFields} values={creating} submit={({ cities,...payload }) => adminApi.post('/partners/campuses',{ ...payload,cities:cities.split(/\r?\n/).map((city) => city.trim()).filter(Boolean) })} onSaved={() => { setCreating(null); setRevision((previous) => previous+1) }} />
+      <EditForm fields={createFields} values={creating} submit={(payload) => adminApi.post('/partners/campuses',payload)} onSaved={() => { setCreating(null); setRevision((previous) => previous+1) }} />
     </>}</RecordPanel>}
   </>
 }
@@ -292,8 +293,8 @@ function PartnerCampusActions({ row,onDone }) {
   const [error,setError] = useState('')
   useEffect(() => {
     const controller = new AbortController()
-    adminApi.get('/partners/group-count',{ params: { school_name: row.school_name,city: row.city },signal: controller.signal }).then(({ data }) => setTotal(data.total)).catch((failure) => { if (!controller.signal.aborted) setError(adminError(failure)) })
+    adminApi.get('/partners/group-count',{ params: { school_name: row.school_name,city: row.city,...(row.department ? {department:row.department} : {}) },signal: controller.signal }).then(({ data }) => setTotal(data.total)).catch((failure) => { if (!controller.signal.aborted) setError(adminError(failure)) })
     return () => controller.abort()
-  }, [row.school_name,row.city])
-  return <><h2>Campus · {row.city}</h2>{error && <p role="alert" className="bo-error">{error}</p>}{total !== null && <p>{total} formation{total !== 1 ? 's' : ''}</p>}<div className="bo-actions">{[true,false].map((active) => <ConfirmAction key={String(active)} label={active ? 'Activer le campus' : 'Désactiver le campus'} danger={!active} disabled={!total} description={`${row.school_name} · ${row.city} : ${total} formations concernées.`} action={(reason) => adminApi.post('/partners/group-status',{ school_name: row.school_name,city: row.city,is_active: active,reason })} onDone={onDone} />)}</div></>
+  }, [row.school_name,row.city,row.department])
+  return <><h2>Campus · {row.city}</h2>{error && <p role="alert" className="bo-error">{error}</p>}{total !== null && <p>{total} formation{total !== 1 ? 's' : ''}</p>}<div className="bo-actions">{[true,false].map((active) => <ConfirmAction key={String(active)} label={active ? 'Activer le campus' : 'Désactiver le campus'} danger={!active} disabled={!total} description={`${row.school_name} · ${row.city} : ${total} formations concernées.`} action={(reason) => adminApi.post('/partners/group-status',{ school_name: row.school_name,city: row.city,...(row.department ? {department:row.department} : {}),is_active: active,reason })} onDone={onDone} />)}</div></>
 }

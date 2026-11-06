@@ -4,11 +4,23 @@ import { withFormationDisplayFields } from '../utils/slug.js'
 import { canonicalFormationColumns } from '../utils/formationCanonical.js'
 import { createPartnerDashboardRouter, createPartnerManagementRouter } from './partnerDashboard.js'
 import { partnerPortalMessages } from '../utils/schoolDashboard.js'
+import { getDepartmentCode } from '../../client/src/lib/departments.js'
 
 const profileFields = ['first_name','last_name','age','gender','department','school','phone_number']
 const schoolFields = ['name','email','contact_first_name','contact_last_name']
 const customFields = ['company_id','title','description','diploma_level','city','domain','image_url','link','contact_email','is_published']
-const partnerFields = ['school_name','formation_name','city','domain','diploma_level','description','link','contact_email','is_active','show_in_results','highlight_in_results','results_priority']
+const partnerFields = ['school_name','formation_name','city','department','domain','diploma_level','description','link','contact_email','is_active','show_in_results','highlight_in_results','results_priority']
+
+function validatePartnerPatch(body, required = []) {
+  const patch = validatePatch(body, partnerFields, required)
+  if (Object.hasOwn(patch, 'city') && !Object.hasOwn(patch, 'department')) throw invalid('Renseigne le département du campus avec sa ville.')
+  if (Object.hasOwn(patch, 'department')) {
+    const code = getDepartmentCode(patch.department)
+    if (!code) throw invalid('Département du campus invalide.')
+    patch.department = code
+  }
+  return patch
+}
 
 export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin, isProtectedAdmin }) {
   const router = express.Router()
@@ -26,13 +38,16 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
       const code = error.code || ''
       const missingCampusMigration = code === 'BACKOFFICE_PARTNER_CAMPUSES_MIGRATION_REQUIRED'
       const missingPartnerMigration = code === 'BACKOFFICE_PARTNER_RESULTS_MIGRATION_REQUIRED'
+      const missingDepartmentMigration = code === 'PARTNER_DEPARTMENTS_MIGRATION_REQUIRED' || (['42703','PGRST204'].includes(code) && String(error.message).includes('department'))
       const missingAutoSpaces = ['42703','PGRST204'].includes(code) && String(error.message).includes('portal_company_id')
-      const missingMigration = missingCampusMigration || missingPartnerMigration || missingAutoSpaces || ['42P01','42703','42883','PGRST202','PGRST205'].includes(code)
+      const missingMigration = missingCampusMigration || missingPartnerMigration || missingDepartmentMigration || missingAutoSpaces || ['42P01','42703','42883','PGRST202','PGRST205'].includes(code)
       const status = error.status || (missingMigration ? 503 : ['P0002','PGRST116'].includes(code) ? 404
         : code === '42501' ? 403 : ['23505','40001'].includes(code) ? 409
           : ['22023','22P02','23503','23502','23514'].includes(code) ? 400 : 500)
-      const message = partnerPortalMessages[error.message] || (error.status === 400 ? error.message : missingAutoSpaces
-        ? 'Les dashboards automatiques nécessitent la migration migration_partner_dashboards_auto_spaces.sql dans Supabase.' : missingCampusMigration
+      const message = partnerPortalMessages[error.message] || (error.status === 400 ? error.message : error.message === 'PARTNER_DEPARTMENT_REQUIRED'
+        ? 'Renseigne un département valide pour le campus.' : missingAutoSpaces
+        ? 'Les dashboards automatiques nécessitent la migration migration_partner_dashboards_auto_spaces.sql dans Supabase.' : missingDepartmentMigration
+        ? 'Les départements partenaires nécessitent la migration migration_partner_departments.sql dans Supabase.' : missingCampusMigration
         ? 'La creation multi-campus necessite la migration migration_backoffice_partner_campuses.sql dans Supabase.' : missingPartnerMigration
         ? 'Les reglages partenaires necessitent la migration migration_backoffice_partner_results.sql dans Supabase.' : missingMigration
         ? 'La migration SQL du back-office doit etre appliquee.' : status === 404 ? 'Element introuvable.'
@@ -57,6 +72,9 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
         p_actor: req.user.id, p_kind: kind, p_id: id, p_patch: patch, p_reason: mutationReason(req.body)
       })
     } catch (error) {
+      if (kind === 'partner' && error.code === '22023' && error.message === 'INVALID_FIELD' && Object.hasOwn(patch, 'department')) {
+        throw Object.assign(new Error('PARTNER_DEPARTMENTS_MIGRATION_REQUIRED'), { code: 'PARTNER_DEPARTMENTS_MIGRATION_REQUIRED' })
+      }
       if (kind === 'partner' && error.code === '22023' && error.message === 'INVALID_FIELD'
         && ['show_in_results','highlight_in_results','results_priority'].some((field) => Object.hasOwn(patch,field))) {
         throw Object.assign(new Error('BACKOFFICE_PARTNER_RESULTS_MIGRATION_REQUIRED'),{ code:'BACKOFFICE_PARTNER_RESULTS_MIGRATION_REQUIRED' })
@@ -175,13 +193,24 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
   router.patch('/formations/custom/:id', run(async (req, res) => res.json({ item: await change(req,'custom',identifier(req.params.id),validatePatch(req.body,customFields.filter((field) => field !== 'company_id'))) })))
 
   router.get('/partners/group-count', run(async (req, res) => {
-    const { school_name, city } = validatePatch(req.query,['school_name','city'],['school_name','city'])
-    const response = await query(db.from('ecoles_partenaires').select('id', { count: 'exact', head: true }).eq('school_name', school_name).eq('city', city))
+    const { school_name, city, department } = validatePatch(req.query,['school_name','city','department'],['school_name','city'])
+    let builder = db.from('ecoles_partenaires').select('id', { count: 'exact', head: true }).eq('school_name', school_name).eq('city', city)
+    if (department !== undefined) {
+      const code = getDepartmentCode(department)
+      if (!code) throw invalid('Département du campus invalide.')
+      builder = builder.eq('department',code)
+    }
+    const response = await query(builder)
     res.json({ total: response.count })
   }))
   router.post('/partners/group-status', run(async (req, res) => {
     mutationReason(req.body, true)
-    const patch = validatePatch(req.body,['school_name','city','is_active'],['school_name','city'])
+    const patch = validatePatch(req.body,['school_name','city','department','is_active'],['school_name','city'])
+    if (patch.department !== undefined) {
+      const code = getDepartmentCode(patch.department)
+      if (!code) throw invalid('Département du campus invalide.')
+      patch.department = code
+    }
     if (typeof patch.is_active !== 'boolean') throw invalid('Statut requis.')
     res.json({ item: await change(req,'partner_group',null,patch) })
   }))
@@ -194,27 +223,32 @@ export function createAdminRouter({ db, authenticateToken, requirePlatformAdmin,
     await list(builder, req, res)
   }))
   router.get('/partners/:id', run(async (req, res) => res.json({ item: (await query(db.from('ecoles_partenaires').select('*').eq('id',identifier(req.params.id,true)).single())).data })))
-  router.post('/partners', run(async (req, res) => res.status(201).json({ item: await change(req,'partner',null,validatePatch(req.body,partnerFields,['school_name','formation_name','city'])) })))
+  router.post('/partners', run(async (req, res) => res.status(201).json({ item: await change(req,'partner',null,validatePartnerPatch(req.body,['school_name','formation_name','city','department'])) })))
   router.post('/partners/campuses', run(async (req, res) => {
-    const { cities, ...body } = req.body || {}
-    if (!Array.isArray(cities) || cities.length < 1 || cities.length > 20) throw invalid('Saisissez de 1 a 20 villes de campus.')
-    const normalizedCities = cities.map((city) => validatePatch({ city },['city'],['city']).city.replace(/\s+/g,' '))
-    if (new Set(normalizedCities.map((city) => city.toLowerCase())).size !== normalizedCities.length) {
-      throw invalid('Chaque ville de campus doit etre saisie une seule fois.')
+    const { campuses, ...body } = req.body || {}
+    if (!Array.isArray(campuses) || campuses.length < 1 || campuses.length > 20) throw invalid('Saisissez de 1 à 20 campus avec leur ville et leur département.')
+    const normalizedCampuses = campuses.map((campus) => {
+      const location = validatePatch(campus, ['city','department'], ['city','department'])
+      const department = getDepartmentCode(location.department)
+      if (!department) throw invalid('Département du campus invalide.')
+      return { city: location.city.replace(/\s+/g,' '), department }
+    })
+    if (new Set(normalizedCampuses.map(({city,department}) => `${city.toLowerCase()}|${department}`)).size !== normalizedCampuses.length) {
+      throw invalid('Chaque campus doit être saisi une seule fois.')
     }
-    const patch = validatePatch(body,partnerFields.filter((field) => field !== 'city'),['school_name','formation_name'])
+    const patch = validatePatch(body,partnerFields.filter((field) => !['city','department'].includes(field)),['school_name','formation_name'])
     try {
-      res.status(201).json(await rpc('backoffice_create_partner_campuses',{
-        p_actor:req.user.id,p_patch:patch,p_cities:normalizedCities,p_reason:mutationReason(req.body)
+      res.status(201).json(await rpc('backoffice_create_partner_campuses_with_departments',{
+        p_actor:req.user.id,p_patch:patch,p_campuses:normalizedCampuses,p_reason:mutationReason(req.body)
       }))
     } catch (error) {
       if (['42883','PGRST202'].includes(error.code)) {
-        throw Object.assign(new Error('BACKOFFICE_PARTNER_CAMPUSES_MIGRATION_REQUIRED'),{ code:'BACKOFFICE_PARTNER_CAMPUSES_MIGRATION_REQUIRED' })
+        throw Object.assign(new Error('PARTNER_DEPARTMENTS_MIGRATION_REQUIRED'),{ code:'PARTNER_DEPARTMENTS_MIGRATION_REQUIRED' })
       }
       throw error
     }
   }))
-  router.patch('/partners/:id', run(async (req, res) => res.json({ item: await change(req,'partner',identifier(req.params.id,true),validatePatch(req.body,partnerFields)) })))
+  router.patch('/partners/:id', run(async (req, res) => res.json({ item: await change(req,'partner',identifier(req.params.id,true),validatePartnerPatch(req.body)) })))
 
   router.get('/selections', run(async (req, res) => {
     const { limit,offset } = pagination(req.query)

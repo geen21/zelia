@@ -105,6 +105,12 @@
 .bo-facts dd { margin: 0; overflow-wrap: anywhere; }
 .bo-form-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin-bottom: 20px; }
 .bo-form-wide { grid-column: 1/-1; }
+.bo-form-grid > fieldset { min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--bo-line); }
+.bo-campus-fields { display: grid; gap: 12px; min-width: 0; }
+.bo-campus-row { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; align-items: end; }
+.bo-campus-row label { min-width: 0; }
+.bo-campus-fields > button { justify-self: start; }
+@media (max-width: 460px) { .bo-campus-row { grid-template-columns: 1fr; } }
 .bo-app .bo-checkbox { display: flex; align-items: center; gap: 10px; grid-column: 1/-1; }
 .bo-school-picker { display: grid; gap: 8px; }
 .bo-record-list { padding: 0; margin: 12px 0 22px; list-style: none; }

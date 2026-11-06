@@ -5,12 +5,13 @@ import { buildPartnerMatchingProfile, rankPartnerFormations } from '../../client
 
 export { buildPartnerMatchingProfile }
 
-export async function fetchActivePartnerFormations(db, { resultsOnly = false } = {}) {
+export async function fetchActivePartnerFormations(db, { resultsOnly = false, department = '' } = {}) {
   const formations = []
   const pageSize = 1000
   for (let offset = 0; ; offset += pageSize) {
     let query = db.from('ecoles_partenaires').select('*').eq('is_active', true)
     if (resultsOnly) query = query.eq('show_in_results', true)
+    if (department) query = query.eq('department', department)
     const { data, error } = await query
       .order('school_name')
       .order('city')

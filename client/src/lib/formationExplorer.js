@@ -1,7 +1,7 @@
 import { getDiplomaFamily, getFormationSlug } from './formationDisplay.js'
 import { normalizeRelevanceText } from './formationRelevance.js'
 import { buildPartnerMatchingProfile, getPartnerPriorityBonus } from './partnerRelevance.js'
-import { buildNationalDiscoveryQueries, buildNationalRelevanceProfile, getNationalAcademicGrade, getNationalFormationTitle, inferNationalStudyLevel, nationalFormationMatches, nationalMasterPathwayMatches, nationalSearchParameters, resolveNationalDepartment, scoreNationalFormation } from './nationalFormationMatching.js'
+import { buildNationalDiscoveryQueries, buildNationalRelevanceProfile, getNationalAcademicGrade, getNationalFormationTitle, inferNationalStudyLevel, nationalFormationMatches, nationalSearchParameters, resolveNationalDepartment, scoreNationalFormation } from './nationalFormationMatching.js'
 
 export function buildExplorerProfile(entries = [], profile = {}) {
   const latest = [...entries].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))
@@ -37,7 +37,6 @@ export async function loadExplorerCatalog(searchFormations, {
   const pending = queries ? [...queries] : (search ? [search] : personalized ? buildNationalDiscoveryQueries(context) : [''])
     .map((q) => ({ q, page: 1 }))
   const rows = new Map()
-  const pathways = new Map()
   const errors = []
   const active = () => isCurrent() && !signal?.aborted
   const deadline = AbortSignal.timeout(6000)
@@ -60,10 +59,6 @@ export async function loadExplorerCatalog(searchFormations, {
       for (const row of data.items) {
         if (row.id != null) rows.set(String(row.id), row)
       }
-      if (data.pathways !== undefined && !Array.isArray(data.pathways)) throw new Error('Invalid master pathway response')
-      for (const row of data.pathways || []) {
-        if (row.id != null) pathways.set(String(row.id), row)
-      }
       if (data.has_more === true) pending.push({ ...current, page: current.page + 1 })
     } catch (error) {
       if (!active()) return null
@@ -72,7 +67,7 @@ export async function loadExplorerCatalog(searchFormations, {
     const cards = nationalExplorerCards([...rows.values()], context)
     if (!personalized || cards.filter((card) => card.score != null).length >= pageSize) break
   }
-  return { rows: [...rows.values()], pathways: [...pathways.values()], nextQueries: pending, errors }
+  return { rows: [...rows.values()], nextQueries: pending, errors }
 }
 
 export function externalFormationHref(value) {
@@ -124,18 +119,6 @@ export function nationalExplorerCards(rows, { analysis, profile = {} } = {}) {
   })
 }
 
-export function relevantMasterPathways(rows, context = {}, department = '') {
-  const relevance = buildNationalRelevanceProfile(context)
-  const seen = new Set()
-  return [...rows].sort((a, b) => String(b.annee || '').localeCompare(String(a.annee || ''))).filter((row) => {
-    if (!nationalMasterPathwayMatches(row, context.profile, department)) return false
-    if (relevance.groups.length && !scoreNationalFormation(row, relevance, context.profile).relevant) return false
-    const key = [row.etab_uai || row.etab_nom, row.commune, row.nm?.[0] || row.nmc].join('|')
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-}
 export function partnerExplorerCards(partners, matched = []) {
   const matches = new Map(matched.map((partner) => [String(partner.id), partner]))
   const seen = new Set()

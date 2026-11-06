@@ -168,6 +168,29 @@ test('dashboard SQL: consent, attribution, isolation, exact totals and replay', 
     await db.exec('SET ROLE authenticated')
     await assert.rejects(db.query("SELECT ensure_partner_portal('Forbidden')"), /permission denied/)
     await db.exec('RESET ROLE')
+
+    await db.exec(`ALTER TABLE ecoles_partenaires
+      ALTER COLUMN id SET DEFAULT gen_random_uuid(),
+      ADD COLUMN domain text, ADD COLUMN diploma_level text, ADD COLUMN description text, ADD COLUMN contact_email text;
+      CREATE TABLE public.backoffice_audit(actor_id uuid,action text,resource_type text,resource_id text,reason text,changed_fields text[]);
+      INSERT INTO auth.users(id,email) VALUES('99999999-9999-4999-8999-999999999999','joris.geerdes@21datas.ch');`)
+    const backofficeMigration = await readFile(new URL('../database/migration_backoffice.sql',import.meta.url),'utf8')
+    const changeFunction = backofficeMigration.match(/CREATE OR REPLACE FUNCTION public\.backoffice_change\([\s\S]+?\n\$\$;/)?.[0]
+    assert.ok(changeFunction)
+    await db.exec(changeFunction)
+    await db.exec(await readFile(new URL('../database/migration_backoffice_partner_results.sql',import.meta.url),'utf8'))
+    await db.exec(await readFile(new URL('../database/migration_partner_departments.sql',import.meta.url),'utf8'))
+    const addedDepartmentCampuses = (await db.query(`SELECT public.backoffice_create_partner_campuses_with_departments(
+      '99999999-9999-4999-8999-999999999999',$1,$2,'Test departments') AS result`,[
+      JSON.stringify({school_name:'MyDigitalSchool',formation_name:'BTS SIO'}),
+      JSON.stringify([{city:'Muret',department:'31'},{city:'Toulouse',department:'31'}])
+    ])).rows[0].result
+    assert.equal(addedDepartmentCampuses.total,2)
+    assert.ok(addedDepartmentCampuses.items.every((item) => item.portal_company_id === mdsCompany && item.department === '31'),'Department-aware campus creation preserves automatic shared dashboards')
+    for (const campus of addedDepartmentCampuses.items) {
+      const link = (await db.query("SELECT company_id,campus FROM school_catalog_links WHERE source='ecoles_partenaires' AND formation_ref=$1",[campus.id])).rows[0]
+      assert.deepEqual(link,{company_id:mdsCompany,campus:campus.city})
+    }
   } finally { await db.close() }
 })
 

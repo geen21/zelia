@@ -67,7 +67,7 @@ export function buildOrientationSearchContext(orientationProfile = {}, saved = [
 
 export const FORMATION_RECOMMENDATION_GUIDELINES = `Les préférences explicites de diplôme et de mobilité ne doivent pas disparaître pour remplir la liste.
 Respecte les familles demandées, pas seulement leur niveau : un BUT n'est pas une licence. Pour le choix Master, inclue les diplômes nationaux de master et les autres diplômes dont le grade master est établi, en conservant leur intitulé exact.
-Un Cursus Master en Ingénierie (CMI) peut être présenté séparément comme parcours vers un master, pas comme une entrée directe en M1/M2 ou comme un diplôme national de master déjà accessible.
+Les Cursus Master en Ingénierie (CMI) suivent les mêmes règles que les autres formations et restent sous leur intitulé exact, avec leurs conditions d'accès.
 Un mastère, MBA ou titre RNCP de niveau 7 ne confère pas automatiquement un master ; un DU/DIU n'est pas un doctorat/PhD.
 DN MADE est un diplôme bac+3, et non un master. Le PASS ou une CPGE sont des étapes d'accès, pas le diplôme final en médecine ou un diplôme d'ingénieur.
 Si le diplôme visé est une étape lointaine, nomme d'abord ce diplôme avec son domaine puis explique séparément le parcours d'accès. Ne rebaptise pas une étape préparatoire en diplôme demandé.

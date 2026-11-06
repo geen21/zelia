@@ -3,28 +3,12 @@ import { supabaseAdmin } from '../config/supabase.js'
 import { authenticateToken } from '../middleware/auth.js'
 import { fetchActivePartnerFormations, matchPartnerFormations } from '../utils/partnerMatching.js'
 import { notifyPortalLeads, SHARING_VERSION } from '../utils/schoolDashboard.js'
-import { getDepartmentCity } from '../../client/src/lib/departments.js'
+import { getDepartmentCode } from '../../client/src/lib/departments.js'
 
 const router = express.Router()
 
 const EXTRA_INFO_MATCHING_LIMIT = 250
 const MAX_MATCHING_SIGNAL_LENGTH = 12000
-
-function normalizeLocationText(value) {
-  return String(value || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-}
-
-function sameCity(left, right) {
-  const a = normalizeLocationText(left)
-  const b = normalizeLocationText(right)
-  if (!a || !b) return false
-  return a === b || a.includes(b) || b.includes(a)
-}
 
 function sanitizeMatchingEntry(entry) {
   const answerText = entry?.answer_text != null && String(entry.answer_text).length > MAX_MATCHING_SIGNAL_LENGTH
@@ -123,18 +107,18 @@ router.get('/matched', authenticateToken, async (req, res) => {
     const storedCity = pickFirstValue('orientation_city') || institutionData.city || institutionData.ville || institutionData.commune || ''
     const departmentCode = pickFirstValue('orientation_department') || profile?.department || ''
     const departmentName = pickFirstValue('orientation_department_name') || institutionData.department_name || ''
-    const nearHomeCity = studyLocation === 'near_home'
-      ? getDepartmentCity({ city: storedCity, code: departmentCode, name: departmentName })
+    const nearHomeDepartment = studyLocation === 'near_home'
+      ? getDepartmentCode({ code: departmentCode, name: departmentName })
       : ''
 
-    if (studyLocation === 'near_home' && !nearHomeCity) {
-      return res.status(400).json({ error: 'Renseigne une ville ou un département reconnu pour rechercher près de chez toi.' })
+    if (studyLocation === 'near_home' && !nearHomeDepartment) {
+      return res.status(400).json({ error: 'Renseigne un département reconnu pour rechercher près de chez toi.' })
     }
 
-    const formations = await fetchActivePartnerFormations(supabaseAdmin, { resultsOnly: true })
+    const formations = await fetchActivePartnerFormations(supabaseAdmin, { resultsOnly: true, department: nearHomeDepartment })
 
     if (formations.length === 0) {
-      return res.json({ matched: [] })
+      return res.json({ matched: [], userCity: storedCity || null, userDepartment: nearHomeDepartment || null })
     }
 
     const { data: analysisResult, error: analysisError } = await supabaseAdmin
@@ -146,14 +130,14 @@ router.get('/matched', authenticateToken, async (req, res) => {
 
     if (analysisError && analysisError.code !== 'PGRST116') throw analysisError
 
-    const userCity = nearHomeCity || storedCity
+    const userCity = storedCity
     const matched = matchPartnerFormations(formations, { pickFirstValue, analysisResult, userCity })
-    const filteredMatched = nearHomeCity
-      ? matched.filter((formation) => sameCity(formation.city, nearHomeCity))
-      : matched
-    res.json({ matched: filteredMatched, userCity: userCity || null })
+    res.json({ matched, userCity: userCity || null, userDepartment: nearHomeDepartment || null })
   } catch (e) {
     console.error('GET /ecoles/matched error:', e)
+    if (['42703', 'PGRST204'].includes(e.code) && String(e.message).includes('department')) {
+      return res.status(503).json({ error: 'La recherche par département nécessite la migration migration_partner_departments.sql.' })
+    }
     res.status(500).json({ error: 'Failed to fetch matched formations' })
   }
 })

@@ -1,7 +1,0 @@
-.master-pathways { margin: 24px 0; padding: 18px; border: 1px solid #d5dccd; border-radius: 18px; background: #f8fbf3; color: #172014; }
-.master-pathways h2 { margin: 0 0 10px; font-size: 20px; }
-.master-pathways p { margin: 0 0 14px; line-height: 1.5; }
-.master-pathways ul { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
-.master-pathways li { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; padding: 12px; border-radius: 12px; background: #fff; overflow-wrap: anywhere; }
-.master-pathways li span { font-size: 14px; }
-.master-pathways a { display: inline-flex; align-items: center; min-height: 44px; color: #263d17; font-weight: 700; text-decoration: underline; }

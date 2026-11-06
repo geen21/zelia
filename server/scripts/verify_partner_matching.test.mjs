@@ -3,7 +3,7 @@ import test from 'node:test'
 import { buildPartnerMatchingProfile, fetchActivePartnerFormations, matchPartnerFormations } from '../utils/partnerMatching.js'
 import { buildFormationRelevanceProfile, scoreFormationRelevance } from '../../client/src/lib/formationRelevance.js'
 import { FORMATION_PREFERENCE_LEVELS, filterCandidatesByTargetStudyLevel, getTargetStudyLevel, inferFormationStudyLevel } from '../../client/src/lib/formationLevel.js'
-import { DEPARTMENTS, getDepartmentCity } from '../../client/src/lib/departments.js'
+import { DEPARTMENTS, getDepartmentCode } from '../../client/src/lib/departments.js'
 
 const jobRecommendations = [
   { title: 'Ingénieur environnement', skills: ['Gestion de projet', 'Communication'] },
@@ -39,29 +39,32 @@ test('all 101 registration departments resolve by code and name, including Corsi
     '971', '972', '973', '974', '976'
   ]
   assert.deepEqual(DEPARTMENTS.map(([code]) => code), expectedCodes)
-  for (const [code, name, city] of DEPARTMENTS) {
-    assert.ok(city.trim(), `${code} must have a reference city`)
-    assert.equal(getDepartmentCity({ code }), city, code)
-    assert.equal(getDepartmentCity({ name }), city, name)
+  for (const entry of DEPARTMENTS) {
+    assert.equal(entry.length, 2, 'The department reference must only contain code and name')
+    const [code, name] = entry
+    assert.ok(name.trim(), `${code} must have a name`)
+    assert.equal(getDepartmentCode({ code }), code)
+    assert.equal(getDepartmentCode({ name }), code)
   }
-  assert.equal(getDepartmentCity({ code: '13' }), 'Marseille')
-  assert.equal(getDepartmentCity({ code: '67' }), 'Strasbourg')
-  assert.equal(getDepartmentCity({ code: '61' }), 'Flers')
-  assert.equal(getDepartmentCity({ code: '62' }), 'Lens')
-  assert.equal(getDepartmentCity({ code: '80' }), 'Amiens')
 })
 
-test('department lookup normalizes saved values and preserves an explicitly supplied city', () => {
-  assert.equal(getDepartmentCity({ code: 6 }), 'Nice')
-  assert.equal(getDepartmentCity({ code: ' 2a ' }), 'Ajaccio')
-  assert.equal(getDepartmentCity({ name: ' bouches du rhone ' }), 'Marseille')
-  assert.equal(getDepartmentCity({ code: 'BAS-RHIN' }), 'Strasbourg')
-  assert.equal(getDepartmentCity({ name: "Cote-d'Or" }), 'Dijon')
-  assert.equal(getDepartmentCity({ code: '13', city: ' Aix-en-Provence ' }), 'Aix-en-Provence')
-  assert.equal(getDepartmentCity({ code: '67', ville: 'Haguenau' }), 'Haguenau')
-  assert.equal(getDepartmentCity({ commune: 'Nancy' }), 'Nancy')
-  assert.equal(getDepartmentCity({ code: 'XX' }), '')
-  assert.equal(getDepartmentCity(), '')
+test('department lookup normalizes saved values without deriving a department from a city', () => {
+  assert.equal(getDepartmentCode(6), '06')
+  assert.equal(getDepartmentCode(' 2a '), '2A')
+  assert.equal(getDepartmentCode('Haute-Garonne'), '31')
+  assert.equal(getDepartmentCode('La Reunion'), '974')
+  assert.equal(getDepartmentCode({ code: '31', city: 'Muret' }), '31')
+  assert.equal(getDepartmentCode({ city: 'Muret' }), '')
+  assert.equal(getDepartmentCode('99'), '')
+  assert.equal(getDepartmentCode(null), '')
+  assert.equal(getDepartmentCode({ name: ' bouches du rhone ' }), '13')
+  assert.equal(getDepartmentCode({ code: 'BAS-RHIN' }), '67')
+  assert.equal(getDepartmentCode({ name: "Cote-d'Or" }), '21')
+  assert.equal(getDepartmentCode({ code: '13', city: ' Aix-en-Provence ' }), '13')
+  assert.equal(getDepartmentCode({ code: '67', ville: 'Haguenau' }), '67')
+  assert.equal(getDepartmentCode({ commune: 'Nancy' }), '')
+  assert.equal(getDepartmentCode({ code: 'XX' }), '')
+  assert.equal(getDepartmentCode(), '')
 })
 
 test('the active partner catalogue reads every page and propagates intermediate failures', async () => {
@@ -69,12 +72,14 @@ test('the active partner catalogue reads every page and propagates intermediate 
   const ranges = []
   let fail = false
   let resultsOnly = false
+  let department = ''
   const db = { from(table) {
     assert.equal(table, 'ecoles_partenaires')
     const orders = []
     return {
       select(columns) { assert.equal(columns, '*'); return this },
       eq(key, value) {
+        if (key === 'department') { assert.equal(value, department); return this }
         assert.equal(value, true)
         assert.ok(key === 'is_active' || (key === 'show_in_results' && resultsOnly))
         return this
@@ -91,6 +96,8 @@ test('the active partner catalogue reads every page and propagates intermediate 
   assert.deepEqual(ranges, [[0, 999], [1000, 1999], [2000, 2999]])
   resultsOnly = true
   assert.equal((await fetchActivePartnerFormations(db, { resultsOnly: true })).length, 2005)
+  department = '31'
+  assert.equal((await fetchActivePartnerFormations(db, { resultsOnly: true, department })).length, 2005)
   fail = true
   await assert.rejects(fetchActivePartnerFormations(db), /Second page unavailable/)
 })

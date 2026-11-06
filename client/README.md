@@ -9,6 +9,11 @@ Choix de formations dans l'orientation
 - Doctorat et CAP ou bac pro sont masques dans ce selecteur, faute de correspondances dans le catalogue national actuel. Les libelles et traitements historiques restent disponibles pour relire les anciens profils ; aucune donnee existante n'est supprimee.
 - Lorsqu'un eleve repasse par cette question, les choix masques d'un ancien brouillon ne comptent plus dans la limite de trois et sont retires du brouillon a la validation de cette etape.
 
+Departements des partenaires
+- Dans le back-office, la creation et l'edition d'un partenaire demandent un departement. En multi-campus, chaque ville possede son propre selecteur de departement.
+- Pour « Pres de chez moi », les recommandations partenaires utilisent le code du departement du campus, pas la ville de reference du profil. Muret et Toulouse sont donc eligibles pour le 31. Le catalogue general conserve toutes les formations partenaires actives.
+- Appliquer `server/database/migration_partner_departments.sql` avant de deployer cette interface ; les etapes et verifications sont detaillees dans [DEPLOYMENT.md](../DEPLOYMENT.md).
+
 Run
 1. Install: npm install
 2. Dev server: npm run dev (proxy /api to http://localhost:8000)
@@ -77,6 +82,7 @@ Pages metiers (/metiers/)
 - Ajouter `--skip-build` pour verifier les fichiers deja construits contre ce meme snapshot. Les serveurs de test utilisent des ports attribues par Node, sans occuper le port 5173 d'un serveur de developpement existant.
 
 Orientation (/orientation)
+- "Decouvre tes formations" et "Decouvre tes metiers" partagent le meme bouton citron et la meme barre fixe en bas, avec un espace reserve pour ne pas masquer le contenu. Les actions de partage du profil restent dans la carte ; `verify:orientation-ui` compare les styles et dimensions des deux CTA sur desktop et mobile.
 - La v5 place chaque dilemme dans une phrase comparative courte, plutot que dans de longs boutons.
 - Quatre boutons colores : Carrement / Plutot oui / Plutot pas / Pas du tout. Un clic repond et avance, sans A/B ni second choix ; les touches 1-4 permettent de nuancer et les fleches/swipes choisissent les extremes.
 - Les six etapes de preferences apres le test gardent le meme alignement en haut et le meme espacement sous l'en-tete que les questions, sans centrage vertical variable. L'en-tete conserve sa hauteur quand le bouton retour apparait ; `verify:orientation-ui` controle ces dimensions sur desktop et mobile.

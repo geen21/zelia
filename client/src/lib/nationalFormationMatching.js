@@ -17,7 +17,7 @@ export const NATIONAL_CODE_SUBJECTS = {
 
 export const NATIONAL_FORMAT_PATTERNS = {
   bts: ['BTS*'], but: ['BUT*'], licence: ['L1-*', 'L2-*', 'L3-*', 'Licence*'],
-  bachelor: ['Bachelor*', '*BAC3*'], master: ['M1-*', 'M2-*', 'Master*', 'ScPo*', '*BAC5*', 'DSCG*', 'DNSEP*'],
+  bachelor: ['Bachelor*', '*BAC3*'], master: ['M1-*', 'M2-*', 'Master*', 'CMI*', 'ScPo*', '*BAC5*', 'DSCG*', 'DNSEP*'],
   doctorat: ['*doctorat*', '*PhD*', '*thèse*'], voie_pro: ['CAP*', '*Bac*pro*'],
   prepa: ['CPGE*', '*prépa*']
 }
@@ -32,26 +32,18 @@ export function getNationalAcademicGrade(row = {}) {
   return text.match(/\bgrade (?:de )?(licence|master)\b/)?.[1] || null
 }
 
-export function isNationalMasterPathway(row = {}) {
-  const raw = row.raw || row
-  return /^CMI(?:[-/\s]|$)/i.test(String(raw.nmc || ''))
-    || /\bcursus master (?:en )?ingenierie\b/.test(normalizeRelevanceText(raw.nm?.[0]))
-}
-
-export function nationalMasterPathwayMatches(row, profile = {}, department = '') {
-  return getNationalStudyLevels(profile).includes(5) && isNationalMasterPathway(row)
-    && (!department || normalizeRelevanceText(row.departement) === normalizeRelevanceText(department))
-}
-
 export function getNationalDiplomaFormat(row) {
   const code = String(row.nmc || '').trim()
+  const text = normalizeRelevanceText(row.nm?.[0] || code)
+  if (/^CMI(?:[-/\s]|$)/i.test(code)
+    || /^(?:c m i )?cursus master (?:en )?ingenierie\b/.test(text)
+    || (/^L[123](?:[-\s]|$)/i.test(code) && /\bcursus master (?:en )?ingenierie\b/.test(text))) return 'master'
   if (/^BTS[AM]?(?:[-/\s]|$)/i.test(code)) return 'bts'
   if (/^BUT(?:[-/\s]|$)/i.test(code)) return 'but'
   if (/^L[123](?:[-\s]|$)/i.test(code)) return 'licence'
   if (/^M[12](?:[-\s]|$)/i.test(code)) return 'master'
   if (/^FI[-\s]/i.test(code)) return 'ecole_specialisee'
   if (/^DNM-/i.test(code)) return 'ecole_specialisee'
-  const text = normalizeRelevanceText(row.nm?.[0] || code)
   if (/^(mise a niveau|classe de mise a niveau|annee preparatoire|insertion a la licence)\b/.test(text)
     || /^(MAN-|AnP$)/i.test(code)) return 'preparation'
   if (/^(du|diu|diplome d universite|diplome universitaire|diplome interuniversitaire|diplome inter universitaire)\b/.test(text)) return 'du'
@@ -85,6 +77,8 @@ export function getNationalStudyLevels(profile = {}) {
 export function inferNationalStudyLevel(row = {}) {
   const raw = row.raw || row
   const code = String(raw.nmc || '').trim()
+  const family = getNationalDiplomaFormat(raw)
+  if (family === 'master') return 5
   if (/^L[123](?:[-\s]|$)/i.test(code)) return 3
   if (/^M[12](?:[-\s]|$)/i.test(code)) return 5
   if (/^(?:DNM-|DN\s*MADE)/i.test(code)) return 3
@@ -92,10 +86,8 @@ export function inferNationalStudyLevel(row = {}) {
   if (/^BTS[AM]?(?:[-/\s]|$)|^(DUT|DEUST)(?:[-/\s]|$)/i.test(code)) return 2
   if (/^(BUT|DCG|DNA)(?:[-/\s]|$)/i.test(code)) return 3
   if (/^(DSCG|DNSEP)(?:[-/\s]|$)/i.test(code)) return 5
-  const family = getNationalDiplomaFormat(raw)
-  if (['du', 'doctorat_exercice', 'prepa', 'preparation'].includes(family) || /^(PASS|CMI|CUPGE|CPES)(?:[-/\s]|$)/i.test(code)) return null
+  if (['du', 'doctorat_exercice', 'prepa', 'preparation'].includes(family) || /^(PASS|CUPGE|CPES)(?:[-/\s]|$)/i.test(code)) return null
   if (family === 'doctorat') return 8
-  if (family === 'master') return 5
   if (['licence', 'but'].includes(family)) return 3
   if (family === 'bts') return 2
   if (family === 'voie_pro') return 1

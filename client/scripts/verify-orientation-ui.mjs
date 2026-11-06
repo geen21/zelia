@@ -173,6 +173,17 @@ async function assertStageLayout(page, reference) {
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Orientation step overflow.')
 }
 
+async function getContinueButtonStyle(button) {
+  return button.evaluate((element) => {
+    const style = getComputedStyle(element)
+    return Object.fromEntries([
+      'backgroundColor', 'color', 'borderRadius', 'borderWidth', 'borderColor',
+      'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'minHeight', 'gap',
+      'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'boxShadow'
+    ].map((property) => [property, style[property]]))
+  })
+}
+
 try {
   for (const draft of [['doctorat', 'voie_pro', 'master'], ['doctorat', 'voie_pro']]) {
     const { context, page, state, releaseAnalysis } = await prepareJourney({ width: 390, height: 844 }, { answered: true })
@@ -683,7 +694,7 @@ try {
     { name: 'partners-only-unselected', viewport: { width: 390, height: 844 }, populated: false, partnersOnly: true, selectPartners: false },
     { name: 'empty', viewport: { width: 390, height: 844 }, populated: false },
     { name: 'doctorat-empty', viewport: { width: 390, height: 844 }, populated: false, formationPreferences: ['doctorat'] },
-    { name: 'master-grade-and-pathway', viewport: { width: 390, height: 844 }, populated: true, noPartners: true, formationPreferences: ['master'], masterCoverage: true },
+    { name: 'masters-unified-results', viewport: { width: 390, height: 844 }, populated: true, noPartners: true, formationPreferences: ['master'], masterCoverage: true },
     { name: 'jobs-long-desktop', viewport: { width: 680, height: 900 }, populated: false, jobRecommendations: longJobs },
     { name: 'jobs-long-tablet', viewport: { width: 570, height: 800 }, populated: false, jobRecommendations: longJobs },
     { name: 'jobs-long-mobile', viewport: { width: 320, height: 568 }, populated: false, jobRecommendations: longJobs },
@@ -711,6 +722,7 @@ try {
       formation_name: `BTS Partenaire ${index + 1}`, results_priority: 0, match_score: 40
     })) : []
     const partnerCount = hasPartners ? 3 : 0
+    const nationalCount = scenario.populated ? (scenario.masterCoverage ? 2 : 8) : 0
     // Relevance (match_score) ranks partners; the back-office priority only adds up to +5.
     const expectedPartnerIds = scenario.partnerMatchScore === undefined
       ? ['partner-fourth', 'partner-second', 'partner-third']
@@ -788,8 +800,10 @@ try {
       else if (path === '/catalog/formations/search') {
         await catalogReady
         data = scenario.masterCoverage ? {
-          items: [{ id: 5604, nmc: 'ScPo', nm: ['Sciences Po - Instituts d’études politiques - Grade Master'], fl: ['Grade Master'], etab_nom: 'Établissement exemple', commune: 'Paris', departement: 'Paris' }],
-          pathways: [{ id: 3661, nmc: 'CMI-Info', nm: ['Cursus Master en Ingénierie - Informatique'], etab_nom: 'Université exemple', commune: 'Paris', departement: 'Paris' }]
+          items: [
+            { id: 5604, nmc: 'ScPo', nm: ['Sciences Po - Instituts d’études politiques - Grade Master'], fl: ['Grade Master'], etab_nom: 'Établissement exemple', commune: 'Paris', departement: 'Paris' },
+            { id: 3661, nmc: 'CMI-Info', nm: ['Cursus Master en Ingénierie - Informatique'], etab_nom: 'Université exemple', commune: 'Paris', departement: 'Paris' }
+          ]
         } : { items: scenario.populated ? formations : [] }
       } else {
         errors.push(`Unexpected API request: ${request.method()} ${path}`)
@@ -801,13 +815,42 @@ try {
     try {
       await page.goto(`${base}/orientation`)
       const studiesCta = page.getByRole('button', { name: 'Découvre tes formations', exact: true })
+      await expect(studiesCta).toHaveCount(1)
+      await expect(studiesCta).toBeInViewport({ ratio: 1 })
       await expect(studiesCta.locator('svg[aria-hidden="true"]')).toBeVisible()
+      await expect(page.locator('.personality-reveal-actions')).toHaveCSS('position', 'fixed')
+      await expect(page.locator('.persona-card-poster .persona-icon-btn')).toHaveCount(3)
+      await expect(page.locator('.persona-card-poster .persona-continue')).toHaveCount(0)
+      await page.mouse.move(0, 0)
+      await expect(studiesCta).toHaveCSS('transform', 'none')
+      const studiesStyle = await getContinueButtonStyle(studiesCta)
+      const studiesPosition = await studiesCta.boundingBox()
+      await page.locator('.personality-details summary').click()
+      await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }))
+      await expect(studiesCta).toBeInViewport({ ratio: 1 })
+      await page.mouse.move(0, 0)
+      await expect(studiesCta).toHaveCSS('transform', 'none')
+      const studiesPositionAfterScroll = await studiesCta.boundingBox()
+      assert.ok(Math.abs(studiesPositionAfterScroll.y - studiesPosition.y) <= 1, 'The formations CTA must stay fixed during scrolling.')
+      const detailsBox = await page.locator('.personality-details').boundingBox()
+      const studiesBar = await page.locator('.personality-reveal-actions').boundingBox()
+      assert.ok(detailsBox.y + detailsBox.height <= studiesBar.y, 'The fixed formations CTA must not obscure the analysis.')
+      if (['desktop', 'mobile', 'small-mobile'].includes(scenario.name)) {
+        await page.screenshot({ path: join(output, `${scenario.name}-discover-formations.png`) })
+      }
       const firstPartnerResponse = page.waitForResponse((response) => response.url().endsWith('/api/ecoles/matched'))
       const firstCatalogResponse = scenario.slowPartners
         ? page.waitForResponse((response) => response.url().includes('/api/catalog/formations/search'))
         : null
-      await studiesCta.click()
+      if (scenario.name === 'mobile') {
+        await studiesCta.focus()
+        await page.keyboard.press('Enter')
+      } else {
+        await studiesCta.click()
+      }
       const jobsCta = page.getByRole('button', { name: 'Découvre tes métiers', exact: true })
+      await expect(studiesCta).toHaveCount(0)
+      await expect(page.locator('.personality-reveal-actions')).toHaveCount(0)
       await expect(page.getByText('On cherche parmi 127 498 formations celles qui collent vraiment à ton profil...')).toBeVisible()
       await expect(jobsCta).toBeInViewport({ ratio: 1 })
       await expect(jobsCta).toBeDisabled()
@@ -834,18 +877,16 @@ try {
       await (await firstPartnerResponse).finished()
 
       if (scenario.masterCoverage) {
-        await expect(page.locator('.formation-lead-card[data-source="national"]')).toHaveCount(1)
-        await expect(page.locator('.formation-lead-meta')).toContainText('Grade master')
-        const pathways = page.getByRole('region', { name: 'Parcours vers un master' })
-        await expect(pathways).toBeVisible()
-        await expect(pathways).toContainText('Cursus Master en Ingénierie - Informatique')
-        await expect(pathways).toContainText('ne sont pas des propositions d’entrée directe')
-        await expect(pathways.getByRole('checkbox')).toHaveCount(0)
-        await expect(jobsCta).toBeEnabled()
-        await page.screenshot({ path: join(output, 'master-grade-and-pathway.png'), fullPage: true })
-        assert.deepEqual(errors, [])
-        console.log('master-grade-and-pathway: established master grade and separately labelled CMI verified.')
-        continue
+        const cmi = page.locator('.formation-lead-card[data-source="national"]', { hasText: 'Cursus Master en Ingénierie - Informatique' })
+        await expect(cmi).toBeVisible()
+        await expect(cmi.locator('.formation-lead-score')).toBeVisible()
+        await expect(cmi.getByRole('checkbox', { name: "Je veux plus d'infos" })).toBeChecked()
+        await cmi.locator('.formation-lead-check').click()
+        await expect(cmi.getByRole('checkbox')).not.toBeChecked()
+        await cmi.locator('.formation-lead-check').click()
+        await expect(cmi.getByRole('checkbox')).toBeChecked()
+        await expect(page.getByRole('region', { name: 'Parcours vers un master' })).toHaveCount(0)
+        await expect(page.getByRole('link', { name: 'Explorer le parcours' })).toHaveCount(0)
       }
 
       if (scenario.partnerFailure) {
@@ -880,14 +921,22 @@ try {
 
       await expect(page.getByRole('button', { name: "Voir d'autres formations" })).toHaveCount(1)
       await expect(jobsCta).toBeEnabled()
+      await page.mouse.move(0, 0)
+      await expect(jobsCta).toHaveCSS('background-color', studiesStyle.backgroundColor)
+      await expect(jobsCta).toHaveCSS('transform', 'none')
+      assert.deepEqual(await getContinueButtonStyle(jobsCta), studiesStyle, 'Both discovery CTAs must have exactly the same computed appearance.')
+      const jobsPosition = await jobsCta.boundingBox()
+      for (const dimension of ['x', 'y', 'width', 'height']) {
+        assert.ok(Math.abs(jobsPosition[dimension] - studiesPosition[dimension]) <= 1, `Both discovery CTAs must have the same ${dimension}: ${studiesPosition[dimension]} vs ${jobsPosition[dimension]}.`)
+      }
       await expect(page.locator('.orientation-loading')).toHaveCount(0)
-      await expect(page.locator('.formation-lead-card[data-source="national"]')).toHaveCount(scenario.populated ? 8 : 0)
+      await expect(page.locator('.formation-lead-card[data-source="national"]')).toHaveCount(nationalCount)
       for (const title of offTopicTitles) await expect(page.locator('.formation-lead-card', { hasText: title })).toHaveCount(0)
       await expect(partnerCards).toHaveCount(partnerCount)
       const cardSources = await page.locator('.formation-lead-card').evaluateAll((cards) => cards.map((card) => card.dataset.source))
       if (hasPartners) assert.equal(cardSources.indexOf('partner'), scenario.populated ? 3 : 0, 'The first partner comes after the first three national results.')
-      await expect(page.getByRole('checkbox')).toHaveCount((scenario.populated ? 8 : 0) + partnerCount)
-      const recommendationCount = (scenario.populated ? 8 : 0) + partnerCount
+      await expect(page.getByRole('checkbox')).toHaveCount(nationalCount + partnerCount)
+      const recommendationCount = nationalCount + partnerCount
       await expect.poll(() => savedRecommendations.at(-1)?.length).toBe(recommendationCount)
       assert.ok(savedRecommendations.at(-1).every((item) => !Object.hasOwn(item,'requestMoreInformation')),'A displayed recommendation does not represent a choice or a request for information.')
       assert.equal(savedSelections.length,0,'Displayed recommendations must be recorded before continuation, separately from choices.')
@@ -979,11 +1028,14 @@ try {
       if (['desktop', 'mobile', 'small-mobile', 'jobs-long-desktop', 'jobs-long-tablet', 'jobs-long-mobile', 'jobs-empty'].includes(scenario.name)) {
         await page.locator('.metier-reveal-card').screenshot({ path: join(output, `${scenario.name}-jobs.png`) })
       }
-      const formationCount = (scenario.populated ? 8 : 0) + partnerCount
+      const formationCount = nationalCount + partnerCount
       await expect.poll(() => savedSelections.length).toBe(formationCount ? 1 : 0)
       if (scenario.populated) {
         const nationalSaved = savedSelections[0].filter((entry) => entry.sourceTable === 'formation_france')
-        assert.equal(nationalSaved.length, 8)
+        assert.equal(nationalSaved.length, nationalCount)
+        if (scenario.masterCoverage) {
+          assert.ok(nationalSaved.some((entry) => String(entry.rawId) === '3661'), 'CMI selection must be saved with the other national formations')
+        }
         assert.equal(nationalSaved[0].requestMoreInformation, false)
         assert.ok(nationalSaved.slice(1).every((entry) => entry.requestMoreInformation))
       }

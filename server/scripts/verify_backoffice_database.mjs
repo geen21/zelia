@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { PGlite } from '@electric-sql/pglite'
 import { formationHref } from '../../client/src/lib/adminSelections.js'
+import { DEPARTMENTS } from '../../client/src/lib/departments.js'
 
 const db = new PGlite()
 const joris = '11111111-1111-4111-8111-111111111111'
@@ -306,7 +307,53 @@ try {
   assert.equal((await rpc("SELECT public.backoffice_recommendations('','national') AS result")).total,1001,'Legacy final selections remain a read-only fallback')
   await assert.rejects(asStudent('SELECT public.backoffice_recommendations()'),/permission denied/)
   await assert.rejects(asStudent("SELECT public.backoffice_recommended_candidates('[]')"),/permission denied/)
-  console.log('Back-office PostgreSQL functions, student growth/UTC/exclusions, pagination >1000, atomic audit, suspension and RLS verified.')
+  await db.exec(`INSERT INTO ecoles_partenaires(school_name,formation_name,city) VALUES
+    ('Fixture Muret','BTS SIO','Muret'),('Ambiguous school','BTS','Flers'),('Lycée Jean Guéhenno','BTS','Flers');`)
+  const partnersBeforeDepartments = (await db.query('SELECT * FROM ecoles_partenaires ORDER BY id')).rows
+  const departmentMigration = await readFile(new URL('../database/migration_partner_departments.sql',import.meta.url),'utf8')
+  await db.exec(departmentMigration)
+  await db.exec(departmentMigration)
+  const partnersAfterDepartments = (await db.query('SELECT * FROM ecoles_partenaires ORDER BY id')).rows
+  assert.deepEqual(partnersAfterDepartments.map(({department,...row}) => row),partnersBeforeDepartments,'Migration preserves ids, portal links, settings and all other columns')
+  assert.equal(partnersAfterDepartments.find((row) => row.school_name === 'Fixture Muret').department,'31')
+  assert.equal(partnersAfterDepartments.find((row) => row.school_name === 'Ambiguous school').department,null,'Ambiguous cities require explicit correction')
+  assert.equal(partnersAfterDepartments.find((row) => row.school_name === 'Lycée Jean Guéhenno').department,'61')
+  for (const [code] of DEPARTMENTS) assert.equal((await db.query('SELECT public.is_valid_partner_department($1) AS valid',[code])).rows[0].valid,true,code)
+  for (const code of ['20','96','99','975','2C','6','31x',null]) assert.equal((await db.query('SELECT public.is_valid_partner_department($1) AS valid',[code])).rows[0].valid,false)
+  await assert.rejects(change('partner',null,{school_name:'Missing',formation_name:'BTS',city:'Muret'}),/PARTNER_DEPARTMENT_REQUIRED/)
+  await assert.rejects(change('partner',partner,{city:'Muret'}),/PARTNER_DEPARTMENT_REQUIRED/)
+  await assert.rejects(change('partner',partner,{department:'99'}),/PARTNER_DEPARTMENT_REQUIRED/)
+  const correctedDepartment = await change('partner',partner,{city:'Muret',department:'31'})
+  assert.equal(correctedDepartment.department,'31')
+  assert.ok((await db.query("SELECT changed_fields FROM backoffice_audit WHERE resource_id=$1 ORDER BY id DESC LIMIT 1",[partner])).rows[0].changed_fields.includes('department'))
+  await assert.rejects(db.query("INSERT INTO ecoles_partenaires(school_name,formation_name,city) VALUES('Missing','BTS','Muret')"),/PARTNER_DEPARTMENT_REQUIRED/)
+  await assert.rejects(db.query("UPDATE ecoles_partenaires SET department='99' WHERE id=$1",[partner]),/check constraint/)
+  await assert.rejects(db.query("UPDATE ecoles_partenaires SET department=null WHERE id=$1",[partner]),/PARTNER_DEPARTMENT_REQUIRED/)
+  const createDepartmentCampuses = (patch,campuses,actor = joris) => rpc('SELECT public.backoffice_create_partner_campuses_with_departments($1,$2,$3,$4) AS result',[actor,JSON.stringify(patch),JSON.stringify(campuses),'Ajout campus'])
+  const newCampuses = [{city:' Muret ',department:'31'},{city:'Toulouse',department:'31'},{city:'Nice',department:'06'},{city:'Flers',department:'61'},{city:'Flers',department:'62'}]
+  const createdDepartments = await createDepartmentCampuses({...ecv,formation_name:'BTS avec départements'},newCampuses)
+  assert.deepEqual(createdDepartments.items.map(({city,department}) => ({city,department})),newCampuses.map(({city,department}) => ({city:city.trim(),department})))
+  assert.equal((await db.query('SELECT count(*)::int AS count FROM backoffice_audit WHERE resource_id=ANY($1::text[])',[createdDepartments.items.map((row) => row.id)])).rows[0].count,5)
+  await change('partner_group',null,{school_name:ecv.school_name,city:'Flers',department:'61',is_active:false})
+  const homonyms = (await db.query("SELECT department,is_active FROM ecoles_partenaires WHERE formation_name='BTS avec départements' AND city='Flers' ORDER BY department")).rows
+  assert.deepEqual(homonyms,[{department:'61',is_active:false},{department:'62',is_active:true}],'Campus actions must not affect a homonymous town in another department')
+  const pair = [{city:'Muret',department:'31'},{city:'Montpellier',department:'34'}]
+  await assert.rejects(createDepartmentCampuses({...ecv,formation_name:'BTS avec départements'},pair),/PARTNER_CAMPUS_EXISTS/)
+  await assert.rejects(createDepartmentCampuses(ecv,[{city:'Muret',department:'31'},{city:' muret ',department:'31'}]),/DUPLICATE_CAMPUS/)
+  for (const campuses of [null,{},[],[null],['Muret'],[{city:'Muret'}],[{city:'Muret',department:'99'}],[{city:'Muret',department:'31',extra:'bad'}],Array(21).fill(pair[0])]) {
+    await assert.rejects(createDepartmentCampuses(ecv,campuses),/INVALID_CAMPUSES/)
+  }
+  await assert.rejects(createDepartmentCampuses(ecv,pair,student),/ADMIN_ACCESS_DENIED/)
+  await assert.rejects(asStudent("SELECT public.backoffice_create_partner_campuses_with_departments(null,'{}','[]')"),/permission denied/)
+  const departmentAuditBeforeFailure = (await db.query('SELECT count(*)::int AS count FROM backoffice_audit')).rows[0].count
+  await db.exec(`CREATE FUNCTION public.reject_department_fixture() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN IF NEW.city = 'Fixture failure' THEN RAISE EXCEPTION 'FIXTURE_CAMPUS_FAILURE'; END IF; RETURN NEW; END; $$;
+    CREATE TRIGGER reject_department_fixture BEFORE INSERT ON ecoles_partenaires FOR EACH ROW EXECUTE FUNCTION public.reject_department_fixture();`)
+  await assert.rejects(createDepartmentCampuses({...ecv,formation_name:'Atomic departments'},[{city:'Muret',department:'31'},{city:'Fixture failure',department:'31'}]),/FIXTURE_CAMPUS_FAILURE/)
+  assert.equal((await db.query("SELECT count(*)::int AS count FROM ecoles_partenaires WHERE formation_name='Atomic departments'")).rows[0].count,0)
+  assert.equal((await db.query('SELECT count(*)::int AS count FROM backoffice_audit')).rows[0].count,departmentAuditBeforeFailure)
+  await db.exec('DROP TRIGGER reject_department_fixture ON ecoles_partenaires; DROP FUNCTION public.reject_department_fixture();')
+  console.log('Back-office PostgreSQL functions, department migration/re-run/backfill, per-campus persistence, atomic audit, suspension and RLS verified.')
 } finally {
   await db.close()
 }

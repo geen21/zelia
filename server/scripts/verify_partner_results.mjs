@@ -25,7 +25,7 @@ const student = { id: '33333333-3333-4333-8333-333333333333', email: 'student@ex
 const newPartnerId = '99999999-9999-4999-8999-999999999999'
 const partnerTemplate = {
   school_name: 'Ecole Exemple', formation_name: 'Bachelor Informatique Web',
-  domain: 'Informatique', diploma_level: 'Bac+3', city: 'Bordeaux',
+  domain: 'Informatique', diploma_level: 'Bac+3', city: 'Bordeaux', department: '33',
   is_active: true, show_in_results: true, results_priority: 0
 }
 let partners = Array.from({ length: 24 }, (_, index) => ({
@@ -121,9 +121,9 @@ const db = {
       return { data:null,error:null }
     }
     if (name === 'backoffice_users') return { data: { items: [student], total: 1 }, error: null }
-    if (name === 'backoffice_create_partner_campuses') {
-      const items = args.p_cities.map((city,index) => ({
-        ...args.p_patch,city,id:`ecv-campus-${index}`,is_active:true
+    if (name === 'backoffice_create_partner_campuses_with_departments') {
+      const items = args.p_campuses.map((campus,index) => ({
+        ...args.p_patch,...campus,id:`ecv-campus-${index}`,is_active:true
       }))
       partners.push(...items)
       return { data:{ items,total:items.length },error:null }
@@ -173,7 +173,7 @@ async function matched() {
 
 try {
   const created = await request('/admin/partners', 'POST', {
-    school_name: 'Nouvelle Ecole', formation_name: 'Bachelor Web', city: 'Nancy',
+    school_name: 'Nouvelle Ecole', formation_name: 'Bachelor Web', city: 'Nancy', department: '54',
     show_in_results: true, highlight_in_results: true, results_priority: 0
   }, 'admin')
   assert.equal(created.status, 201)
@@ -196,30 +196,33 @@ try {
   assert.equal((await matched()).matched[0].id, tiedPartnerId, 'Priority orders partners with an equal match')
   entries.push(
     { user_id: student.id, question_id: 'orientation_study_location', answer_text: 'near_home' },
+    { user_id: student.id, question_id: 'orientation_department', answer_text: '54' },
     { user_id: student.id, question_id: 'orientation_city', answer_text: 'Nancy' }
   )
   assert.deepEqual((await matched()).matched.map((formation) => formation.id), [newPartnerId])
 
   const ecvCreated = await request('/admin/partners/campuses','POST',{
     school_name:'ECV',formation_name:'Bachelor Design graphique',domain:'Design graphique',
-    cities:['Paris','Bordeaux','Nantes'],show_in_results:true
+    campuses:[{city:'Paris',department:'75'},{city:'Bordeaux',department:'33'},{city:'Nantes',department:'44'}],show_in_results:true
   },'admin')
   assert.equal(ecvCreated.status,201)
   const ecvItems = (await ecvCreated.json()).items
   entries = [
     { user_id:student.id,question_id:'orientation_career_domains',answer_text:'["creation_communication"]' },
     { user_id:student.id,question_id:'orientation_study_location',answer_text:'near_home' },
+    { user_id:student.id,question_id:'orientation_department',answer_text:'33' },
     { user_id:student.id,question_id:'orientation_city',answer_text:'Bordeaux' }
   ]
   analysis = { ...analysis,job_recommendations:[{ title:'Designer graphique' }] }
   assert.deepEqual((await matched()).matched.map((item) => item.id),[ecvItems.find((item) => item.city === 'Bordeaux').id])
   entries.find((entry) => entry.question_id === 'orientation_city').answer_text = 'Nantes'
+  entries.find((entry) => entry.question_id === 'orientation_department').answer_text = '44'
   assert.deepEqual((await matched()).matched.map((item) => item.id),[ecvItems.find((item) => item.city === 'Nantes').id])
 
   partners = [
-    { ...partnerTemplate, id: 'cadenelle', school_name: 'La Cadenelle', formation_name: 'Bachelor Commerce et Marketing', domain: 'Commerce', diploma_level: 'Bac+3', city: 'Marseille' },
-    { ...partnerTemplate, id: 'em-strasbourg', school_name: 'EM Strasbourg', formation_name: 'Bachelor of International Business', domain: 'Business', diploma_level: 'Bachelor', city: 'Strasbourg' },
-    { ...partnerTemplate, id: 'paris', city: 'Paris' }
+    { ...partnerTemplate, id: 'cadenelle', school_name: 'La Cadenelle', formation_name: 'Bachelor Commerce et Marketing', domain: 'Commerce', diploma_level: 'Bac+3', city: 'Marseille', department: '13' },
+    { ...partnerTemplate, id: 'em-strasbourg', school_name: 'EM Strasbourg', formation_name: 'Bachelor of International Business', domain: 'Business', diploma_level: 'Bachelor', city: 'Strasbourg', department: '67' },
+    { ...partnerTemplate, id: 'paris', city: 'Paris', department: '75' }
   ]
   analysis = { ...analysis, job_recommendations: [], study_recommendations: [{ degree: 'Bachelor Business et Commerce' }] }
   entries = [
@@ -240,18 +243,18 @@ try {
   entries.find((entry) => entry.question_id === 'orientation_study_location').answer_text = 'anywhere'
   assert.equal((await matched()).matched.length, 2, 'National mobility must not require a recognized department')
 
-  partners = DEPARTMENTS.map(([code, , city]) => ({ ...partnerTemplate, id: `department-${code}`, city }))
+  partners = DEPARTMENTS.map(([code]) => ({ ...partnerTemplate, id: `department-${code}`, city: 'Ville du campus', department: code }))
   analysis = { ...analysis, job_recommendations: [{ title: 'Developpeur Web' }], study_recommendations: [] }
-  for (const [code, name, city] of DEPARTMENTS) {
+  for (const [code, name] of DEPARTMENTS) {
     entries = [
       { user_id: student.id, question_id: 'orientation_career_domains', answer_text: '["technologie_numerique"]' },
       { user_id: student.id, question_id: 'orientation_study_location', answer_text: 'near_home' },
       { user_id: student.id, question_id: 'orientation_department', answer_text: code }
     ]
     const byCode = await matched()
-    assert.equal(byCode.userCity, city, code)
+    assert.equal(byCode.userDepartment, code, code)
     assert.ok(byCode.matched.some((item) => item.id === `department-${code}`), code)
-    assert.ok(byCode.matched.every((item) => item.city === city), `${code} must only return local campuses`)
+    assert.ok(byCode.matched.every((item) => item.department === code), `${code} must only return campuses in the department`)
     entries[2] = { user_id: student.id, question_id: 'orientation_department_name', answer_text: name }
     assert.deepEqual((await matched()).matched.map((item) => item.id), byCode.matched.map((item) => item.id), name)
   }
@@ -260,7 +263,23 @@ try {
     { user_id: student.id, question_id: 'orientation_study_location', answer_text: 'near_home' }
   ]
   profile = { id: student.id, department: '13' }
-  assert.equal((await matched()).userCity, 'Marseille', 'The saved profile department must be used when orientation answers omit it')
+  assert.equal((await matched()).userDepartment, '13', 'The saved profile department must be used when orientation answers omit it')
+
+  partners = [
+    { ...partnerTemplate, id:'muret',city:'Muret',department:'31' },
+    { ...partnerTemplate, id:'toulouse',city:'Toulouse',department:'31' },
+    { ...partnerTemplate, id:'nice',city:'Nice',department:'06' },
+    { ...partnerTemplate, id:'cannes',city:'Cannes',department:'06' },
+    { ...partnerTemplate, id:'valbonne',city:'Valbonne',department:'06' },
+    { ...partnerTemplate, id:'wrong-paris',city:'Paris',department:'75' },
+    { ...partnerTemplate, id:'missing-department',city:'Muret',department:null }
+  ]
+  profile = { id: student.id,department:'31',institution_data:{city:'Toulouse'} }
+  assert.deepEqual(new Set((await matched()).matched.map((row) => row.id)),new Set(['muret','toulouse']),'Muret is local even when the profile city is Toulouse')
+  profile.department = '06'
+  assert.deepEqual(new Set((await matched()).matched.map((row) => row.id)),new Set(['nice','cannes','valbonne']),'All matching cities in the department are eligible, regardless of the stored city')
+  profile = { id: student.id,institution_data:{city:'Muret'} }
+  assert.equal((await request('/ecoles/matched')).status,400,'A city alone must not silently infer or broaden the department')
 
   entries = []
   profile = { id: student.id }
@@ -374,7 +393,7 @@ try {
   assert.equal(linksSave.status,200)
   const storedLinks = JSON.parse(entries.find((entry) => entry.question_id==='orientation_final_selection').answer_text)
   assert.deepEqual(storedLinks.map((entry) => entry.link),['https://example.com/raw-link','https://example.com/fiche','https://example.com/ecole'])
-  console.log('Partner creation -> personalized API candidates without premature cutoff, priority, all 101 departments by code/name, Marseille/Strasbourg, visibility/city filters, pagination >1000 and 38 saved/read choices verified with local fixtures.')
+  console.log('Partner creation -> personalized API candidates, priority, all 101 departments, Muret/Toulouse and Nice/Cannes/Valbonne, exact department filters, pagination >1000 and saved choices verified with local fixtures.')
 } finally {
   server.close()
   await once(server, 'close')

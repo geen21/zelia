@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { createClient } from '@supabase/supabase-js'
 import { parseNationalSearch, searchNationalFormations } from '../utils/nationalFormationSearch.js'
 import { getNationalAcademicGrade, getNationalStudyLevels, inferNationalStudyLevel, nationalFormationMatches, nationalSearchNotice, resolveNationalDepartment } from '../../client/src/lib/nationalFormationMatching.js'
-import { buildExplorerProfile, nationalExplorerCards, relevantMasterPathways, loadExplorerCatalog } from '../../client/src/lib/formationExplorer.js'
+import { buildExplorerProfile, nationalExplorerCards, loadExplorerCatalog } from '../../client/src/lib/formationExplorer.js'
 
 function fixture({ rows = [], titles = [], error = null } = {}) {
   const calls = []
@@ -37,7 +37,7 @@ test('national level inference reads actual catalogue codes without changing par
   assert.equal(nationalFormationMatches({ nmc: 'FI-BAC5' }, { target_level: 'Bac+5' }), true, 'A level-only goal still accepts equivalent diplomas')
 })
 
-test('real grade-master labels and CMI are returned in distinct, correctly labelled groups', async () => {
+test('master grades and CMI use the same result list, scores, locations and pagination', async () => {
   const grade = {
     id: 5604, nmc: 'ScPo',
     nm: ["Sciences Po / Instituts d'études politiques - Sciences Humaines et Sociales - Grade Master - Cursus général"],
@@ -48,7 +48,8 @@ test('real grade-master labels and CMI are returned in distinct, correctly label
   const profile = { formation_preferences: ['master'] }
   assert.equal(getNationalAcademicGrade(grade), 'master')
   assert.equal(inferNationalStudyLevel(grade), 5)
-  assert.equal(inferNationalStudyLevel(cmi), null)
+  assert.equal(inferNationalStudyLevel(cmi), 5)
+  assert.equal(getNationalAcademicGrade(cmi), null, 'Keep the CMI title without inventing a grade declaration')
   assert.equal(nationalFormationMatches(grade, profile), true)
   assert.equal(nationalFormationMatches(grade, { formation_preferences: ['doctorat'] }), false)
   const contradictory = {
@@ -57,20 +58,35 @@ test('real grade-master labels and CMI are returned in distinct, correctly label
   }
   assert.equal(getNationalAcademicGrade(contradictory), null, 'A generic Grade Master header must not override a specific Bachelor programme')
   assert.equal(nationalFormationMatches(contradictory, profile), false)
-  assert.equal(nationalFormationMatches(cmi, profile), false)
+  assert.equal(nationalFormationMatches(cmi, profile), true)
+  assert.equal(nationalFormationMatches(cmi, profile, 'Alpes-Maritimes'), false)
+  assert.equal(nationalFormationMatches(cmi, { formation_preferences: ['bts'] }), false)
+  assert.equal(nationalFormationMatches(cmi, { formation_preferences: ['doctorat'] }), false)
+  assert.equal(inferNationalStudyLevel({ nmc: 'L1-EG', nm: ['Licence - Economie et gestion - Parcours Cursus Master en Ingénierie'] }), 5)
+  assert.equal(inferNationalStudyLevel({ nmc: 'BTS-SIO', nm: ['BTS Informatique - poursuite possible en Cursus Master en Ingénierie'] }), 2)
   const { db, calls } = fixture({ rows: [grade, cmi], titles: [grade, cmi] })
   const result = await searchNationalFormations(db, { q: 'politique', ...parseNationalSearch({ departement: '75', study_levels: '5', formation_formats: 'master' }) })
-  assert.deepEqual(result.items.map((row) => row.id), [5604])
-  assert.deepEqual(result.pathways.map((row) => row.id), [3661])
-  assert.ok(calls.some((call) => call.body?.p_keyword === 'master'))
+  assert.deepEqual(result.items.map((row) => row.id), [3661, 5604])
+  assert.ok(!Object.hasOwn(result, 'pathways'), 'No separate master response channel')
+  assert.equal(calls.length, 2, 'The same bounded query and title lookup as other diploma searches')
+  assert.deepEqual(calls.filter((call) => call.body).map((call) => call.body.p_keyword), ['politique'])
   assert.ok(calls[0].url.searchParams.getAll('or').filter((filter) => filter.includes('ScPo*')).length >= 2, 'Both SQL level and format filters must allow explicit grade-master sources')
+  assert.ok(calls[0].url.searchParams.getAll('or').filter((filter) => filter.includes('CMI*')).length >= 2, 'CMI must be eligible before limiting and pagination')
   const context = { profile, analysis: { studyRecommendations: [{ degree: 'Master sciences politiques' }, { degree: 'Master informatique' }] } }
-  assert.equal(nationalExplorerCards(result.items, context)[0].level, 'Grade master')
-  assert.equal(relevantMasterPathways(result.pathways, context, 'Paris').length, 1)
-  assert.equal(relevantMasterPathways(result.pathways, context, 'Alpes-Maritimes').length, 0)
+  const cards = nationalExplorerCards(result.items, context)
+  assert.equal(cards.find((card) => card.id === 5604).level, 'Grade master')
+  const cmiCard = cards.find((card) => card.id === 3661)
+  assert.equal(cmiCard.title, cmi.nm[0])
+  assert.equal(cmiCard.level, 'Bac +5')
+  assert.ok(cmiCard.score >= 80)
+  const changedContext = { ...context, analysis: { studyRecommendations: [{ degree: 'Master Tourisme' }] } }
+  assert.equal(nationalExplorerCards([cmi], changedContext)[0].score, null, 'CMI relevance is recalculated normally')
+  const secondPage = await searchNationalFormations(db, { q: 'informatique', ...parseNationalSearch({ study_levels: '5', formation_formats: 'master' }), pageSize: 1, from: 1 })
+  assert.equal(secondPage.items[0].id, cmi.id)
+  assert.equal(calls.at(-1).url.searchParams.get('offset'), '1')
   const loaded = await loadExplorerCatalog(async () => ({ data: result }), { context })
-  assert.equal(loaded.pathways.length, 1)
-  assert.equal(loaded.rows.length, 1)
+  assert.ok(!Object.hasOwn(loaded, 'pathways'))
+  assert.equal(loaded.rows.length, 2)
 })
 
 test('enriched diploma labels do not turn a DU, health pathway, mastère or description into a doctorate/master', () => {
@@ -78,7 +94,6 @@ test('enriched diploma labels do not turn a DU, health pathway, mastère or desc
     { nmc: 'DU', nm: ["Diplôme d'Université - Bachelor Business Data Science"] },
     { nmc: 'DU-Nutrition', nm: ['DU Nutrition : préparation au doctorat'] },
     { nmc: 'PASS', nm: ['Licence - Parcours accès santé'] },
-    { nmc: 'CMI-SV', nm: ['Cursus Master en Ingénierie Biologie-Santé'] },
     { nmc: 'MAN-MPGEM', nm: ['Mise à niveau - Classe de mise à niveau au BTS Maritime'] },
     { nmc: 'Doctorat-exercice', nm: ["Diplôme d'État de docteur en médecine"] }
   ]) {

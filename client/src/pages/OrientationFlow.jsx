@@ -6,12 +6,11 @@ import { AI_JOB_DECK_SIZE } from '../lib/orientationJobs.js'
 import PersonaRevealCard from '../components/PersonaRevealCard.jsx'
 import OrientationLoading from '../components/OrientationLoading.jsx'
 import OrientationFormationResults from '../components/OrientationFormationResults.jsx'
-import MasterPathways from '../components/MasterPathways.jsx'
 import { SCHOOL_SHARING_VERSION } from '../lib/schoolSharing'
 import { mixFormationResults } from '../lib/orientationFormationResults.js'
-import { loadExplorerCatalog, nationalExplorerCards, relevantMasterPathways } from '../lib/formationExplorer.js'
+import { loadExplorerCatalog, nationalExplorerCards } from '../lib/formationExplorer.js'
 import { buildNationalRelevanceProfile, getNationalStudyLevels, nationalSearchNotice, resolveNationalDepartment } from '../lib/nationalFormationMatching.js'
-import { getDepartmentCity } from '../lib/departments.js'
+import { getDepartmentCode } from '../lib/departments.js'
 import { filterCandidatesByTargetStudyLevel, getTargetStudyLevel } from '../lib/formationLevel.js'
 import { buildLoreleiUrl, buildPersonaAvatarConfig, computePersonaFromAnswers, getPersonaBySlug } from '../lib/personas.js'
 import { getAnswerChoiceIndex, getAnswerChoices, isAgreementQuestion, isDilemmaQuestion } from '../lib/questionScale.js'
@@ -338,20 +337,15 @@ function isSameLocation(left, right) {
   return a === b || a.includes(b) || b.includes(a)
 }
 
-function getPreferredNearHomeLocation(department = {}) {
-  return getDepartmentCity(department) || department.name || department.code || ''
-}
-
 function getCandidateCity(candidate) {
   return candidate?.raw?.city || candidate?.raw?.commune || candidate?.city || ''
 }
 
 function filterNearHomeCandidates(candidates, profile = {}, department = {}) {
   if (profile.study_location !== 'near_home') return candidates
-  const preferredLocation = getPreferredNearHomeLocation(department)
-  if (!preferredLocation) return candidates
-  const filtered = candidates.filter((candidate) => isSameLocation(getCandidateCity(candidate), preferredLocation))
-  return filtered.length ? filtered : []
+  const code = getDepartmentCode(department)
+  if (!code) return []
+  return candidates.filter((candidate) => getDepartmentCode(candidate?.raw?.department) === code)
 }
 
 function limitPartnerCandidates(candidates, maxCount = MAX_PARTNER_FINAL_RESULTS) {
@@ -374,7 +368,7 @@ function selectPartnerCandidatesForFinal(rawPartners = [], profile = {}, departm
   const levelCompatiblePartners = filterCandidatesByTargetStudyLevel(rawPartners, profile)
   const compatiblePartners = levelCompatiblePartners.length ? levelCompatiblePartners : rawPartners
   const preferredLocalPartners = filterNearHomeCandidates(compatiblePartners, profile, department)
-  const sourcePartners = preferredLocalPartners.length ? preferredLocalPartners : compatiblePartners
+  const sourcePartners = preferredLocalPartners
 
   return filterRejectedCandidates(
     limitPartnerCandidates(sourcePartners, maxCount),
@@ -1424,7 +1418,6 @@ export default function OrientationFlow() {
   const [partnerFormationsError, setPartnerFormationsError] = useState('')
   const [partnerRetryCount, setPartnerRetryCount] = useState(0)
   const [dbFormations, setDbFormations] = useState([])
-  const [dbMasterPathways, setDbMasterPathways] = useState([])
   const [dbFormationsLoading, setDbFormationsLoading] = useState(false)
   const [dbFormationsResolved, setDbFormationsResolved] = useState(false)
   const [dbFormationsError, setDbFormationsError] = useState('')
@@ -2077,7 +2070,6 @@ export default function OrientationFlow() {
     }))
     return {
       candidates: diversifyCandidates(candidates, { maxPerFormation: 1, maxPerSchool: 2 }).slice(0, count),
-      pathways: relevantMasterPathways(result.pathways, context, departmentName).slice(0, 6),
       notice: nationalSearchNotice(profile, result.rows),
       error: result.errors.length ? 'Certaines formations nationales n’ont pas pu être chargées. Réessaie pour compléter les résultats.' : ''
     }
@@ -2100,7 +2092,6 @@ export default function OrientationFlow() {
     setDbFormationsResolved(false)
     setDbFormationsError('')
     setDbFormationsNotice('')
-    setDbMasterPathways([])
     ;(async () => {
       try {
         const department = await resolveUserDepartment().catch(() => userDepartment)
@@ -2108,7 +2099,6 @@ export default function OrientationFlow() {
         if (!mounted) return
         const concrete = result.candidates.filter(isDatabaseCandidate).slice(0, 8)
         setDbFormations(concrete)
-        setDbMasterPathways(result.pathways)
         setDbFormationsNotice(result.notice)
         setDbFormationsError(result.error)
         preselectNewFormationIds(concrete.map((candidate) => candidate.id))
@@ -2116,7 +2106,6 @@ export default function OrientationFlow() {
         console.warn('Formation matching failed', matchError)
         if (mounted) {
           setDbFormations([])
-          setDbMasterPathways([])
           setDbFormationsError('Impossible de rechercher les formations nationales. Vérifie ton département et réessaie.')
         }
       } finally {
@@ -2386,21 +2375,13 @@ export default function OrientationFlow() {
   const renderPersonality = () => {
     const revealPersona = persona || computePersonaFromAnswers(questions, answers).persona
     return (
-      <div className="orientation-stage compact personality-stage">
+      <div className="orientation-stage compact personality-stage reveal-continue-stage">
         <div className="persona-reveal-wrap">
           <PersonaRevealCard
             persona={revealPersona}
             avatarUrl={avatarUrl}
             onShare={sharePersonaProfile}
             sharing={sharingPersona}
-            onContinue={() => {
-              trackOrientationEvent('orientation_step_completed', {
-                orientation_step: 'persona',
-                orientation_action: 'discover_studies'
-              })
-              setPhase('formationReveal')
-            }}
-            continueLabel="Découvre tes formations"
           />
           {visiblePersonality.length > 0 && (
             <details className="personality-details">
@@ -2415,6 +2396,18 @@ export default function OrientationFlow() {
               </div>
             </details>
           )}
+        </div>
+        <div className="persona-actions personality-reveal-actions reveal-continue-actions">
+          <button type="button" className="persona-continue" onClick={() => {
+            trackOrientationEvent('orientation_step_completed', {
+              orientation_step: 'persona',
+              orientation_action: 'discover_studies'
+            })
+            setPhase('formationReveal')
+          }}>
+            Découvre tes formations
+            <PiArrowRight size={20} aria-hidden="true" focusable="false" />
+          </button>
         </div>
       </div>
     )
@@ -2499,7 +2492,7 @@ export default function OrientationFlow() {
   }
 
   const renderFormationReveal = () => (
-    <div className="orientation-stage compact personality-stage formation-reveal-stage">
+    <div className="orientation-stage compact personality-stage formation-reveal-stage reveal-continue-stage">
       <div className="persona-reveal-wrap">
         <div className="persona-card">
           <div className="persona-card-head">
@@ -2561,7 +2554,6 @@ export default function OrientationFlow() {
               getTitle={(formation) => cleanDetailText(getCandidateFormationTitle(formation), 220)}
             />
           )}
-          {formationResultsReady && <MasterPathways formations={dbMasterPathways} />}
 
           {formationResultsReady && !getNationalStudyLevels(microProfile).length && microProfile.study_location !== 'near_home' && dbFormations.length === 0 && formationRecommendations.length > 0 && (
             <div className="persona-portrait-grid">
@@ -2595,7 +2587,7 @@ export default function OrientationFlow() {
         </div>
 
       </div>
-      <div className="persona-actions formation-reveal-actions">
+      <div className="persona-actions formation-reveal-actions reveal-continue-actions">
         <button type="button" className="persona-continue" disabled={!formationResultsReady || partnerFormationsLoading} onClick={continueFromFormationReveal}>
           Découvre tes métiers
           <PiArrowRight size={20} aria-hidden="true" focusable="false" />

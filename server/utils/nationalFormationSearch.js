@@ -1,4 +1,4 @@
-import { NATIONAL_CODE_SUBJECTS, NATIONAL_FORMAT_PATTERNS, getNationalStudyLevels, nationalFormationMatches, nationalMasterPathwayMatches, resolveNationalDepartment } from '../../client/src/lib/nationalFormationMatching.js'
+import { NATIONAL_CODE_SUBJECTS, NATIONAL_FORMAT_PATTERNS, getNationalStudyLevels, nationalFormationMatches, resolveNationalDepartment } from '../../client/src/lib/nationalFormationMatching.js'
 import { normalizeRelevanceText } from '../../client/src/lib/formationRelevance.js'
 import { canonicalFormationColumns, requireFormationCanonicals } from './formationCanonical.js'
 
@@ -7,7 +7,7 @@ const LEVEL_PATTERNS = {
   1: ['CAP*', '*Bac*pro*'],
   2: ['BTS*', 'DUT*', 'DEUST*', 'BPJEPS*'],
   3: ['L1-*', 'L2-*', 'L3-*', 'Licence*', 'Bachelor*', 'BUT*', 'DNM-*', 'DN*MADE*', 'DCG*', '*BAC3*'],
-  5: ['M1-*', 'M2-*', 'Master*', 'Mastère*', 'MBA*', 'MSC*', '*BAC5*', '*ingénieur*', 'DSCG*', 'ScPo*'],
+  5: ['M1-*', 'M2-*', 'Master*', 'CMI*', 'Mastère*', 'MBA*', 'MSC*', '*BAC5*', '*ingénieur*', 'DSCG*', 'ScPo*'],
   8: ['*doctorat*', '*PhD*', '*thèse*']
 }
 const SUBJECT_ALIASES = {
@@ -87,25 +87,18 @@ export async function searchNationalFormations(db, { q = '', department, profile
   const levels = getNationalStudyLevels(profile)
   const doctorateOnly = levels.length === 1 && levels[0] === 8
   const discover = from === 0 && (words.length || doctorateOnly)
-  const discoverMaster = from === 0 && levels.includes(5)
-  const [directResult, titleResult, masterResult] = await Promise.all([
+  const [directResult, titleResult] = await Promise.all([
     direct.abortSignal(signal),
     discover
       ? db.rpc('search_formations_simple', {
         p_keyword: doctorateOnly ? 'doctorat' : words[0], p_department: department || null, p_limit: 50
       }).abortSignal(signal)
-      : Promise.resolve({ data: [], error: null }),
-    discoverMaster
-      ? db.rpc('search_formations_simple', {
-        p_keyword: 'master', p_department: department || null, p_limit: 50
-      }).abortSignal(signal)
       : Promise.resolve({ data: [], error: null })
   ])
   if (directResult.error) throw new Error(directResult.error.message, { cause: directResult.error })
   if (titleResult.error) throw new Error(titleResult.error.message, { cause: titleResult.error })
-  if (masterResult.error) throw new Error(masterResult.error.message, { cause: masterResult.error })
   const rows = new Map((directResult.data || []).map((row) => [String(row.id), row]))
-  const missing = [...new Set([...(titleResult.data || []), ...(masterResult.data || [])]
+  const missing = [...new Set((titleResult.data || [])
     .filter((row) => !rows.has(String(row.id))).map((row) => row.id))]
   if (missing.length) {
     const extra = await applyConstraints(db.from('formation_france').select(canonicalFormationColumns(COLUMNS)).in('id', missing), {
@@ -131,7 +124,5 @@ export async function searchNationalFormations(db, { q = '', department, profile
       return true
     })
   const items = candidates.filter((row) => nationalFormationMatches(row, profile, department))
-  const pathways = candidates.filter((row) => nationalMasterPathwayMatches(row, profile, department)
-    && !nationalFormationMatches(row, profile, department))
-  return { items: items.slice(0, pageSize), pathways: pathways.slice(0, pageSize), total: null, has_more: (directResult.data || []).length > pageSize, page_size: pageSize }
+  return { items: items.slice(0, pageSize), total: null, has_more: (directResult.data || []).length > pageSize, page_size: pageSize }
 }

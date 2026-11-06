@@ -96,8 +96,10 @@ async function prepare(viewport, options = {}) {
     } else if (path === '/catalog/formations/search') {
       if (state.masterCoverage) {
         return route.fulfill({ json: {
-          items: [{ id: 5604, nmc: 'ScPo', nm: ['Sciences Po - Instituts d’études politiques - Grade Master'], fl: ['Grade Master'], etab_nom: 'Établissement exemple', commune: 'Paris', departement: 'Paris' }],
-          pathways: [{ id: 3661, nmc: 'CMI-Info', nm: ['Cursus Master en Ingénierie - Informatique'], etab_nom: 'Université exemple', commune: 'Paris', departement: 'Paris' }],
+          items: [
+            { id: 5604, nmc: 'ScPo', nm: ['Sciences Po - Instituts d’études politiques - Grade Master'], fl: ['Grade Master'], etab_nom: 'Établissement exemple', commune: 'Paris', departement: 'Paris' },
+            { id: 3661, nmc: 'CMI-Info', nm: ['Cursus Master en Ingénierie - Informatique'], etab_nom: 'Université exemple', commune: 'Paris', departement: 'Paris' }
+          ],
           has_more: false
         } })
       }
@@ -365,20 +367,22 @@ try {
     try {
       await page.goto(`${base}/app/formations`)
       await ready(page)
-      await expect(page.locator('.fe-card[data-source=national]')).toHaveCount(1)
-      await expect(page.locator('.fe-card[data-source=national] .fe-meta')).toContainText('Grade master')
-      const pathways = page.getByRole('region', { name: 'Parcours vers un master' })
-      await expect(pathways).toBeVisible()
-      await expect(pathways.getByText('Cursus Master en Ingénierie - Informatique', { exact: true })).toBeVisible()
-      await expect(pathways).toContainText('ne sont pas des propositions d’entrée directe')
-      await expect(pathways.getByRole('link', { name: 'Explorer le parcours' })).toHaveAttribute('href', /\/formations\/.*-3661$/)
-      await expect(pathways.locator('.fe-score')).toHaveCount(0)
+      const nationals = page.locator('.fe-card[data-source=national]')
+      await expect(nationals).toHaveCount(2)
+      await expect(nationals.filter({ hasText: 'Sciences Po' }).locator('.fe-meta')).toContainText('Grade master')
+      const cmi = nationals.filter({ hasText: 'Cursus Master en Ingénierie - Informatique' })
+      await expect(cmi).toBeVisible()
+      await expect(cmi.locator('.fe-score')).toBeVisible()
+      await expect(cmi.getByRole('link', { name: 'Explorer la formation' })).toHaveAttribute('href', /\/formations\/.*-3661$/)
+      await expect(page.getByRole('region', { name: 'Parcours vers un master' })).toHaveCount(0)
+      await expect(page.getByRole('link', { name: 'Explorer le parcours' })).toHaveCount(0)
+      await expect(page.getByLabel('Ville', { exact: true }).locator('option', { hasText: 'Paris' })).toHaveCount(1)
       await noOverflow(page)
-      await page.screenshot({ path: join(output, 'master-grade-and-pathways.png'), fullPage: true })
+      await page.screenshot({ path: join(output, 'masters-unified-results.png'), fullPage: true })
       assert.deepEqual(errors, [])
     } finally { await context.close() }
   }
-  console.log(`Formations UI verified: unified grid, all partners, master grades and separate CMI pathways, levels, doctorate notice, exact location, scores, recalculation, links, consent, pagination, stale responses, partial failures and 320/390/1440px. Screenshots: ${output}`)
+  console.log(`Formations UI verified: unified grid including masters and CMI, all partners, levels, doctorate notice, exact location, scores, recalculation, links, consent, pagination, stale responses, partial failures and 320/390/1440px. Screenshots: ${output}`)
 } finally {
   await browser.close()
 }

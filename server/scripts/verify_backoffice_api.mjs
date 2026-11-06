@@ -44,8 +44,8 @@ const db = {
     rpcCalled = true; calls.push({ name,args })
     if (rpcError) return { data: null,error: rpcError }
     if (name === 'backoffice_account_change') return { data: { revision: '44444444-4444-4444-8444-444444444444' },error: null }
-    if (name === 'backoffice_create_partner_campuses') return {
-      data:{ items:args.p_cities.map((city,index) => ({ id:`campus-${index}`,...args.p_patch,city })),total:args.p_cities.length },error:null
+    if (name === 'backoffice_create_partner_campuses_with_departments') return {
+      data:{ items:args.p_campuses.map((campus,index) => ({ id:`campus-${index}`,...args.p_patch,...campus })),total:args.p_campuses.length },error:null
     }
     if (name === 'backoffice_users' && args.p_user_id) return { data: { items: userDetailExists ? [student] : [],total: Number(userDetailExists) },error: null }
     return { data: ['backoffice_users','backoffice_results','backoffice_selections','backoffice_recommendations'].includes(name) ? { items: [],total: 0 } : { id: '1' },error: null }
@@ -159,35 +159,47 @@ try {
   assert.equal((await request(`/users/${student.id}/suspend`,'joris','POST',{ reason:'Test' })).status,200)
   assert.ok(calls.some((call) => call.name === 'Auth' && call.patch.ban_duration === '876000h'))
   assert.equal((await request('/partners','joris','POST',{ school_name:'School',formation_name:'Bachelor',city:'Paris',link:'javascript:alert(1)' })).status,400)
-  assert.equal((await request('/partners','joris','POST',{ school_name:'School',formation_name:'Bachelor',city:'Paris',show_in_results:false,highlight_in_results:true,results_priority:40 })).status,201)
+  assert.equal((await request('/partners','joris','POST',{ school_name:'School',formation_name:'Bachelor',city:'Paris',department:'Paris',show_in_results:false,highlight_in_results:true,results_priority:40 })).status,201)
   const displayCall = calls.filter((call) => call.name === 'backoffice_change').at(-1)
   assert.equal(displayCall.args.p_patch.show_in_results,false)
   assert.equal(displayCall.args.p_patch.results_priority,40)
+  assert.equal(displayCall.args.p_patch.department,'75')
+  for (const department of [undefined,null,'','99','Toulouse']) {
+    assert.equal((await request('/partners','joris','POST',{school_name:'School',formation_name:'Bachelor',city:'Muret',department})).status,400)
+  }
+  assert.equal((await request('/partners/44444444-4444-4444-8444-444444444444','joris','PATCH',{city:'Muret'})).status,400)
+  assert.equal((await request('/partners/44444444-4444-4444-8444-444444444444','joris','PATCH',{city:'Muret',department:'Haute-Garonne'})).status,200)
+  assert.equal(calls.at(-1).args.p_patch.department,'31')
   for (const results_priority of [-1,101,1.5,'20',null]) assert.equal((await request('/partners','joris','POST',{ school_name:'School',formation_name:'Bachelor',city:'Paris',results_priority })).status,400)
   assert.equal((await request('/partners','joris','POST',{ school_name:'School',formation_name:'Bachelor',city:'Paris',show_in_results:'false' })).status,400)
   const ecv = { school_name:'ECV',formation_name:'Bachelor Design graphique',domain:'Design',diploma_level:'Bac+3',show_in_results:true,highlight_in_results:false,results_priority:20 }
-  const ecvResponse = await request('/partners/campuses','joris','POST',{ ...ecv,cities:[' Paris ','Bordeaux','Nantes'],reason:'Ajout ECV' })
+  const campuses = [{city:'Paris',department:'75'},{city:'Bordeaux',department:'33'},{city:'Nantes',department:'44'}]
+  const ecvResponse = await request('/partners/campuses','joris','POST',{ ...ecv,campuses:[{city:' Paris ',department:'75'},...campuses.slice(1)],reason:'Ajout ECV' })
   assert.equal(ecvResponse.status,201)
   assert.deepEqual((await ecvResponse.json()).items.map((item) => item.city),['Paris','Bordeaux','Nantes'])
-  assert.deepEqual(calls.filter((call) => call.name === 'backoffice_create_partner_campuses').at(-1).args,{
-    p_actor:joris.id,p_patch:ecv,p_cities:['Paris','Bordeaux','Nantes'],p_reason:'Ajout ECV'
+  assert.deepEqual(calls.filter((call) => call.name === 'backoffice_create_partner_campuses_with_departments').at(-1).args,{
+    p_actor:joris.id,p_patch:ecv,p_campuses:campuses,p_reason:'Ajout ECV'
   })
-  for (const cities of [undefined,null,[],[''],['Paris',null],['Paris',12],['Paris',' paris '],Array(21).fill('Paris'),['x'.repeat(501)],'Paris,Bordeaux']) {
-    assert.equal((await request('/partners/campuses','joris','POST',{ ...ecv,cities })).status,400)
+  for (const campuses of [undefined,null,[],[''],[null],[12],[{city:'Paris'}],[{department:'75'}],[{city:'Paris',department:'99'}],[{city:'Paris',department:'75',extra:'bad'}],[{city:'Paris',department:'75'},{city:' paris ',department:'75'}],Array(21).fill({city:'Paris',department:'75'}),[{city:'x'.repeat(501),department:'75'}],'Paris,Bordeaux']) {
+    assert.equal((await request('/partners/campuses','joris','POST',{ ...ecv,campuses })).status,400)
   }
   for (const patch of [{ school_name:'' },{ formation_name:'' },{ city:'Paris' },{ results_priority:101 },{ link:'javascript:alert(1)' }]) {
-    assert.equal((await request('/partners/campuses','joris','POST',{ ...ecv,cities:['Paris'],...patch })).status,400)
+    assert.equal((await request('/partners/campuses','joris','POST',{ ...ecv,campuses:[campuses[0]],...patch })).status,400)
   }
-  assert.equal((await request('/partners/campuses','joris','POST',{ ...ecv,cities:Array.from({ length:20 },(_,index) => `Ville ${index}`) })).status,201)
+  assert.equal((await request('/partners/campuses','joris','POST',{ ...ecv,campuses:Array.from({ length:20 },(_,index) => ({city:`Ville ${index}`,department:'31'})) })).status,201)
+  assert.equal((await request('/partners/campuses','joris','POST',{ ...ecv,campuses:[{city:'Flers',department:'61'},{city:'Flers',department:'62'}] })).status,201)
   rpcError = { code:'23505',message:'PARTNER_CAMPUS_EXISTS' }
-  const duplicateCampus = await request('/partners/campuses','joris','POST',{ ...ecv,cities:['Paris','Lille'] })
+  const duplicateCampus = await request('/partners/campuses','joris','POST',{ ...ecv,campuses:[campuses[0],{city:'Lille',department:'59'}] })
   assert.equal(duplicateCampus.status,409)
   assert.match((await duplicateCampus.json()).message,/Aucun campus/)
   rpcError = { code:'PGRST202',message:'Function missing' }
-  const missingCampuses = await request('/partners/campuses','joris','POST',{ ...ecv,cities:['Paris'] })
+  const missingCampuses = await request('/partners/campuses','joris','POST',{ ...ecv,campuses:[campuses[0]] })
   assert.equal(missingCampuses.status,503)
-  assert.match((await missingCampuses.json()).message,/migration_backoffice_partner_campuses\.sql/)
+  assert.match((await missingCampuses.json()).message,/migration_partner_departments\.sql/)
   rpcError = { code:'22023',message:'INVALID_FIELD' }
+  const missingDepartments = await request('/partners/44444444-4444-4444-8444-444444444444','joris','PATCH',{department:'31'})
+  assert.equal(missingDepartments.status,503)
+  assert.match((await missingDepartments.json()).message,/migration_partner_departments\.sql/)
   const missingPartnerMigration = await request('/partners/44444444-4444-4444-8444-444444444444','joris','PATCH',{ show_in_results:false })
   assert.equal(missingPartnerMigration.status,503)
   const migrationResponse = await missingPartnerMigration.json()

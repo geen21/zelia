@@ -105,9 +105,9 @@ for a licence. The Master choice includes national masters and other diplomas
 with an explicit academic master grade in `nm`/`fl`; `Bac+5` or RNCP 7 alone
 does not establish that grade. Original diploma names are retained.
 A level-only goal (for example `Bac+5`) still accepts equivalent diploma families.
-CMI records are returned separately as `pathways` and displayed under
-“Parcours vers un master”, not mixed with direct master recommendations.
-Both SQL candidate filters and client validation use these distinctions.
+CMI records are included in Master results under their original names, using
+the same relevance, location, ranking, pagination and selection rules as other
+national formations. There is one `items` list and no separate master module.
 
 The constrained table query applies location and diploma-code filters before
 pagination; the existing `search_formations_simple` RPC complements it with
@@ -119,8 +119,8 @@ unchanged.
 
 There are at most three national API searches per visit/click, each bounded
 to a page plus a continuation sentinel and at most 50 descriptive candidates.
-For Master profiles one additional, bounded title lookup finds grade-master
-and CMI labels whose short codes do not contain “master”.
+All profiles use the same constrained query and bounded title discovery;
+there is no additional master-only search.
 Database requests share a 2.5-second deadline per search; the client batch
 has a 6-second deadline. Identical concurrent API requests are coalesced and
 successful results cached for five minutes. Errors remain visible and are
@@ -409,7 +409,7 @@ Si la sauvegarde de ces reglages est refusee, verifier que la migration partenai
 
 L'ecran d'orientation utilise une grille commune : une insertion partenaire apres trois formations nationales, avec au plus trois partenaires, affiches seulement apres le chargement des resultats nationaux. `GET /api/ecoles/matched` classe les partenaires avec le meme algorithme de pertinence que le catalogue national (`client/src/lib/partnerRelevance.js`, importe par `server/utils/partnerMatching.js` : le serveur doit donc etre deploye depuis le depot complet). La priorite ajoute au plus 5 points au classement des partenaires pertinents, sans rendre visible un partenaire hors sujet ni modifier les scores affiches ou l'ordre du catalogue national. Les selections nationales et les demandes directes aux partenaires gardent leurs actions distinctes.
 
-Pour le choix "pres de chez moi", l'inscription, le client et l'API partagent les 101 departements de [departments.js](../client/src/lib/departments.js), Corse et outre-mer compris. Le code ou le nom du departement (accents et casse normalises) determine une ville d'etudes de reference, notamment 13 -> Marseille et 67 -> Strasbourg ; une ville explicitement enregistree reste prioritaire. Les choix historiques de villes partenaires et de Paris pour les departements 91 a 95 sont conserves. Ce filtre reste un rapprochement par ville de reference, pas un calcul de distance ni une recherche dans toutes les communes du departement. Sans partenaire local pertinent, la liste reste vide ; sans ville ni departement reconnu, l'API renvoie une erreur 400 plutot qu'un classement national. Les choix de mobilite nationale ne sont pas restreints.
+Pour le choix "pres de chez moi", l'inscription, le client et l'API partagent les 101 departements de [departments.js](../client/src/lib/departments.js), Corse et outre-mer compris. Cette reference contient uniquement les codes et noms des departements, sans mapping vers des villes. Le code ou le nom normalise determine le departement a comparer exactement a `ecoles_partenaires.department`. Les vraies villes des campus sont conservees pour l'affichage, sans limiter les resultats a une ville de reference. Sans partenaire local pertinent, la liste reste vide ; sans departement reconnu, l'API renvoie une erreur 400 plutot qu'un classement national. Les choix de mobilite nationale ne sont pas restreints.
 
 Verification geographique sans ecriture en base : depuis `server`, `node --test scripts/verify_partner_matching.test.mjs scripts/verify_partner_results.mjs`. Elle couvre les 101 departements par code et nom, les cas Cadenelle/Marseille et EM Strasbourg, le departement du profil en repli et l'absence de bascule nationale silencieuse.
 
@@ -423,13 +423,21 @@ Verification ciblee : depuis `server`, `node --test scripts/verify_partner_match
 
 ### Ajouter une formation sur plusieurs campus
 
-Appliquer [migration_backoffice_partner_campuses.sql](database/migration_backoffice_partner_campuses.sql) apres les migrations back-office principale et reglages partenaires. La nouvelle RPC `backoffice_create_partner_campuses` est reservee au serveur. Le script de configuration verifie sa presence par une requete volontairement invalide, sans aucune ecriture.
+Appliquer [migration_backoffice_partner_campuses.sql](database/migration_backoffice_partner_campuses.sql), puis [migration_partner_departments.sql](database/migration_partner_departments.sql), apres les migrations back-office principale et reglages partenaires. La RPC `backoffice_create_partner_campuses_with_departments` est reservee au serveur. Le script de configuration verifie sa presence par une requete volontairement invalide, sans aucune ecriture.
 
-Dans `/admin/partenaires` > **Ajouter**, saisir l'ecole et les informations communes d'une formation une seule fois, puis les villes dans **Villes des campus (une ville par ligne)**, de 1 a 20 villes. Une fiche distincte par formation et par ville est creee, avec son propre identifiant, ce qui conserve le fonctionnement des recommandations et du suivi. Chaque fiche reste editable individuellement : lien, contact, visibilite, etc. Pour ajouter des villes a une formation existante, ouvrir sa fiche et utiliser **Ajouter des campus a cette formation** : les informations communes sont pre-remplies, et seules les nouvelles villes doivent etre saisies.
+Dans `/admin/partenaires` > **Ajouter**, saisir l'ecole et les informations communes d'une formation une seule fois, puis la ville et le departement de chaque campus (1 a 20). Chaque campus a son propre selecteur de departement : ne pas appliquer un departement commun a des campus dans plusieurs departements. Une fiche distincte par formation et campus est creee, avec son propre identifiant. Chaque fiche reste editable individuellement : departement, lien, contact, visibilite, etc. Pour ajouter des campus a une formation existante, ouvrir sa fiche et utiliser **Ajouter des campus a cette formation** : les informations communes sont pre-remplies, mais les nouvelles localisations doivent etre renseignees.
 
-Exemple illustratif ECV : pour une formation effectivement proposee a Paris, Bordeaux et Nantes, saisir `ECV` une seule fois et ces trois villes sur trois lignes. Le formulaire cree trois fiches du meme programme. Ne pas supposer que chaque programme existe sur tous les campus ; saisir separement les formations dont les campus ou contenus different. Aucune ecole ECV n'est ajoutee automatiquement aux donnees de production.
+Exemple illustratif ECV : pour une formation effectivement proposee a Paris, Bordeaux et Nantes, saisir `ECV` une seule fois et les campus Paris/75, Bordeaux/33 et Nantes/44. Le formulaire cree trois fiches du meme programme. Ne pas supposer que chaque programme existe sur tous les campus ; saisir separement les formations dont les campus ou contenus different. Aucune ecole ECV n'est ajoutee automatiquement aux donnees de production.
 
-`POST /api/admin/partners/campuses` accepte les champs communs de creation d'un partenaire (sans `city`) et `cities`, un tableau de villes. Les doublons de villes et les fiches deja existantes pour une meme ecole/formation/ville sont refuses. Le lot et ses entrees d'audit sont atomiques : si un campus echoue, aucun n'est cree. Une formation deja archivee n'est pas dupliquee : la reactiver ou modifier sa fiche. Cette evolution ne change pas les regles geographiques ni ne deduit un departement a partir d'une ville.
+`POST /api/admin/partners/campuses` accepte les champs communs (sans `city` ni `department`) et `campuses`, un tableau d'objets `{ "city": "Muret", "department": "31" }`. L'ancien tableau `cities` sans departements est refuse. La creation simple et l'edition d'une ville exigent egalement `department`. Les codes sont normalises via la reference partagee des 101 departements (dont `06`, `2A`, `971`). Les doublons ecole/formation/ville/departement sont refuses, y compris les anciennes fiches sans departement. Le lot et son audit restent atomiques ; les dashboards existants sont conserves.
+
+### Proximite des partenaires par departement
+
+`ecoles_partenaires.department` contient le code du departement du campus. Pour `near_home`, `/api/ecoles/matched` resout le departement des dernieres preferences ou du profil, puis filtre par egalite en base **avant** le classement et la pagination. Ainsi Muret et Toulouse peuvent correspondre au 31 ; Nice, Cannes et Valbonne au 06. La ville explicite peut departager des scores, mais une ville de reference ne definit plus l'eligibilite. Aucun elargissement national en l'absence de resultat ; un departement utilisateur inconnu produit une erreur 400. La recherche n'ajoute aucun appel LLM ni geocodage externe.
+
+La migration ne modifie ni identifiants, ni URLs, ni contacts, ni liens de portail. Elle renseigne uniquement les localisations connues. Les villes ambigues restent a verifier (Flers n'est complete automatiquement que pour le Lycee Jean Guehenno identifie). Sa derniere requete liste les lignes non resolues : les corriger dans le back-office avant deploiement. Ces anciennes lignes restent consultables mais ne correspondent pas aux recommandations locales sans departement. Le script `configure_backoffice.mjs --check` refuse un deploiement avec une migration manquante ou des departements non renseignes.
+
+Validation : `node --test scripts/verify_partner_matching.test.mjs scripts/verify_partner_results.mjs scripts/verify_backoffice_api.mjs scripts/verify_backoffice_database.mjs scripts/verify_school_dashboard.test.mjs` puis, depuis `client`, `npm run verify:admin-ui`.
 
 ### Recommandations affichees et suivi des partenaires
 

@@ -1,6 +1,25 @@
 import React, { useDeferredValue, useEffect, useId, useRef, useState } from 'react'
 import { PiX, PiCheck } from 'react-icons/pi'
 import { adminApi, adminError } from '../../lib/adminApi'
+import { DEPARTMENTS } from '../../lib/departments.js'
+
+function DepartmentSelect({ value, onChange, label, required = true }) {
+  return <select aria-label={label} required={required} value={value || ''} onChange={(event) => onChange(event.target.value)}>
+    <option value="">Sélectionner un département</option>
+    {DEPARTMENTS.map(([code, name]) => <option key={code} value={code}>{code} — {name}</option>)}
+  </select>
+}
+
+function PartnerCampusesInput({ value, onChange }) {
+  return <div className="bo-campus-fields">{value.map((campus, index) => {
+    const update = (patch) => onChange(value.map((item, current) => current === index ? { ...item, ...patch } : item))
+    return <div className="bo-campus-row" key={index}>
+      <label>Ville du campus {index + 1}<input required maxLength="500" value={campus.city} onChange={(event) => update({ city: event.target.value })} /></label>
+      <label>Département du campus {index + 1}<DepartmentSelect label={`Département du campus ${index + 1}`} value={campus.department} onChange={(department) => update({ department })} /></label>
+      {value.length > 1 && <button className="bo-button" type="button" aria-label={`Retirer le campus ${index + 1}`} onClick={() => onChange(value.filter((_, current) => current !== index))}>Retirer</button>}
+    </div>
+  })}<button className="bo-button" type="button" disabled={value.length >= 20} onClick={() => onChange([...value, { city: '', department: '' }])}>Ajouter un campus</button></div>
+}
 
 export function RecordPanel({ title, path, initial = {}, onClose, children }) {
   const dialog = useRef(null)
@@ -48,7 +67,7 @@ function SchoolNameInput({ value,onChange }) {
 }
 
 export function EditForm({ fields, values = {}, submit, onSaved }) {
-  const [form,setForm] = useState(() => Object.fromEntries(fields.map(([key,,type]) => [key, values[key] ?? (type === 'checkbox' ? true : key === 'results_priority' ? 0 : '')])))
+  const [form,setForm] = useState(() => Object.fromEntries(fields.map(([key,,type]) => [key, values[key] ?? (type === 'campuses' ? [{ city: '', department: '' }] : type === 'checkbox' ? true : key === 'results_priority' ? 0 : '')])))
   const [busy,setBusy] = useState(false)
   const [error,setError] = useState('')
   const [success,setSuccess] = useState('')
@@ -59,7 +78,8 @@ export function EditForm({ fields, values = {}, submit, onSaved }) {
   }
   return <form className="bo-edit-form" onSubmit={save}><div className="bo-form-grid">{fields.map(([key,label,type = 'text',required = false]) => {
     const update = (value) => { setForm((previous) => ({ ...previous,[key]: value })); setSuccess('') }
-    return <label key={key} className={type === 'textarea' || type === 'school' ? 'bo-form-wide' : type === 'checkbox' ? 'bo-checkbox' : ''}>{type === 'checkbox' ? <><input type="checkbox" checked={form[key]} onChange={(event) => update(event.target.checked)} />{label}</> : <>{label}{type === 'textarea' ? <textarea rows="4" required={required} maxLength="10000" value={form[key]} onChange={(event) => update(event.target.value)} /> : type === 'school' ? <SchoolPicker value={form[key]} onChange={update} /> : type === 'school-name' ? <SchoolNameInput value={form[key]} onChange={update} /> : <input type={type} required={required} maxLength="500" min={key === 'age' ? 3 : key === 'results_priority' ? 0 : undefined} max={key === 'age' ? 120 : key === 'results_priority' ? 100 : undefined} value={form[key]} onChange={(event) => update(event.target.value)} />}</>}</label>
+    if (type === 'campuses') return <fieldset key={key} className="bo-form-wide"><legend>{label}</legend><PartnerCampusesInput value={form[key]} onChange={update} /></fieldset>
+    return <label key={key} className={type === 'textarea' || type === 'school' ? 'bo-form-wide' : type === 'checkbox' ? 'bo-checkbox' : ''}>{type === 'checkbox' ? <><input type="checkbox" checked={form[key]} onChange={(event) => update(event.target.checked)} />{label}</> : <>{label}{type === 'textarea' ? <textarea rows="4" required={required} maxLength="10000" value={form[key]} onChange={(event) => update(event.target.value)} /> : type === 'department' ? <DepartmentSelect label={label} required={required} value={form[key]} onChange={update} /> : type === 'school' ? <SchoolPicker value={form[key]} onChange={update} /> : type === 'school-name' ? <SchoolNameInput value={form[key]} onChange={update} /> : <input type={type} required={required} maxLength="500" min={key === 'age' ? 3 : key === 'results_priority' ? 0 : undefined} max={key === 'age' ? 120 : key === 'results_priority' ? 100 : undefined} value={form[key]} onChange={(event) => update(event.target.value)} />}</>}</label>
   })}</div>{error && <p role="alert" className="bo-error">{error}</p>}{success && <p role="status" className="bo-success">{success}</p>}<button className="bo-button bo-primary" type="submit" disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer'}<PiCheck aria-hidden="true" /></button></form>
 }
 

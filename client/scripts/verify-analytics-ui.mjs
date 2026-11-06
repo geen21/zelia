@@ -80,7 +80,7 @@ async function prepare({ authenticated = false, ...options } = {}) {
       if (path === '/questionnaire/submit') return reply({ success: true })
       if (path === '/analysis/generate-analysis') return reply({ success: true })
       if (path === '/analysis/my-results') return reply({ results })
-      if (path === '/catalog/formations/search') return reply({ items: [], pathways: [], total: 0 })
+      if (path === '/catalog/formations/search') return reply({ items: [], total: 0 })
       if (path === '/formations') return reply({ formations: [formation], total: 1 })
       if (path === '/formations/1') return reply({ formation })
       if (path === '/ecoles/matched') return reply({ matched: [partner] })

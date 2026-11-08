@@ -73,7 +73,7 @@ async function prepareJourney(viewport, { authenticated = false, answered = fals
   const context = await browser.newContext({ ...(mobile ? devices['Pixel 7'] : {}), viewport, reducedMotion })
   const page = await context.newPage()
   page.setDefaultTimeout(15000)
-  const state = { errors: [], registrations: [], profiles: [], sharing: [], submissions: [], failProfile: false, failSharing: false, invalidSharing: false, failAnalysis: false, analysisError: 'Analyse indisponible', analyses: 0 }
+  const state = { errors: [], registrations: [], profiles: [], sharing: [], submissions: [], failProfile: false, failSharing: false, invalidSharing: false, failAnalysis: false, analyses: 0 }
   let releaseAnalysis
   const analysisReady = new Promise((resolve) => { releaseAnalysis = resolve })
   page.on('pageerror', (error) => state.errors.push(error.message))
@@ -129,7 +129,7 @@ async function prepareJourney(viewport, { authenticated = false, answered = fals
       } else if (path === '/analysis/generate-analysis') {
         state.analyses += 1
         await analysisReady
-        if (state.failAnalysis) return route.fulfill({ status: 503, json: { error: state.analysisError } })
+        if (state.failAnalysis) return route.fulfill({ status: 503, json: { error: 'Analyse indisponible' } })
         data = { success: true }
       } else if (path === '/analysis/my-results') data = { results: { personalityAnalysis: 'Profil concret.', skillsAssessment: 'Précision.' } }
       else if (path !== '/users/profile/extra-info') {
@@ -641,8 +641,7 @@ try {
   for (const reducedMotion of ['no-preference', 'reduce']) {
     const { context, page, state, releaseAnalysis } = await prepareJourney({ width: 390, height: 844 }, { authenticated: true, reducedMotion })
     try {
-      state.failAnalysis = true
-      if (reducedMotion === 'reduce') state.analysisError = "L'accès au service d'analyse est refusé ou mal configuré. Contacte l'équipe Zélia."
+      state.failAnalysis = reducedMotion === 'no-preference'
       await page.goto(`${base}/orientation`)
       await expect.poll(() => state.analyses).toBe(1)
       const loading = page.locator('.orientation-loading')
@@ -661,7 +660,7 @@ try {
       }
       releaseAnalysis()
       if (state.failAnalysis) {
-        await expect(page.getByRole('alert')).toContainText(state.analysisError)
+        await expect(page.getByRole('alert')).toContainText("L'analyse n'a pas pu être générée")
         await expect(loading).toHaveCount(0)
         state.failAnalysis = false
         await page.getByRole('button', { name: 'Réessayer', exact: true }).click()

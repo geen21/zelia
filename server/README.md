@@ -136,16 +136,6 @@ interchanged. Model study suggestions remain separate from real catalogue offers
 no extra model calls are added to the national search.
 The three model attempts share a 45-second deadline, with a bounded thinking
 and output budget; timeouts are retryable errors rather than partial results.
-Gemini access/configuration failures return `503` with
-`GEMINI_CONFIGURATION_ERROR` and are not retried. Quota exhaustion returns
-`429` with `GEMINI_RATE_LIMITED`; transient provider failures are retried with
-backoff, then return `502` with `GEMINI_UNAVAILABLE`. The provider HTTP status
-and a bounded diagnostic are logged server-side, never exposed to the browser.
-Both analysis generation routes send `GEMINI_API_KEY` in the `x-goog-api-key`
-header rather than in the URL. Use a restricted key (or an AI Studio
-authorization key), stored only in the server environment, and restart the API
-after rotating it. Keys disclosed in a chat or logs must be revoked.
-Focused analysis checks: `node --test scripts/verify_analysis_preferences.test.mjs`.
 
 The table currently contains predominantly multi-year post-bac catalogue
 entries; its row count is not a count of distinct diplomas or evidence of

@@ -1,6 +1,5 @@
 import express from 'express'
 import dotenv from 'dotenv'
-import { setTimeout as wait } from 'node:timers/promises'
 import { supabase, supabaseAdmin } from '../config/supabase.js'
 import { cloudinary, isCloudinaryConfigured } from '../config/cloudinary.js'
 import { authenticateToken } from '../middleware/auth.js'
@@ -12,33 +11,6 @@ import { buildOrientationSearchContext, FORMATION_RECOMMENDATION_GUIDELINES } fr
 dotenv.config()
 
 const router = express.Router()
-
-async function handleGeminiApiError(response, res, attempt, maxAttempts) {
-  const errorData = await response.text()
-  console.error(`Gemini API error (attempt ${attempt}): HTTP ${response.status}`, errorData.slice(0, 700))
-  const retryable = response.status === 408 || response.status === 429 || response.status >= 500
-  if (retryable && attempt < maxAttempts) {
-    await wait(350 * (2 ** (attempt - 1)))
-    return false
-  }
-  if (response.status === 429) {
-    res.status(429).json({
-      error: "Le service d'analyse a atteint sa limite de requêtes. Réessaie plus tard.",
-      code: 'GEMINI_RATE_LIMITED'
-    })
-  } else if (!retryable) {
-    res.status(503).json({
-      error: "L'accès au service d'analyse est refusé ou mal configuré. Contacte l'équipe Zélia.",
-      code: 'GEMINI_CONFIGURATION_ERROR'
-    })
-  } else {
-    res.status(502).json({
-      error: "Le service d'analyse est temporairement indisponible. Réessaie dans un instant.",
-      code: 'GEMINI_UNAVAILABLE'
-    })
-  }
-  return true
-}
 
 // Generate analysis using Gemini API for the authenticated user only
 router.post('/generate-analysis', authenticateToken, async (req, res) => {
@@ -268,12 +240,9 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
     const geminiApiKey = process.env.GEMINI_API_KEY
     if (!geminiApiKey) {
       console.error('Missing GEMINI_API_KEY environment variable')
-      return res.status(503).json({
-        error: "Le service d'analyse n'est pas configuré. Contacte l'équipe Zélia.",
-        code: 'GEMINI_CONFIGURATION_ERROR'
-      })
+      return res.status(500).json({ error: 'Server configuration error: missing Gemini API key' })
     }
-    const geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`
 
     // Retry loop: relancer Gemini si les recommandations sont vides (max 3 tentatives)
     const MAX_RETRIES = 3
@@ -288,7 +257,6 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
         signal: generationSignal,
         headers: {
           'Content-Type': 'application/json',
-          'x-goog-api-key': geminiApiKey,
         },
         body: JSON.stringify({
           generationConfig: { maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 512 } },
@@ -301,7 +269,11 @@ router.post('/generate-analysis', authenticateToken, async (req, res) => {
       })
 
       if (!geminiResponse.ok) {
-        if (await handleGeminiApiError(geminiResponse, res, attempt, MAX_RETRIES)) return
+        const errorData = await geminiResponse.text()
+        console.error(`Gemini API error (attempt ${attempt}):`, errorData)
+        if (attempt === MAX_RETRIES) {
+          return res.status(500).json({ error: 'Error calling Gemini API' })
+        }
         continue
       }
 
@@ -595,12 +567,9 @@ router.post('/generate-analysis-by-type', authenticateToken, async (req, res) =>
     const geminiApiKey = process.env.GEMINI_API_KEY
     if (!geminiApiKey) {
       console.error('Missing GEMINI_API_KEY environment variable')
-      return res.status(503).json({
-        error: "Le service d'analyse n'est pas configuré. Contacte l'équipe Zélia.",
-        code: 'GEMINI_CONFIGURATION_ERROR'
-      })
+      return res.status(500).json({ error: 'Server configuration error: missing Gemini API key' })
     }
-    const geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`
 
     // Pour MBTI: pas de retry, job_recommendations n'est pas obligatoire
     // Pour inscription/autres: retry si les recommandations sont vides (max 3 tentatives)
@@ -614,12 +583,16 @@ router.post('/generate-analysis-by-type', authenticateToken, async (req, res) =>
 
       const geminiResponse = await fetch(geminiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': geminiApiKey },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
       })
 
       if (!geminiResponse.ok) {
-        if (await handleGeminiApiError(geminiResponse, res, attempt, MAX_RETRIES)) return
+        const errorData = await geminiResponse.text()
+        console.error(`Gemini API error (attempt ${attempt}):`, errorData)
+        if (attempt === MAX_RETRIES) {
+          return res.status(500).json({ error: 'Error calling Gemini API' })
+        }
         continue
       }
 
@@ -713,7 +686,7 @@ router.post('/generate-analysis-by-type', authenticateToken, async (req, res) =>
 
         const shareResp = await fetch(geminiUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': geminiApiKey },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [{ text: sharePrompt }] }] })
         })
 

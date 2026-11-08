@@ -1667,10 +1667,7 @@ export default function OrientationFlow() {
         orientation_step: 'analysis',
         orientation_error_stage: analysisStage
       })
-      const serverError = analysisError.response?.data?.error
-      setError(typeof serverError === 'string' && serverError.trim()
-        ? serverError
-        : "L'analyse n'a pas pu être générée. Réessaie dans quelques secondes.")
+      setError("L'analyse n'a pas pu être générée. Réessaie dans quelques secondes.")
     } finally {
       setBusyMessage('')
     }

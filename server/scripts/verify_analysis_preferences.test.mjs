@@ -58,7 +58,7 @@ test('study prioritisation uses the diploma title, never promises in a descripti
 })
 
 let fixtureIndex = 0
-async function routeFixture(t, { preferencesError = false, generationTimeout = false, geminiStatuses = [], byType = false } = {}) {
+async function routeFixture(t, { preferencesError = false, generationTimeout = false } = {}) {
   const userId = 'orientation-analysis-fixture'
   const state = { prompts: [], writes: [], requests: [] }
   const db = createClient('http://analysis.fixture', 'fixture-key', {
@@ -105,29 +105,14 @@ async function routeFixture(t, { preferencesError = false, generationTimeout = f
   t.mock.method(console, 'error', () => {})
   t.mock.method(globalThis, 'fetch', async (input, options) => {
     if (!String(input).startsWith('https://generativelanguage.googleapis.com/')) return nativeFetch(input, options)
-    assert.equal(new URL(input).searchParams.has('key'), false)
-    assert.equal(options.headers['x-goog-api-key'], 'fixture-no-paid-calls')
+    assert.ok(options.signal instanceof AbortSignal)
     const payload = JSON.parse(options.body)
-    if (!byType) {
-      assert.ok(options.signal instanceof AbortSignal)
-      assert.equal(payload.generationConfig.maxOutputTokens, 4096)
-      assert.equal(payload.generationConfig.thinkingConfig.thinkingBudget, 512)
-    }
+    assert.equal(payload.generationConfig.maxOutputTokens, 4096)
+    assert.equal(payload.generationConfig.thinkingConfig.thinkingBudget, 512)
     state.prompts.push(payload.contents[0].parts[0].text)
     if (generationTimeout) throw new DOMException('Fixture generation timeout', 'TimeoutError')
-    const status = geminiStatuses[state.prompts.length - 1] || 200
-    if (status !== 200) {
-      return new Response(JSON.stringify({ error: { message: 'Private provider fixture detail' } }), {
-        status, headers: { 'Content-Type': 'application/json' }
-      })
-    }
-    if (payload.contents[0].parts[0].text.includes('"zeliaProfile"')) {
-      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({
-        zeliaProfile: 'Fixture', qualities: ['Calme', 'Rigueur', 'Curiosité'], competences: ['Analyse', 'Écoute', 'Organisation']
-      }) }] } }] }), { headers: { 'Content-Type': 'application/json' } })
-    }
     const text = `###Type de personalité###\nLe Bâtisseur\n###Analyse de personnalité###\nProfil de test.\n###Évaluation des compétences###\nRigueur.\n###Recommandations d'emploi###\n${['Chercheur', 'Biologiste', 'Physicien', 'Mathématicien', 'Ingénieur', 'Statisticien'].map((title, index) => `${index + 1}. ${title}\n - Compétences requises: Analyse, Rigueur`).join('\n')}\n###Recommandations d'études###\n1. Licence informatique\n Description: Poursuite en doctorat après master.\n2. Doctorat informatique\n Description: Recherche après un master.\n3. Master informatique\n Description: Diplôme national.`
-    return new Response(JSON.stringify({ candidates: [{ content: { parts: byType ? [{ text }] : [{ thought: true, text: 'Not an answer' }, { text }] } }] }), {
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ thought: true, text: 'Not an answer' }, { text }] } }] }), {
       headers: { 'Content-Type': 'application/json' }
     })
   })
@@ -142,7 +127,6 @@ async function routeFixture(t, { preferencesError = false, generationTimeout = f
   // Use native file URLs so the fixture executes the actual shared helpers.
   const moduleSource = [
     `const { express, dotenv, supabase, supabaseAdmin, cloudinary, isCloudinaryConfigured, authenticateToken } = globalThis.${key};`,
-    `import { setTimeout as wait } from 'node:timers/promises';`,
     `import { enforceOrientationRecommendationQuality, JOB_SELECTION_GUIDELINES, JOB_TITLE_GUIDELINES } from '${new URL('../utils/orientationRecommendationGuard.js', import.meta.url).href}';`,
     `import { buildOrientationQuestionnaireContext, QUESTIONNAIRE_NUANCE_INSTRUCTION, resolveInterpretation } from '${new URL('../utils/orientationQuestionnaireContext.js', import.meta.url).href}';`,
     `import { buildOrientationSearchContext, FORMATION_RECOMMENDATION_GUIDELINES } from '${new URL('../utils/orientationSearchContext.js', import.meta.url).href}';`,
@@ -159,7 +143,7 @@ async function routeFixture(t, { preferencesError = false, generationTimeout = f
   t.after(() => new Promise((resolve) => { server.close(resolve); server.closeAllConnections() }))
   return {
     state,
-    request: (payload = {}) => fetch(`http://127.0.0.1:${server.address().port}/analysis/${byType ? 'generate-analysis-by-type' : 'generate-analysis'}`, {
+    request: (payload = {}) => fetch(`http://127.0.0.1:${server.address().port}/analysis/generate-analysis`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
     })
   }
@@ -195,52 +179,4 @@ test('model generation deadlines surface a retryable error without persisting pa
   assert.equal(response.status, 503)
   assert.match((await response.json()).error, /trop de temps/)
   assert.equal(state.writes.length, 0)
-})
-
-for (const byType of [false, true]) {
-  for (const status of [400, 401, 403, 404]) {
-    test(`Gemini HTTP ${status} is an explicit configuration error without retries (${byType ? 'by type' : 'initial'})`, async (t) => {
-      const { state, request } = await routeFixture(t, { geminiStatuses: [status], byType })
-      const response = await request()
-      assert.equal(response.status, 503)
-      const body = await response.json()
-      assert.equal(body.code, 'GEMINI_CONFIGURATION_ERROR')
-      assert.match(body.error, /Contacte l'équipe/)
-      assert.equal(JSON.stringify(body).includes('Private provider fixture detail'), false)
-      assert.equal(state.prompts.length, 1)
-      assert.equal(state.writes.length, 0)
-    })
-  }
-}
-
-for (const [upstreamStatus, expectedStatus, code] of [
-  [429, 429, 'GEMINI_RATE_LIMITED'],
-  [503, 502, 'GEMINI_UNAVAILABLE']
-]) {
-  test(`persistent Gemini HTTP ${upstreamStatus} remains an explicit failure after bounded retries`, async (t) => {
-    const { state, request } = await routeFixture(t, { geminiStatuses: Array(3).fill(upstreamStatus) })
-    const response = await request()
-    assert.equal(response.status, expectedStatus)
-    assert.equal((await response.json()).code, code)
-    assert.equal(state.prompts.length, 3)
-    assert.equal(state.writes.length, 0)
-  })
-}
-
-test('a transient Gemini failure is retried and only complete results are persisted', async (t) => {
-  const { state, request } = await routeFixture(t, { geminiStatuses: [503] })
-  const response = await request()
-  assert.equal(response.status, 200)
-  assert.equal(state.prompts.length, 2)
-  assert.equal(state.writes.length, 1)
-})
-
-test('legacy MBTI analysis and its share card both authenticate using the server key header', async (t) => {
-  const { state, request } = await routeFixture(t, { byType: true })
-  const response = await request({ questionnaireType: 'mbti' })
-  assert.equal(response.status, 200, JSON.stringify(await response.clone().json()))
-  assert.equal(state.prompts.length, 2)
-  assert.equal(state.writes.length, 1)
-  assert.deepEqual(state.writes[0].skills_data.qualities, ['Calme', 'Rigueur', 'Curiosité'])
-  assert.equal((await response.json()).analysis.shareCardData.zeliaProfile, 'Fixture')
 })

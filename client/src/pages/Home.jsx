@@ -55,12 +55,13 @@ export default function Home() {
       }
 
       const storedToken = localStorage.getItem('supabase_auth_token') || localStorage.getItem('token')
-      const { data } = await import('../lib/supabase')
+      const sessionResult = await import('../lib/supabase')
         .then(({ supabase }) => supabase.auth.getSession())
         .catch((error) => {
           console.warn('Landing session check failed', error)
           return { data: null }
         })
+      const { data } = sessionResult
       if (!active) return
       if (storedToken || data?.session?.access_token) {
         if (data?.session?.access_token) localStorage.setItem('supabase_auth_token', data.session.access_token)

@@ -218,6 +218,20 @@ EOF
 
 > **Tip:** Additional Stripe configuration is available via `STRIPE_API_VERSION`, `STRIPE_PRICE_AMOUNT`, `STRIPE_PRICE_CURRENCY`, `STRIPE_PRODUCT_NAME`, `STRIPE_SUCCESS_URL`, and `STRIPE_CANCEL_URL` if you need to override defaults.
 
+### Gemini access
+
+Set `GEMINI_API_KEY` only in the server environment, never in a `VITE_*`
+variable. Unrestricted standard keys are rejected by Google: use an AI Studio
+authorization key or restrict a standard key to the Generative Language API
+([official instructions](https://aistudio.google.com/docs/api-key#secure-unrestricted-keys)).
+For server requests, any application restriction must permit the server's
+outbound IP, not just the website's browser origin. Revoke any disclosed key,
+replace the server secret, then restart the API process (with refreshed
+environment variables if a process manager is used). Do not commit the key.
+An analysis response with `GEMINI_CONFIGURATION_ERROR` requires checking the
+server's `Gemini API error` HTTP status and access configuration; repeatedly
+retrying the questionnaire cannot repair a disabled key.
+
 ### Payment security prerequisites
 
 - On existing databases, manually apply [security_payment_profile_columns.sql](server/database/security_payment_profile_columns.sql) after the base schema. It prevents direct user writes to payment fields, independently of Express. Do not deploy only the API fix.

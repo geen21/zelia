@@ -4,6 +4,7 @@ import {
   accessibleCompany, auditPortal, checked, csvCell, dashboard, filtersFor, leadStatuses, notifyPortalLeads,
   pageFor, portalError, portalHandler, readAll, redactLead, requireVerifiedMfa, SHARING_VERSION
 } from '../utils/schoolDashboard.js'
+import { schoolInvitationEmail } from '../utils/emailTemplates.js'
 
 const identifier = (value) => {
   if (!/^[1-9]\d*$/.test(String(value))) throw portalError('Identifiant invalide.')
@@ -211,9 +212,8 @@ export async function inviteSchoolAccount({ db, company, email, role, clientUrl,
   }
   const { sendMail } = await import('../utils/mailer.js')
   try {
-    const safeLink = data.properties.action_link.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
-    await (deliver || sendMail)({ to: email, subject: 'Votre accès à l’espace écoles Zélia',
-      html: `<p>Votre espace école est prêt.</p><p><a href="${safeLink}">Activer mon accès et choisir mon mot de passe</a></p><p>Ce lien est personnel et temporaire.</p>` })
+    const { subject, html } = schoolInvitationEmail({ actionLink: data.properties.action_link, schoolName: company.name, role })
+    await (deliver || sendMail)({ to: email, subject, html })
   } catch (failure) {
     await checked(db.from('school_portal_invitations').update({ status: 'failed', error: 'EMAIL_DELIVERY_FAILED' }).eq('company_id', company.id).eq('email', email))
     console.error('School invitation delivery failed:', failure.code || failure.message)

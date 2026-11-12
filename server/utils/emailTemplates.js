@@ -46,7 +46,7 @@ function button(href, label) {
 </table>`
 }
 
-export function schoolInvitationEmail({ actionLink, schoolName, role }) {
+export function schoolInvitationEmail({ actionLink, schoolName, role, validityDays = 7 }) {
   const school = schoolName ? `<strong>${escapeHtml(schoolName)}</strong>` : 'votre établissement'
   const intro = role === 'member'
     ? `Vous avez été invité·e à rejoindre l’espace de ${school} sur Zélia.`
@@ -57,8 +57,8 @@ export function schoolInvitationEmail({ actionLink, schoolName, role }) {
 <p style="margin:0 0 12px 0;font-size:16px;line-height:24px;color:${colors.ink};">${intro}</p>
 <p style="margin:0;font-size:16px;line-height:24px;color:${colors.muted};">Vous pourrez y suivre les élèves intéressés par vos formations, gérer vos demandes et inviter votre équipe.</p>
 ${button(actionLink, 'Activer mon accès')}
-<p style="margin:0 0 8px 0;font-size:14px;line-height:21px;color:${colors.muted};">Vous choisirez votre mot de passe à l’étape suivante. Ce lien est <strong style="color:${colors.ink};">personnel et temporaire</strong> : ne le transférez pas.</p>
-<p style="margin:20px 0 0 0;padding-top:16px;border-top:1px solid #e5e7eb;font-size:12px;line-height:18px;color:${colors.muted};word-break:break-all;">Le bouton ne fonctionne pas ? Copiez ce lien dans votre navigateur :<br><a href="${escapeHtml(actionLink)}" style="color:${colors.ink};">${escapeHtml(actionLink)}</a></p>`
+<p style="margin:0 0 8px 0;font-size:14px;line-height:21px;color:${colors.muted};">Vous choisirez votre mot de passe à l’étape suivante. Ce lien est <strong style="color:${colors.ink};">personnel</strong> et reste valable ${Number(validityDays)} jours, jusqu’à l’activation de votre compte : ne le transférez pas.</p>
+<p style="margin:20px 0 0 0;padding-top:16px;border-top:1px solid #e5e7eb;font-size:12px;line-height:18px;color:${colors.muted};">Le lien a expiré ? Demandez un nouvel email depuis la page de connexion de l’espace écoles (« Recevoir un nouveau lien »).</p>`
   return {
     subject: 'Votre accès à l’espace écoles Zélia',
     html: layout({ preheader: 'Activez votre accès à l’espace écoles Zélia.', body })

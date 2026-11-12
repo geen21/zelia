@@ -59,6 +59,10 @@ async function prepare(viewport, options = {}) {
       if (url.pathname.endsWith('/users/me')) return send({ user })
       if (url.pathname.endsWith('/analysis/my-results')) return send({ results: null })
       if (url.pathname.endsWith('/users/profile/extra-info')) return send({ entries: [] })
+      if (url.pathname.endsWith('/invitations/redeem')) {
+        state.redeemedToken = request.postDataJSON().token
+        return state.redeemExpired ? send({ message: 'Lien expiré ou déjà utilisé. Demandez un nouvel email.' }, 410) : send({ tokenHash: 'fixture-hash', type: 'recovery' })
+      }
       if (url.pathname.endsWith('/activation-complete')) { state.activated = true; return send({ accepted: true }) }
       if (url.pathname.endsWith('/api/admin/me')) return send({ user })
       if (url.pathname.endsWith('/api/admin/schools')) return send({ items: [{ ...company, email: null, owner_id: null }], total: 1 })
@@ -287,6 +291,14 @@ try {
     assert.equal(await activation.page.evaluate(() => localStorage.getItem('token')), 'student-marker')
     await activation.page.goto(`${base}/espace-ecoles/activation`)
     await expect(activation.page.getByRole('alert')).toContainText('Lien absent')
+    const invitationToken = 'a'.repeat(43)
+    await activation.page.goto(`${base}/espace-ecoles/activation?invitation=${invitationToken}`)
+    await expect(activation.page.getByLabel('Nouveau mot de passe', { exact: true })).toBeVisible()
+    assert.equal(activation.state.redeemedToken, invitationToken)
+    assert.equal(new URL(activation.page.url()).search, '', 'the invitation token must be removed from the address bar')
+    activation.state.redeemExpired = true
+    await activation.page.goto(`${base}/espace-ecoles/activation?invitation=${invitationToken}`)
+    await expect(activation.page.getByRole('alert')).toContainText('Lien expiré ou déjà utilisé')
     await activation.page.goto(`${base}/espace-ecoles/mot-de-passe-oublie`)
     await activation.page.getByLabel('Email professionnel').fill('school@example.com')
     await activation.page.getByRole('button', { name: 'Envoyer le lien' }).click()

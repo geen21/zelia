@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import express from 'express'
 import rateLimit from 'express-rate-limit'
 import {
@@ -14,6 +15,10 @@ const identifier = (value) => {
 export function createPartnerDashboardRouter({ db, authenticateToken, admin = false }) {
   const router = express.Router({ mergeParams: true })
   const requestedFilters = (query) => ({ ...filtersFor(query), ...(admin ? { unmasked: true } : {}) })
+  if (!admin) router.post('/invitations/redeem', redeemLimiter, portalHandler(async (req, res) => {
+    if (!db) throw portalError('Service indisponible.', 503)
+    res.json(await redeemSchoolInvitation({ db, token: req.body?.token, clientUrl: process.env.CLIENT_URL }))
+  }))
   if (!admin) router.use((req, res, next) => {
     if (!/^\/(?:leads|lead|stats|catalog|company|members|school-formations|activation-complete|direct-requests)(?:\/|$)/.test(req.path)) return next('router')
     next()
@@ -21,7 +26,7 @@ export function createPartnerDashboardRouter({ db, authenticateToken, admin = fa
   router.use(authenticateToken)
   if (!admin) router.post('/activation-complete', portalHandler(async (req, res) => {
     await accessibleCompany(db, req.user.id)
-    await checked(db.from('school_portal_invitations').update({ status: 'accepted' }).eq('user_id', req.user.id).eq('email', req.user.email))
+    await checked(db.from('school_portal_invitations').update({ status: 'accepted', invite_token_hash: null }).eq('user_id', req.user.id).eq('email', req.user.email))
     res.json({ accepted: true })
   }))
   router.use(portalHandler(async (req, res, next) => {
@@ -163,6 +168,24 @@ export function createSchoolSharingRouter({ db, authenticateToken }) {
 }
 
 const invitationLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 15, standardHeaders: true, legacyHeaders: false })
+const redeemLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false })
+const INVITATION_VALIDITY_DAYS = 7
+const INVITATION_VALIDITY_MS = INVITATION_VALIDITY_DAYS * 24 * 60 * 60 * 1000
+const hashInvitationToken = (token) => crypto.createHash('sha256').update(token).digest('hex')
+
+export async function redeemSchoolInvitation({ db, token, clientUrl }) {
+  const expired = () => portalError('Lien expiré ou déjà utilisé. Demandez un nouvel email.', 410)
+  if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(token)) throw expired()
+  const invitation = await checked(db.from('school_portal_invitations').select('*').eq('invite_token_hash', hashInvitationToken(token)).maybeSingle())
+  if (!invitation?.user_id || !['pending', 'sent'].includes(invitation.status) || !(Date.parse(invitation.invite_expires_at) > Date.now())) throw expired()
+  let destination
+  try { destination = new URL('/espace-ecoles/activation', clientUrl) } catch { throw portalError('CLIENT_URL doit être configuré.', 503) }
+  // Recovery also confirms invited-but-unconfirmed accounts, and is only valid for a short time once minted.
+  const { data, error } = await db.auth.admin.generateLink({ type: 'recovery', email: invitation.email, options: { redirectTo: destination.href } })
+  if (error || !data?.properties?.hashed_token) throw portalError('Service Auth indisponible. Réessayez dans un instant.', 503)
+  if (data.user?.id !== invitation.user_id) throw expired()
+  return { tokenHash: data.properties.hashed_token, type: 'recovery' }
+}
 
 export async function inviteSchoolAccount({ db, company, email, role, clientUrl, actor, deliver }) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !['owner', 'member'].includes(role)) throw portalError('Email ou rôle invalide.')
@@ -195,7 +218,7 @@ export async function inviteSchoolAccount({ db, company, email, role, clientUrl,
     throw portalError('Invitation impossible. Email déjà utilisé ou service Auth indisponible ; vérifiez le compte avant de réessayer.', 409)
   }
   try {
-    if (!data?.user?.id || typeof data.properties?.action_link !== 'string') throw portalError('Réponse Auth incomplète.', 503)
+    if (!data?.user?.id) throw portalError('Réponse Auth incomplète.', 503)
     const userId = data.user.id
     if (existingUserId && existingUserId !== userId) throw portalError('L’identité du compte a changé. Contactez Zélia.', 409)
     if (!existingUserId && data.user.user_metadata?.profile_type !== 'school') throw portalError('Cet email appartient déjà à un autre compte. Utilisez une adresse professionnelle distincte.', 409)
@@ -210,9 +233,15 @@ export async function inviteSchoolAccount({ db, company, email, role, clientUrl,
     await checked(db.from('school_portal_invitations').update({ status: 'failed', error: 'ACCOUNT_ATTACHMENT_FAILED' }).eq('company_id', company.id).eq('email', email))
     throw failure
   }
+  // Supabase OTPs expire within hours, so the email carries a Zélia token; a fresh OTP is minted when it is redeemed.
+  const invitationToken = crypto.randomBytes(32).toString('base64url')
+  await checked(db.from('school_portal_invitations').update({ invite_token_hash: hashInvitationToken(invitationToken),
+    invite_expires_at: new Date(Date.now() + INVITATION_VALIDITY_MS).toISOString() }).eq('company_id', company.id).eq('email', email))
   const { sendMail } = await import('../utils/mailer.js')
   try {
-    const { subject, html } = schoolInvitationEmail({ actionLink: data.properties.action_link, schoolName: company.name, role })
+    const activation = new URL(destination.href)
+    activation.searchParams.set('invitation', invitationToken)
+    const { subject, html } = schoolInvitationEmail({ actionLink: activation.href, schoolName: company.name, role, validityDays: INVITATION_VALIDITY_DAYS })
     await (deliver || sendMail)({ to: email, subject, html })
   } catch (failure) {
     await checked(db.from('school_portal_invitations').update({ status: 'failed', error: 'EMAIL_DELIVERY_FAILED' }).eq('company_id', company.id).eq('email', email))

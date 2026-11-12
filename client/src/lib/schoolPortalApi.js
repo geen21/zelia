@@ -15,7 +15,7 @@ const schoolPortalApiClient = axios.create({
 
 schoolPortalApiClient.interceptors.request.use(
   async (config) => {
-    if (['/school-portal/schools/search', '/school-portal/register'].includes(config.url)) return config
+    if (['/school-portal/schools/search', '/school-portal/register', '/school-portal/invitations/redeem'].includes(config.url)) return config
     const { data, error } = await schoolPortalSupabase.auth.getSession()
     if (error) throw error
     const token = data?.session?.access_token

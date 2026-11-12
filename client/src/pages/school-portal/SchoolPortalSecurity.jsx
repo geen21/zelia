@@ -45,7 +45,12 @@ export default function SchoolPortalSecurity({ mode = 'settings' }) {
           if (url.searchParams.get('error_description') || fragment.get('error_description')) throw new Error(url.searchParams.get('error_description') || fragment.get('error_description'))
           const token = fragment.get('access_token')
           const refreshToken = fragment.get('refresh_token')
-          if (token && refreshToken && ['invite', 'recovery'].includes(fragment.get('type'))) check(await auth.setSession({ access_token: token, refresh_token: refreshToken }))
+          const invitation = url.searchParams.get('invitation')
+          if (invitation) {
+            const { data } = await schoolPortalApiClient.post('/school-portal/invitations/redeem', { token: invitation })
+              .catch((failure) => { throw new Error(failure.response?.data?.message || 'Lien expiré ou déjà utilisé. Demandez un nouvel email.') })
+            check(await auth.verifyOtp({ token_hash: data.tokenHash, type: data.type }))
+          } else if (token && refreshToken && ['invite', 'recovery'].includes(fragment.get('type'))) check(await auth.setSession({ access_token: token, refresh_token: refreshToken }))
           else if (url.searchParams.get('token_hash') && ['invite', 'recovery'].includes(url.searchParams.get('type'))) {
             check(await auth.verifyOtp({ token_hash: url.searchParams.get('token_hash'), type: url.searchParams.get('type') }))
           } else throw new Error('Lien absent, expiré ou déjà utilisé. Demandez un nouvel email.')

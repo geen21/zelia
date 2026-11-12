@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { once } from 'node:events'
 import { test } from 'node:test'
 import express from 'express'
-import { createPartnerDashboardRouter, inviteSchoolAccount } from '../routes/partnerDashboard.js'
+import { createPartnerDashboardRouter, inviteSchoolAccount, redeemSchoolInvitation } from '../routes/partnerDashboard.js'
 
 const owner = '11111111-1111-4111-8111-111111111111'
 const member = '22222222-2222-4222-8222-222222222222'
@@ -74,7 +74,7 @@ function fixture() {
       async generateLink(input) {
         state.generated.push(input)
         if (state.authError) return { data: null, error: state.authError }
-        return { data: { user: { id: owner, user_metadata: { profile_type: 'school' } }, properties: { action_link: 'https://auth.example/verify?token=fixture&type=invite' } } }
+        return { data: { user: { id: owner, user_metadata: { profile_type: 'school' } }, properties: { action_link: 'https://auth.example/verify?token=fixture&type=invite', hashed_token: 'fixture-hash' } } }
       },
       async getUserById(id) { return { data: { user: { id, email: id === owner ? 'school@example.com' : 'member@example.com' } } } }
     } }
@@ -109,6 +109,7 @@ test('portal HTTP: isolation, consent, read-only preview, public routes and MFA'
   try {
     assert.equal((await call('/school-portal/leads', null)).status, 401)
     assert.equal((await call('/school-portal/schools/search', null)).status, 200)
+    assert.equal((await call('/school-portal/invitations/redeem', null, 'POST', { token: 'bad' })).status, 410, 'redeem is public and rejects unknown tokens')
     let response = await call('/school-portal/leads?company_id=2')
     assert.equal(response.headers.get('cache-control'), 'no-store')
     assert.equal((await response.json()).leads[0].email, '***@***')
@@ -159,6 +160,23 @@ test('invitation: failure is visible, retry reuses identity, no plaintext passwo
   assert.equal(messages[0].subject, 'Votre accès à l’espace écoles Zélia')
   assert.match(messages[0].html, /Activer mon accès/)
   assert.doesNotMatch(messages[0].html, /href="[^"]*&(?!amp;)/, 'action link must be HTML-escaped')
+  const token = messages[0].html.match(/href="https:\/\/client\.example\/espace-ecoles\/activation\?invitation=([A-Za-z0-9_-]{43})"/)?.[1]
+  assert.ok(token, 'email must link to the Zélia activation page with a durable invitation token')
+  assert.doesNotMatch(messages[0].html, /auth\.example|token_hash/, 'no Supabase URL or short-lived OTP in the email')
+  const invitation = tables.school_portal_invitations[0]
+  assert.notEqual(invitation.invite_token_hash, token, 'token must be stored hashed')
+  assert.ok(Date.parse(invitation.invite_expires_at) - Date.now() > 6.9 * 24 * 3600 * 1000)
+  const redeemArgs = { db, token, clientUrl: 'https://client.example' }
+  assert.deepEqual(await redeemSchoolInvitation(redeemArgs), { tokenHash: 'fixture-hash', type: 'recovery' })
+  assert.deepEqual(await redeemSchoolInvitation(redeemArgs), { tokenHash: 'fixture-hash', type: 'recovery' }, 'link stays usable until activation')
+  assert.equal(state.generated.at(-1).type, 'recovery')
+  await assert.rejects(redeemSchoolInvitation({ ...redeemArgs, token: 'x'.repeat(43) }), /expiré/)
+  invitation.invite_expires_at = new Date(Date.now() - 1000).toISOString()
+  await assert.rejects(redeemSchoolInvitation(redeemArgs), /expiré/)
+  invitation.invite_expires_at = new Date(Date.now() + 60000).toISOString()
+  invitation.status = 'accepted'
+  await assert.rejects(redeemSchoolInvitation(redeemArgs), /déjà utilisé/)
+  invitation.status = 'sent'
   assert.equal(tables.school_portal_invitations[0].status, 'sent')
   await assert.rejects(inviteSchoolAccount(args), /Attendez une minute/)
   await assert.rejects(inviteSchoolAccount({ ...args, role: 'member' }), /autre rôle/)

@@ -23,15 +23,18 @@ export function portalHandler(handler) {
     try {
       await handler(req, res, next)
     } catch (error) {
-      const missing = ['42P01', '42703', '42883', 'PGRST202', 'PGRST205'].includes(error.code)
+      const missing = ['42P01', '42703', '42883', 'PGRST202', 'PGRST204', 'PGRST205'].includes(error.code)
+      const missingInvitationLinks = missing && /invite_token_hash|invite_expires_at/i.test(`${error.message || ''} ${error.details || ''}`)
       const status = error.status || (missing ? 503 : error.code === '23505' ? 409
         : ['22P02', '22023', '23503', '23514'].includes(error.code) ? 400
           : ['PGRST116', 'P0002'].includes(error.code) ? 404 : 500)
       if (status >= 500) console.error('School dashboard request failed:', error.code || error.message)
       res.status(status).json({
         error: missing ? 'PORTAL_MIGRATION_REQUIRED' : 'PORTAL_REQUEST_FAILED',
-        message: partnerPortalMessages[error.message] || (missing ? 'Appliquez la migration migration_partner_dashboards.sql avant d’utiliser cette fonctionnalité.'
-          : error.status ? error.message : status === 409 ? 'Ce rattachement ou ce compte existe déjà.' : 'Impossible de terminer cette opération.')
+        message: partnerPortalMessages[error.message] || (missingInvitationLinks
+          ? 'Appliquez la migration migration_school_invitation_links.sql avant d’utiliser cette fonctionnalité.'
+          : missing ? 'Appliquez la migration migration_partner_dashboards.sql avant d’utiliser cette fonctionnalité.'
+            : error.status ? error.message : status === 409 ? 'Ce rattachement ou ce compte existe déjà.' : 'Impossible de terminer cette opération.')
       })
     }
   }
@@ -86,7 +89,12 @@ export function pageFor(query, max = 200) {
 
 export function redactLead(lead, admin = false) {
   if (lead.revealed || admin) return lead
-  return { ...lead, nom: lead.nom ? `${lead.nom[0]}***` : '', email: '***@***' }
+  return {
+    ...lead,
+    nom: lead.nom ? `${lead.nom[0]}***` : '',
+    email: '***@***',
+    ...(lead.telephone !== undefined ? { telephone: lead.telephone ? '•• •• •• •• ••' : '' } : {})
+  }
 }
 
 export function csvCell(value) {

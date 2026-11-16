@@ -16,9 +16,10 @@ function fixture() {
     school_portal_invitations: [], school_portal_audit: [], school_lead_reveals: [],
     profiles: [{ id: pupil, first_name: 'Camille', phone_number: '0600000000' }],
     user_responses: [{ id: 1, user_id: pupil, questionnaire_type: 'inscription', question_id: 1, response: 'Sciences', questions: { content: 'Ta matière ?' } }],
-    informations_complementaires: [], user_results: []
+    informations_complementaires: [{ id: 1, user_id: pupil, question_id: 'orientation_school_level', question_text: 'Classe actuelle', answer_text: '1ere', created_at: '2026-10-01' }],
+    user_results: []
   }
-  const state = { detailed: false, missing: false, profileReads: 0, generated: [], authError: null }
+  const state = { detailed: false, missing: false, missingInvitationTokenColumn: false, tokenStorageError: null, profileReads: 0, generated: [], authError: null }
   const lead = { leadKey: `user:${pupil}`, user_id: pupil, prenom: 'Camille', nom: 'Martin', email: 'student@example.com',
     origin: 'natural', source: 'questionnaire', actions: [], inscrit_le: '2026-10-01', status: 'nouveau', note: '' }
   const db = {
@@ -26,8 +27,9 @@ function fixture() {
       if (table === 'profiles') state.profileReads++
       let operation = 'select', payload, single = false, offset = 0, end = Infinity
       const filters = []
+      const filterKeys = []
       const builder = {
-        select() { return this }, eq(key, value) { filters.push((row) => String(row[key]) === String(value)); return this },
+        select() { return this }, eq(key, value) { filterKeys.push(key); filters.push((row) => String(row[key]) === String(value)); return this },
         neq(key, value) { filters.push((row) => row[key] !== value); return this },
         like() { return this }, order() { return this }, limit(n) { end = n - 1; return this },
         range(a, b) { offset = a; end = b; return this }, maybeSingle() { single = true; return this },
@@ -38,6 +40,12 @@ function fixture() {
         delete() { operation = 'delete'; return this },
         then(resolve, reject) {
           return Promise.resolve().then(() => {
+            if (table === 'school_portal_invitations' && (filterKeys.includes('invite_token_hash') || (payload && ('invite_token_hash' in payload || 'invite_expires_at' in payload)))) {
+              if (state.tokenStorageError) return { data: null, error: state.tokenStorageError }
+              if (state.missingInvitationTokenColumn) {
+                return { data: null, error: { code: 'PGRST204', message: "Could not find the 'invite_token_hash' column of 'school_portal_invitations' in the schema cache" } }
+              }
+            }
             const rows = tables[table] || []
             const matches = rows.filter((row) => filters.every((filter) => filter(row)))
             let result = matches
@@ -112,17 +120,35 @@ test('portal HTTP: isolation, consent, read-only preview, public routes and MFA'
     assert.equal((await call('/school-portal/invitations/redeem', null, 'POST', { token: 'bad' })).status, 410, 'redeem is public and rejects unknown tokens')
     let response = await call('/school-portal/leads?company_id=2')
     assert.equal(response.headers.get('cache-control'), 'no-store')
-    assert.equal((await response.json()).leads[0].email, '***@***')
+    const initialLeadRow = (await response.json()).leads[0]
+    assert.equal(initialLeadRow.email, '***@***')
+    assert.equal(initialLeadRow.classe_actuelle, undefined, 'unconsented non-questionnaire leads do not hydrate extra orientation fields')
     assert.equal((await (await call('/school-portal/leads', 'other')).json()).total, 0)
     assert.equal((await call('/school-portal/lead/user:unknown')).status, 404)
     response = await call(`/school-portal/lead/${lead.leadKey}`)
     assert.equal((await response.json()).detail, null)
     assert.equal(state.profileReads, 0, 'unauthorized detail must not even be fetched')
     state.detailed = true
+    assert.equal((await (await call('/school-portal/leads')).json()).leads[0].classe_actuelle, '1ere', 'consented leads expose classe_actuelle directly on the main leads list')
     assert.equal((await (await call(`/school-portal/lead/${lead.leadKey}`)).json()).detailLocked, true)
     assert.equal(state.profileReads, 0)
     assert.equal((await call(`/school-portal/lead/${lead.leadKey}/reveal`, 'owner', 'POST')).status, 200)
-    assert.equal((await (await call(`/school-portal/lead/${lead.leadKey}`)).json()).detail.profile.phone_number, '0600000000')
+    const revealedDetail = await (await call(`/school-portal/lead/${lead.leadKey}`)).json()
+    assert.equal(revealedDetail.lead.telephone, '0600000000')
+    assert.equal(revealedDetail.detail.profile.phone_number, '0600000000')
+    state.detailed = false
+    const revealedHistorical = await (await call(`/school-portal/lead/${lead.leadKey}`)).json()
+    assert.equal(revealedHistorical.detail, null)
+    assert.equal(revealedHistorical.lead.telephone, '0600000000', 'revealed historical contacts still include phone number when available')
+    state.detailed = true
+    tables.school_portal_invitations.push({ id: 1, company_id: 1, email: 'school@example.com', role: 'owner', user_id: owner, status: 'sent' })
+    state.missingInvitationTokenColumn = true
+    assert.equal((await call('/school-portal/activation-complete', 'owner', 'POST')).status, 200)
+    assert.equal(tables.school_portal_invitations[0].status, 'accepted')
+    const missingRedeem = await call('/school-portal/invitations/redeem', null, 'POST', { token: 'a'.repeat(43) })
+    assert.equal(missingRedeem.status, 503)
+    assert.match((await missingRedeem.json()).message, /migration_school_invitation_links\.sql/)
+    state.missingInvitationTokenColumn = false
     assert.equal((await call('/school-portal/members/7', 'member', 'DELETE')).status, 403)
     assert.equal((await call('/admin/schools/1/dashboard/leads', 'owner')).status, 403)
     const revealedBefore = tables.school_lead_reveals.length
@@ -183,4 +209,23 @@ test('invitation: failure is visible, retry reuses identity, no plaintext passwo
   const generatedBefore = state.generated.length
   await assert.rejects(inviteSchoolAccount({ ...args, email: 'student@example.com', role: 'member' }), /autre compte/)
   assert.equal(state.generated.length, generatedBefore, 'an existing student identity must not be mutated by Auth')
+
+  // Resending when migration_school_invitation_links.sql is not applied yet falls back cleanly instead of throwing 500 or leaving status='pending'.
+  invitation.sent_at = new Date(Date.now() - 120000).toISOString()
+  state.missingInvitationTokenColumn = true
+  const fallbackMessages = []
+  assert.deepEqual(await inviteSchoolAccount({ ...args, deliver: async (mail) => fallbackMessages.push(mail) }), { sent: true })
+  assert.equal(invitation.status, 'sent')
+  assert.equal(fallbackMessages.length, 1)
+  assert.match(fallbackMessages[0].html, /href="https:\/\/client\.example\/espace-ecoles\/activation\?token_hash=fixture-hash&amp;type=recovery"/)
+  assert.match(fallbackMessages[0].html, /personnel et temporaire/)
+  state.missingInvitationTokenColumn = false
+
+  // Any unexpected error after claiming the invitation marks status='failed' instead of leaving it stuck on 'pending'.
+  invitation.sent_at = new Date(Date.now() - 120000).toISOString()
+  state.tokenStorageError = { code: 'XX000', message: 'unexpected db error' }
+  await assert.rejects(inviteSchoolAccount({ ...args, deliver: async () => {} }))
+  assert.equal(invitation.status, 'failed')
+  assert.equal(invitation.error, 'INVITATION_TOKEN_FAILED')
+  state.tokenStorageError = null
 })

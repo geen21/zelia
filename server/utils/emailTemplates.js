@@ -51,13 +51,16 @@ export function schoolInvitationEmail({ actionLink, schoolName, role, validityDa
   const intro = role === 'member'
     ? `Vous avez été invité·e à rejoindre l’espace de ${school} sur Zélia.`
     : `L’espace de ${school} sur Zélia est prêt.`
+  const validityNotice = validityDays == null
+    ? `Ce lien est <strong style="color:${colors.ink};">personnel et temporaire</strong> : ne le transférez pas.`
+    : `Ce lien est <strong style="color:${colors.ink};">personnel</strong> et reste valable ${Number(validityDays)} jours, jusqu’à l’activation de votre compte : ne le transférez pas.`
   const body = `
 <span style="display:inline-block;padding:6px 12px;background:${colors.pink};border:2px solid ${colors.ink};border-radius:999px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:${colors.ink};">Espace écoles</span>
 <h1 style="margin:20px 0 12px 0;font-size:26px;line-height:32px;font-weight:800;color:${colors.ink};">Bienvenue sur Zélia 👋</h1>
 <p style="margin:0 0 12px 0;font-size:16px;line-height:24px;color:${colors.ink};">${intro}</p>
 <p style="margin:0;font-size:16px;line-height:24px;color:${colors.muted};">Vous pourrez y suivre les élèves intéressés par vos formations, gérer vos demandes et inviter votre équipe.</p>
 ${button(actionLink, 'Activer mon accès')}
-<p style="margin:0 0 8px 0;font-size:14px;line-height:21px;color:${colors.muted};">Vous choisirez votre mot de passe à l’étape suivante. Ce lien est <strong style="color:${colors.ink};">personnel</strong> et reste valable ${Number(validityDays)} jours, jusqu’à l’activation de votre compte : ne le transférez pas.</p>
+<p style="margin:0 0 8px 0;font-size:14px;line-height:21px;color:${colors.muted};">Vous choisirez votre mot de passe à l’étape suivante. ${validityNotice}</p>
 <p style="margin:20px 0 0 0;padding-top:16px;border-top:1px solid #e5e7eb;font-size:12px;line-height:18px;color:${colors.muted};">Le lien a expiré ? Demandez un nouvel email depuis la page de connexion de l’espace écoles (« Recevoir un nouveau lien »).</p>`
   return {
     subject: 'Votre accès à l’espace écoles Zélia',

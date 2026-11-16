@@ -244,6 +244,7 @@ RETURNS SETOF jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS
   SELECT jsonb_build_object(
     'leadKey',g.lead_key,'user_id',g.user_id,'prenom',coalesce(nullif(p.first_name,''),u.raw_user_meta_data->>'first_name',g.guest_first,''),
     'nom',coalesce(nullif(p.last_name,''),u.raw_user_meta_data->>'last_name',g.guest_last,''),'email',coalesce(u.email,g.guest_email,''),
+    'telephone',coalesce(nullif(to_jsonb(p)->>'phone_number',''),nullif(u.raw_user_meta_data->>'phone_number',''),''),
     'source',CASE WHEN cardinality(g.channels)=1 THEN g.channels[1] ELSE 'multiple' END,
     'channels',to_jsonb(g.channels),'origin',CASE WHEN g.natural AND g.sponsored THEN 'mixed' WHEN g.natural THEN 'natural' ELSE 'sponsored' END,
     'actions',g.actions,'inscrit_le',g.created_at,'status',coalesce(s.status,'nouveau'),'note',coalesce(s.note,''),
@@ -252,7 +253,9 @@ RETURNS SETOF jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS
       SELECT 1 FROM public.school_sharing_consents c WHERE c.user_id=g.user_id AND c.revoked_at IS NULL)),
     'genre',CASE WHEN g.questionnaire THEN p.gender ELSE '' END,'age',CASE WHEN g.questionnaire THEN p.age END,
     'departement',CASE WHEN g.questionnaire THEN coalesce(g.extra->>'orientation_department_name',p.department) ELSE '' END,
-    'classe_actuelle',CASE WHEN g.questionnaire THEN g.extra->>'orientation_school_level' ELSE '' END,
+    'classe_actuelle',CASE WHEN g.questionnaire OR (g.user_id IS NOT NULL AND (g.detailed_request OR EXISTS(
+      SELECT 1 FROM public.school_sharing_consents c WHERE c.user_id=g.user_id AND c.revoked_at IS NULL)))
+      THEN coalesce(g.extra->>'orientation_school_level','') ELSE '' END,
     'niveau_vise',CASE WHEN g.questionnaire THEN g.extra->>'orientation_target_level' ELSE '' END,
     'budget',CASE WHEN g.questionnaire THEN g.extra->>'orientation_budget' ELSE '' END,
     'moyenne',CASE WHEN g.questionnaire THEN g.extra->>'orientation_grade_confidence' ELSE '' END,

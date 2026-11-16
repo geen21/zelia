@@ -6,10 +6,55 @@ import {
   pageFor, portalError, portalHandler, readAll, redactLead, requireVerifiedMfa, SHARING_VERSION
 } from '../utils/schoolDashboard.js'
 import { schoolInvitationEmail } from '../utils/emailTemplates.js'
+import { normalizePhoneNumber } from '../utils/userRegistration.js'
 
 const identifier = (value) => {
   if (!/^[1-9]\d*$/.test(String(value))) throw portalError('Identifiant invalide.')
   return String(value)
+}
+
+const isMissingInvitationTokenColumn = (error) => Boolean(
+  error && ['PGRST204', '42703'].includes(error.code)
+  && /invite_token_hash|invite_expires_at/i.test(`${error.message || ''} ${error.details || ''}`)
+)
+
+async function withLeadSchoolLevels(db, leads = []) {
+  const missingUserIds = [...new Set(
+    leads
+      .filter((lead) => !lead.classe_actuelle && lead.user_id && lead.detailedAllowed)
+      .map((lead) => lead.user_id)
+  )]
+  if (!missingUserIds.length) return leads
+  const entries = await Promise.all(missingUserIds.map(async (userId) => {
+    const rows = await checked(
+      db.from('informations_complementaires')
+        .select('answer_text')
+        .eq('user_id', userId)
+        .eq('question_id', 'orientation_school_level')
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(1)
+    )
+    return [userId, rows?.[0]?.answer_text || '']
+  }))
+  const levelByUser = new Map(entries.filter(([, level]) => level))
+  if (!levelByUser.size) return leads
+  return leads.map((lead) => (
+    !lead.classe_actuelle && levelByUser.has(lead.user_id)
+      ? { ...lead, classe_actuelle: levelByUser.get(lead.user_id) }
+      : lead
+  ))
+}
+
+async function authMetadataPhoneNumber(db, userId) {
+  if (!userId || !db?.auth?.admin?.getUserById) return ''
+  try {
+    const result = await db.auth.admin.getUserById(userId)
+    const metadata = result?.data?.user?.user_metadata || {}
+    return normalizePhoneNumber(metadata.phone_number ?? metadata.numero_telephone ?? metadata.numeroTelephone ?? '')
+  } catch {
+    return ''
+  }
 }
 
 export function createPartnerDashboardRouter({ db, authenticateToken, admin = false }) {
@@ -26,7 +71,11 @@ export function createPartnerDashboardRouter({ db, authenticateToken, admin = fa
   router.use(authenticateToken)
   if (!admin) router.post('/activation-complete', portalHandler(async (req, res) => {
     await accessibleCompany(db, req.user.id)
-    await checked(db.from('school_portal_invitations').update({ status: 'accepted', invite_token_hash: null }).eq('user_id', req.user.id).eq('email', req.user.email))
+    const update = await db.from('school_portal_invitations').update({ status: 'accepted', invite_token_hash: null }).eq('user_id', req.user.id).eq('email', req.user.email)
+    if (update.error) {
+      if (!isMissingInvitationTokenColumn(update.error)) throw update.error
+      await checked(db.from('school_portal_invitations').update({ status: 'accepted' }).eq('user_id', req.user.id).eq('email', req.user.email))
+    }
     res.json({ accepted: true })
   }))
   router.use(portalHandler(async (req, res, next) => {
@@ -44,7 +93,8 @@ export function createPartnerDashboardRouter({ db, authenticateToken, admin = fa
   router.get('/leads', portalHandler(async (req, res) => {
     const { limit, offset } = pageFor(req.query)
     const data = await dashboard(db, req.school.id, requestedFilters(req.query), limit, offset)
-    res.json({ ...data, leads: data.leads.map((lead) => redactLead(lead, admin)), limit, offset })
+    const leads = await withLeadSchoolLevels(db, data.leads)
+    res.json({ ...data, leads: leads.map((lead) => redactLead(lead, admin)), limit, offset })
   }))
   router.get('/stats', portalHandler(async (req, res) => {
     const { leads, ...stats } = await dashboard(db, req.school.id, requestedFilters(req.query), 1)
@@ -54,7 +104,8 @@ export function createPartnerDashboardRouter({ db, authenticateToken, admin = fa
     const filters = requestedFilters(req.query)
     // A single SQL snapshot avoids offset drift while new leads arrive.
     const data = await dashboard(db, req.school.id, filters, -1)
-    const rows = data.leads.map((lead) => redactLead(lead, admin))
+    const leads = await withLeadSchoolLevels(db, data.leads)
+    const rows = leads.map((lead) => redactLead(lead, admin))
     if (admin) await auditPortal(db, req.user.id, req.school.id, 'export')
     const columns = ['prenom', 'nom', 'email', 'origin', 'source', 'classe_actuelle', 'niveau_vise', 'budget', 'formations_choisies_ecole', 'status', 'note', 'inscrit_le']
     const csv = [columns.map(csvCell).join(';'), ...rows.map((lead) => columns.map((key) => csvCell(lead[key])).join(';'))].join('\r\n')
@@ -62,8 +113,9 @@ export function createPartnerDashboardRouter({ db, authenticateToken, admin = fa
   }))
   router.get('/lead/:key', portalHandler(async (req, res) => {
     const data = await dashboard(db, req.school.id, { leadKey: req.params.key }, 1)
-    const lead = data.leads[0]
-    if (!lead) throw portalError('Lead introuvable ou partage retiré.', 404)
+    const [baseLead] = await withLeadSchoolLevels(db, data.leads)
+    if (!baseLead) throw portalError('Lead introuvable ou partage retiré.', 404)
+    let lead = baseLead
     let detail = null
     if (lead.detailedAllowed && (lead.revealed || admin)) {
       const [profile, answers, extraInfo, analysis] = await Promise.all([
@@ -73,8 +125,17 @@ export function createPartnerDashboardRouter({ db, authenticateToken, admin = fa
           .like('question_id', 'orientation_%').neq('question_id', 'orientation_final_selection').neq('question_id', 'orientation_recommendations').order('created_at', { ascending: false }).order('id', { ascending: false })),
         checked(db.from('user_results').select('personality_analysis,skills_assessment,job_recommendations,study_recommendations,updated_at').eq('user_id', lead.user_id).eq('questionnaire_type', 'inscription').order('updated_at', { ascending: false }).limit(1).maybeSingle())
       ])
+      const resolvedPhone = normalizePhoneNumber(lead.telephone || profile?.phone_number || await authMetadataPhoneNumber(db, lead.user_id))
+      if (resolvedPhone) {
+        lead = { ...lead, telephone: resolvedPhone }
+        if (profile && !profile.phone_number) profile.phone_number = resolvedPhone
+      }
       const seen = new Set()
       detail = { profile, answers, extraInfo: extraInfo.filter((entry) => !seen.has(entry.question_id) && seen.add(entry.question_id)), analysis }
+    } else if ((lead.revealed || admin) && lead.user_id && !lead.telephone) {
+      const profile = await checked(db.from('profiles').select('phone_number').eq('id', lead.user_id).maybeSingle())
+      const resolvedPhone = normalizePhoneNumber(profile?.phone_number || await authMetadataPhoneNumber(db, lead.user_id))
+      if (resolvedPhone) lead = { ...lead, telephone: resolvedPhone }
     }
     if (admin) await auditPortal(db, req.user.id, req.school.id, 'view_lead', lead.leadKey)
     res.json({ lead: redactLead(lead, admin), detail, detailLocked: lead.detailedAllowed && !lead.revealed && !admin })
@@ -200,7 +261,7 @@ export async function inviteSchoolAccount({ db, company, email, role, clientUrl,
   let existingUserId = previous?.user_id
   if (!existingUserId && role === 'owner' && company.owner_id) {
     const identity = await checked(db.auth.admin.getUserById(company.owner_id))
-    if (identity.user.email?.toLowerCase() !== email) throw portalError('Cette école possède déjà un propriétaire.', 409)
+    if (identity.user?.email?.toLowerCase() !== email) throw portalError('Cette école possède déjà un propriétaire.', 409)
     existingUserId = company.owner_id
   }
   const existingIdentity = await checked(db.rpc('school_find_auth_user', { p_email: email }))
@@ -210,14 +271,17 @@ export async function inviteSchoolAccount({ db, company, email, role, clientUrl,
     existingUserId = existingIdentity
   }
   if (!await checked(db.rpc('school_claim_invitation', { p_company: company.id, p_email: email, p_role: role }))) throw portalError('Invitation déjà en cours. Réessayez plus tard.', 429)
-  // Generate the identity first, attach it, then deliver. Never delete a reused identity.
-  const { data, error } = await db.auth.admin.generateLink({ type: existingUserId ? 'recovery' : 'invite', email,
-    options: { redirectTo: destination.href, ...(existingUserId ? {} : { data: { profile_type: 'school' } }) } })
-  if (error) {
-    await checked(db.from('school_portal_invitations').update({ status: 'failed', error: 'AUTH_INVITATION_FAILED' }).eq('company_id', company.id).eq('email', email))
-    throw portalError('Invitation impossible. Email déjà utilisé ou service Auth indisponible ; vérifiez le compte avant de réessayer.', 409)
-  }
+  const linkType = existingUserId ? 'recovery' : 'invite'
+  let failureCode = 'INVITATION_FAILED'
   try {
+    // Generate the identity first, attach it, then deliver. Never delete a reused identity.
+    failureCode = 'AUTH_INVITATION_FAILED'
+    const { data, error } = await db.auth.admin.generateLink({ type: linkType, email,
+      options: { redirectTo: destination.href, ...(existingUserId ? {} : { data: { profile_type: 'school' } }) } })
+    if (error) {
+      throw portalError('Invitation impossible. Email déjà utilisé ou service Auth indisponible ; vérifiez le compte avant de réessayer.', 409)
+    }
+    failureCode = 'ACCOUNT_ATTACHMENT_FAILED'
     if (!data?.user?.id) throw portalError('Réponse Auth incomplète.', 503)
     const userId = data.user.id
     if (existingUserId && existingUserId !== userId) throw portalError('L’identité du compte a changé. Contactez Zélia.', 409)
@@ -229,24 +293,49 @@ export async function inviteSchoolAccount({ db, company, email, role, clientUrl,
     })
     if (affiliations && String(affiliations.id) !== String(company.id)) throw portalError('Ce compte est déjà rattaché à une autre école.', 409)
     await checked(db.rpc('school_attach_account', { p_company: company.id, p_user: userId, p_role: role }))
+
+    // Supabase OTPs expire within hours, so the email carries a Zélia token when migration_school_invitation_links.sql is applied;
+    // otherwise fall back to the direct OTP link so sending and resending still succeed before the migration runs.
+    failureCode = 'INVITATION_TOKEN_FAILED'
+    const invitationToken = crypto.randomBytes(32).toString('base64url')
+    const tokenUpdate = await db.from('school_portal_invitations').update({
+      invite_token_hash: hashInvitationToken(invitationToken),
+      invite_expires_at: new Date(Date.now() + INVITATION_VALIDITY_MS).toISOString()
+    }).eq('company_id', company.id).eq('email', email)
+    let actionLink
+    let validityDays = INVITATION_VALIDITY_DAYS
+    if (!tokenUpdate.error) {
+      const activation = new URL(destination.href)
+      activation.searchParams.set('invitation', invitationToken)
+      actionLink = activation.href
+    } else if (isMissingInvitationTokenColumn(tokenUpdate.error)) {
+      validityDays = null
+      if (data.properties?.hashed_token) {
+        const activation = new URL(destination.href)
+        activation.searchParams.set('token_hash', data.properties.hashed_token)
+        activation.searchParams.set('type', linkType)
+        actionLink = activation.href
+      } else if (typeof data.properties?.action_link === 'string' && data.properties.action_link) {
+        actionLink = data.properties.action_link
+      } else {
+        throw portalError('Réponse Auth incomplète.', 503)
+      }
+    } else {
+      throw tokenUpdate.error
+    }
+
+    failureCode = 'EMAIL_DELIVERY_FAILED'
+    const { sendMail } = await import('../utils/mailer.js')
+    try {
+      const { subject, html } = schoolInvitationEmail({ actionLink, schoolName: company.name, role, validityDays })
+      await (deliver || sendMail)({ to: email, subject, html })
+    } catch (mailFailure) {
+      console.error('School invitation delivery failed:', mailFailure.code || mailFailure.message)
+      throw portalError('Compte préparé, mais email non envoyé. Vérifiez SMTP/Resend puis renvoyez l’invitation.', 503)
+    }
   } catch (failure) {
-    await checked(db.from('school_portal_invitations').update({ status: 'failed', error: 'ACCOUNT_ATTACHMENT_FAILED' }).eq('company_id', company.id).eq('email', email))
+    await db.from('school_portal_invitations').update({ status: 'failed', error: failureCode }).eq('company_id', company.id).eq('email', email)
     throw failure
-  }
-  // Supabase OTPs expire within hours, so the email carries a Zélia token; a fresh OTP is minted when it is redeemed.
-  const invitationToken = crypto.randomBytes(32).toString('base64url')
-  await checked(db.from('school_portal_invitations').update({ invite_token_hash: hashInvitationToken(invitationToken),
-    invite_expires_at: new Date(Date.now() + INVITATION_VALIDITY_MS).toISOString() }).eq('company_id', company.id).eq('email', email))
-  const { sendMail } = await import('../utils/mailer.js')
-  try {
-    const activation = new URL(destination.href)
-    activation.searchParams.set('invitation', invitationToken)
-    const { subject, html } = schoolInvitationEmail({ actionLink: activation.href, schoolName: company.name, role, validityDays: INVITATION_VALIDITY_DAYS })
-    await (deliver || sendMail)({ to: email, subject, html })
-  } catch (failure) {
-    await checked(db.from('school_portal_invitations').update({ status: 'failed', error: 'EMAIL_DELIVERY_FAILED' }).eq('company_id', company.id).eq('email', email))
-    console.error('School invitation delivery failed:', failure.code || failure.message)
-    throw portalError('Compte préparé, mais email non envoyé. Vérifiez SMTP/Resend puis renvoyez l’invitation.', 503)
   }
   await checked(db.from('school_portal_invitations').update({ status: 'sent', sent_at: new Date().toISOString(), error: null }).eq('company_id', company.id).eq('email', email))
   await auditPortal(db, actor, company.id, 'invite', role)

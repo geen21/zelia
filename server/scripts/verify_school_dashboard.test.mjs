@@ -29,7 +29,7 @@ test('dashboard SQL: consent, attribution, isolation, exact totals and replay', 
       CREATE TABLE public.school_portal_members(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,company_id bigint,user_id uuid,role text,UNIQUE(company_id,user_id));
       CREATE TABLE public.school_lead_status(company_id bigint,lead_key text,status text DEFAULT 'nouveau',note text,notified_at timestamptz,updated_at timestamptz DEFAULT now(),UNIQUE(company_id,lead_key));
       CREATE TABLE public.school_lead_reveals(company_id bigint,lead_key text,revealed_at timestamptz DEFAULT now());
-      INSERT INTO auth.users(id,email) VALUES('${student}','student@example.com'),('${owner}','owner@example.com');
+      INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES('${student}','student@example.com','{"phone_number":"06 12 34 56 78"}'::jsonb),('${owner}','owner@example.com','{}'::jsonb);
       INSERT INTO public.profiles VALUES('${student}','Camille','Martin','',17,'75',false);
       INSERT INTO public.companies(id,name,email) VALUES(1,'School','school@example.com'),(2,'Homonym School','other-school@example.com');
       INSERT INTO public.formation_france VALUES(9007199254740993,'School','Bachelor national','Paris','https://school.example',NULL);
@@ -40,6 +40,7 @@ test('dashboard SQL: consent, attribution, isolation, exact totals and replay', 
     await db.exec(migration)
     await db.query(`INSERT INTO school_catalog_links(company_id,source,formation_ref,campus,validated_by)
       VALUES(1,'formation_france','9007199254740993','Paris',$1),(1,'ecoles_partenaires',$2,'Lyon',$1)`, [owner, partner])
+    await db.query("INSERT INTO informations_complementaires(user_id,question_id,question_text,answer_text) VALUES($1,'orientation_school_level','Classe actuelle','terminale')", [student])
     const selection = (request, version) => JSON.stringify([
       { type: 'formation', sourceTable: 'formation_france', rawId: '9007199254740993', requestMoreInformation: request, sharingVersion: version }
     ])
@@ -56,6 +57,8 @@ test('dashboard SQL: consent, attribution, isolation, exact totals and replay', 
     let result = await dashboard()
     assert.equal(result.total, 1)
     assert.equal(result.leads[0].origin, 'natural')
+    assert.equal(result.leads[0].classe_actuelle, 'terminale')
+    assert.equal(result.leads[0].telephone, '06 12 34 56 78')
     assert.equal(result.leads[0].detailedAllowed, false, 'historical request does not allow detailed responses')
     assert.equal((await dashboard(2)).total, 0, 'homonym has no access')
     await db.query('INSERT INTO contact_submitted(user_id,formation_id) VALUES($1,$2)', [student, partner])
@@ -143,6 +146,10 @@ test('dashboard SQL: consent, attribution, isolation, exact totals and replay', 
     assert.equal((await db.query('SELECT count(*)::int count FROM auth.users')).rows[0].count, authCount, 'creating dashboards does not create Auth users')
     assert.equal((await dashboard(mdsCompany)).total, 1, 'existing consenting partner requests become visible')
     assert.equal((await dashboard(mdsCompany)).leads[0].detailedAllowed, false, 'automatic dashboards do not extend historical consent')
+    assert.equal((await dashboard(mdsCompany)).leads[0].classe_actuelle, '', 'unconsented historical partner requests do not expose questionnaire level')
+    await db.query('SELECT school_set_sharing($1,true)', [student])
+    assert.equal((await dashboard(mdsCompany)).leads[0].classe_actuelle, 'terminale', 'consented partner leads expose classe_actuelle directly')
+    await db.query('SELECT school_set_sharing($1,false)', [student])
     await db.query("INSERT INTO school_registration_requests(id,email,school_name) VALUES(6,'responsable@mds.example','MyDigitalSchool')")
     assert.equal((await db.query('SELECT company_id FROM school_registration_requests WHERE id=6')).rows[0].company_id, mdsCompany)
     assert.equal((await db.query('SELECT count(*)::int count FROM auth.users')).rows[0].count, authCount)
@@ -199,9 +206,12 @@ test('filters, redaction, CSV and verified MFA', () => {
   assert.throws(() => pageFor({ offset: -1 }))
   assert.throws(() => pageFor({ limit: 1001 }))
   assert.equal(csvCell('=HYPERLINK("bad")'), `"'=HYPERLINK(""bad"")"`)
-  const lead = { email: 'student@example.com', nom: 'Martin', revealed: false }
+  const lead = { email: 'student@example.com', nom: 'Martin', telephone: '06 12 34 56 78', revealed: false }
   assert.equal(redactLead(lead).email, '***@***')
+  assert.equal(redactLead(lead).telephone, '•• •• •• •• ••')
+  assert.equal(redactLead({ ...lead, telephone: '' }).telephone, '')
   assert.equal(redactLead(lead, true).email, lead.email)
+  assert.equal(redactLead(lead, true).telephone, lead.telephone)
   const req = { user: { factors: [{ status: 'verified' }] }, headers: { authorization: `Bearer header.${Buffer.from('{"aal":"aal1"}').toString('base64url')}.signature` } }
   assert.throws(() => requireVerifiedMfa(req), /MFA_REQUIRED/)
   req.headers.authorization = `Bearer header.${Buffer.from('{"aal":"aal2"}').toString('base64url')}.signature`

@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { PiLockKey } from 'react-icons/pi'
-import { ORIGIN_LABELS, STATUS_LABELS } from './SchoolPortalFilters'
+import { ORIGIN_LABELS, SCHOOL_LEVEL_LABELS, STATUS_LABELS } from './SchoolPortalFilters'
 
-const VALUE_LABELS = { near_home: 'Près de chez moi', move_city: 'Changer de ville', both: 'Les deux', maths: 'Maths', francais: 'Français', anglais: 'Anglais', sciences: 'Sciences', eco: 'Éco', arts: 'Arts', numerique: 'Numérique', '1ere': '1ère', post_bac: 'Post-bac' }
+const VALUE_LABELS = { near_home: 'Près de chez moi', move_city: 'Changer de ville', both: 'Les deux', maths: 'Maths', francais: 'Français', anglais: 'Anglais', sciences: 'Sciences', eco: 'Éco', arts: 'Arts', numerique: 'Numérique', ...SCHOOL_LEVEL_LABELS }
 const profileLabels = { first_name: 'Prénom', last_name: 'Nom', age: 'Âge', gender: 'Genre', department: 'Département', school: 'Établissement actuel', phone_number: 'Téléphone' }
 const leadLabels = { classe_actuelle: 'Classe actuelle', niveau_vise: 'Niveau visé', departement: 'Département', budget: 'Budget', moyenne: 'Moyenne', preference_geo: 'Préférence géographique', matieres_fortes: 'Matières fortes' }
 
@@ -13,7 +13,8 @@ function readable(value) {
   if (typeof value === 'string' && /^[\[{]/.test(value.trim())) {
     try { return readable(JSON.parse(value)) } catch (failure) { if (!(failure instanceof SyntaxError)) throw failure }
   }
-  return VALUE_LABELS[value] || String(value)
+  const text = String(value)
+  return VALUE_LABELS[text] || VALUE_LABELS[text.trim().toLowerCase()] || text
 }
 
 function Facts({ values, labels }) {
@@ -50,6 +51,10 @@ export default function SchoolLeadDetail({ leadKey, initialLead, api, readOnly =
     finally { setBusy(false) }
   }
 
+  const phoneNumber = String(data?.lead?.telephone || data?.detail?.profile?.phone_number || '').trim()
+  const isUnmaskedPhone = Boolean(phoneNumber) && (data?.lead?.revealed || readOnly) && !phoneNumber.includes('•')
+  const profileValues = Object.fromEntries(Object.entries(data?.detail?.profile || {}).filter(([key]) => key !== 'phone_number'))
+
   return <section aria-label="Dossier élève">
     {error && <div className="sp-alert" role="alert">{error}{!data && <div className="sp-form-footer"><button className="sp-btn" onClick={() => { setError(''); setRevision((value) => value + 1) }}>Réessayer</button></div>}</div>}
     {message && <p className="sp-alert sp-alert-success" role="status">{message}</p>}
@@ -60,7 +65,11 @@ export default function SchoolLeadDetail({ leadKey, initialLead, api, readOnly =
           {Object.entries(STATUS_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
         </select></label>
       </div>
-      <div className="sp-detail-section"><h3>Coordonnées</h3><p>{data.lead.email}</p>
+      <div className="sp-detail-section"><h3>Coordonnées</h3>
+        <dl className="sp-facts">
+          <div><dt>Email</dt><dd>{data.lead.email}</dd></div>
+          {phoneNumber && <div><dt>Téléphone</dt><dd>{isUnmaskedPhone ? <a href={`tel:${phoneNumber.replace(/[^\d+]/g, '')}`}>{phoneNumber}</a> : phoneNumber}</dd></div>}
+        </dl>
         {!readOnly && !data.lead.revealed && <div className="sp-form-footer"><button className="sp-btn" disabled={busy} onClick={() => perform(() => api.reveal(leadKey), 'Contact révélé.')}><PiLockKey aria-hidden="true" />Révéler le contact</button></div>}
       </div>
       <div className="sp-detail-section"><h3>Profil scolaire et projet</h3><Facts values={data.lead} labels={leadLabels} /></div>
@@ -71,7 +80,7 @@ export default function SchoolLeadDetail({ leadKey, initialLead, api, readOnly =
       </div>
       <div className="sp-detail-section">
         {!data.detail ? <p className="sp-notice"><PiLockKey aria-hidden="true" /><span>{data.detailLocked ? 'Révélez ce contact pour consulter son dossier autorisé.' : 'Dossier détaillé non autorisé. Seuls les contacts et champs historiques autorisés sont accessibles.'}</span></p> : <>
-          <h3>Profil et coordonnées autorisés</h3><Facts values={data.detail.profile || {}} labels={Object.fromEntries(Object.keys(data.detail.profile || {}).map((key) => [key, profileLabels[key] || key.replace(/_/g, ' ')]))} />
+          <h3>Profil et coordonnées autorisés</h3><Facts values={profileValues} labels={Object.fromEntries(Object.keys(profileValues).map((key) => [key, profileLabels[key] || key.replace(/_/g, ' ')]))} />
           <div className="sp-detail-section"><h3>Informations d’orientation</h3>
             {data.detail.extraInfo.length ? <dl className="sp-answer-list">{data.detail.extraInfo.map((entry) => <div key={entry.question_id}><dt>{entry.question_text || entry.question_id}</dt><dd>{readable(entry.answer_text)}</dd></div>)}</dl> : <p className="sp-muted sp-small">Aucune information complémentaire enregistrée.</p>}
           </div>

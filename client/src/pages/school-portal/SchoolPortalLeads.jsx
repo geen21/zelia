@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { PiArrowDown, PiArrowRight, PiCaretLeft, PiCaretRight, PiLockKey, PiUsersThree } from 'react-icons/pi'
 import { schoolPortalAPI } from '../../lib/schoolPortalApi'
-import SchoolPortalFilters, { CHANNEL_LABELS, ORIGIN_LABELS, STATUS_LABELS } from './SchoolPortalFilters'
+import SchoolPortalFilters, { CHANNEL_LABELS, ORIGIN_LABELS, STATUS_LABELS, formatSchoolLevel } from './SchoolPortalFilters'
 import SchoolLeadDetail from './SchoolLeadDetail'
 import SchoolPortalDialog from './SchoolPortalDialog'
 
@@ -74,7 +74,7 @@ export default function SchoolPortalLeads() {
             <strong>{lead.prenom} {lead.nom}</strong><span className="sp-cell-secondary">{lead.email}</span>
             {!lead.revealed && !readOnly && <div className="sp-cell-actions"><button className="sp-btn sp-btn-sm" disabled={saving || loading} onClick={() => mutate(() => api.reveal(lead.leadKey), 'Contact révélé.')}><PiLockKey aria-hidden="true" />Révéler</button></div>}
           </div></div></td>
-          <td data-label="Formation / projet"><span>{lead.formations_choisies_ecole || 'Formation non renseignée'}</span><span className="sp-cell-secondary">{lead.niveau_vise || 'Niveau non renseigné'} · {lead.budget || 'Budget non renseigné'}</span></td>
+          <td data-label="Formation / projet"><span>{lead.formations_choisies_ecole || 'Formation non renseignée'}</span><span className="sp-cell-secondary">{formatSchoolLevel(lead.classe_actuelle) || 'Niveau non renseigné'} · {lead.budget || 'Budget non renseigné'}</span></td>
           <td data-label="Origine"><span className={`sp-badge sp-badge-${lead.origin}`}>{ORIGIN_LABELS[lead.origin] || ORIGIN_LABELS.unknown}</span><span className="sp-cell-secondary">{CHANNEL_LABELS[lead.source] || lead.source}</span></td>
           <td data-label="Suivi"><select className="sp-status-select" aria-label={`Statut de ${lead.prenom}`} disabled={readOnly || saving || loading} value={lead.status}
             onChange={(event) => mutate(() => api.updateLeadStatus(lead.leadKey, { status: event.target.value }), 'Statut enregistré.')}>

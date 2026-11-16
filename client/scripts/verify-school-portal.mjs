@@ -3,12 +3,20 @@ import { chromium, expect } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { hasAuthParameters, isPrivatePortalPath } from '../src/lib/analytics.js'
+import { formatSchoolLevel } from '../src/lib/schoolSharing.js'
+
+assert.equal(formatSchoolLevel('1ere'), '1ère')
+assert.equal(formatSchoolLevel('terminale'), 'Terminale')
+assert.equal(formatSchoolLevel('2nde'), '2nde')
+assert.equal(formatSchoolLevel('3e'), '3e')
+assert.equal(formatSchoolLevel('post_bac'), 'Post-bac')
+assert.equal(formatSchoolLevel(''), '')
 
 for (const path of ['/admin/ecoles', '/espace-ecoles/activation', '/espace-ecoles/Activation', '/espace-ecoles/leads', '/espace-ecoles/securite']) assert.equal(isPrivatePortalPath(path), true)
 for (const path of ['/', '/espace-ecoles', '/espace-ecoles/inscription']) assert.equal(isPrivatePortalPath(path), false)
 assert.equal(hasAuthParameters({ hash: '#access_token=fixture' }), true)
 assert.equal(hasAuthParameters({ search: '?token_hash=fixture' }), true)
-assert.equal(hasAuthParameters({ search: '?code=public-coupon' }), false)
+assert.equal(hasAuthParameters({ search: '?coupon=public-coupon' }), false)
 
 const base = process.env.BACKOFFICE_TEST_URL || 'http://127.0.0.1:5187'
 const uuid = '11111111-1111-4111-8111-111111111111'
@@ -16,7 +24,7 @@ const claims = (aal = 'aal1') => Buffer.from(JSON.stringify({ sub: uuid, aud: 'a
 const user = { id: uuid, aud: 'authenticated', email: 'school@example.com', factors: [], user_metadata: {} }
 const session = { access_token: `${Buffer.from('{"alg":"HS256"}').toString('base64url')}.${claims()}.c2lnbmF0dXJl`, refresh_token: 'fixture-refresh', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, token_type: 'bearer', user }
 const company = { id: 1, name: 'École Exemple', email: user.email, approved: true, approved_at: '2026-10-01', isOwner: true }
-const lead = { leadKey: `user:${uuid}`, user_id: uuid, prenom: 'Camille', nom: 'Martin', email: 'camille@example.com', source: 'questionnaire', origin: 'mixed',
+const lead = { leadKey: `user:${uuid}`, user_id: uuid, prenom: 'Camille', nom: 'Martin', email: 'camille@example.com', source: 'questionnaire', origin: 'mixed', classe_actuelle: '1ere',
   inscrit_le: '2026-10-01', status: 'nouveau', note: '', detailedAllowed: false, revealed: false, formations_choisies_ecole: 'Bachelor', actions: [{ source: 'formation_france', reference: '7', title: 'Bachelor', campus: 'Paris', date: '2026-10-01' }] }
 const browser = await chromium.launch({ headless: true })
 const screenshots = process.env.SCHOOL_PORTAL_SCREENSHOTS
@@ -149,6 +157,8 @@ try {
     await page.goto(`${base}/espace-ecoles/leads`)
     await expect(page.getByRole('heading', { name: 'Leads', exact: true })).toBeVisible()
     await expect(page.getByText('***@***', { exact: true })).toBeVisible()
+    await expect(page.getByText('1ère · Budget non renseigné', { exact: true })).toBeVisible()
+    await expect(page.getByText(/Niveau non renseigné/)).toHaveCount(0)
     await capture(page, `leads-${viewport.width}`)
     await page.getByRole('button', { name: 'Ouvrir le dossier' }).click()
     const panel = page.getByRole('dialog', { name: 'Dossier de Camille', exact: true })
@@ -156,6 +166,7 @@ try {
     await page.keyboard.press('Shift+Tab')
     assert.equal(await panel.evaluate((dialog) => dialog.contains(document.activeElement)), true, 'focus stays in the modal')
     await expect(page.getByText(/Dossier détaillé non autorisé/)).toBeVisible()
+    await expect(panel.getByText('Téléphone', { exact: true })).toHaveCount(0)
     await expect(panel.getByText('Près de chez moi', { exact: true })).toBeVisible()
     await expect(panel.getByText('Maths, Éco, Anglais', { exact: true })).toBeVisible()
     await capture(page, `dossier-${viewport.width}`)
@@ -166,7 +177,7 @@ try {
     state.detailed = true
     await page.getByRole('button', { name: 'Ouvrir le dossier' }).click()
     await expect(page.getByText('Ta matière préférée ?', { exact: true })).toBeVisible()
-    await expect(page.getByText('0600000000', { exact: true })).toBeVisible()
+    await expect(panel.getByRole('link', { name: '0600000000', exact: true })).toHaveAttribute('href', 'tel:0600000000')
     await panel.getByLabel('Note interne', { exact: true }).fill('À rappeler mercredi')
     await panel.getByRole('button', { name: 'Enregistrer la note', exact: true }).click()
     await expect(panel.getByRole('status')).toHaveText('Note enregistrée.')

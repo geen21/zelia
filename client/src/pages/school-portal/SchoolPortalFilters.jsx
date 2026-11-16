@@ -4,6 +4,7 @@ import { PiMagnifyingGlass, PiSlidersHorizontal, PiArrowCounterClockwise } from 
 export const ORIGIN_LABELS = { natural: 'Naturel', sponsored: 'Sponsorisé', mixed: 'Mixte', unknown: 'Origine inconnue' }
 export const CHANNEL_LABELS = { questionnaire: 'Questionnaire', direct_request: 'Demande directe', partner_submission: 'Candidature partenaire', legacy_contact: 'Contact historique', multiple: 'Plusieurs canaux' }
 export const STATUS_LABELS = { nouveau: 'Nouveau', a_contacter: 'À contacter', contacte: 'Contacté', converti: 'Converti', archive: 'Archivé' }
+export { SCHOOL_LEVEL_LABELS, formatSchoolLevel } from '../../lib/schoolSharing'
 
 export default function SchoolPortalFilters({ value, onChange, campuses = [], leads = false }) {
   const [open, setOpen] = useState(false)

@@ -1,9 +1,15 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import SEO from '../components/SEO'
 
 export default function MentionsLegales() {
   return (
     <main className="legal-page">
+      <SEO
+        title="Mentions légales - Zélia"
+        description="Mentions légales de la plateforme d'orientation scolaire et professionnelle Zélia : éditeur, hébergeur, contact et propriété intellectuelle."
+        url="https://zelia.io/legal/mentions-legales"
+      />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
         <div className="mb-10">
           <p className="uppercase tracking-wide text-sm text-gray-500">Mentions légales</p>

@@ -1,9 +1,15 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import SEO from '../components/SEO'
 
 export default function ConditionsConfidentialite() {
   return (
     <main className="legal-page">
+      <SEO
+        title="CGU, CGV & Politique de confidentialité - Zélia"
+        description="Conditions générales d'utilisation, conditions générales de vente et politique de confidentialité RGPD de la plateforme Zélia."
+        url="https://zelia.io/legal/conditions"
+      />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
         <header className="mb-12">
           <p className="uppercase tracking-wide text-sm text-gray-500">Documents contractuels</p>

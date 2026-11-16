@@ -1,11 +1,17 @@
 import express from 'express'
 import { supabase, supabaseAdmin } from '../config/supabase.js'
 import { authenticateToken, optionalAuth } from '../middleware/auth.js'
-import { withFormationDisplayFields } from '../utils/slug.js'
+import { buildFormationSlug, withFormationDisplayFields } from '../utils/slug.js'
 import { canonicalFormationColumns } from '../utils/formationCanonical.js'
+import { deduplicateFormationRows } from '../utils/formationSeoIndex.js'
 import { notifyPortalLeads, SHARING_VERSION } from '../utils/schoolDashboard.js'
 
 const router = express.Router()
+let sharedSeoIndex = null
+
+export function setFormationsSeoIndex(seoIndex) {
+  sharedSeoIndex = seoIndex
+}
 
 const REQUEST_INFO_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -134,7 +140,10 @@ router.get('/', optionalAuth, async (req, res) => {
 
     const parsedLimit = Math.min(Number.parseInt(limit, 10) || 25, 100)
     const parsedOffset = Math.max(Number.parseInt(offset, 10) || 0, 0)
-    const queryParams = { region, department, type, etabNom, q, parsedOffset, parsedLimit }
+    // Fetch extra rows when filtering by school or first page so multi-year/duplicate
+    // Parcoursup snapshots collapse cleanly without returning short pages.
+    const fetchLimit = etabNom ? Math.min(Math.max(parsedLimit * 4, 40), 100) : Math.min(parsedLimit * 2, 100)
+    const queryParams = { region, department, type, etabNom, q, parsedOffset, parsedLimit: fetchLimit }
 
     let { data, error, count } = await buildFormationsListQuery(queryParams)
 
@@ -146,8 +155,17 @@ router.get('/', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: error.message })
     }
 
+    let deduplicated = deduplicateFormationRows(data ?? [])
+    const warm = sharedSeoIndex?.peekSnapshot()
+    if (warm) {
+      const onlyCanonical = deduplicated.filter((row) => warm.canonicalIdSet.has(String(row.id)))
+      if (onlyCanonical.length > 0 || (data ?? []).every((row) => warm.canonicalByRowId.has(String(row.id)))) {
+        deduplicated = onlyCanonical
+      }
+    }
+
     res.json({
-      formations: (data ?? []).map(withFormationDisplayFields),
+      formations: deduplicated.slice(0, parsedLimit).map(withFormationDisplayFields),
       total: count ?? 0,
       limit: parsedLimit,
       offset: parsedOffset
@@ -162,6 +180,9 @@ router.get('/', optionalAuth, async (req, res) => {
 router.get('/:id', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params
+    if (!/^\d+$/.test(String(id || '').trim())) {
+      return res.status(404).json({ error: 'Formation not found' })
+    }
 
     let { data, error } = await fetchFormationById(id)
 
@@ -170,10 +191,39 @@ router.get('/:id', optionalAuth, async (req, res) => {
     }
 
     if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ error: 'Formation not found' })
+      }
+      console.error('Formation DB read error:', error)
+      res.set('Retry-After', '60')
+      return res.status(503).json({ error: 'Service temporarily unavailable' })
+    }
+
+    if (!data) {
       return res.status(404).json({ error: 'Formation not found' })
     }
 
-    res.json({ formation: withFormationDisplayFields(data) })
+    let canonicalSlugOverride = data.canonical_slug
+    let canonicalId = String(data.id)
+    if (sharedSeoIndex && !canonicalSlugOverride) {
+      const resolvedId = await sharedSeoIndex.resolveCanonicalIdForRow(data)
+      if (resolvedId && String(resolvedId) !== String(data.id)) {
+        const { data: winnerRow } = await fetchFormationById(resolvedId)
+        if (winnerRow) {
+          canonicalId = String(winnerRow.id)
+          canonicalSlugOverride = buildFormationSlug(winnerRow)
+        }
+      }
+    }
+
+    const formatted = withFormationDisplayFields(data)
+    res.json({
+      formation: {
+        ...formatted,
+        canonical_id: canonicalId,
+        ...(canonicalSlugOverride ? { canonical_slug: canonicalSlugOverride, slug: canonicalSlugOverride } : {})
+      }
+    })
   } catch (error) {
     console.error('Formation fetch error:', error)
     res.status(500).json({ error: 'Internal server error' })

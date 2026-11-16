@@ -2,10 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import SEO from '../components/SEO'
 import BlogHeaderNav from './blog/BlogHeaderNav'
-import { formationsAPI } from '../lib/api'
-import { SCHOOL_SHARING_VERSION } from '../lib/schoolSharing'
-import { supabase } from '../lib/supabase'
-import { withZeliaUtm } from '../lib/outboundUrl.js'
+import { normalizeExternalHttpUrl, withZeliaUtm } from '../lib/outboundUrl.js'
 import { trackSiteEvent } from '../lib/analytics.js'
 import './FormationPublic.css'
 import {
@@ -17,11 +14,63 @@ import {
   cleanBraceNote,
   isApprentissage,
   getInitials,
-  buildMapsSearchUrl
+  buildMapsSearchUrl,
+  buildFormationEditorialSummary
 } from '../lib/formationDisplay'
 
 const ORIGIN = 'https://zelia.io'
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function resolvePublicApiBaseUrl() {
+  const sameOrigin = typeof window !== 'undefined' && window.location?.origin
+    ? `${window.location.origin.replace(/\/$/, '')}/api`
+    : '/api'
+  const raw = (import.meta.env.VITE_API_URL || '').trim()
+  if (!raw) return sameOrigin
+  try {
+    const parsed = new URL(raw)
+    if (
+      typeof window !== 'undefined' &&
+      parsed.origin === ORIGIN &&
+      (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
+    ) {
+      return sameOrigin
+    }
+    return parsed.toString().replace(/\/$/, '')
+  } catch {
+    return sameOrigin
+  }
+}
+
+async function fetchPublicApiJson(pathname, params = null) {
+  const base = resolvePublicApiBaseUrl()
+  const url = new URL(`${base}${pathname}`, typeof window !== 'undefined' ? window.location.origin : ORIGIN)
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v))
+    }
+  }
+  const response = await fetch(url.toString(), { headers: { Accept: 'application/json' } })
+  if (!response.ok) {
+    const error = new Error(`HTTP ${response.status}`)
+    error.status = response.status
+    throw error
+  }
+  return response.json()
+}
+
+function readInitialFormationBootstrap(expectedId) {
+  if (typeof document === 'undefined' || !expectedId) return null
+  try {
+    const el = document.getElementById('zelia-formation-data')
+    if (!el?.textContent) return null
+    const parsed = JSON.parse(el.textContent)
+    if (String(parsed?.formation?.id) !== String(expectedId)) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
 
 function FormationMonogram({ formation, size = 76 }) {
   const initials = getInitials(formation?.etab_nom || getFormationTitle(formation))
@@ -51,150 +100,46 @@ function RelatedCard({ formation }) {
   )
 }
 
-function RequestInfoCard({ formationId }) {
-  const [authChecked, setAuthChecked] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [showForm, setShowForm] = useState(false)
-  const [email, setEmail] = useState('')
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [status, setStatus] = useState('idle') // idle | loading | done | error
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    let active = true
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return
-      setIsAuthenticated(Boolean(data?.session?.access_token))
-      setAuthChecked(true)
-    }).catch(() => { if (active) setAuthChecked(true) })
-    return () => { active = false }
-  }, [])
-
-  async function submitRequest(payload) {
-    setStatus('loading')
-    setError('')
-    try {
-      await formationsAPI.requestInfo(formationId, { ...payload, sharingVersion: SCHOOL_SHARING_VERSION })
-      setStatus('done')
-    } catch (requestError) {
-      setError(requestError?.response?.data?.error || 'Échec de la demande, réessaie plus tard.')
-      setStatus('error')
-    }
-  }
-
-  function handleAuthenticatedClick() {
-    submitRequest({})
-  }
-
-  function handleAnonymousSubmit(event) {
-    event.preventDefault()
-    if (!EMAIL_PATTERN.test(email)) {
-      setError('Merci de renseigner un email valide.')
-      setStatus('error')
-      return
-    }
-    submitRequest({ email, firstName, lastName })
-  }
-
-  if (!authChecked) return null
-
-  if (status === 'done') {
-    return (
-      <div className="fp-card">
-        <h2><i className="ph ph-check-circle" aria-hidden="true"></i>Demande envoyée</h2>
-        <p>L&apos;établissement recevra ta demande et pourra te recontacter.</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="fp-card">
-      <h2><i className="ph ph-paper-plane-tilt" aria-hidden="true"></i>Demander plus d&apos;informations</h2>
-      <p>En envoyant ta demande, tu autorises cet établissement à recevoir tes coordonnées et, si tu es connecté, ton profil scolaire, tes réponses au questionnaire et ton bilan d’orientation pour te recontacter. Tu peux retirer ce partage depuis ton profil.</p>
-
-      {isAuthenticated && !showForm && (
-        <button
-          type="button"
-          onClick={handleAuthenticatedClick}
-          disabled={status === 'loading'}
-          className="fp-btn fp-btn--primary"
-          style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
-        >
-          <i className="ph ph-paper-plane-tilt" aria-hidden="true"></i>
-          {status === 'loading' ? 'Envoi...' : 'Demander plus d\'informations'}
-        </button>
-      )}
-
-      {!isAuthenticated && !showForm && (
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          className="fp-btn fp-btn--primary"
-          style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
-        >
-          <i className="ph ph-paper-plane-tilt" aria-hidden="true"></i>Demander plus d&apos;informations
-        </button>
-      )}
-
-      {!isAuthenticated && showForm && (
-        <form onSubmit={handleAnonymousSubmit} style={{ marginTop: 12, display: 'grid', gap: 8 }}>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="Ton email"
-            className="fp-input"
-          />
-          <input
-            type="text"
-            value={firstName}
-            onChange={(event) => setFirstName(event.target.value)}
-            placeholder="Prénom (optionnel)"
-            className="fp-input"
-          />
-          <input
-            type="text"
-            value={lastName}
-            onChange={(event) => setLastName(event.target.value)}
-            placeholder="Nom (optionnel)"
-            className="fp-input"
-          />
-          <button type="submit" disabled={status === 'loading'} className="fp-btn fp-btn--primary" style={{ width: '100%', justifyContent: 'center' }}>
-            {status === 'loading' ? 'Envoi...' : 'Envoyer ma demande'}
-          </button>
-        </form>
-      )}
-
-      {error && <p style={{ color: '#c0392b', marginTop: 8, fontSize: 13 }}>{error}</p>}
-    </div>
-  )
-}
-
 export default function FormationPublicPage() {
   const { slug } = useParams()
   const id = useMemo(() => parseFormationIdFromParam(slug), [slug])
+  const bootstrap = useMemo(() => readInitialFormationBootstrap(id), [id])
 
-  const [formation, setFormation] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [notFound, setNotFound] = useState(false)
-  const [related, setRelated] = useState([])
+  const [formation, setFormation] = useState(() => bootstrap?.formation || null)
+  const [loading, setLoading] = useState(() => Boolean(id) && !bootstrap?.formation)
+  const [notFound, setNotFound] = useState(() => !id)
+  const [loadError, setLoadError] = useState(false)
+  const [retryToken, setRetryToken] = useState(0)
+  const [related, setRelated] = useState(() => (Array.isArray(bootstrap?.related) ? bootstrap.related : []))
 
   useEffect(() => {
     let mounted = true
-    setLoading(true)
-    setNotFound(false)
-    setFormation(null)
 
     if (!id) {
+      setFormation(null)
       setNotFound(true)
+      setLoadError(false)
       setLoading(false)
       return undefined
     }
 
-    formationsAPI.getById(id)
-      .then(({ data }) => {
+    if (bootstrap?.formation && retryToken === 0) {
+      setFormation(bootstrap.formation)
+      setRelated(Array.isArray(bootstrap.related) ? bootstrap.related : [])
+      setNotFound(false)
+      setLoadError(false)
+      setLoading(false)
+      trackSiteEvent('formation_detail_viewed', { formation_source: 'national' })
+      return undefined
+    }
+
+    setLoading(true)
+    setNotFound(false)
+    setLoadError(false)
+    setFormation(null)
+
+    fetchPublicApiJson(`/formations/${encodeURIComponent(id)}`)
+      .then((data) => {
         if (!mounted) return
         if (!data?.formation) {
           setNotFound(true)
@@ -203,21 +148,29 @@ export default function FormationPublicPage() {
           trackSiteEvent('formation_detail_viewed', { formation_source: 'national' })
         }
       })
-      .catch(() => {
-        if (mounted) setNotFound(true)
+      .catch((err) => {
+        if (!mounted) return
+        if (err?.status === 404) {
+          setNotFound(true)
+        } else {
+          setLoadError(true)
+        }
       })
       .finally(() => {
         if (mounted) setLoading(false)
       })
 
     return () => { mounted = false }
-  }, [id])
+  }, [id, bootstrap, retryToken])
 
   useEffect(() => {
     if (!formation?.etab_nom) return undefined
+    if (bootstrap?.formation && String(bootstrap.formation.id) === String(formation.id) && Array.isArray(bootstrap.related)) {
+      return undefined
+    }
     let mounted = true
-    formationsAPI.getAll({ etab_nom: formation.etab_nom, limit: 7 })
-      .then(({ data }) => {
+    fetchPublicApiJson('/formations', { etab_nom: formation.etab_nom, limit: 7 })
+      .then((data) => {
         if (!mounted) return
         const items = (data?.formations || [])
           .filter((item) => String(item.id) !== String(formation.id))
@@ -226,20 +179,35 @@ export default function FormationPublicPage() {
       })
       .catch(() => {})
     return () => { mounted = false }
-  }, [formation?.etab_nom, formation?.id])
+  }, [formation?.etab_nom, formation?.id, bootstrap])
 
   if (loading) {
     return (
-      <div className="fp-page">
+      <div className="fp-page" style={{ minHeight: '100vh' }}>
         <BlogHeaderNav />
-        <div className="fp-skeleton-page"><div className="fp-spinner" /></div>
+        <div className="fp-skeleton-page" style={{ minHeight: '100vh' }}><div className="fp-spinner" /></div>
+      </div>
+    )
+  }
+
+  if (loadError && !formation) {
+    return (
+      <div className="fp-page" style={{ minHeight: '100vh' }}>
+        <BlogHeaderNav />
+        <div className="fp-empty" style={{ maxWidth: 520, margin: '0 auto', padding: '120px 24px', textAlign: 'center' }}>
+          <h1>Chargement temporairement indisponible</h1>
+          <p>Les informations de cette formation n&apos;ont pas pu être chargées pour le moment. Réessaie dans quelques instants.</p>
+          <button type="button" onClick={() => setRetryToken((n) => n + 1)} className="fp-btn fp-btn--primary">
+            Réessayer
+          </button>
+        </div>
       </div>
     )
   }
 
   if (notFound || !formation) {
     return (
-      <div className="fp-page">
+      <div className="fp-page" style={{ minHeight: '100vh' }}>
         <SEO
           title="Formation introuvable - Zelia"
           description="Cette formation n'est plus disponible sur Zelia."
@@ -247,7 +215,7 @@ export default function FormationPublicPage() {
           noindex
         />
         <BlogHeaderNav />
-        <div className="fp-empty">
+        <div className="fp-empty" style={{ maxWidth: 520, margin: '0 auto', padding: '120px 24px', textAlign: 'center' }}>
           <h1>Formation introuvable</h1>
           <p>Cette formation n&apos;existe pas ou a été retirée. Explore les autres formations disponibles.</p>
           <Link to="/formations" className="fp-btn fp-btn--primary">Voir toutes les formations</Link>
@@ -267,7 +235,15 @@ export default function FormationPublicPage() {
   const selection = cleanBraceNote(formation.aut)
   const filiere = Array.isArray(formation.fl) ? formation.fl.find(Boolean) : ''
   const modalites = Array.isArray(formation.tf) ? formation.tf.filter(Boolean) : []
+  const summaryParagraphs = buildFormationEditorialSummary(formation)
   const mapsUrl = buildMapsSearchUrl(formation)
+  const etabUrl = normalizeExternalHttpUrl(formation.etab_url)
+  const ficheUrl = normalizeExternalHttpUrl(formation.fiche)
+  const datavizUrl = normalizeExternalHttpUrl(formation.dataviz)
+  const facebookUrl = normalizeExternalHttpUrl(formation.facebook)
+  const linkedinUrl = normalizeExternalHttpUrl(formation.linkedin)
+  const youtubeUrl = normalizeExternalHttpUrl(formation.youtube)
+  const imageUrl = normalizeExternalHttpUrl(formation.image)
   const validEmail = formation.email && EMAIL_PATTERN.test(formation.email) ? formation.email : ''
 
   const description = [
@@ -287,7 +263,7 @@ export default function FormationPublicPage() {
         provider: {
           '@type': 'EducationalOrganization',
           name: formation.etab_nom || 'Établissement',
-          ...(formation.etab_url ? { sameAs: formation.etab_url } : {})
+          ...(etabUrl ? { sameAs: etabUrl } : {})
         }
       },
       {
@@ -302,7 +278,7 @@ export default function FormationPublicPage() {
   }
 
   const hasContactCard = Boolean(
-    formation.image || formation.telephone || validEmail || formation.facebook || formation.linkedin || formation.youtube
+    imageUrl || formation.telephone || validEmail || facebookUrl || linkedinUrl || youtubeUrl
   )
 
   return (
@@ -312,7 +288,7 @@ export default function FormationPublicPage() {
         description={description || `Découvre ${title} sur Zelia.`}
         url={canonicalUrl}
         type="article"
-        image={formation.image}
+        image={imageUrl || undefined}
         schema={schema}
       />
       <BlogHeaderNav />
@@ -345,8 +321,8 @@ export default function FormationPublicPage() {
           </p>
 
           <div className="fp-hero-actions">
-            {formation.fiche && (
-              <a href={withZeliaUtm(formation.fiche)} target="_blank" rel="noopener noreferrer" className="fp-btn fp-btn--primary" onClick={() => trackSiteEvent('formation_outbound_clicked', { formation_source: 'national', action: 'parcoursup' })}>
+            {ficheUrl && (
+              <a href={withZeliaUtm(ficheUrl)} target="_blank" rel="noopener noreferrer" className="fp-btn fp-btn--primary" onClick={() => trackSiteEvent('formation_outbound_clicked', { formation_source: 'national', action: 'parcoursup' })}>
                 <i className="ph ph-file-text" aria-hidden="true"></i>Voir la fiche Parcoursup
               </a>
             )}
@@ -361,6 +337,13 @@ export default function FormationPublicPage() {
         <div className="container">
           <div className="fp-grid">
             <div className="fp-main">
+              <section className="fp-card">
+                <h2><i className="ph ph-book-open-text" aria-hidden="true"></i>Présentation de la formation</h2>
+                {summaryParagraphs.map((paragraph, idx) => (
+                  <p key={idx} style={{ marginTop: idx === 0 ? 0 : 12 }}>{paragraph}</p>
+                ))}
+              </section>
+
               <section className="fp-card">
                 <h2><i className="ph ph-info" aria-hidden="true"></i>Informations clés</h2>
                 <div className="fp-kv-grid">
@@ -421,18 +404,18 @@ export default function FormationPublicPage() {
                   {location ? ` — ${location}${formation.region ? `, ${formation.region}` : ''}` : ''}
                 </p>
                 <div className="fp-links-list">
-                  {formation.etab_url && (
-                    <a href={withZeliaUtm(formation.etab_url)} target="_blank" rel="noopener noreferrer" className="fp-link-row" onClick={() => trackSiteEvent('formation_outbound_clicked', { formation_source: 'national', action: 'school_website' })}>
+                  {etabUrl && (
+                    <a href={withZeliaUtm(etabUrl)} target="_blank" rel="noopener noreferrer" className="fp-link-row" onClick={() => trackSiteEvent('formation_outbound_clicked', { formation_source: 'national', action: 'school_website' })}>
                       <i className="ph ph-globe" aria-hidden="true"></i>Site de l&apos;établissement<i className="ph ph-arrow-up-right ext" aria-hidden="true"></i>
                     </a>
                   )}
-                  {formation.fiche && (
-                    <a href={withZeliaUtm(formation.fiche)} target="_blank" rel="noopener noreferrer" className="fp-link-row" onClick={() => trackSiteEvent('formation_outbound_clicked', { formation_source: 'national', action: 'parcoursup' })}>
+                  {ficheUrl && (
+                    <a href={withZeliaUtm(ficheUrl)} target="_blank" rel="noopener noreferrer" className="fp-link-row" onClick={() => trackSiteEvent('formation_outbound_clicked', { formation_source: 'national', action: 'parcoursup' })}>
                       <i className="ph ph-file-text" aria-hidden="true"></i>Fiche officielle Parcoursup<i className="ph ph-arrow-up-right ext" aria-hidden="true"></i>
                     </a>
                   )}
-                  {formation.dataviz && (
-                    <a href={withZeliaUtm(formation.dataviz)} target="_blank" rel="noopener noreferrer" className="fp-link-row">
+                  {datavizUrl && (
+                    <a href={withZeliaUtm(datavizUrl)} target="_blank" rel="noopener noreferrer" className="fp-link-row">
                       <i className="ph ph-chart-bar" aria-hidden="true"></i>Statistiques d&apos;admission<i className="ph ph-arrow-up-right ext" aria-hidden="true"></i>
                     </a>
                   )}
@@ -457,10 +440,10 @@ export default function FormationPublicPage() {
               {hasContactCard && (
                 <div className="fp-card">
                   <h2><i className="ph ph-address-book" aria-hidden="true"></i>Contact</h2>
-                  {formation.image && (
+                  {imageUrl && (
                     <div className="fp-contact-logo">
                       <img
-                        src={formation.image}
+                        src={imageUrl}
                         alt={formation.etab_nom || 'Logo établissement'}
                         loading="lazy"
                         onError={(e) => { e.currentTarget.parentElement.style.display = 'none' }}
@@ -479,20 +462,20 @@ export default function FormationPublicPage() {
                       </a>
                     )}
                   </div>
-                  {(formation.facebook || formation.linkedin || formation.youtube) && (
+                  {(facebookUrl || linkedinUrl || youtubeUrl) && (
                     <div className="fp-social-row">
-                      {formation.facebook && (
-                        <a href={withZeliaUtm(formation.facebook)} target="_blank" rel="noopener noreferrer" className="fp-social-btn" aria-label="Facebook">
+                      {facebookUrl && (
+                        <a href={withZeliaUtm(facebookUrl)} target="_blank" rel="noopener noreferrer" className="fp-social-btn" aria-label="Facebook">
                           <i className="ph ph-facebook-logo" aria-hidden="true"></i>
                         </a>
                       )}
-                      {formation.linkedin && (
-                        <a href={withZeliaUtm(formation.linkedin)} target="_blank" rel="noopener noreferrer" className="fp-social-btn" aria-label="LinkedIn">
+                      {linkedinUrl && (
+                        <a href={withZeliaUtm(linkedinUrl)} target="_blank" rel="noopener noreferrer" className="fp-social-btn" aria-label="LinkedIn">
                           <i className="ph ph-linkedin-logo" aria-hidden="true"></i>
                         </a>
                       )}
-                      {formation.youtube && (
-                        <a href={withZeliaUtm(formation.youtube)} target="_blank" rel="noopener noreferrer" className="fp-social-btn" aria-label="YouTube">
+                      {youtubeUrl && (
+                        <a href={withZeliaUtm(youtubeUrl)} target="_blank" rel="noopener noreferrer" className="fp-social-btn" aria-label="YouTube">
                           <i className="ph ph-youtube-logo" aria-hidden="true"></i>
                         </a>
                       )}

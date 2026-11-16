@@ -38,7 +38,7 @@ function escapeXml(value) {
     .replace(/>/g, '&gt;')
 }
 
-export function createSitemapRouter({ db, now = Date.now }) {
+export function createSitemapRouter({ db, now = Date.now, seoIndex = null }) {
   const router = express.Router()
   let countCache = { value: null, at: 0 }
   let countRequest = null
@@ -46,6 +46,10 @@ export function createSitemapRouter({ db, now = Date.now }) {
   const chunkRequests = new Map()
 
   async function getFormationCount() {
+    if (seoIndex) {
+      const snapshot = await seoIndex.getSnapshot()
+      return snapshot.canonicalIds.length
+    }
     if (countCache.value != null && now() - countCache.at < CACHE_TTL_MS) {
       return countCache.value
     }
@@ -64,7 +68,36 @@ export function createSitemapRouter({ db, now = Date.now }) {
     return countRequest
   }
 
+  async function fetchDeduplicatedFormationChunk(chunkStart) {
+    const snapshot = await seoIndex.getSnapshot()
+    const ids = snapshot.canonicalIds.slice(chunkStart, chunkStart + CHUNK_SIZE)
+    if (!ids.length) return []
+
+    const batchSize = 500
+    const batches = []
+    for (let i = 0; i < ids.length; i += batchSize) {
+      batches.push(ids.slice(i, i + batchSize))
+    }
+
+    const results = await Promise.all(batches.map(async (batchIds) => {
+      const { data, error } = await queryWithTimeoutRetry(() => db
+        .from('formation_france')
+        .select(canonicalFormationColumns(FORMATION_COLUMNS))
+        .in('id', batchIds)
+        .order('id', { ascending: true })
+      )
+      if (error) throw error
+      return data || []
+    }))
+
+    const byId = new Map(results.flat().map((row) => [String(row.id), row]))
+    return ids.map((id) => byId.get(String(id))).filter(Boolean)
+  }
+
   async function fetchFormationChunk(chunkStart) {
+    if (seoIndex) {
+      return fetchDeduplicatedFormationChunk(chunkStart)
+    }
     let cursor = null
     if (chunkStart > 0) {
       // Keep numbered chunks without skipping wide rows: only the indexed id

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import axios from 'axios'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import SEO from '../components/SEO'
 import { PiArrowLeft } from 'react-icons/pi'
 import { supabase } from '../lib/supabase'
 import {
@@ -18,16 +19,31 @@ const GENDER_OPTIONS = ['Femme', 'Homme', 'Non-binaire', 'Autre', 'Préfère ne 
 const ORIENTATION_PROFILE_IDENTITY_KEY = 'orientation_profile_identity'
 const ORIENTATION_PROFILE_IDENTITY_COMPLETE_KEY = 'orientation_profile_identity_complete'
 
+function normalizePhoneNumber(value) {
+  return String(value ?? '')
+    .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function isValidOptionalPhoneNumber(value) {
+  const normalized = normalizePhoneNumber(value)
+  if (!normalized) return true
+  const digits = normalized.replace(/\D/g, '')
+  return /^[+\d\s().-]+$/.test(normalized) && digits.length >= 6 && digits.length <= 20
+}
+
 function getStoredOrientationIdentity() {
   try {
     const stored = JSON.parse(localStorage.getItem(ORIENTATION_PROFILE_IDENTITY_KEY) || '{}')
     return {
       firstName: String(stored.firstName || stored.first_name || '').trim(),
       lastName: String(stored.lastName || stored.last_name || '').trim(),
-      gender: String(stored.gender || '').trim()
+      gender: String(stored.gender || '').trim(),
+      phoneNumber: normalizePhoneNumber(stored.phoneNumber || stored.phone_number || '')
     }
   } catch {
-    return { firstName: '', lastName: '', gender: '' }
+    return { firstName: '', lastName: '', gender: '', phoneNumber: '' }
   }
 }
 
@@ -75,7 +91,8 @@ export default function Register() {
     return {
       firstName: String(identity.firstName || '').trim(),
       lastName: String(identity.lastName || '').trim(),
-      gender: String(identity.gender || '').trim()
+      gender: String(identity.gender || '').trim(),
+      phoneNumber: normalizePhoneNumber(identity.phoneNumber)
     }
   }
 
@@ -83,6 +100,10 @@ export default function Register() {
     const completeIdentity = normalizedIdentity()
     if (!completeIdentity.firstName || !completeIdentity.lastName || !completeIdentity.gender) {
       setError('Indique ton prénom, ton nom et ton genre pour continuer.')
+      return null
+    }
+    if (!isValidOptionalPhoneNumber(completeIdentity.phoneNumber)) {
+      setError('Indique un numéro de téléphone valide ou laisse ce champ vide.')
       return null
     }
     if (!selectedDepartment.code) {
@@ -123,6 +144,7 @@ export default function Register() {
         first_name: completeIdentity.firstName,
         last_name: completeIdentity.lastName,
         gender: completeIdentity.gender,
+        phone_number: completeIdentity.phoneNumber,
         department: selectedDepartment.code,
         department_name: selectedDepartment.name,
         newsletter_opt_in: newsletterOptIn,
@@ -156,6 +178,7 @@ export default function Register() {
           first_name: completeIdentity.firstName,
           last_name: completeIdentity.lastName,
           gender: completeIdentity.gender,
+          phone_number: completeIdentity.phoneNumber || null,
           contact_preference: acceptDataTransfer,
           department: selectedDepartment.code,
           institution_data: {
@@ -188,6 +211,11 @@ export default function Register() {
 
   return (
     <main className="orientation-flow">
+      <SEO
+        title="Inscription gratuite - Crée ton espace Zélia"
+        description="Crée gratuitement ton compte Zélia pour sauvegarder ton test d'orientation, découvrir ton profil complet et explorer tes formations."
+        url="https://zelia.io/register"
+      />
       <header className="orientation-topbar">
         <div className="topbar-row">
           <div className="topbar-lead">
@@ -250,6 +278,18 @@ export default function Register() {
                   <option key={code} value={code}>{code} - {name}</option>
                 ))}
               </select>
+            </label>
+            <label>
+              <span>Téléphone <span className="identity-label-optional">(facultatif)</span></span>
+              <input
+                type="tel"
+                inputMode="tel"
+                value={identity.phoneNumber}
+                onChange={(event) => setIdentity((current) => ({ ...current, phoneNumber: event.target.value }))}
+                placeholder="06 12 34 56 78"
+                autoComplete="tel"
+                maxLength={30}
+              />
             </label>
             <label>
               <span>Email</span>

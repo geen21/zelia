@@ -96,3 +96,50 @@ export function buildMapsSearchUrl(formation = {}) {
   if (!query) return ''
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }
+
+export function buildFormationEditorialSummary(formation = {}) {
+  const title = getFormationTitle(formation)
+  const school = formation.etab_nom || ''
+  const city = formation.commune || ''
+  const dept = formation.departement || ''
+  const region = formation.region || ''
+  const status = getStatusLabel(formation.tc)
+  const family = getDiplomaFamily(formation)
+  const filiere = Array.isArray(formation.fl) ? formation.fl.find(Boolean) : ''
+  const apprentissage = isApprentissage(formation.app)
+  const internat = cleanBraceNote(formation.int)
+  const modalites = Array.isArray(formation.tf) ? formation.tf.filter(Boolean) : []
+
+  const placeParts = [city, dept ? `(${dept})` : '', region ? `en région ${region}` : ''].filter(Boolean).join(' ')
+  const introSegments = [
+    `La formation « ${title} »`,
+    school ? `est dispensée par ${school}` : 'est référencée dans l’enseignement supérieur français',
+    placeParts ? `à ${placeParts}` : ''
+  ].filter(Boolean)
+  let firstParagraph = `${introSegments.join(' ')}.`
+  if (family || status) {
+    const qualifiers = [
+      family ? `un cursus de type ${family}` : '',
+      status ? `au sein d’un établissement ${status.toLowerCase()}` : ''
+    ].filter(Boolean).join(' ')
+    firstParagraph += ` Ce parcours post-bac correspond à ${qualifiers}${filiere && filiere !== title ? ` (filière ${filiere})` : ''}.`
+  }
+
+  const secondParts = []
+  if (apprentissage) {
+    secondParts.push('Cette formation est accessible en apprentissage (alternance), permettant de combiner enseignements théoriques et expérience professionnelle en entreprise.')
+  } else {
+    secondParts.push('Ce cursus est proposé dans le cadre des admissions post-bac référencées au niveau national.')
+  }
+  if (internat) {
+    secondParts.push(`Concernant l’hébergement : ${internat.replace(/\.$/, '')}.`)
+  }
+  if (modalites.length > 0 && (!family || modalites.some((m) => m !== family))) {
+    secondParts.push(`Catégorie de formation : ${modalites.join(', ')}.`)
+  }
+  if (formation.etab_uai) {
+    secondParts.push(`L’établissement est identifié sous le code UAI officiel ${formation.etab_uai}${formation.annee ? ` (données de référence rentrée ${formation.annee})` : ''}.`)
+  }
+
+  return [firstParagraph, secondParts.join(' ')].filter(Boolean)
+}

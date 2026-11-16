@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { FiArrowRight, FiArrowUpRight, FiBookOpen, FiCheck, FiCompass, FiFeather, FiGrid, FiHeart, FiMessageCircle, FiSend, FiShare2, FiShield, FiSmile, FiStar, FiUsers } from 'react-icons/fi'
 import SEO from '../components/SEO'
 import PublicHeader from '../components/PublicHeader'
 import BlogCover from './blog/BlogCover'
-import { blogPosts } from './blog/posts'
+import { latestEditorialCards } from './blog/blogPostCards.js'
 import './blog/blog-editorial.css'
 import './Home.css'
 import { trackSiteEvent } from '../lib/analytics.js'
@@ -13,9 +13,7 @@ export default function Home() {
   const navigate = useNavigate()
   const location = useLocation()
   const [shareStatus, setShareStatus] = useState('')
-  const latestPosts = useMemo(() => (
-    [...blogPosts].sort((a, b) => new Date(b.dateIso) - new Date(a.dateIso)).slice(0, 3)
-  ), [])
+  const latestPosts = latestEditorialCards
 
   const shareLanding = async () => {
     const shareData = {
@@ -55,6 +53,9 @@ export default function Home() {
       }
 
       const storedToken = localStorage.getItem('supabase_auth_token') || localStorage.getItem('token')
+      const hasSupabaseStorage = Object.keys(localStorage).some((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
+      if (!storedToken && !hasSupabaseStorage) return
+
       const { data } = await import('../lib/supabase')
         .then(({ supabase }) => supabase.auth.getSession())
         .catch((error) => {

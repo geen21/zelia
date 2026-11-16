@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { PiBuildings, PiChartBar, PiGraduationCap, PiList, PiLockKey, PiShieldCheck, PiSignOut, PiUsers, PiUsersThree } from 'react-icons/pi'
+import SEO from '../../components/SEO'
 import SchoolPortalDialog from './SchoolPortalDialog'
 import './SchoolPortal.css'
 
@@ -48,6 +49,12 @@ export default function SchoolPortalFrame({ company, onLogout, children }) {
 
 export function SchoolPortalAuthFrame({ children, footer }) {
   return <div className="sp-shell sp-auth">
+    <SEO
+      title="Zélia - Espace écoles partenaires"
+      description="Espace privé dédié aux établissements partenaires de Zélia."
+      url=""
+      noindex
+    />
     <aside className="sp-auth-aside">
       <Link to="/espace-ecoles" className="sp-logo" aria-label="Espace écoles Zelia"><img src="/static/images/logo-dark.png" alt="Zelia" /></Link>
       <div className="sp-auth-intro">

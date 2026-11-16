@@ -4,6 +4,7 @@ import { PiArrowLeft, PiArrowRight, PiBriefcase, PiSparkle } from 'react-icons/p
 import { orientationAPI, usersAPI, ecolesAPI } from '../lib/api.js'
 import { AI_JOB_DECK_SIZE } from '../lib/orientationJobs.js'
 import PersonaRevealCard from '../components/PersonaRevealCard.jsx'
+import SEO from '../components/SEO.jsx'
 import OrientationLoading from '../components/OrientationLoading.jsx'
 import OrientationFormationResults from '../components/OrientationFormationResults.jsx'
 import { SCHOOL_SHARING_VERSION } from '../lib/schoolSharing'
@@ -2718,6 +2719,11 @@ export default function OrientationFlow() {
 
   return (
     <main className="orientation-flow">
+      <SEO
+        title="Test d'orientation gratuit en ligne (5 min) - Zélia"
+        description="Fais le test d'orientation gratuit Zélia en 20 questions rapides : découvre ton profil, les métiers et les formations post-bac qui te correspondent."
+        url="https://zelia.io/orientation"
+      />
       <header className="orientation-topbar">
         <div className="topbar-row">
           <div className="topbar-lead">

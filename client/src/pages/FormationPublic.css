@@ -113,7 +113,7 @@
 .fp-mini-meta{ font-size:13px; color:#6b7280; display:flex; align-items:center; gap:6px; }
 
 /* ---------- Loading / empty states ---------- */
-.fp-skeleton-page{ min-height:60vh; display:flex; align-items:center; justify-content:center; }
+.fp-skeleton-page{ min-height:100vh; display:flex; align-items:center; justify-content:center; }
 .fp-spinner{ width:34px; height:34px; border-radius:50%; border:3px solid #e5e7eb; border-top-color:#000; animation:fp-spin .8s linear infinite; }
 .fp-spin{ display:inline-block; animation:fp-spin .8s linear infinite; }
 @keyframes fp-spin{ to{ transform:rotate(360deg); } }

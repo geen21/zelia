@@ -4,6 +4,7 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { blogPosts } from '../src/pages/blog/posts.js'
 import { editorialPosts } from '../src/pages/blog/editorialPosts.js'
+import { EDITORIAL_SLUGS, latestEditorialCards } from '../src/pages/blog/blogPostCards.js'
 import { articleText, blogPageTitle, buildBlogSchema } from '../src/pages/blog/blogSeo.js'
 import { withZeliaUtm } from '../src/lib/outboundUrl.js'
 
@@ -23,6 +24,11 @@ const sitemap = readFileSync(resolve(client, 'public', 'sitemap.xml'), 'utf8')
 const builtSitemap = readFileSync(resolve(client, 'dist', 'sitemap.xml'), 'utf8')
 
 assert.deepEqual(editorialPosts.map((post) => post.slug), Object.keys(expectedCharts))
+assert.deepEqual(EDITORIAL_SLUGS, editorialPosts.map((post) => post.slug))
+assert.deepEqual(
+  latestEditorialCards.map((card) => ({ slug: card.slug, title: card.title, description: card.description })),
+  editorialPosts.slice(0, 3).map((post) => ({ slug: post.slug, title: post.title, description: post.description }))
+)
 assert.equal(new Set(blogPosts.map((post) => post.slug)).size, blogPosts.length)
 
 for (const post of blogPosts) {
@@ -75,4 +81,24 @@ const index = readPage()
 assert.ok(index.includes('blog-featured'))
 assert.equal(schemas(index)[0].mainEntity.itemListElement.length, blogPosts.length)
 for (const post of blogPosts) assert.ok(index.includes(`href="/blog/${post.slug}"`), `Index: missing ${post.slug}`)
-console.log(`Blog SEO verified: ${blogPosts.length} articles, including all five new full-text pages.`)
+
+for (const [parts, expectedCanonical] of [
+  [['home.html'], `${origin}/`],
+  [['orientation', 'index.html'], `${origin}/orientation`],
+  [['parents', 'index.html'], `${origin}/parents`],
+  [['formations', 'index.html'], `${origin}/formations`],
+  [['login', 'index.html'], `${origin}/login`],
+  [['register', 'index.html'], `${origin}/register`],
+  [['legal', 'mentions-legales', 'index.html'], `${origin}/legal/mentions-legales`],
+  [['legal', 'conditions', 'index.html'], `${origin}/legal/conditions`]
+]) {
+  const pageHtml = readFileSync(resolve(client, 'dist', ...parts), 'utf8')
+  assert.ok(pageHtml.includes(`<link rel="canonical" href="${expectedCanonical}" data-rh="true"`), `Missing canonical on ${expectedCanonical}`)
+  assert.equal((pageHtml.match(/<link rel="canonical"/g) || []).length, 1)
+  assert.ok(builtSitemap.includes(`<loc>${expectedCanonical}</loc>`), `Missing sitemap entry for ${expectedCanonical}`)
+}
+const notFoundHtml = readFileSync(resolve(client, 'dist', '404.html'), 'utf8')
+assert.ok(notFoundHtml.includes('content="noindex, follow"'))
+assert.ok(!notFoundHtml.includes('rel="canonical"'))
+
+console.log(`Blog & static public SEO verified: ${blogPosts.length} articles, static public routes, and 404 document.`)

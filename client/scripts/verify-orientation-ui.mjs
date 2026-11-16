@@ -585,6 +585,11 @@ try {
     try {
       await page.goto(`${base}/register?after=orientation-analysis`)
       const checkboxes = page.getByRole('checkbox')
+      const phoneInput = page.getByLabel('Téléphone (facultatif)', { exact: true })
+      await expect(phoneInput).toBeVisible()
+      await expect(phoneInput).toHaveAttribute('type', 'tel')
+      await expect(phoneInput).toHaveAttribute('autocomplete', 'tel')
+      assert.equal(await phoneInput.evaluate((input) => input.required), false)
       await expect(checkboxes).toHaveCount(2)
       await expect(checkboxes.nth(0)).not.toBeChecked()
       await expect(checkboxes.nth(1)).not.toBeChecked()
@@ -595,6 +600,13 @@ try {
       assert.equal(state.registrations.length, 0)
       assert.equal(await checkboxes.nth(0).evaluate((input) => input.validity.valueMissing), true)
       await checkboxes.nth(0).check()
+      if (!failure) {
+        await phoneInput.fill('abc')
+        await page.getByRole('button', { name: 'Créer avec email', exact: true }).click()
+        await expect(page.getByRole('alert')).toContainText('numéro de téléphone valide')
+        assert.equal(state.registrations.length, 0)
+        await phoneInput.fill(' 06 12 34 56 78 ')
+      }
       const optedIn = failure === 'invalid-sharing'
       if (optedIn) await checkboxes.nth(1).check()
       state.failProfile = failure === 'profile'
@@ -624,7 +636,9 @@ try {
       assert.equal(registration.acceptTerms, true)
       assert.equal(registration.acceptDataTransfer, true)
       assert.equal(registration.newsletterOptIn, optedIn)
+      assert.equal(registration.userData.phone_number, failure ? '' : '06 12 34 56 78')
       const profile = state.profiles.findLast((item) => item.institution_data?.accept_terms)
+      assert.equal(profile.phone_number, failure ? null : '06 12 34 56 78')
       assert.equal(profile.institution_data.accept_data_transfer, true)
       assert.equal(profile.institution_data.newsletter_opt_in, optedIn)
       assert.ok(Number.isFinite(Date.parse(profile.institution_data.terms_accepted_at)))

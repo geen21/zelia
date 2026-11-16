@@ -1,14 +1,14 @@
 import React, { Suspense, lazy } from 'react'
 import { createRoot, hydrateRoot } from 'react-dom/client'
-import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Link, useParams } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
+import SEO from './components/SEO.jsx'
 import './tailwind.css'
 import './landing.css'
 import './admin.css'
-import { loadLegacyStyles } from './lib/loadLegacyStyles.js'
 import Home from './pages/Home.jsx'
 import ZeliaTheme from './components/ZeliaTheme.jsx'
-import { editorialPosts } from './pages/blog/editorialPosts.js'
+import { EDITORIAL_SLUGS } from './pages/blog/blogPostCards.js'
 import { usePageTracking } from './lib/usePageTracking.js'
 import { TOOLBOX_ITEMS } from './lib/levelMapping.js'
 
@@ -94,8 +94,6 @@ const FormationsDirectory = lazy(() => import('./pages/FormationsDirectory.jsx')
 const FormationPublicPage = lazy(() => import('./pages/FormationPublicPage.jsx'))
 const ParentsFormation = lazy(() => import('./pages/ParentsFormation.jsx'))
 
-loadLegacyStyles()
-
 function toAppChildRoutePath(path) {
   return String(path || '').replace(/^\/app\/?/, '')
 }
@@ -160,13 +158,13 @@ function App() {
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/avatar" element={<Navigate to="/orientation" replace />} />
         <Route path="/orientation" element={<Questionnaire />} />
-        <Route path="/questionnaire" element={<Questionnaire />} />
+        <Route path="/questionnaire" element={<Navigate to="/orientation" replace />} />
         <Route path="/legal/mentions-legales" element={<MentionsLegales />} />
         <Route path="/legal/conditions" element={<ConditionsConfidentialite />} />
     <Route path="/blog" element={<BlogIndex />} />
     <Route path="/metiers/*" element={<MetierPage />} />
-    {editorialPosts.map((post) => (
-      <Route key={post.slug} path={`/blog/${post.slug}`} element={<BlogEditorialArticle slug={post.slug} />} />
+    {EDITORIAL_SLUGS.map((slug) => (
+      <Route key={slug} path={`/blog/${slug}`} element={<BlogEditorialArticle slug={slug} />} />
     ))}
     <Route path="/blog/ia-remplacer-futur-metier" element={<BlogExploreMetiers />} />
     <Route path="/blog/pourquoi-ecole-ne-t-aide-pas" element={<BlogQuestionnaire />} />
@@ -174,8 +172,8 @@ function App() {
     <Route path="/blog/metier-bien-fait-pour-soi-mode-emploi" element={<BlogMetierFaitPourSoi />} />
     <Route path="/blog/choisir-ses-etudes-sans-pression" element={<BlogChoisirSesEtudes />} />
     <Route path="/blog/etude-salaire-bon-salaire-ados" element={<BlogEtudeSalaire />} />
-    <Route path="/formations" element={<Suspense fallback={<div className="p-6 text-center">Chargement des formations…</div>}><FormationsDirectory /></Suspense>} />
-    <Route path="/formations/:slug" element={<Suspense fallback={<div className="p-6 text-center">Chargement de la formation…</div>}><FormationPublicPage /></Suspense>} />
+    <Route path="/formations" element={<Suspense fallback={<div className="fp-page" style={{ minHeight: '100vh' }} role="status" aria-label="Chargement des formations" />}><FormationsDirectory /></Suspense>} />
+    <Route path="/formations/:slug" element={<Suspense fallback={<div className="fp-page" style={{ minHeight: '100vh' }} role="status" aria-label="Chargement de la formation" />}><FormationPublicPage /></Suspense>} />
     <Route path="/parents" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><ParentsFormation /></Suspense>} />
     <Route path="/espace-ecoles">
       <Route index element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><SchoolPortalHome /></Suspense>} />
@@ -240,12 +238,30 @@ function App() {
           <Route path="ecoles-partenaires" element={<FormationsEcoles />} />
           <Route path="ecoles-partenaires/:id" element={<Suspense fallback={<div className="p-6 text-center">Chargement…</div>}><FormationDetail /></Suspense>} />
         </Route>
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route path="*" element={<NotFoundPage />} />
         </Routes>
         </Suspense>
         </ZeliaTheme>
       </BrowserRouter>
     </HelmetProvider>
+  )
+}
+
+function NotFoundPage() {
+  return (
+    <main className="max-w-xl mx-auto px-6 py-20 text-center">
+      <SEO
+        title="Page introuvable - Zélia"
+        description="Cette page n'existe pas ou a été déplacée."
+        url=""
+        noindex
+      />
+      <h1 className="text-3xl font-semibold mb-3">Page introuvable</h1>
+      <p className="text-gray-600 mb-6">L&apos;adresse demandée n&apos;existe pas ou a été déplacée.</p>
+      <Link to="/" className="zelia-button inline-flex items-center justify-center px-5 py-2.5">
+        Retour à l&apos;accueil
+      </Link>
+    </main>
   )
 }
 

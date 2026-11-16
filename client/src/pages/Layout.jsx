@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { usersAPI } from '../lib/api'
 import { buildAvatarFromProfile } from '../lib/avatar'
 import { supabase } from '../lib/supabase'
+import { loadLegacyStyles } from '../lib/loadLegacyStyles.js'
 import { TOOLBOX_ITEMS } from '../lib/levelMapping'
 import ToolExperience, { ToolIcon } from '../components/ToolExperience'
 import { trackSiteEvent } from '../lib/analytics.js'
@@ -41,6 +42,10 @@ export default function Layout() {
   const [avatarUrl, setAvatarUrl] = useState('/static/images/logo-dark.png')
   const [userName, setUserName] = useState('Utilisateur')
   const [loggingOut, setLoggingOut] = useState(false)
+
+  useEffect(() => {
+    loadLegacyStyles()
+  }, [])
 
   useEffect(() => {
     let mounted = true

@@ -30,7 +30,7 @@ const results = {
 const count = (state, event) => state.events.filter((entry) => entry.event === event).length
 const last = (state, event) => state.events.findLast((entry) => entry.event === event)
 const assertPrivate = (state) => assert.doesNotMatch(
-  JSON.stringify(state.events), /Camille|Martin|private@example|fixture-password|private message|cs_private/
+  JSON.stringify(state.events), /Camille|Martin|private@example|06\s*12\s*34\s*56\s*78|0612345678|fixture-password|private message|cs_private/
 )
 
 async function prepare({ authenticated = false, ...options } = {}) {
@@ -174,6 +174,7 @@ try {
     await page.getByLabel('Nom', { exact: true }).fill('Martin')
     await page.getByLabel('Genre', { exact: true }).selectOption('Femme')
     await page.getByLabel('Département', { exact: true }).selectOption('75')
+    await page.getByLabel('Téléphone (facultatif)', { exact: true }).fill('06 12 34 56 78')
     await page.getByLabel('Email', { exact: true }).fill('private@example.test')
     await page.getByLabel('Mot de passe', { exact: true }).fill('fixture-password')
     await page.getByRole('checkbox').first().check()

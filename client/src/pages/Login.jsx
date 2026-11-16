@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import SEO from '../components/SEO'
 import { FcGoogle } from 'react-icons/fc'
 import { PiArrowLeft, PiArrowRight, PiCheckCircle, PiCompass, PiEye, PiEyeSlash, PiWarningCircle } from 'react-icons/pi'
 import { supabase } from '../lib/supabase'
@@ -94,6 +95,11 @@ export default function Login() {
 
   return (
     <main className="login-page">
+      <SEO
+        title="Connexion à ton espace orientation - Zélia"
+        description="Connecte-toi à ton espace Zélia pour retrouver ton bilan d'orientation, tes idées de métiers et tes formations favorites."
+        url="https://zelia.io/login"
+      />
       <div className="login-shell">
         <header className="login-nav">
           <Link to="/" className="login-logo" aria-label="Accueil Zélia">

@@ -2,6 +2,7 @@ User-agent: *
 Allow: /
 Disallow: /app/
 Disallow: /admin/
+Disallow: /auth/
 
 Sitemap: https://zelia.io/sitemap.xml
 Sitemap: https://zelia.io/sitemap-index.xml

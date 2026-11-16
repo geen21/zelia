@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import SEO from '../components/SEO'
 import { supabase } from '../lib/supabase'
 import { buildProfileFromSupabaseUser, persistAuthSessionAndOnboarding, resolveAuthAfter } from '../lib/authFlow'
 import { queueAuthAnalyticsEvent } from '../lib/analytics.js'
@@ -61,6 +62,12 @@ export default function AuthCallback() {
 
   return (
     <main className="auth-callback grid place-items-center px-4">
+      <SEO
+        title="Authentification - Zélia"
+        description="Connexion à votre compte Zélia."
+        url=""
+        noindex
+      />
       <div className="zelia-card w-full max-w-md text-center">
         <img src="/static/images/logo-dark.png" alt="Zelia" className="h-8 mx-auto mb-5" />
         {error ? (

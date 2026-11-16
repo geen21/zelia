@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { mock, test } from 'node:test'
-import { withZeliaUtm } from '../src/lib/outboundUrl.js'
+import { normalizeExternalHttpUrl, withZeliaUtm } from '../src/lib/outboundUrl.js'
 
 test('external HTTP(S) links carry the Zelia referral attribution', () => {
   for (const href of [
@@ -111,4 +111,28 @@ test('malformed absolute URLs are reported without changing the existing destina
     assert.equal(withZeliaUtm('https://[invalid'), 'https://[invalid')
     assert.equal(warning.mock.callCount(), 1)
   } finally { warning.mock.restore() }
+})
+
+test('catalog URL typos never leak as relative internal paths', () => {
+  const cases = [
+    ['www.iutcaen.unicaen.fr', 'https://www.iutcaen.unicaen.fr/'],
+    ['http:/ifsi.ch-roubaix.fr', 'http://ifsi.ch-roubaix.fr/'],
+    ['http:\\\\fges.fr', 'http://fges.fr/'],
+    ['http:www.enseignement-etaples.com', 'http://www.enseignement-etaples.com/'],
+    ['https:://www.aftral.com', 'https://www.aftral.com/'],
+    ['http:/www.ch-saintdizier.fr', 'http://www.ch-saintdizier.fr/'],
+    ['http:/www.ac-nice.fr/lycee-maulnier', 'http://www.ac-nice.fr/lycee-maulnier'],
+    ['https/irfss-pacac.croix-rouge.fr', 'https://irfss-pacac.croix-rouge.fr/'],
+    ['http:/lyc21-marcsdor.ac-dijon.fr', 'http://lyc21-marcsdor.ac-dijon.fr/'],
+    ['ifsi.ch-roubaix.fr/concours', 'https://ifsi.ch-roubaix.fr/concours']
+  ]
+  for (const [raw, expectedBase] of cases) {
+    assert.equal(normalizeExternalHttpUrl(raw), expectedBase)
+    const tracked = new URL(withZeliaUtm(normalizeExternalHttpUrl(raw)))
+    assert.equal(tracked.origin + tracked.pathname, expectedBase)
+    assert.equal(tracked.searchParams.get('utm_source'), 'zelia')
+  }
+  for (const invalid of ['javascript:alert(1)', 'mailto:test@example.com', '/formations/123', 'formations/123', '', null]) {
+    assert.equal(normalizeExternalHttpUrl(invalid), '')
+  }
 })

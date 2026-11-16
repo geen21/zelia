@@ -11,7 +11,7 @@ import authRoutes from './routes/auth.js'
 import userRoutes from './routes/users.js'
 import activityRoutes from './routes/activities.js'
 import jobRoutes from './routes/jobs.js'
-import formationRoutes from './routes/formations.js'
+import formationRoutes, { setFormationsSeoIndex } from './routes/formations.js'
 import questionnaireRoutes from './routes/questionnaire.js'
 import resultsRoutes from './routes/results.js'
 import analysisRoutes from './routes/analysis.js'
@@ -26,6 +26,8 @@ import ecolesRoutes from './routes/ecoles.js'
 import schoolPortalRoutes from './routes/schoolPortal.js'
 import { createPartnerDashboardRouter, createSchoolSharingRouter } from './routes/partnerDashboard.js'
 import { createSitemapRouter } from './routes/sitemap.js'
+import { createFormationSeoIndex } from './utils/formationSeoIndex.js'
+import { createFormationSsrRouter } from './utils/formationSsr.js'
 import { createAdminRouter } from './routes/admin.js'
 import { authenticateToken } from './middleware/auth.js'
 import { createApiRateLimiters } from './middleware/rateLimit.js'
@@ -158,13 +160,17 @@ app.use('/api/letter', letterRoutes)
 app.use('/api/payments', paymentsRoutes)
 app.use('/api/share', shareRoutes)
 app.use('/api/support', supportRoutes)
+const formationSeoIndex = createFormationSeoIndex({ db: supabase })
+setFormationsSeoIndex(formationSeoIndex)
+
 app.use('/api/waitlist', waitlistRoutes)
 app.use('/api/ecoles', ecolesRoutes)
 app.use('/api/users/school-sharing', createSchoolSharingRouter({ db: supabaseAdmin, authenticateToken }))
 app.use('/api/school-portal', createPartnerDashboardRouter({ db: supabaseAdmin, authenticateToken }))
 app.use('/api/school-portal', schoolPortalRoutes)
 app.use('/api/admin', createAdminRouter({ db: supabaseAdmin, authenticateToken, requirePlatformAdmin, isProtectedAdmin }))
-app.use('/api', createSitemapRouter({ db: supabase }))
+app.use('/api', createSitemapRouter({ db: supabase, seoIndex: formationSeoIndex }))
+app.use('/', createFormationSsrRouter({ db: supabase, seoIndex: formationSeoIndex }))
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -269,6 +275,7 @@ const server = app.listen(PORT, HOST, () => {
   console.log(`📚 API documentation available at http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/api`)
   console.log(`🏥 Health check available at http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/health`)
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`)
+  formationSeoIndex.warmUp()
 })
 
 server.on('error', (error) => {

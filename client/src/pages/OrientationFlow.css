@@ -456,6 +456,7 @@
 .identity-card h1 { font-size: 30px; }
 .identity-form-grid { display: grid; gap: 12px; width: 100%; }
 .identity-form-grid label { display: grid; gap: 7px; color: #111827; font-size: 13px; font-weight: 700; }
+.identity-label-optional { color: #6b7280; font-weight: 500; }
 .identity-form-grid input,
 .identity-form-grid select {
   width: 100%;

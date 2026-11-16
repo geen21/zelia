@@ -33,6 +33,73 @@ const blogIndex = {
   url: `${ORIGIN}/blog`
 }
 
+const staticPublicPages = [
+  {
+    outputFile: ['home.html'],
+    title: 'Zelia - Trouve ton orientation scolaire et professionnelle',
+    description: 'Zélia accompagne les 15-20 ans pour apprendre à mieux se connaître et préparer sereinement leur futur.',
+    url: `${ORIGIN}/`,
+    schema: {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'Organization',
+          name: 'Zélia',
+          url: `${ORIGIN}/`,
+          logo: DEFAULT_IMAGE
+        },
+        {
+          '@type': 'WebSite',
+          name: 'Zélia',
+          url: `${ORIGIN}/`
+        }
+      ]
+    }
+  },
+  {
+    outputFile: ['orientation', 'index.html'],
+    title: "Test d'orientation gratuit en ligne (5 min) - Zélia",
+    description: "Fais le test d'orientation gratuit Zélia en 20 questions rapides : découvre ton profil, les métiers et les formations post-bac qui te correspondent.",
+    url: `${ORIGIN}/orientation`
+  },
+  {
+    outputFile: ['parents', 'index.html'],
+    title: 'Retrouvez le dialogue avec votre enfant | Formation parents Zélia',
+    description: "Une formation d'une heure pour les parents de lycéens : devenez un allié orientation, retrouvez le dialogue et accompagnez votre ado sans conflit. Satisfait ou remboursé sous 14 jours.",
+    url: `${ORIGIN}/parents`
+  },
+  {
+    outputFile: ['formations', 'index.html'],
+    title: 'Formations en France - Toutes les formations post-bac | Zelia',
+    description: "Explore des dizaines de milliers de formations en France : BTS, BUT, licences, écoles d'ingénieurs et plus. Trouve la formation qui te correspond avec Zelia.",
+    url: `${ORIGIN}/formations`
+  },
+  {
+    outputFile: ['login', 'index.html'],
+    title: 'Connexion à ton espace orientation - Zélia',
+    description: "Connecte-toi à ton espace Zélia pour retrouver ton bilan d'orientation, tes idées de métiers et tes formations favorites.",
+    url: `${ORIGIN}/login`
+  },
+  {
+    outputFile: ['register', 'index.html'],
+    title: 'Inscription gratuite - Crée ton espace Zélia',
+    description: "Crée gratuitement ton compte Zélia pour sauvegarder ton test d'orientation, découvrir ton profil complet et explorer tes formations.",
+    url: `${ORIGIN}/register`
+  },
+  {
+    outputFile: ['legal', 'mentions-legales', 'index.html'],
+    title: 'Mentions légales - Zélia',
+    description: "Mentions légales de la plateforme d'orientation scolaire et professionnelle Zélia : éditeur, hébergeur, contact et propriété intellectuelle.",
+    url: `${ORIGIN}/legal/mentions-legales`
+  },
+  {
+    outputFile: ['legal', 'conditions', 'index.html'],
+    title: 'CGU, CGV & Politique de confidentialité - Zélia',
+    description: 'Conditions générales d\'utilisation, conditions générales de vente et politique de confidentialité RGPD de la plateforme Zélia.',
+    url: `${ORIGIN}/legal/conditions`
+  }
+]
+
 // ── Helpers ─────────────────────────────────────────────────────────
 
 function escHtml(str) {
@@ -204,6 +271,39 @@ async function main() {
     }
 
     console.log(`\n✅ Pre-rendered ${count} blog pages with SEO meta tags and five full-text articles.`)
+
+    // Static public pages (head metadata + canonical + JSON-LD)
+    for (const pageMeta of staticPublicPages) {
+      const html = injectSeo(template, {
+        title: pageMeta.title,
+        description: pageMeta.description,
+        url: pageMeta.url,
+        type: 'website',
+        image: DEFAULT_IMAGE,
+        imageAlt: SITE_NAME,
+        schema: pageMeta.schema
+      })
+      const outPath = resolve(DIST, ...pageMeta.outputFile)
+      mkdirSync(dirname(outPath), { recursive: true })
+      writeFileSync(outPath, html, 'utf-8')
+      console.log(`  ✓ ${pageMeta.url.replace(ORIGIN, '')}`)
+    }
+
+    // Genuine static 404 document served by Nginx with HTTP 404 status
+    const notFoundHtml = injectSeo(template, {
+      title: 'Page introuvable - Zélia',
+      description: "Cette page n'existe pas ou a été déplacée.",
+      url: '',
+      type: 'website',
+      image: DEFAULT_IMAGE,
+      imageAlt: SITE_NAME,
+      noindex: true
+    }).replace(
+      '<div id="root"></div>',
+      () => '<div id="root"><main style="max-width:36rem;margin:5rem auto;padding:0 1.5rem;text-align:center"><h1 style="font-size:1.875rem;font-weight:600;margin-bottom:0.75rem">Page introuvable</h1><p style="color:#4b5563;margin-bottom:1.5rem">L&#39;adresse demandée n&#39;existe pas ou a été déplacée.</p><a href="/" style="display:inline-block;padding:0.625rem 1.25rem;background:#111827;color:#fff;border-radius:0.5rem;text-decoration:none">Retour à l&#39;accueil</a></main></div>'
+    )
+    writeFileSync(resolve(DIST, '404.html'), notFoundHtml, 'utf-8')
+
     if (process.env.METIER_SNAPSHOT_PATH) {
       await prerenderMetiers({ vite, template, dist: DIST, injectSeo, snapshotPath: process.env.METIER_SNAPSHOT_PATH })
     } else if (process.env.METIER_PAGES_REQUIRED === 'true' || process.env.VITE_METIER_PAGES_ENABLED === 'true') {

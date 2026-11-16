@@ -3,6 +3,8 @@ import { once } from 'node:events'
 import { test } from 'node:test'
 import express from 'express'
 import { createSitemapRouter } from '../routes/sitemap.js'
+import { buildCanonicalIndexFromRows } from '../utils/formationSeoIndex.js'
+import { createFormationSsrRouter } from '../utils/formationSsr.js'
 import { buildFormationSlug } from '../utils/slug.js'
 
 const columns = 'id, nm, nmc, fl, etab_nom, commune'
@@ -284,4 +286,131 @@ test('empty tables keep existing index behavior; missing counts fail explicitly'
   assert.equal(errors[0][1].message, 'Invalid formation count')
   db.count = 0
   await readXml(await request('sitemap-index.xml'))
+})
+
+test('deduplicated sitemap exposes only the newest canonical row per (etab_uai, gta)', async (t) => {
+  const dataset = [
+    { id: '13504', etab_uai: '0511572G', gta: '23221', annee: '2025', nm: ['D.E Infirmier'], etab_nom: 'IFSI Reims', commune: 'Reims' },
+    { id: '34848', etab_uai: '0511572G', gta: '23221', annee: '2023', nm: ['D.E Infirmier'], etab_nom: 'IFSI Reims', commune: 'Reims' },
+    { id: '90668', etab_uai: '0763117A', gta: '30478', annee: '2020', nm: ['BTS Maintenance'], etab_nom: 'UFA Schuman', commune: 'Le Havre' },
+    { id: '103815', etab_uai: '0511572G', gta: '23221', annee: '2020', nm: ['D.E Infirmier'], etab_nom: 'IFSI Reims', commune: 'Reims' },
+    { id: '111921', etab_uai: '0763117A', gta: '30478', annee: '2020', nm: ['BTS Maintenance'], etab_nom: 'UFA Schuman', commune: 'Le Havre' }
+  ]
+  const snapshot = buildCanonicalIndexFromRows(dataset)
+  assert.deepEqual(snapshot.canonicalIds, ['13504', '90668'])
+  assert.equal(snapshot.canonicalByRowId.get('111921'), '90668')
+  assert.equal(snapshot.canonicalByRowId.get('103815'), '13504')
+
+  const db = {
+    from(table) {
+      assert.equal(table, 'formation_france')
+      let selectedIds = []
+      return {
+        select() { return this },
+        in(field, ids) { assert.equal(field, 'id'); selectedIds = ids.map(String); return this },
+        order() {
+          return Promise.resolve({
+            data: dataset.filter((row) => selectedIds.includes(String(row.id))),
+            error: null
+          })
+        }
+      }
+    }
+  }
+
+  const app = express()
+  app.use('/api', createSitemapRouter({ db, seoIndex: { getSnapshot: async () => snapshot } }))
+  const server = app.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  t.after(() => new Promise((resolve) => server.close(resolve)))
+  const base = `http://127.0.0.1:${server.address().port}/api`
+
+  const xml = await readXml(await fetch(`${base}/sitemap-formations-1.xml`))
+  const locations = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1])
+  assert.deepEqual(locations, [
+    `https://zelia.io/formations/${buildFormationSlug(dataset[0])}`,
+    `https://zelia.io/formations/${buildFormationSlug(dataset[2])}`
+  ])
+})
+
+test('formation SSR serves canonical HTML, 301-redirects duplicates/old slugs, returns 404 on missing and 503 on DB outages', async (t) => {
+  const dataset = [
+    { id: 90668, etab_uai: '0763117A', gta: '30478', annee: '2020', nm: ['BTS Maintenance'], etab_nom: 'UFA Schuman', commune: 'Le Havre', departement: 'Seine-Maritime', etab_url: 'http:/ifsi.ch-roubaix.fr' },
+    { id: 111921, etab_uai: '0763117A', gta: '30478', annee: '2020', nm: ['BTS Maintenance'], etab_nom: 'UFA Schuman', commune: 'Le Havre', departement: 'Seine-Maritime', etab_url: 'http:/ifsi.ch-roubaix.fr' }
+  ]
+  const snapshot = buildCanonicalIndexFromRows(dataset)
+  let simulateOutage = false
+  const db = {
+    from() {
+      let targetId = null
+      let targetSchool = null
+      return {
+        select() { return this },
+        eq(field, value) {
+          if (field === 'id') targetId = String(value)
+          if (field === 'etab_nom') targetSchool = value
+          return this
+        },
+        order() { return this },
+        limit() {
+          const matches = dataset.filter((r) => r.etab_nom === targetSchool)
+          return Promise.resolve({ data: matches, error: null })
+        },
+        single() {
+          if (simulateOutage) return Promise.resolve({ data: null, error: { code: '57P01', message: 'connection terminated' } })
+          const found = dataset.find((r) => String(r.id) === targetId)
+          if (!found) return Promise.resolve({ data: null, error: { code: 'PGRST116', message: 'No rows' } })
+          return Promise.resolve({ data: found, error: null })
+        }
+      }
+    }
+  }
+
+  const app = express()
+  app.use('/', createFormationSsrRouter({
+    db,
+    seoIndex: {
+      peekSnapshot: () => snapshot,
+      resolveCanonicalIdForRow: async (row) => snapshot.canonicalByRowId.get(String(row.id)) || String(row.id)
+    },
+    templateHtml: '<!doctype html><html lang="fr"><head><title>Default</title></head><body><div id="root"></div></body></html>'
+  }))
+  const server = app.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  t.after(() => new Promise((resolve) => server.close(resolve)))
+  const base = `http://127.0.0.1:${server.address().port}`
+  const canonicalSlug = buildFormationSlug(dataset[0])
+
+  // 1. Canonical URL returns 200 with full SSR HTML, canonical tag, repaired outbound URL, and bootstrap JSON
+  const okRes = await fetch(`${base}/formations/${canonicalSlug}`)
+  assert.equal(okRes.status, 200)
+  const html = await okRes.text()
+  assert.ok(html.includes(`<link rel="canonical" href="https://zelia.io/formations/${canonicalSlug}"`))
+  assert.ok(html.includes('<h1>BTS Maintenance</h1>'))
+  assert.ok(html.includes('Présentation de la formation'))
+  assert.ok(html.includes('href="http://ifsi.ch-roubaix.fr/?utm_source=zelia&amp;utm_medium=referral"'))
+  assert.ok(!html.includes('noindex'))
+  assert.ok(html.includes('id="zelia-formation-data"'))
+
+  // 2. Duplicate ID (111921) 301-redirects to canonical (90668)
+  const dupRes = await fetch(`${base}/formations/${buildFormationSlug(dataset[1])}`, { redirect: 'manual' })
+  assert.equal(dupRes.status, 301)
+  assert.equal(dupRes.headers.get('location'), `https://zelia.io/formations/${canonicalSlug}`)
+
+  // 3. Old/non-canonical slug for 90668 301-redirects to canonical slug
+  const aliasRes = await fetch(`${base}/formations/ancien-slug-90668`, { redirect: 'manual' })
+  assert.equal(aliasRes.status, 301)
+  assert.equal(aliasRes.headers.get('location'), `https://zelia.io/formations/${canonicalSlug}`)
+
+  // 4. Non-existent formation returns real HTTP 404
+  const missingRes = await fetch(`${base}/formations/inconnue-999999`)
+  assert.equal(missingRes.status, 404)
+  assert.ok((await missingRes.text()).includes('noindex'))
+
+  // 5. Transient DB outage returns HTTP 503 + Retry-After (NEVER 200+noindex and NEVER 404)
+  simulateOutage = true
+  const outageRes = await fetch(`${base}/formations/autre-888888`)
+  assert.equal(outageRes.status, 503)
+  assert.equal(outageRes.headers.get('retry-after'), '60')
+  assert.ok(!(await outageRes.text()).includes('noindex'))
 })

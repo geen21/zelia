@@ -70,6 +70,17 @@ Apres deploiement, depuis `client`, executer
 si l'API, le sitemap et les canonicales rendues ne correspondent pas aux URL
 historiques du manifeste. Il ne soumet rien a Search Console.
 
+## Rendu serveur (SSR), deduplication SEO des formations et routage Nginx
+
+- **Deduplication canonique (`formation_france`)** : l'API (`/api/formations`, `/api/formations/:id`), le SSR (`/formations/:slug`) et les sitemaps (`/sitemap-index.xml`, `/sitemap-formations-*.xml`) regroupent les doublons d'import et les sessions Parcoursup historiques par `(etab_uai, gta)` en elisant l'entree la plus recente (`annee DESC`, `id ASC`). Les ~32 642 formations uniques restent seules presentes dans les sitemaps ; toute ancienne URL ou doublon redirige en `301` vers l'URL canonique active.
+- **Index SQL recommande (idempotent)** : appliquer [migration_formation_seo_dedup.sql](server/database/migration_formation_seo_dedup.sql) dans l'editeur SQL Supabase pour accelerer les resolutions unitaires avant prechauffage du cache en memoire.
+- **Rendu HTML serveur (`/formations/:slug`) et erreurs HTTP reelles** : Nginx relaie `/formations/:slug` vers Express (`127.0.0.1:5051`), qui renvoie le HTML complet (`<title>`, `<meta name="description">`, `<link rel="canonical">`, JSON-LD `Course` + `BreadcrumbList`, texte descriptif et liens internes canoniques) en `200`, `301` pour les alias/doublons, `404` reel pour une formation supprimee et `503` + `Retry-After: 60` (sans `noindex`) en cas d'indisponibilite transitoire de la base.
+- **Nginx (`nginx-zelia.conf`)** :
+  - Redirection `301` de `https://www.zelia.io` vers `https://zelia.io`.
+  - Service direct en `200` (sans redirection `301` vers un slash final) de `/blog`, `/blog/:slug`, `/orientation`, `/parents`, `/formations`, `/login`, `/register`, `/legal/mentions-legales` et `/legal/conditions`.
+  - Retour d'un vrai `404` (`dist/404.html`) sur les chemins inconnus au lieu du repli SPA en `200`.
+  - Copier `nginx-zelia.conf` vers `/etc/nginx/sites-available/zelia` (en verifiant que `root` correspond au dossier `dist` servi sur le VPS), tester `sudo nginx -t` puis `sudo systemctl reload nginx`.
+
 ## Core Web Vitals : verification apres deploiement
 
 - Reconstruire et deployer le client complet (y compris les nouveaux chunks et CSS).

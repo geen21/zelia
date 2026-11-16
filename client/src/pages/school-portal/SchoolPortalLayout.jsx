@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { PiHourglass } from 'react-icons/pi'
+import SEO from '../../components/SEO'
 import { schoolPortalSupabase } from '../../lib/schoolPortalSupabase'
 import { schoolPortalAPI } from '../../lib/schoolPortalApi'
 import SchoolPortalFrame from './SchoolPortalFrame'
@@ -52,6 +53,12 @@ export default function SchoolPortalLayout() {
 
   if (challenge && !loading) return <Outlet />
   return <SchoolPortalFrame company={company} onLogout={handleLogout}>
+    <SEO
+      title="Zélia - Espace écoles partenaires"
+      description="Tableau de bord privé dédié aux établissements partenaires de Zélia."
+      url=""
+      noindex
+    />
     {loading ? <p className="sp-empty" role="status">Chargement de votre espace…</p> : <>
       {error && <div className="sp-alert" role="alert">{error}<div className="sp-form-footer"><button className="sp-btn" onClick={load}>Réessayer</button></div></div>}
       {company && !company.approved && <section className="sp-card sp-empty">
